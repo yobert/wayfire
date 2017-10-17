@@ -55,6 +55,9 @@ namespace wf_tiling
 
     void maximize_view(wayfire_view view, bool make_fs = false)
     {
+        if (root->view == view)
+            return;
+
         unmaximize();
 
         root->view = view;
@@ -251,17 +254,18 @@ class wayfire_tile : public wayfire_plugin_t
 
     enum
     {
-        SELECTOR_ACTION_GO_LEFT          = 0,
-        SELECTOR_ACTION_GO_RIGHT         = 1,
-        SELECTOR_ACTION_GO_UP            = 2,
-        SELECTOR_ACTION_GO_DOWN          = 3,
-        SELECTOR_ACTION_SEL_CHILD        = 4,
-        SELECTOR_ACTION_SEL_PARENT       = 5,
-        SELECTOR_ACTION_ROTATE_CHILDREN  = 6,
-        SELECTOR_ACTION_EXIT             = 7,
-        SELECTOR_ACTION_SPLIT_HORIZONTAL = 8,
-        SELECTOR_ACTION_SPLIT_VERTICAL   = 9,
-        SELECTOR_ALL_ACTIONS = 10
+        SELECTOR_ACTION_GO_LEFT           = 0,
+        SELECTOR_ACTION_GO_RIGHT          = 1,
+        SELECTOR_ACTION_GO_UP             = 2,
+        SELECTOR_ACTION_GO_DOWN           = 3,
+        SELECTOR_ACTION_SEL_CHILD         = 4,
+        SELECTOR_ACTION_SEL_PARENT        = 5,
+        SELECTOR_ACTION_ROTATE_CHILDREN   = 6,
+        SELECTOR_ACTION_EXIT              = 7,
+        SELECTOR_ACTION_SPLIT_HORIZONTAL  = 8,
+        SELECTOR_ACTION_SPLIT_VERTICAL    = 9,
+        SELECTOR_ACTION_CHANGE_SPLIT_TYPE = 10,
+        SELECTOR_ALL_ACTIONS
     };
 
     uint32_t action_map[SELECTOR_ALL_ACTIONS];
@@ -283,16 +287,18 @@ class wayfire_tile : public wayfire_plugin_t
     void read_config()
     {
         auto section = config->get_section("tile");
-        action_map[SELECTOR_ACTION_GO_LEFT         ] = section->get_key("action_left",        {0,  KEY_H}).keyval;
-        action_map[SELECTOR_ACTION_GO_RIGHT        ] = section->get_key("action_right",       {0,  KEY_L}).keyval;
-        action_map[SELECTOR_ACTION_GO_UP           ] = section->get_key("action_up",          {0,  KEY_K}).keyval;
-        action_map[SELECTOR_ACTION_GO_DOWN         ] = section->get_key("action_down",        {0,  KEY_J}).keyval;
-        action_map[SELECTOR_ACTION_SEL_CHILD       ] = section->get_key("action_child",       {0,  KEY_C}).keyval;
-        action_map[SELECTOR_ACTION_SEL_PARENT      ] = section->get_key("action_parent",      {0,  KEY_P}).keyval;
-        action_map[SELECTOR_ACTION_ROTATE_CHILDREN ] = section->get_key("action_rotate",      {0,  KEY_R}).keyval;
-        action_map[SELECTOR_ACTION_EXIT            ] = section->get_key("action_exit",        {0,  KEY_ENTER}).keyval;
-        action_map[SELECTOR_ACTION_SPLIT_HORIZONTAL] = section->get_key("action_split_horiz", {0,  KEY_O}).keyval;
-        action_map[SELECTOR_ACTION_SPLIT_VERTICAL  ] = section->get_key("action_split_vert",  {0,  KEY_E}).keyval;
+
+        action_map[SELECTOR_ACTION_GO_LEFT          ] = section->get_key("action_left",        {0,  KEY_H}).keyval;
+        action_map[SELECTOR_ACTION_GO_RIGHT         ] = section->get_key("action_right",       {0,  KEY_L}).keyval;
+        action_map[SELECTOR_ACTION_GO_UP            ] = section->get_key("action_up",          {0,  KEY_K}).keyval;
+        action_map[SELECTOR_ACTION_GO_DOWN          ] = section->get_key("action_down",        {0,  KEY_J}).keyval;
+        action_map[SELECTOR_ACTION_SEL_CHILD        ] = section->get_key("action_child",       {0,  KEY_C}).keyval;
+        action_map[SELECTOR_ACTION_SEL_PARENT       ] = section->get_key("action_parent",      {0,  KEY_P}).keyval;
+        action_map[SELECTOR_ACTION_ROTATE_CHILDREN  ] = section->get_key("action_rotate",      {0,  KEY_R}).keyval;
+        action_map[SELECTOR_ACTION_EXIT             ] = section->get_key("action_exit",        {0,  KEY_ENTER}).keyval;
+        action_map[SELECTOR_ACTION_SPLIT_HORIZONTAL ] = section->get_key("action_split_horiz", {0,  KEY_O}).keyval;
+        action_map[SELECTOR_ACTION_SPLIT_VERTICAL   ] = section->get_key("action_split_vert",  {0,  KEY_E}).keyval;
+        action_map[SELECTOR_ACTION_CHANGE_SPLIT_TYPE] = section->get_key("action_split_type",  {0,  KEY_T}).keyval;
     }
 
     void init_roots()
@@ -300,13 +306,17 @@ class wayfire_tile : public wayfire_plugin_t
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
         GetTuple(sw, sh, output->get_screen_size());
 
-        root.resize(vw);
+        if (root.size() != (uint)vw)
+            root.resize(vw);
+
         for (int i = 0; i < vw; i++)
         {
-            root[i].resize(vh);
+            if (root[i].size() != (uint) vh)
+                root[i].resize(vh);
+
             for (int j = 0; j < vh; j++)
             {
-                auto g = output->get_full_geometry();
+                auto g = output->workspace->get_workarea();
                 g.x += i * sw;
                 g.y += j * sh;
 
@@ -442,10 +452,7 @@ class wayfire_tile : public wayfire_plugin_t
 
         workarea_changed = [=] (signal_data *data)
         {
-            auto wa = output->workspace->get_workarea();
-            for (auto & v : root)
-                for (auto &r : v)
-                    r.set_geometry(wa);
+            init_roots();
         };
         output->signal->connect_signal("reserved-workarea", &workarea_changed);
     }
@@ -715,7 +722,7 @@ class wayfire_tile : public wayfire_plugin_t
         else if (key == action_map[SELECTOR_ACTION_SPLIT_VERTICAL] ||
                  key == action_map[SELECTOR_ACTION_SPLIT_HORIZONTAL])
         {
-            wf_split_type type = (key == action_map[SPLIT_VERTICAL] ? SPLIT_VERTICAL : SPLIT_HORIZONTAL);
+            wf_split_type type = (key == action_map[SELECTOR_ACTION_SPLIT_VERTICAL] ? SPLIT_VERTICAL : SPLIT_HORIZONTAL);
 
             auto node = tile_node_from_view(current_view);
 
@@ -728,6 +735,10 @@ class wayfire_tile : public wayfire_plugin_t
                 debug << "stopping select mode" << std::endl;
             }
             stop_select_mode();
+        } else if (key == action_map[SELECTOR_ACTION_CHANGE_SPLIT_TYPE])
+        {
+            auto newtype = (SPLIT_VERTICAL + SPLIT_HORIZONTAL) - wf_tiling::selector::node->split_type;
+            wf_tiling::selector::node->resplit((wf_split_type)newtype);
         }
     }
 };
