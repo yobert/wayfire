@@ -26,6 +26,13 @@ struct focus_view_signal : public signal_data
     wayfire_view focus;
 };
 
+/* sent when the view geometry changes(it's as libweston sees geometry, not just changes to view->geometry) */
+struct view_geometry_changed_signal : public signal_data
+{
+    wayfire_view view;
+    weston_geometry old_geometry;
+};
+
 struct view_maximized_signal : public signal_data
 {
     wayfire_view view;

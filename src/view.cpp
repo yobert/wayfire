@@ -101,8 +101,12 @@ bool wayfire_view_t::is_visible()
     return true;
 }
 
-void wayfire_view_t::move(int x, int y)
+void wayfire_view_t::move(int x, int y, bool send_signal)
 {
+    view_geometry_changed_signal data;
+    data.view = core->find_view(handle);
+    data.old_geometry = geometry;
+
     geometry.x = x;
     geometry.y = y;
     weston_view_set_position(handle, x - ds_geometry.x,
@@ -113,22 +117,32 @@ void wayfire_view_t::move(int x, int y)
     if (xwayland_surface_api && xwayland_surface_api->is_xwayland_surface(surface))
         xwayland_surface_api->send_position(surface, x - ds_geometry.x,
                 y - ds_geometry.y);
+
+    if (send_signal)
+        output->signal->emit_signal("view-geometry-changed", &data);
 }
 
-void wayfire_view_t::resize(int w, int h)
+void wayfire_view_t::resize(int w, int h, bool send_signal)
 {
+    view_geometry_changed_signal data;
+    data.view = core->find_view(handle);
+    data.old_geometry = geometry;
+
     weston_desktop_surface_set_size(desktop_surface, w, h);
+
+    if (send_signal)
+        output->signal->emit_signal("view-geometry-changed", &data);
 }
 
 void wayfire_view_t::set_geometry(weston_geometry g)
 {
-    move(g.x, g.y);
+    move(g.x, g.y, false);
     resize(g.width, g.height);
 }
 
 void wayfire_view_t::set_geometry(int x, int y, int w, int h)
 {
-    move(x, y);
+    move(x, y, false);
     resize(w, h);
 }
 
@@ -178,6 +192,7 @@ void wayfire_view_t::map(int sx, int sy)
             }
 
             move(sx, sy);
+
             geometry.x = sx;
             geometry.y = sy;
         }

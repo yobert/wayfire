@@ -30,6 +30,7 @@ struct wf_workspace_stream {
 
 struct render_manager {
     private:
+        signal_callback_t view_moved_cb, viewport_changed_cb;
         wayfire_output *output;
         int constant_redraw = 0;
 
@@ -42,6 +43,13 @@ struct render_manager {
 
         pixman_region32_t frame_damage, prev_damage;
         int streams_running = 0;
+
+        bool fdamage_track_enabled = false;
+        void update_full_damage_tracking_view(wayfire_view view);
+        void update_full_damage_tracking();
+        void disable_full_damage_tracking();
+
+        void get_ws_damage(std::tuple<int, int> ws, pixman_region32_t *out_damage);
 
     public:
         OpenGL::context_t *ctx;

@@ -81,6 +81,11 @@ void viewport_manager::init(wayfire_output *o)
     weston_layer_set_position(&panel_layer,       WESTON_LAYER_POSITION_UI);
     weston_layer_set_position(&background_layer,  WESTON_LAYER_POSITION_BACKGROUND);
 
+    auto og = output->get_full_geometry();
+    weston_layer_set_mask(&normal_layer,     og.x, og.y, og.width, og.height);
+    weston_layer_set_mask(&panel_layer,      og.x, og.y, og.width, og.height);
+    weston_layer_set_mask(&background_layer, og.x, og.y, og.width, og.height);
+
     vwidth = core->vwidth;
     vheight = core->vheight;
     implementation.resize(vwidth, std::vector<wf_workspace_implementation*>
@@ -306,8 +311,6 @@ void viewport_manager::add_background(wayfire_view background, int x, int y)
     background->output->detach_view(background);
     background->output = output;
 
-    pixman_region32_copy(&background->handle->damage_clip_region, &output->handle->region);
-
     weston_layer_entry_insert(&background_layer.view_list, &background->handle->layer_link);
 
     auto loop = wl_display_get_event_loop(core->ec->wl_display);
@@ -323,8 +326,6 @@ void viewport_manager::add_panel(wayfire_view panel)
      * so they are currently in the normal layer, we must remove them first */
     panel->output->detach_view(panel);
     panel->output = output;
-
-    pixman_region32_copy(&panel->handle->damage_clip_region, &output->handle->region);
 
     weston_layer_entry_insert(&panel_layer.view_list, &panel->handle->layer_link);
 }

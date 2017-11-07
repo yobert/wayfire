@@ -73,8 +73,8 @@ class wayfire_view_t
             int x, y;
         } xwayland;
 
-        void move(int x, int y);
-        void resize(int w, int h);
+        void move(int x, int y, bool send_signal = true);
+        void resize(int w, int h, bool send_signal = true);
         void set_geometry(weston_geometry g);
         /* convenience function */
         void set_geometry(int x, int y, int w, int h);

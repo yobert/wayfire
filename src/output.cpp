@@ -18,6 +18,7 @@
 #include <libweston-desktop.h>
 #include <gl-renderer-api.h>
 
+#include <cstring>
 #include <config.hpp>
 
 namespace
@@ -153,6 +154,26 @@ render_manager::render_manager(wayfire_output *o)
 
     pixman_region32_init(&frame_damage);
     pixman_region32_init(&prev_damage);
+
+    view_moved_cb = [=] (signal_data *data)
+    {
+        auto conv = static_cast<view_geometry_changed_signal*> (data);
+        assert(conv);
+
+        if (fdamage_track_enabled && !conv->view->is_special)
+            update_full_damage_tracking_view(conv->view);
+    };
+    output->signal->connect_signal("view-geometry-changed", &view_moved_cb);
+
+    viewport_changed_cb = [=] (signal_data *data)
+    {
+        if (fdamage_track_enabled)
+        {
+            fdamage_track_enabled = false;
+            update_full_damage_tracking();
+        }
+    };
+    output->signal->connect_signal("viewport-changed", &viewport_changed_cb);
 }
 
 void render_manager::load_context()
@@ -194,12 +215,136 @@ void render_manager::auto_redraw(bool redraw)
     wl_event_loop_add_idle(loop, redraw_idle_cb, output);
 }
 
+struct wf_fdamage_track_cdata : public wf_custom_view_data
+{
+    weston_transform transform;
+};
+
+void render_manager::update_full_damage_tracking()
+{
+    if (fdamage_track_enabled)
+        return;
+
+    fdamage_track_enabled = true;
+    output->workspace->for_each_view([=] (wayfire_view view)
+    {
+        update_full_damage_tracking_view(view);
+    });
+}
+
+void render_manager::update_full_damage_tracking_view(wayfire_view view)
+{
+    GetTuple(vx, vy, output->workspace->get_current_workspace());
+    GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
+    auto og = output->get_full_geometry();
+
+    wf_fdamage_track_cdata *data;
+    const std::string dname = "__fdamage_track";
+
+    auto it = view->custom_data.find(dname);
+    if (it == view->custom_data.end())
+    {
+        data = new wf_fdamage_track_cdata;
+        view->custom_data[dname] = data;
+
+        weston_matrix_init(&data->transform.matrix);
+        wl_list_insert(&view->handle->geometry.transformation_list, &data->transform.link);
+    } else
+    {
+        data = static_cast<wf_fdamage_track_cdata*> (it->second);
+    }
+
+    assert(data);
+    weston_matrix_init(&data->transform.matrix);
+    weston_matrix_scale(&data->transform.matrix, 1. / vw, 1. / vh, 1.0);
+
+    int dx = vx * og.width;
+    int dy = vy * og.height;
+    weston_matrix_translate(&data->transform.matrix, dx, dy, 0);
+
+    /* Transform the view's coordinates in a coordinate space where the (0, 0)
+     * is actually the outputs top left workspacea */
+    int rx = view->geometry.x + dx - og.x - view->ds_geometry.x;
+    int ry = view->geometry.y + dy - og.y - view->ds_geometry.y;
+    int tx = rx / vw;
+    int ty = ry / vh;
+
+    weston_matrix_translate(&data->transform.matrix, tx - rx, ty - ry, 0);
+    weston_view_geometry_dirty(view->handle);
+}
+
+void render_manager::disable_full_damage_tracking()
+{
+    if (!fdamage_track_enabled)
+        return;
+    fdamage_track_enabled = false;
+
+    const std::string dname = "__fdamage_track";
+    output->workspace->for_each_view([&] (wayfire_view view)
+    {
+        auto it = view->custom_data.find(dname);
+        if (it != view->custom_data.end())
+        {
+            auto data = static_cast<wf_fdamage_track_cdata*> (it->second);
+            assert(data);
+
+            wl_list_remove(&data->transform.link);
+            weston_view_geometry_dirty(view->handle);
+
+            delete data;
+            view->custom_data.erase(it);
+        }
+    });
+}
+
+void render_manager::get_ws_damage(std::tuple<int, int> ws, pixman_region32_t *out_damage)
+{
+    GetTuple(vx, vy, ws);
+    GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
+    auto og = output->get_full_geometry();
+
+    if (!pixman_region32_selfcheck(out_damage))
+        pixman_region32_init(out_damage);
+
+    pixman_region32_intersect_rect(out_damage, &frame_damage,
+                                   og.x + vx * og.width / vw,
+                                   og.y + vy * og.height / vh,
+                                   og.width / vw,
+                                   og.height / vh);
+
+    int nrect;
+    auto rects = pixman_region32_rectangles(out_damage, &nrect);
+
+    if (nrect > 0)
+    {
+        pixman_box32_t boxes[nrect];
+
+        for (int i = 0; i < nrect; i++)
+        {
+            boxes[i].x1 = (rects[i].x1 - og.x) * vw;
+            boxes[i].x2 = (rects[i].x2 - og.x) * vw;
+            boxes[i].y1 = (rects[i].y1 - og.y) * vh;
+            boxes[i].y2 = (rects[i].y2 - og.y) * vh;
+        }
+
+
+        pixman_region32_fini(out_damage);
+        pixman_region32_init_rects(out_damage, boxes, nrect);
+    }
+
+    GetTuple(cx, cy, output->workspace->get_current_workspace());
+    pixman_region32_translate(out_damage, og.x - cx * og.width, og.y - cy * og.height);
+}
+
 void render_manager::reset_renderer()
 {
     renderer = nullptr;
 
     weston_output_damage(output->handle);
     weston_output_schedule_repaint(output->handle);
+
+    if (!streams_running)
+        disable_full_damage_tracking();
 }
 
 void render_manager::set_renderer(render_hook_t rh)
@@ -216,11 +361,14 @@ void render_manager::paint(pixman_region32_t *damage)
     if (dirty_context)
         load_context();
 
-    if (streams_running)
+    if (streams_running || renderer)
     {
-        pixman_region32_union(&frame_damage,
-                &core->ec->primary_plane.damage, &prev_damage);
-        pixman_region32_copy(&prev_damage, &core->ec->primary_plane.damage);
+        pixman_region32_union(&frame_damage, damage, &prev_damage);
+        pixman_region32_copy(&prev_damage, damage);
+
+        update_full_damage_tracking();
+
+        debug << "updated tracking" << std::endl;
     }
 
     if (renderer)
@@ -250,7 +398,6 @@ void render_manager::paint(pixman_region32_t *damage)
         wl_event_loop_add_idle(wl_display_get_event_loop(core->ec->wl_display),
                 redraw_idle_cb, output);
     }
-    core->hijack_renderer();
 }
 
 void render_manager::run_effects()
@@ -428,8 +575,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
         dy = g.y + (y - cy) * g.height;
 
     pixman_region32_t ws_damage;
-    pixman_region32_init_rect(&ws_damage, dx, dy, g.width, g.height);
-    pixman_region32_intersect(&ws_damage, &frame_damage, &ws_damage);
+    pixman_region32_init(&ws_damage);
+    get_ws_damage(stream->ws, &ws_damage);
 
     /* we don't have to update anything */
     if (!pixman_region32_not_empty(&ws_damage))
@@ -449,7 +596,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
     auto views = output->workspace->get_renderable_views_on_workspace(stream->ws);
 
-    struct damaged_view {
+    struct damaged_view
+    {
         wayfire_view view;
         pixman_region32_t *damage;
     };
@@ -542,6 +690,9 @@ void render_manager::workspace_stream_stop(wf_workspace_stream *stream)
 {
     streams_running--;
     stream->running = false;
+
+    if (!streams_running && !renderer)
+        disable_full_damage_tracking();
 }
 
 /* End render_manager */
@@ -685,9 +836,8 @@ wayfire_output::wayfire_output(weston_output *handle, wayfire_config *c)
 {
     this->handle = handle;
 
-    render = new render_manager(this);
     signal = new signal_manager();
-
+    render = new render_manager(this);
     plugin = new plugin_manager(this, c);
 
     weston_output_damage(handle);
@@ -747,8 +897,6 @@ void wayfire_output::set_transform(wl_output_transform new_tr)
             view->set_geometry(px * handle->width, py * handle->height,
 			    pw * handle->width, ph * handle->height);
         }
-
-        pixman_region32_copy(&view->handle->damage_clip_region, &handle->region);
     });
 }
 
@@ -793,8 +941,6 @@ void wayfire_output::deactivate()
 void wayfire_output::attach_view(wayfire_view v)
 {
     v->output = this;
-    pixman_region32_copy(&v->handle->damage_clip_region, &handle->region);
-
     workspace->view_bring_to_front(v);
 
     auto sig_data = create_view_signal{v};
