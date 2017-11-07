@@ -109,14 +109,7 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
 
     geometry.x = x;
     geometry.y = y;
-    weston_view_set_position(handle, x - ds_geometry.x,
-            y - ds_geometry.y);
-
-    /* TODO: we should check if surface is wayland/xwayland in the beginning, since
-     * this won't change, it doesn't make sense to check this every time */
-    if (xwayland_surface_api && xwayland_surface_api->is_xwayland_surface(surface))
-        xwayland_surface_api->send_position(surface, x - ds_geometry.x,
-                y - ds_geometry.y);
+    weston_view_set_position(handle, x - ds_geometry.x, y - ds_geometry.y);
 
     if (send_signal)
         output->signal->emit_signal("view-geometry-changed", &data);
@@ -170,14 +163,14 @@ void wayfire_view_t::map(int sx, int sy)
             {
                 sx = xwayland.x;
                 sy = xwayland.y;
+            } else
+            {
+                sx = sy = 0;
             }
 
             ds_geometry = weston_desktop_surface_get_geometry(desktop_surface);
             geometry.width = ds_geometry.width;
             geometry.height = ds_geometry.height;
-
-            if (xwayland_surface_api && xwayland_surface_api->is_xwayland_surface(surface))
-                ds_geometry.x = ds_geometry.y = 0;
 
             auto parent_view = core->find_view(parent_surface);
             if (parent_view)
