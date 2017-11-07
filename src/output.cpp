@@ -824,12 +824,25 @@ void shell_set_color_gamma(wl_client *client, wl_resource *res,
 #endif
 }
 
+void shell_output_fade_in_start(wl_client *client, wl_resource *res, uint32_t output)
+{
+    auto wo = wl_output_to_wayfire_output(output);
+    if (!wo)
+    {
+        errio << "output_fade_in with wrong output!" << std::endl;
+        return;
+    }
+
+    wo->signal->emit_signal("output-fade-in-request", nullptr);
+}
+
 const struct wayfire_shell_interface shell_interface_impl {
     .add_background = shell_add_background,
     .add_panel = shell_add_panel,
     .configure_panel = shell_configure_panel,
     .reserve = shell_reserve,
-    .set_color_gamma = shell_set_color_gamma
+    .set_color_gamma = shell_set_color_gamma,
+    .output_fade_in_start = shell_output_fade_in_start
 };
 
 wayfire_output::wayfire_output(weston_output *handle, wayfire_config *c)

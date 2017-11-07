@@ -746,12 +746,16 @@ void wayfire_core::wake()
     pending_outputs.clear();
     weston_compositor_wake(ec);
 
-    ++times_wake;
     auto loop = wl_display_get_event_loop(ec->wl_display);
     wl_event_loop_add_idle(loop, refocus_idle_cb, 0);
 
-    for_each_output([] (wayfire_output *output)
-            { output->signal->emit_signal("wake", nullptr); });
+    if (times_wake > 0)
+    {
+        for_each_output([] (wayfire_output *output)
+                        { output->signal->emit_signal("wake", nullptr); });
+    }
+
+    ++times_wake;
 }
 
 void wayfire_core::sleep()

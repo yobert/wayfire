@@ -170,6 +170,7 @@ class wayfire_animation : public wayfire_plugin_t {
         output->signal->connect_signal("create-view", &create_cb);
         output->signal->connect_signal("destroy-view", &destroy_cb);
         output->signal->connect_signal("wake", &wake_cb);
+        output->signal->connect_signal("output-fade-in-request", &wake_cb);
     }
 
     /* TODO: enhance - add more animations */

@@ -57,5 +57,9 @@
             <arg name="gamma_b" type="array"/>
             <arg name="gamma_g" type="array"/>
         </request>
+
+        <request name="output_fade_in_start">
+            <arg name="output" type="uint"/>
+        </request>
     </interface>
 </protocol>

@@ -19,6 +19,7 @@ wayfire_config *config;
 std::map<uint32_t, wayfire_shell_output> outputs;
 
 std::string bg_path;
+
 void output_created_cb(void *data, wayfire_shell *wayfire_shell,
         uint32_t output, uint32_t width, uint32_t height)
 {
@@ -29,6 +30,8 @@ void output_created_cb(void *data, wayfire_shell *wayfire_shell,
 
     auto panel = (outputs[output].panel = new wayfire_panel(config));
     panel->create_panel(output, width, height);
+
+    wayfire_shell_output_fade_in_start(wayfire_shell, output);
 }
 
 void output_resized_cb(void *data, wayfire_shell *wayfire_shell,
