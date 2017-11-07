@@ -1,9 +1,60 @@
 #include "background.hpp"
 #include "../proto/wayfire-shell-client.h"
 
+#if HAS_PIXBUF
+#include <gdk-pixbuf/gdk-pixbuf.h>
+#include <gdk/gdkcairo.h>
+#endif
+
 wayfire_background::wayfire_background(std::string image)
 {
     this->image = image;
+}
+
+bool g_type_init_ran = false;
+
+static cairo_surface_t *create_cairo_surface_from_file(std::string name)
+{
+#if HAS_PIXBUF
+
+#if !GLIB_CHECK_VERSION(2,35,0)
+    if (!g_type_init_ran)
+    {
+        g_type_init();
+        g_type_init_ran = true;
+    }
+#endif
+
+    GError *err = NULL;
+    auto pbuf = gdk_pixbuf_new_from_file(name.c_str(), &err);
+
+    if (!pbuf)
+    {
+        std::cerr << "Failed to create a pbuf" << std::endl;
+        unsigned char data[] = {0, 0, 0, 1} ;
+        cairo_surface_t *surf = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32, 1, 1, 0);
+        return surf;
+    }
+
+
+    int w = gdk_pixbuf_get_width(pbuf);
+    int h = gdk_pixbuf_get_height(pbuf);
+
+    auto surface = cairo_image_surface_create(
+        gdk_pixbuf_get_has_alpha(pbuf) ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24,
+        w, h);
+
+    auto cr = cairo_create(surface);
+    gdk_cairo_set_source_pixbuf(cr, pbuf, 0, 0);
+    cairo_paint(cr);
+
+    cairo_destroy(cr);
+    g_object_unref(pbuf);
+
+    return surface;
+#else
+    return cairo_image_surface_create_from_png(name.c_str());
+#endif
 }
 
 void wayfire_background::create_background(uint32_t output, uint32_t w, uint32_t h)
@@ -17,7 +68,7 @@ void wayfire_background::create_background(uint32_t output, uint32_t w, uint32_t
             this, _1, _2, _3, _4);
 
     cr = cairo_create(window->cairo_surface);
-    img_surface = cairo_image_surface_create_from_png(image.c_str());
+    img_surface = create_cairo_surface_from_file(image);
 
     set_active_window(window);
 

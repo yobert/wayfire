@@ -13,8 +13,10 @@ endif (CMAKE_BUILD_TYPE MATCHES Debug)
 find_package(PkgConfig)
 
 pkg_check_modules(IMAGEIO_LIBS libpng libjpeg)
-
 set(BUILD_WITH_IMAGEIO ${PKG_CONFIG_FOUND})
+
+pkg_check_modules(PIXBUF gdk-2.0)
+set(HAS_PIXBUF ${PKG_CONFIG_FOUND})
 
 if (NOT DEFINED USE_GLES32)
     set(USE_GLES32 TRUE)
@@ -38,10 +40,11 @@ configure_file(config.h.in config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 message("\n\nConfiguration options:\n")
-message("    ImageIO: " ${BUILD_WITH_IMAGEIO})
-message("    OpenGL ES 3.2: " ${USE_GLES32})
-message("    Cario-GL: " ${HAS_CAIRO_GL_H})
-message("    Debugging output: " ${WAYFIRE_DEBUG_ENABLED})
+message("\tImageIO:          " ${BUILD_WITH_IMAGEIO})
+message("\tOpenGL ES 3.2:    " ${USE_GLES32})
+message("\tCario-GL:         " ${HAS_CAIRO_GL_H})
+message("\tGdk-Pixbuf:       " ${HAS_PIXBUF})
+message("\tDebugging output: " ${WAYFIRE_DEBUG_ENABLED})
 message("\n")
 
 include_directories(SYSTEM /usr/include/pixman-1)

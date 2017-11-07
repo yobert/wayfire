@@ -22,6 +22,12 @@ if (HAS_CAIRO_GL_H)
     include_directories(${EGL_SURF_BACKEND_INCLUDE_DIRS})
 endif (HAS_CAIRO_GL_H)
 
+if (HAS_PIXBUF)
+    add_definitions(${PIXBUF_CFLAGS_OTHER})
+    link_directories(${PIXBUF_LIBRARY_DIRS})
+    include_directories(${PIXBUF_INCLUDE_DIRS})
+endif(HAS_PIXBUF)
+
 add_executable(wayfire-shell-client ${SOURCES})
 
 find_package (Threads)
@@ -30,8 +36,13 @@ target_link_libraries (wayfire-shell-client ${CMAKE_THREAD_LIBS_INIT})
 # Libraries
 target_link_libraries(wayfire-shell-client wayfire-shell-proto wayfire-config)
 target_link_libraries(wayfire-shell-client ${REQLIBS_LIBRARIES})
+
 if (HAS_CAIRO_GL_H)
     target_link_libraries(wayfire-shell-client ${EGL_SURF_BACKEND_LIBRARIES})
 endif (HAS_CAIRO_GL_H)
+
+if (HAS_PIXBUF)
+    target_link_libraries(wayfire-shell-client ${PIXBUF_LIBRARIES})
+endif (HAS_PIXBUF)
 
 install(TARGETS wayfire-shell-client DESTINATION lib/wayfire/)
