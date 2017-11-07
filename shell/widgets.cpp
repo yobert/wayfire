@@ -68,6 +68,7 @@ void clock_widget::create()
 {
     load_default_font();
     width = font_size * 18;
+    this->current_text = "";
 }
 
 const std::string months[] = {
@@ -104,10 +105,12 @@ bool clock_widget::update()
     std::string time_string = std::to_string(time->tm_mday) + " " +
         months[time->tm_mon] + " " + format(time->tm_hour) +
         ":" + format(time->tm_min);
-
     if (time_string != this->current_text)
     {
         current_text = time_string;
+
+        cairo_set_font_size(cr, font_size);
+        cairo_set_font_face(cr, cairo_font_face);
 
         cairo_text_extents_t te;
         cairo_text_extents(cr, current_text.c_str(), &te);
@@ -124,9 +127,7 @@ bool clock_widget::update()
 void clock_widget::repaint()
 {
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); /* blank to white */
-    cairo_set_font_size(cr, font_size);
-    cairo_set_font_face(cr, cairo_font_face);
- 
+
     cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
     cairo_set_source_rgb(cr, 0.91, 0.918, 0.965);
 
@@ -404,9 +405,15 @@ bool battery_widget::update()
     battery_string = std::to_string(info->percentage) + "%";
     info->mutex.unlock();
 
-    cairo_text_extents_t te;
-    cairo_text_extents(cr, battery_string.c_str(), &te);
-    width = font_size + 0.2 * font_size + te.width;
+    if (result)
+    {
+        cairo_set_font_size(cr, font_size * battery_options::text_scale);
+        cairo_set_font_face(cr, cairo_font_face);
+
+        cairo_text_extents_t te;
+        cairo_text_extents(cr, battery_string.c_str(), &te);
+        width = font_size + 0.2 * font_size + te.width;
+    }
 
 
     return result;
@@ -472,8 +479,6 @@ void battery_widget::repaint()
     info->mutex.unlock();
 
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); /* blank to white */
-    cairo_set_font_size(cr, font_size * battery_options::text_scale);
-    cairo_set_font_face(cr, cairo_font_face);
 
     cairo_identity_matrix(cr);
     cairo_set_operator(cr, CAIRO_OPERATOR_OVER);

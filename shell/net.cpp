@@ -298,10 +298,17 @@ bool network_widget::update()
     text = connection.name;
     connection.mutex.unlock();
 
-    cairo_text_extents_t te;
-    cairo_text_extents(cr, text.c_str(), &te);
+    if (result)
+    {
 
-    width = te.width + font_size;
+        cairo_set_font_size(cr, font_size);
+        cairo_set_font_face(cr, cairo_font_face);
+
+        cairo_text_extents_t te;
+        cairo_text_extents(cr, text.c_str(), &te);
+
+        width = te.width + font_size;
+    }
 
     return result;
 }
@@ -349,8 +356,6 @@ void network_widget::repaint()
     connection.updated = false;
     connection.mutex.unlock();
 
-    cairo_set_font_size(cr, font_size);
-    cairo_set_font_face(cr, cairo_font_face);
     cairo_set_source_rgba(cr, color.r, color.g, color.b, color.a);
 
     cairo_move_to(cr, x + font_size * 0.5, font_size);
