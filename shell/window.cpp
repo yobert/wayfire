@@ -22,7 +22,10 @@ void pointer_enter(void *data, struct wl_pointer *wl_pointer,
         window->pointer_enter(wl_pointer, serial,
                 pointer_x, pointer_y);
     if (window)
+    {
         current_window = window;
+        window->has_pointer_focus = true;
+    }
 }
 
 void pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
@@ -32,10 +35,13 @@ void pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
     if (!surface)
         return;
 
-
     auto window = (wayfire_window*) wl_surface_get_user_data(surface);
     if (window && window->pointer_leave)
+    {
         window->pointer_leave();
+        window->has_pointer_focus = false;
+    }
+
     current_window = nullptr;
 }
 

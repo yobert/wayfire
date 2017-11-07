@@ -1,4 +1,5 @@
 #include <sstream>
+#include <unistd.h>
 #include "panel.hpp"
 #include "widgets.hpp"
 #include "net.hpp"
@@ -116,6 +117,8 @@ void wayfire_panel::on_leave()
 {
     if (autohide)
         toggle_animation();
+
+    on_motion(-1, -1);
 }
 
 void wayfire_panel::on_button(uint32_t button, uint32_t state, int x, int y)
@@ -265,4 +268,9 @@ void wayfire_panel::render_frame(bool first_call)
 
     if (should_swap)
         damage_commit_window(window);
+
+    /* don't repaint too often if there is no interaction with the panel,
+     * otherwise the panel eats up some CPU power */
+    if (!autohide && !window->has_pointer_focus)
+        usleep(1e6/10);
 }

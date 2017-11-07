@@ -36,6 +36,7 @@ struct wayfire_window
     cairo_surface_t *cairo_surface;
 
     bool configured = false;
+    bool has_pointer_focus = false;
 };
 
 void show_default_cursor(uint32_t serial);
