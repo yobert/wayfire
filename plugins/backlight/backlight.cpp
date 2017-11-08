@@ -131,6 +131,11 @@ class wayfire_backlight : public wayfire_plugin_t {
             {
                 if (stored_brightness > 0)
                     backend->set(stored_brightness);
+
+                /* if we have switched vt, we might have missed the sleep signal
+                 * and thus no brightness will be stored. So if we set the stored_brightness
+                 * to zero we won't change it when it happens(but will work after sleeping) */
+                stored_brightness = 0;
             };
 
             output->signal->connect_signal("sleep", &sleep);
