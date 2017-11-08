@@ -103,7 +103,7 @@ void desktop_surface_maximized_requested(weston_desktop_surface *ds,
         data.state = maximized;
 
         view->output->signal->emit_signal("view-maximized-request", &data);
-    } else {
+    } else if (maximized) {
         view->set_geometry(view->output->workspace->get_workarea());
     }
 }

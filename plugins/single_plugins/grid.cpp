@@ -125,6 +125,7 @@ class wayfire_grid : public wayfire_plugin_t {
         current_view.target = {tx, ty, tw, th};
 
         weston_desktop_surface_set_resizing(view->desktop_surface, true);
+        view->set_geometry(view->geometry);
 
         output->render->auto_redraw(true);
         output->render->add_output_effect(&hook);
@@ -236,7 +237,8 @@ class wayfire_grid : public wayfire_plugin_t {
         int x, y, w, h;
         toggle_maximized(data->view, x, y, w, h, data->state);
 
-        if (current_view.view) {
+        if (current_view.view)
+        {
             data->view->set_geometry(x, y, w, h);
             return;
         }
