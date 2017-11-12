@@ -48,6 +48,7 @@ class viewport_manager : public workspace_manager
         std::vector<wayfire_view> get_views_on_workspace(std::tuple<int, int>);
         std::vector<wayfire_view>
         get_renderable_views_on_workspace(std::tuple<int, int> ws);
+        std::vector<wayfire_view> get_panels();
 
         void set_workspace(std::tuple<int, int>);
 
@@ -267,15 +268,6 @@ std::vector<wayfire_view> viewport_manager::get_renderable_views_on_workspace(
     g.x += (tx - vx) * output->handle->width;
     g.y += (ty - vy) * (output->handle->height);
 
-    if (tx == vx && ty == vy)
-    {
-        wl_list_for_each(view, &panel_layer.view_list.link, layer_link.link)
-        {
-            if ((v = core->find_view(view)) && rect_intersect(g, v->geometry))
-                ret.push_back(v);
-        }
-    }
-
     wl_list_for_each(view, &normal_layer.view_list.link, layer_link.link)
     {
         if ((v = core->find_view(view)) && rect_intersect(g, v->geometry))
@@ -288,6 +280,24 @@ std::vector<wayfire_view> viewport_manager::get_renderable_views_on_workspace(
 
     return ret;
 }
+
+std::vector<wayfire_view> viewport_manager::get_panels()
+{
+    std::vector<wayfire_view> ret;
+    weston_view *view;
+    wayfire_view v;
+
+    weston_geometry g = output->get_full_geometry();
+
+    wl_list_for_each(view, &panel_layer.view_list.link, layer_link.link)
+    {
+        if ((v = core->find_view(view)) && rect_intersect(g, v->geometry))
+            ret.push_back(v);
+    }
+
+    return ret;
+}
+
 
 wayfire_view viewport_manager::get_background_view()
 {

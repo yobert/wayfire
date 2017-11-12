@@ -356,6 +356,25 @@ void render_manager::set_renderer(render_hook_t rh)
     }
 }
 
+void render_manager::set_hide_overlay_panels(bool set)
+{
+    draw_overlay_panel = !set;
+}
+
+void render_manager::render_panels()
+{
+    auto views = output->workspace->get_panels();
+    auto it = views.rbegin();
+    while (it != views.rend())
+    {
+        auto view = *it;
+        if (!view->is_hidden) /* use is_visible() when implemented */
+            view->render();
+
+        ++it;
+    }
+}
+
 void render_manager::paint(pixman_region32_t *damage)
 {
     if (dirty_context)
@@ -385,6 +404,9 @@ void render_manager::paint(pixman_region32_t *damage)
         renderer();
 
         run_effects();
+
+        if (draw_overlay_panel)
+            render_panels();
 
         wl_signal_emit(&output->handle->frame_signal, output->handle);
         eglSwapBuffers(display, surf);

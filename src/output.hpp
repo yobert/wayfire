@@ -41,6 +41,8 @@ struct render_manager {
 
         render_hook_t renderer;
 
+        bool draw_overlay_panel = true;
+
         pixman_region32_t frame_damage, prev_damage;
         int streams_running = 0;
 
@@ -50,6 +52,7 @@ struct render_manager {
         void disable_full_damage_tracking();
 
         void get_ws_damage(std::tuple<int, int> ws, pixman_region32_t *out_damage);
+        void render_panels();
 
     public:
         OpenGL::context_t *ctx;
@@ -62,6 +65,8 @@ struct render_manager {
         void auto_redraw(bool redraw); /* schedule repaint immediately after finishing the last */
         void transformation_renderer();
         void reset_renderer();
+
+        void set_hide_overlay_panels(bool set);
 
         void paint(pixman_region32_t *damage);
         void run_effects();
@@ -121,6 +126,9 @@ class workspace_manager
          * The list must be returned from top to bottom(i.e the last is background) */
         virtual std::vector<wayfire_view>
             get_renderable_views_on_workspace(std::tuple<int, int> ws) = 0;
+
+        /* panels are the same on each workspace */
+        virtual std::vector<wayfire_view> get_panels() = 0;
 
         /* wayfire_shell implementation */
         virtual void add_background(wayfire_view background, int x, int y) = 0;
