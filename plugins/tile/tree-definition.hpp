@@ -2,8 +2,11 @@
 #define TREE_DEFINITION_HPP
 
 #include <vector>
-#include <output.hpp>
 #include <algorithm>
+#include <view.hpp>
+#include <output.hpp>
+#include <workspace-manager.hpp>
+#include <debug.hpp>
 
 #define tile_data "__tile_data"
 

@@ -1,9 +1,13 @@
 #include <opengl.hpp>
 #include <output.hpp>
 #include <core.hpp>
+#include <render-manager.hpp>
+#include <workspace-manager.hpp>
+
 #include <compositor.h>
 #include <linux/input-event-codes.h>
 #include <config.hpp>
+#include <config.h>
 
 #if USE_GLES32
 #include <GLES3/gl32.h>

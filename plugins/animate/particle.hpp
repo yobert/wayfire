@@ -1,6 +1,7 @@
 #ifndef PARTICLE_H_
 #define PARTICLE_H_
 #include <core.hpp>
+#include <glm/glm.hpp>
 #include <GLES3/gl32.h>
 #include <GLES3/gl3ext.h>
 

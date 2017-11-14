@@ -2,7 +2,6 @@
 #define PLUGIN_H
 
 #include <libweston-3/compositor.h>
-#include <unordered_set>
 #include <functional>
 #include <memory>
 
@@ -12,6 +11,9 @@ using std::string;
 struct signal_data {
 };
 using signal_callback_t = std::function<void(signal_data*)>;
+
+/* effect hooks are called after main rendering */
+using effect_hook_t = std::function<void()>;
 
 struct wayfire_touch_gesture;
 using key_callback = std::function<void(weston_keyboard*, uint32_t)>;

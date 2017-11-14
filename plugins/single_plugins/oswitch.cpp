@@ -1,5 +1,6 @@
 #include <output.hpp>
 #include <core.hpp>
+#include <view.hpp>
 #include <linux/input-event-codes.h>
 #include "../../shared/config.hpp"
 

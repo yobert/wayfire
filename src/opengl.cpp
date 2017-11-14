@@ -1,5 +1,7 @@
 #include "opengl.hpp"
 #include <compositor.h>
+#include "debug.hpp"
+#include "output.hpp"
 
 namespace {
     OpenGL::context_t *bound;

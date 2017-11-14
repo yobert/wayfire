@@ -1,7 +1,9 @@
 #include <output.hpp>
 #include <core.hpp>
+#include <view.hpp>
+#include <workspace-manager.hpp>
 #include <linux/input.h>
-#include <signal_definitions.hpp>
+#include <signal-definitions.hpp>
 #include "snap_signal.hpp"
 #include <libweston-desktop.h>
 #include "../../shared/config.hpp"
@@ -80,7 +82,7 @@ class wayfire_move : public wayfire_plugin_t
             };
 
             move_request = std::bind(std::mem_fn(&wayfire_move::move_requested), this, _1);
-            output->signal->connect_signal("move-request", &move_request);
+            output->connect_signal("move-request", &move_request);
         }
 
         void move_requested(signal_data *data)
@@ -134,8 +136,6 @@ class wayfire_move : public wayfire_plugin_t
                 slot = 0;
 
             this->view = view;
-
-            view->output->render->auto_redraw(true);
         }
 
         void input_pressed(uint32_t state)
@@ -146,14 +146,13 @@ class wayfire_move : public wayfire_plugin_t
             grab_interface->ungrab();
             output->deactivate_plugin(grab_interface);
             view->output->focus_view(view);
-            view->output->render->auto_redraw(false);
 
             if (enable_snap && slot != 0) {
                 snap_signal data;
                 data.view = view;
                 data.tslot = (slot_type)slot;
 
-                output->signal->emit_signal("view-snap", &data);
+                output->emit_signal("view-snap", &data);
             }
         }
 
@@ -213,7 +212,7 @@ class wayfire_move : public wayfire_plugin_t
                 req.serial = is_using_touch ?  weston_seat_get_touch(core->get_current_seat())->grab_serial :
                     weston_seat_get_pointer(core->get_current_seat())->grab_serial;
 
-                target_output->signal->emit_signal("move-request", &req);
+                target_output->emit_signal("move-request", &req);
                 return;
             }
 

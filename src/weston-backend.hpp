@@ -1,13 +1,16 @@
 #ifndef WESTON_BACKEND_HPP
 #define WESTON_BACKEND_HPP
 
-#include "commonincludes.hpp"
+#include "debug.hpp"
 #include "core.hpp"
 #include "../shared/config.hpp"
+#include <climits>
+
 #include <compositor-drm.h>
 #include <compositor-x11.h>
 #include <compositor-wayland.h>
 #include <windowed-output-api.h>
+
 #include <cstring>
 #include <assert.h>
 #include <libinput.h>

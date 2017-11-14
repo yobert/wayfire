@@ -1,6 +1,9 @@
 #include <output.hpp>
 #include <core.hpp>
-#include <signal_definitions.hpp>
+#include <debug.hpp>
+#include <view.hpp>
+#include <workspace-manager.hpp>
+#include <signal-definitions.hpp>
 #include <pixman-1/pixman.h>
 #include <opengl.hpp>
 
@@ -107,9 +110,9 @@ void viewport_manager::init(wayfire_output *o)
     {
         check_lower_panel_layer(0);
     };
-    o->signal->connect_signal("view-fullscreen-request", &adjust_fullscreen_layer);
-    o->signal->connect_signal("attach-view", &view_detached);
-    o->signal->connect_signal("detach-view", &view_detached);
+    o->connect_signal("view-fullscreen-request", &adjust_fullscreen_layer);
+    o->connect_signal("attach-view", &view_detached);
+    o->connect_signal("detach-view", &view_detached);
 }
 
 void viewport_manager::view_bring_to_front(wayfire_view view)
@@ -221,7 +224,7 @@ void viewport_manager::set_workspace(std::tuple<int, int> nPos)
 
     vx = nx;
     vy = ny;
-    output->signal->emit_signal("viewport-changed", &data);
+    output->emit_signal("viewport-changed", &data);
 
     output->focus_view(nullptr);
     /* we iterate through views on current viewport from bottom to top
@@ -367,7 +370,7 @@ void viewport_manager::reserve_workarea(wayfire_shell_panel_position position,
     data.width = width;
     data.height = height;
     data.position = position;
-    output->signal->emit_signal("reserved-workarea", &data);
+    output->emit_signal("reserved-workarea", &data);
 }
 
 void viewport_manager::configure_panel(wayfire_view view, int x, int y)

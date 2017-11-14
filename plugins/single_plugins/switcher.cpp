@@ -1,7 +1,10 @@
 #include <output.hpp>
 #include <opengl.hpp>
+#include <view.hpp>
+#include <render-manager.hpp>
+#include <workspace-manager.hpp>
+
 #include <queue>
-#include <core.hpp>
 #include <linux/input-event-codes.h>
 #include <algorithm>
 #include "../../shared/config.hpp"
@@ -240,7 +243,7 @@ class view_switcher : public wayfire_plugin_t
             uint32_t latched, uint32_t group)
     {
 
-        weston_keyboard_send_modifiers(kbd, wl_display_get_serial(core->ec->wl_display),
+        weston_keyboard_send_modifiers(kbd, wl_display_get_serial(kbd->seat->compositor->wl_display),
                 depressed, locked, latched, group);
         state.in_continuous_switch = false;
         if (state.in_fast_switch)

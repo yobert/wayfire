@@ -1,5 +1,5 @@
-#ifndef COMMON_INCLUDES
-#define COMMON_INCLUDES
+#ifndef DEBUG_HPP
+#define DEBUG_HPP
 
 #ifdef YCM
 #define private public
@@ -9,7 +9,8 @@
 
 #include <fstream>
 
-namespace wf_debug {
+namespace wf_debug
+{
     extern std::ofstream logfile;
 }
 

@@ -2,9 +2,9 @@
 #include <cstring>
 
 #include "output.hpp"
-#include "debug.hpp"
-#include "weston_backend.hpp"
-#include "desktop_api.hpp"
+#include "debug-func.hpp"
+#include "weston-backend.hpp"
+#include "desktop-api.hpp"
 #include "xwayland.hpp"
 
 #include <wayland-server.h>

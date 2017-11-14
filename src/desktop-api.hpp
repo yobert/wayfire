@@ -4,10 +4,12 @@
 #include <compositor.h>
 #include <libweston-desktop.h>
 
-#include "commonincludes.hpp"
+#include "debug.hpp"
 #include "core.hpp"
 #include "output.hpp"
-#include "signal_definitions.hpp"
+#include "workspace-manager.hpp"
+#include "signal-definitions.hpp"
+#include "view.hpp"
 
 void desktop_surface_added(weston_desktop_surface *desktop_surface, void *shell)
 {
@@ -30,7 +32,7 @@ void desktop_surface_removed(weston_desktop_surface *surface, void *user_data)
     view->destroyed = true;
 
     auto sig_data = destroy_view_signal{view};
-    view->output->signal->emit_signal("destroy-view", &sig_data);
+    view->output->emit_signal("destroy-view", &sig_data);
 
     core->erase_view(view, view->keep_count <= 0);
 }
@@ -69,7 +71,7 @@ void desktop_surface_move(weston_desktop_surface *ds, weston_seat *seat,
         move_request_signal req;
         req.view = core->find_view(main_surface);
         req.serial = serial;
-        view->output->signal->emit_signal("move-request", &req);
+        view->output->emit_signal("move-request", &req);
     }
 }
 
@@ -84,7 +86,7 @@ void desktop_surface_resize(weston_desktop_surface *ds, weston_seat *seat,
         req.view = core->find_view(main_surface);
         req.edges = edges;
         req.serial = serial;
-        view->output->signal->emit_signal("resize-request", &req);
+        view->output->emit_signal("resize-request", &req);
     }
 }
 
@@ -102,7 +104,7 @@ void desktop_surface_maximized_requested(weston_desktop_surface *ds,
         data.view = view;
         data.state = maximized;
 
-        view->output->signal->emit_signal("view-maximized-request", &data);
+        view->output->emit_signal("view-maximized-request", &data);
     } else if (maximized) {
         view->set_geometry(view->output->workspace->get_workarea());
     }
@@ -132,7 +134,7 @@ void desktop_surface_fullscreen_requested(weston_desktop_surface *ds,
         data.view = view;
         data.state = full;
 
-        wo->signal->emit_signal("view-fullscreen-request", &data);
+        wo->emit_signal("view-fullscreen-request", &data);
     } else if (full) {
         view->set_geometry(view->output->get_full_geometry());
     }
@@ -153,7 +155,7 @@ void desktop_surface_set_parent(weston_desktop_surface *ds,
     view->parent_surface = parent_ds;
 
     view_set_parent_signal sdata; sdata.view = view;
-    view->output->signal->emit_signal("view-set-parent", &sdata);
+    view->output->emit_signal("view-set-parent", &sdata);
 }
 
 #endif /* end of include guard: DESKTOP_API_HPP */

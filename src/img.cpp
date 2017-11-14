@@ -1,5 +1,7 @@
 #include "img.hpp"
 #include "opengl.hpp"
+#include "debug.hpp"
+
 #include <png.h>
 #include <stdint.h>
 #include <jpeglib.h>
@@ -7,6 +9,7 @@
 #include <cstdio>
 #include <iostream>
 #include <unordered_map>
+#include <functional>
 
 #define TEXTURE_LOAD_ERROR 0
 

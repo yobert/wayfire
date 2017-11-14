@@ -1,9 +1,10 @@
-#include <wm.hpp>
 #include <output.hpp>
+#include <view.hpp>
 #include <core.hpp>
+#include <workspace-manager.hpp>
 #include <linux/input.h>
 #include <libweston-desktop.h>
-#include <signal_definitions.hpp>
+#include <signal-definitions.hpp>
 #include "../../shared/config.hpp"
 
 
@@ -74,7 +75,7 @@ class wayfire_resize : public wayfire_plugin_t {
         using namespace std::placeholders;
         resize_request = std::bind(std::mem_fn(&wayfire_resize::resize_requested),
                 this, _1);
-        output->signal->connect_signal("resize-request", &resize_request);
+        output->connect_signal("resize-request", &resize_request);
     }
 
     void resize_requested(signal_data *data)
@@ -148,7 +149,6 @@ class wayfire_resize : public wayfire_plugin_t {
         if (edges == 0) /* simply deactivate */
             input_pressed(WL_POINTER_BUTTON_STATE_RELEASED);
         this->view = view;
-        view->output->render->auto_redraw(true);
     }
 
     void input_pressed(uint32_t state)
@@ -158,7 +158,6 @@ class wayfire_resize : public wayfire_plugin_t {
 
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
-        view->output->render->auto_redraw(false);
         weston_desktop_surface_set_resizing(view->desktop_surface, false);
     }
 

@@ -1,7 +1,12 @@
+#include "debug.hpp"
 #include "opengl.hpp"
 #include "output.hpp"
-#include "signal_definitions.hpp"
+#include "view.hpp"
+#include "core.hpp"
+#include "signal-definitions.hpp"
 #include "input-manager.hpp"
+#include "render-manager.hpp"
+#include "workspace-manager.hpp"
 
 #include <linux/input.h>
 
@@ -163,7 +168,7 @@ render_manager::render_manager(wayfire_output *o)
         if (fdamage_track_enabled && !conv->view->is_special)
             update_full_damage_tracking_view(conv->view);
     };
-    output->signal->connect_signal("view-geometry-changed", &view_moved_cb);
+    output->connect_signal("view-geometry-changed", &view_moved_cb);
 
     viewport_changed_cb = [=] (signal_data *data)
     {
@@ -173,7 +178,7 @@ render_manager::render_manager(wayfire_output *o)
             update_full_damage_tracking();
         }
     };
-    output->signal->connect_signal("viewport-changed", &viewport_changed_cb);
+    output->connect_signal("viewport-changed", &viewport_changed_cb);
 }
 
 void render_manager::load_context()
@@ -183,7 +188,7 @@ void render_manager::load_context()
 
     dirty_context = false;
 
-    output->signal->emit_signal("reload-gl", nullptr);
+    output->emit_signal("reload-gl", nullptr);
 }
 
 void render_manager::release_context()
@@ -721,25 +726,25 @@ void render_manager::workspace_stream_stop(wf_workspace_stream *stream)
 
 /* Start SignalManager */
 
-void signal_manager::connect_signal(std::string name, signal_callback_t* callback)
+void wayfire_output::connect_signal(std::string name, signal_callback_t* callback)
 {
-    sig[name].push_back(callback);
+    signals[name].push_back(callback);
 }
 
-void signal_manager::disconnect_signal(std::string name, signal_callback_t* callback)
+void wayfire_output::disconnect_signal(std::string name, signal_callback_t* callback)
 {
-    auto it = std::remove_if(sig[name].begin(), sig[name].end(),
+    auto it = std::remove_if(signals[name].begin(), signals[name].end(),
     [=] (const signal_callback_t *call) {
         return call == callback;
     });
 
-    sig[name].erase(it, sig[name].end());
+    signals[name].erase(it, signals[name].end());
 }
 
-void signal_manager::emit_signal(std::string name, signal_data *data)
+void wayfire_output::emit_signal(std::string name, signal_data *data)
 {
     std::vector<signal_callback_t> callbacks;
-    for (auto x : sig[name])
+    for (auto x : signals[name])
         callbacks.push_back(*x);
 
     for (auto x : callbacks)
@@ -855,7 +860,7 @@ void shell_output_fade_in_start(wl_client *client, wl_resource *res, uint32_t ou
         return;
     }
 
-    wo->signal->emit_signal("output-fade-in-request", nullptr);
+    wo->emit_signal("output-fade-in-request", nullptr);
 }
 
 const struct wayfire_shell_interface shell_interface_impl {
@@ -871,7 +876,6 @@ wayfire_output::wayfire_output(weston_output *handle, wayfire_config *c)
 {
     this->handle = handle;
 
-    signal = new signal_manager();
     render = new render_manager(this);
     plugin = new plugin_manager(this, c);
 
@@ -885,7 +889,6 @@ wayfire_output::wayfire_output(weston_output *handle, wayfire_config *c)
 wayfire_output::~wayfire_output()
 {
     delete plugin;
-    delete signal;
     delete render;
 }
 
@@ -906,7 +909,7 @@ void wayfire_output::set_transform(wl_output_transform new_tr)
 
     wayfire_shell_send_output_resized(core->wf_shell.resource, handle->id,
 		    handle->width, handle->height);
-    signal->emit_signal("output-resized", nullptr);
+    emit_signal("output-resized", nullptr);
 
     //ensure_pointer();
 
@@ -979,13 +982,13 @@ void wayfire_output::attach_view(wayfire_view v)
     workspace->view_bring_to_front(v);
 
     auto sig_data = create_view_signal{v};
-    signal->emit_signal("attach-view", &sig_data);
+    emit_signal("attach-view", &sig_data);
 }
 
 void wayfire_output::detach_view(wayfire_view v)
 {
     auto sig_data = destroy_view_signal{v};
-    signal->emit_signal("detach-view", &sig_data);
+    emit_signal("detach-view", &sig_data);
 
     if (v->keep_count <= 0)
         workspace->view_removed(v);
@@ -1059,7 +1062,7 @@ void wayfire_output::focus_view(wayfire_view v, weston_seat *seat)
 
     focus_view_signal data;
     data.focus = v;
-    signal->emit_signal("focus-view", &data);
+    emit_signal("focus-view", &data);
 }
 
 wayfire_view wayfire_output::get_top_view()
@@ -1115,7 +1118,7 @@ bool wayfire_output::activate_plugin(wayfire_grab_interface owner, bool lower_fs
      * used to specify when a plugin is activated. It is used only internally, plugins
      * shouldn't listen for it */
     if (lower_fs && active_plugins.empty())
-        signal->emit_signal("_activation_request", (signal_data*)1);
+        emit_signal("_activation_request", (signal_data*)1);
 
     active_plugins.insert(owner);
     return true;
@@ -1135,7 +1138,7 @@ bool wayfire_output::deactivate_plugin(wayfire_grab_interface owner)
         active_plugins.erase(owner);
 
         if (active_plugins.empty())
-            signal->emit_signal("_activation_request", nullptr);
+            emit_signal("_activation_request", nullptr);
 
         return true;
     }

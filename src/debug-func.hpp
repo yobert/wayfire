@@ -1,6 +1,4 @@
-#ifndef DEBUG_HPP
-#define DEBUG_HPP
-
+#include "debug.hpp"
 #include <signal.h>
 #include <execinfo.h>
 #include <cxxabi.h>
@@ -9,7 +7,8 @@
 
 #define max_frames 100
 
-void print_trace() {
+void print_trace()
+{
     errio << "stack trace:\n";
 
     void* addrlist[max_frames + 1];
@@ -73,8 +72,8 @@ void signalHandle(int sig) {
     crash_compositor->backend->restore(crash_compositor);
     raise(SIGTRAP);
 }
-static int
-vlog(const char *fmt, va_list ap)
+
+int vlog(const char *fmt, va_list ap)
 {
     char buf[4096];
 	vsnprintf(buf, 4095, fmt, ap);
@@ -82,8 +81,8 @@ vlog(const char *fmt, va_list ap)
     wf_debug::logfile.flush();
 	return 0;
 }
-static int
-vlog_continue(const char *fmt, va_list argp)
+
+int vlog_continue(const char *fmt, va_list argp)
 {
     char buf[4096];
 	vsnprintf(buf, 4095, fmt, argp);
@@ -91,13 +90,11 @@ vlog_continue(const char *fmt, va_list argp)
     wf_debug::logfile.flush();
     return 0;
 }
-static void
-wayland_log_handler(const char *fmt, va_list arg)
+
+void wayland_log_handler(const char *fmt, va_list arg)
 {
     char buf[4096];
 	vsnprintf(buf, 4095, fmt, arg);
     wf_debug::logfile << "[wayland] " << buf;
     wf_debug::logfile.flush();
 }
-
-#endif /* end of include guard: DEBUG_HPP */

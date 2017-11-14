@@ -1,4 +1,4 @@
-#include <output.hpp>
+#include <plugin.hpp>
 #include "../../shared/config.hpp"
 #include <core.hpp>
 

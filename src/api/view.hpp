@@ -1,9 +1,8 @@
 #ifndef VIEW_HPP
 #define VIEW_HPP
-#include "commonincludes.hpp"
+#include <plugin.hpp>
 #include <vector>
 #include <map>
-#include <memory>
 #include <glm/glm.hpp>
 #include <functional>
 #include <libweston-desktop.h>
@@ -28,9 +27,6 @@ class wayfire_view_transform {
     public:
         glm::mat4 calculate_total_transform();
 };
-
-/* effect hooks are called after main rendering */
-using effect_hook_t = std::function<void()>;
 class wayfire_output;
 
 struct wayfire_point {
@@ -110,7 +106,5 @@ class wayfire_view_t
         void render(uint32_t bits = 0, pixman_region32_t *damage = nullptr);
 };
 
-typedef std::shared_ptr<wayfire_view_t> wayfire_view;
-using view_callback_proc_t = std::function<void(wayfire_view)>;
-
+using wayfire_view = std::shared_ptr<wayfire_view_t>;
 #endif

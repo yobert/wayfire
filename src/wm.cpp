@@ -1,8 +1,11 @@
 #include "wm.hpp"
 #include "output.hpp"
+#include "view.hpp"
+#include "core.hpp"
+#include "workspace-manager.hpp"
 #include "../shared/config.hpp"
 #include <linux/input.h>
-#include "signal_definitions.hpp"
+#include "signal-definitions.hpp"
 
 void wayfire_exit::init(wayfire_config*)
 {
@@ -116,5 +119,5 @@ void wayfire_fullscreen::init(wayfire_config *conf)
             });
         }
     };
-    output->signal->connect_signal("_activation_request", &act_request);
+    output->connect_signal("_activation_request", &act_request);
 }

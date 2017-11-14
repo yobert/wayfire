@@ -1,9 +1,10 @@
 #include <opengl.hpp>
 #include <cmath>
 #include "fire.hpp"
-#include <signal_definitions.hpp>
+#include <signal-definitions.hpp>
 #include <chrono>
-#include <img.hpp>
+#include <config.h>
+#include <render-manager.hpp>
 
 #define MAX_PARTICLES (512)
 #define MIN_PARTICLE_SIZE 0.09

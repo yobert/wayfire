@@ -1,8 +1,13 @@
+#include "debug.hpp"
 #include "core.hpp"
 #include "opengl.hpp"
 #include "output.hpp"
+#include "view.hpp"
+#include "workspace-manager.hpp"
+#include "render-manager.hpp"
+
 #include <glm/glm.hpp>
-#include "signal_definitions.hpp"
+#include "signal-definitions.hpp"
 
 #include <xwayland-api.h>
 #include <libweston-desktop.h>
@@ -112,7 +117,7 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
     weston_view_set_position(handle, x - ds_geometry.x, y - ds_geometry.y);
 
     if (send_signal)
-        output->signal->emit_signal("view-geometry-changed", &data);
+        output->emit_signal("view-geometry-changed", &data);
 }
 
 void wayfire_view_t::resize(int w, int h, bool send_signal)
@@ -124,7 +129,7 @@ void wayfire_view_t::resize(int w, int h, bool send_signal)
     weston_desktop_surface_set_size(desktop_surface, w, h);
 
     if (send_signal)
-        output->signal->emit_signal("view-geometry-changed", &data);
+        output->emit_signal("view-geometry-changed", &data);
 }
 
 void wayfire_view_t::set_geometry(weston_geometry g)
@@ -196,7 +201,7 @@ void wayfire_view_t::map(int sx, int sy)
         is_mapped = true;
 
         auto sig_data = create_view_signal{core->find_view(handle)};
-        output->signal->emit_signal("create-view", &sig_data);
+        output->emit_signal("create-view", &sig_data);
 
         if (!is_special)
             output->focus_view(core->find_view(handle), core->get_current_seat());
@@ -221,7 +226,7 @@ void wayfire_view_t::map(int sx, int sy)
         view_fullscreen_signal data;
         data.view = core->find_view(handle);
         data.state = full;
-        output->signal->emit_signal("view-fullscreen-request", &data);
+        output->emit_signal("view-fullscreen-request", &data);
 
         set_fullscreen(full);
     } else if (maxim != maximized)
@@ -230,7 +235,7 @@ void wayfire_view_t::map(int sx, int sy)
         data.view = core->find_view(handle);
         data.state = maximized;
 
-        output->signal->emit_signal("view-maximized-request", &data);
+        output->emit_signal("view-maximized-request", &data);
         set_maximized(maximized);
     }
 }

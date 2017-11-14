@@ -1,7 +1,7 @@
 #ifndef SNAP_SIGNAL
 #define SNAP_SIGNAL
 
-#include <output.hpp>
+#include <view.hpp>
 
 enum slot_type {
     SLOT_BL     = 1,

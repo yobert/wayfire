@@ -1,5 +1,6 @@
 #include <output.hpp>
 #include <core.hpp>
+#include <debug.hpp>
 #include <linux/input-event-codes.h>
 #include "../../shared/config.hpp"
 
@@ -138,12 +139,13 @@ class wayfire_backlight : public wayfire_plugin_t {
                 stored_brightness = 0;
             };
 
-            output->signal->connect_signal("sleep", &sleep);
-            output->signal->connect_signal("wake", &wake);
+            output->connect_signal("sleep", &sleep);
+            output->connect_signal("wake", &wake);
         }
 };
 
-extern "C" {
+extern "C"
+{
     wayfire_plugin_t* newInstance()
     {
         return new wayfire_backlight();

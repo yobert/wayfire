@@ -1,18 +1,23 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <cstring>
+#include <cassert>
 
 #include <libweston-desktop.h>
 
 #include "core.hpp"
 #include "output.hpp"
+#include "view.hpp"
 #include "input-manager.hpp"
+#include "workspace-manager.hpp"
+#include "debug.hpp"
+#include "render-manager.hpp"
 
 #if BUILD_WITH_IMAGEIO
 #include "img.hpp"
 #endif
 
-#include "signal_definitions.hpp"
+#include "signal-definitions.hpp"
 #include "../shared/config.hpp"
 #include "../proto/wayfire-shell-server.h"
 
@@ -752,7 +757,7 @@ void wayfire_core::wake()
     if (times_wake > 0)
     {
         for_each_output([] (wayfire_output *output)
-                        { output->signal->emit_signal("wake", nullptr); });
+                        { output->emit_signal("wake", nullptr); });
     }
 
     ++times_wake;
@@ -761,7 +766,7 @@ void wayfire_core::wake()
 void wayfire_core::sleep()
 {
     for_each_output([] (wayfire_output *output)
-            { output->signal->emit_signal("sleep", nullptr); });
+            { output->emit_signal("sleep", nullptr); });
     weston_compositor_sleep(ec);
 }
 
@@ -908,7 +913,7 @@ void wayfire_core::focus_output(wayfire_output *wo)
     if (active_output)
     {
         weston_output_schedule_repaint(active_output->handle);
-        active_output->signal->emit_signal("output-gain-focus", nullptr);
+        active_output->emit_signal("output-gain-focus", nullptr);
     }
 }
 

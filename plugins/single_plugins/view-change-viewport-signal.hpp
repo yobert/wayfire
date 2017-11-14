@@ -1,7 +1,7 @@
 #ifndef VIEW_CHANGE_VIEWPORT_CPP
 #define VIEW_CHANGE_VIEWPORT_CPP
 
-#include <output.hpp>
+#include <view.hpp>
 
 struct view_change_viewport_signal : public signal_data
 {

@@ -1,13 +1,22 @@
 #ifndef FIRE_H
 #define FIRE_H
 
-#include "view.hpp"
-#include "plugin.hpp"
+#include <functional>
+#include <memory>
 #include <vector>
 #include <map>
 
-using output_callback_proc = std::function<void(wayfire_output *)>;
+#include <compositor.h>
+
+struct weston_desktop_surface;
+
 class input_manager;
+class wayfire_config;
+class wayfire_output;
+class wayfire_view_t;
+
+using wayfire_view = std::shared_ptr<wayfire_view_t>;
+using output_callback_proc = std::function<void(wayfire_output *)>;
 
 class wayfire_core
 {

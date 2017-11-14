@@ -47,8 +47,8 @@ message("\tGdk-Pixbuf:       " ${HAS_PIXBUF})
 message("\tDebugging output: " ${WAYFIRE_DEBUG_ENABLED})
 message("\n")
 
-include_directories(SYSTEM /usr/include/pixman-1)
 include_directories(src)
+include_directories(src/api)
 include_directories(shared)
 
 add_subdirectory(proto)

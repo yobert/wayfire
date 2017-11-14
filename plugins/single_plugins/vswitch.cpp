@@ -1,5 +1,8 @@
 #include <output.hpp>
 #include <core.hpp>
+#include <view.hpp>
+#include <workspace-manager.hpp>
+#include <render-manager.hpp>
 #include <queue>
 #include <linux/input.h>
 #include <utility>
@@ -180,7 +183,7 @@ class vswitch : public wayfire_plugin_t
             data.from = old_ws;
             data.to = output->workspace->get_current_workspace();
 
-            output->signal->emit_signal("view-change-viewport", &data);
+            output->emit_signal("view-change-viewport", &data);
         }
 
         views.clear();

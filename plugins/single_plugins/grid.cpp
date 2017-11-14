@@ -1,8 +1,11 @@
 #include <output.hpp>
 #include <core.hpp>
+#include <view.hpp>
+#include <workspace-manager.hpp>
+#include <render-manager.hpp>
 #include <algorithm>
 #include <linux/input-event-codes.h>
-#include "signal_definitions.hpp"
+#include "signal-definitions.hpp"
 #include "../../shared/config.hpp"
 
 #include "snap_signal.hpp"
@@ -68,18 +71,18 @@ class wayfire_grid : public wayfire_plugin_t {
 
         using namespace std::placeholders;
         snap_cb = std::bind(std::mem_fn(&wayfire_grid::snap_signal_cb), this, _1);
-        output->signal->connect_signal("view-snap", &snap_cb);
+        output->connect_signal("view-snap", &snap_cb);
 
         maximized_cb = std::bind(std::mem_fn(&wayfire_grid::maximize_signal_cb), this, _1);
-        output->signal->connect_signal("view-maximized-request", &maximized_cb);
+        output->connect_signal("view-maximized-request", &maximized_cb);
 
         fullscreen_cb = std::bind(std::mem_fn(&wayfire_grid::fullscreen_signal_cb), this, _1);
-        output->signal->connect_signal("view-fullscreen-request", &fullscreen_cb);
+        output->connect_signal("view-fullscreen-request", &fullscreen_cb);
 
         output_resized_cb = [=] (signal_data*) {
             saved_view_geometry.clear();
         };
-        output->signal->connect_signal("output-resized", &output_resized_cb);
+        output->connect_signal("output-resized", &output_resized_cb);
 
         view_destroyed_cb = [=] (signal_data *data)
         {
@@ -90,8 +93,8 @@ class wayfire_grid : public wayfire_plugin_t {
             }
         };
 
-        output->signal->connect_signal("destroy-view", &view_destroyed_cb);
-        output->signal->connect_signal("detach-view", &view_destroyed_cb);
+        output->connect_signal("destroy-view", &view_destroyed_cb);
+        output->connect_signal("detach-view", &view_destroyed_cb);
     }
 
     void handle_key(wayfire_view view, int key)

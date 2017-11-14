@@ -1,6 +1,8 @@
 #ifndef DRIVER_H
 #define DRIVER_H
 
+#include <compositor.h>
+
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 
@@ -9,7 +11,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <map>
-#include "output.hpp"
+
+class wayfire_output;
 
 void gl_call(const char*, uint32_t, const char*);
 

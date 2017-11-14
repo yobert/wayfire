@@ -2,10 +2,13 @@
 #include <linux/input-event-codes.h>
 
 #include "tree-definition.hpp"
-#include "signal_definitions.hpp"
+#include "signal-definitions.hpp"
 #include <output.hpp>
 #include <core.hpp>
 #include <opengl.hpp>
+#include <view.hpp>
+#include <render-manager.hpp>
+
 #include "../../shared/config.hpp"
 #include "../single_plugins/view-change-viewport-signal.hpp"
 
@@ -45,7 +48,7 @@ namespace wf_tiling
                 view_fullscreen_signal data;
                 data.view = root->view;
                 data.state = false;
-                root->view->output->signal->emit_signal("view-fullscreen-request", &data);
+                root->view->output->emit_signal("view-fullscreen-request", &data);
             }
         }
 
@@ -347,7 +350,7 @@ class wayfire_tile : public wayfire_plugin_t
                 wf_tiling::add_view(view, nullptr, SPLIT_HORIZONTAL);
             }
         };
-        output->signal->connect_signal("create-view", &view_added);
+        output->connect_signal("create-view", &view_added);
 
         view_removed = [=] (signal_data *data)
         {
@@ -364,7 +367,7 @@ class wayfire_tile : public wayfire_plugin_t
                     stop_select_mode();
             }
         };
-        output->signal->connect_signal("detach-view", &view_removed);
+        output->connect_signal("detach-view", &view_removed);
 
         view_attached = [=] (signal_data *data)
         {
@@ -379,7 +382,7 @@ class wayfire_tile : public wayfire_plugin_t
                 wf_tiling::add_view(conv->created_view, nullptr, SPLIT_HORIZONTAL);
             }
         };
-        output->signal->connect_signal("attach-view", &view_attached);
+        output->connect_signal("attach-view", &view_attached);
 
         view_ws_moved = [=] (signal_data* data)
         {
@@ -395,7 +398,7 @@ class wayfire_tile : public wayfire_plugin_t
                 wf_tiling::add_view(conv->view, nullptr, SPLIT_HORIZONTAL);
             }
         };
-        output->signal->connect_signal("view-change-viewport", &view_ws_moved);
+        output->connect_signal("view-change-viewport", &view_ws_moved);
 
         view_focused = [=] (signal_data *data)
         {
@@ -406,7 +409,7 @@ class wayfire_tile : public wayfire_plugin_t
                     && !wf_tiling::is_floating_view(conv->focus))
                 wf_tiling::maximize_view(conv->focus);
         };
-        output->signal->connect_signal("focus-view", &view_focused);
+        output->connect_signal("focus-view", &view_focused);
 
         view_fs_request = [=] (signal_data *data)
         {
@@ -421,7 +424,7 @@ class wayfire_tile : public wayfire_plugin_t
                 wf_tiling::unmaximize();
             }
         };
-        output->signal->connect_signal("view-fullscreen-request", &view_fs_request);
+        output->connect_signal("view-fullscreen-request", &view_fs_request);
 
         viewport_changed = [=] (signal_data *data)
         {
@@ -430,7 +433,7 @@ class wayfire_tile : public wayfire_plugin_t
 
             change_workspace({conv->new_vx, conv->new_vy});
         };
-        output->signal->connect_signal("viewport-changed", &viewport_changed);
+        output->connect_signal("viewport-changed", &viewport_changed);
 
         view_set_parent = [=] (signal_data *data)
         {
@@ -440,7 +443,7 @@ class wayfire_tile : public wayfire_plugin_t
             if (conv->view->parent_surface && tile_node_from_view(conv->view))
                 wf_tiling::rem_view(conv->view);
         };
-        output->signal->connect_signal("view-set-parent", &view_set_parent);
+        output->connect_signal("view-set-parent", &view_set_parent);
 
         /* if the focused output changes, we must make sure that the wf_tiling
          * globals point to the right output's root */
@@ -448,13 +451,13 @@ class wayfire_tile : public wayfire_plugin_t
         {
             change_workspace();
         };
-        output->signal->connect_signal("output-gain-focus", &output_gain_focus);
+        output->connect_signal("output-gain-focus", &output_gain_focus);
 
         workarea_changed = [=] (signal_data *data)
         {
             init_roots();
         };
-        output->signal->connect_signal("reserved-workarea", &workarea_changed);
+        output->connect_signal("reserved-workarea", &workarea_changed);
     }
 
     void setup_bindings()

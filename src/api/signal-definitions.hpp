@@ -2,6 +2,7 @@
 #define SIGNAL_DEFINITIONS_HPP
 
 #include "output.hpp"
+#include "../../proto/wayfire-shell-server.h"
 
 struct create_view_signal : public signal_data
 {

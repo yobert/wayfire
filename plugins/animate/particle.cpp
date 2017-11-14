@@ -1,5 +1,7 @@
 #include "particle.hpp"
 #include <opengl.hpp>
+#include <config.h>
+#include <debug.hpp>
 
 #include <GLES3/gl32.h>
 #include <GLES3/gl3ext.h>

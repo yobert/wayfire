@@ -4,7 +4,9 @@
 #include <compositor.h>
 #include <xwayland-api.h>
 #include "debug.hpp"
+#include "core.hpp"
 #include <sys/socket.h>
+#include <signal.h>
 #include <string>
 
 struct xwayland_t {

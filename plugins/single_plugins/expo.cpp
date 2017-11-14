@@ -1,6 +1,9 @@
 #include <output.hpp>
 #include <opengl.hpp>
 #include <core.hpp>
+#include <render-manager.hpp>
+#include <workspace-manager.hpp>
+
 #include "../../shared/config.hpp"
 /* TODO: this file should be included in some header maybe(plugin.hpp) */
 #include <linux/input-event-codes.h>
@@ -138,7 +141,7 @@ class wayfire_expo : public wayfire_plugin_t {
             }
         };
 
-        output->signal->connect_signal("output-resized", &resized_cb);
+        output->connect_signal("output-resized", &resized_cb);
 
         background_color = section->get_color("background", {0, 0, 0, 1});
     }
@@ -252,7 +255,7 @@ class wayfire_expo : public wayfire_plugin_t {
             data.from = move_started_ws;
             data.to   = {target_vx, target_vy};
 
-            output->signal->emit_signal("view-change-viewport", &data);
+            output->emit_signal("view-change-viewport", &data);
         }
     }
     void input_coordinates_to_global_coordinates(int &sx, int &sy)

@@ -1,6 +1,8 @@
 #include "fire.hpp"
 #include <output.hpp>
-#include <signal_definitions.hpp>
+#include <signal-definitions.hpp>
+#include <render-manager.hpp>
+#include <debug.hpp>
 #include "../../shared/config.hpp"
 #include <type_traits>
 #include "system_fade.hpp"
@@ -90,8 +92,8 @@ struct animation_hook
                 delete_hook(this);
         };
 
-        output->signal->connect_signal("destroy-view", &view_removed);
-        output->signal->connect_signal("detach-view", &view_removed);
+        output->connect_signal("destroy-view", &view_removed);
+        output->connect_signal("detach-view", &view_removed);
 
         output->render->auto_redraw(true);
         debug << "animate: set renderer " << output->handle->id << " " << view->desktop_surface << std::endl;
@@ -107,8 +109,8 @@ struct animation_hook
             delete base;
 
         output->render->rem_effect(&hook);
-        output->signal->disconnect_signal("detach-view", &view_removed);
-        output->signal->disconnect_signal("destroy-view", &view_removed);
+        output->disconnect_signal("detach-view", &view_removed);
+        output->disconnect_signal("destroy-view", &view_removed);
 
 
         debug << "animate: reset renderer " << output->handle->id << std::endl;
@@ -167,10 +169,10 @@ class wayfire_animation : public wayfire_plugin_t {
             new wf_system_fade(output, startup_duration);
         };
 
-        output->signal->connect_signal("create-view", &create_cb);
-        output->signal->connect_signal("destroy-view", &destroy_cb);
-        output->signal->connect_signal("wake", &wake_cb);
-        output->signal->connect_signal("output-fade-in-request", &wake_cb);
+        output->connect_signal("create-view", &create_cb);
+        output->connect_signal("destroy-view", &destroy_cb);
+        output->connect_signal("wake", &wake_cb);
+        output->connect_signal("output-fade-in-request", &wake_cb);
     }
 
     /* TODO: enhance - add more animations */
@@ -214,9 +216,10 @@ class wayfire_animation : public wayfire_plugin_t {
 
     void fini()
     {
-        output->signal->disconnect_signal("create-view", &create_cb);
-        output->signal->disconnect_signal("destroy-view", &destroy_cb);
-        output->signal->disconnect_signal("wake", &wake_cb);
+        output->disconnect_signal("create-view", &create_cb);
+        output->disconnect_signal("destroy-view", &destroy_cb);
+        output->disconnect_signal("wake", &wake_cb);
+        output->disconnect_signal("output-fade-in-request", &wake_cb);
     }
     };
 
