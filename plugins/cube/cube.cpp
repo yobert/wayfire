@@ -1,6 +1,7 @@
 #include <opengl.hpp>
 #include <output.hpp>
 #include <core.hpp>
+#include <debug.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
 
@@ -8,6 +9,9 @@
 #include <linux/input-event-codes.h>
 #include <config.hpp>
 #include <config.h>
+
+#define COEFF_DELTA_NEAR 0.89567f
+#define COEFF_DELTA_FAR  2.00000f
 
 #if USE_GLES32
 #include <GLES3/gl32.h>
@@ -18,7 +22,6 @@ class wayfire_cube : public wayfire_plugin_t {
     wayfire_button act_button;
 
     std::vector<wf_workspace_stream*> streams;
-    int vx, vy;
 
     float XVelocity = 0.01;
     float YVelocity = 0.01;
@@ -39,6 +42,18 @@ class wayfire_cube : public wayfire_plugin_t {
         GLuint modelID, vpID;
         GLuint posID, uvID;
     } program;
+
+    struct duple { float start, end; };
+
+    struct
+    {
+        duple offset_y;
+        duple offset_z;
+        duple rotation;
+        int current_step, max_steps;
+
+        bool in_exit;
+    } animation;
 
     glm::mat4 vp, model, view, project;
     float coeff;
@@ -62,6 +77,8 @@ class wayfire_cube : public wayfire_plugin_t {
         YVelocity  = section->get_double("speed_spin_vert",  0.01);
         ZVelocity  = section->get_double("speed_zoom",       0.05);
 
+        animation.max_steps  = section->get_duration("initial_animation", 30);
+
         backgroud_color = section->get_color("background", {0, 0, 0, 1});
 
         act_button = section->get_button("activate",
@@ -80,7 +97,7 @@ class wayfire_cube : public wayfire_plugin_t {
                 uint32_t b, uint32_t s)
         {
             if (s == WL_POINTER_BUTTON_STATE_RELEASED)
-                terminate();
+                input_released();
         };
 
         grab_interface->callbacks.pointer.motion = [=] (weston_pointer* ptr,
@@ -100,6 +117,10 @@ class wayfire_cube : public wayfire_plugin_t {
         use_light = section->get_int("light", 1);
         use_deform = section->get_int("deform", 1);
 #endif
+
+        auto vw = std::get<0>(output->workspace->get_workspace_grid_size());
+        angle = 2 * M_PI / float(vw);
+        coeff = 0.5 / std::tan(angle / 2);
 
         renderer = [=] () {render();};
     }
@@ -167,8 +188,6 @@ class wayfire_cube : public wayfire_plugin_t {
 
             streams.resize(vw);
 
-            angle = 2 * M_PI / float(vw);
-            coeff = 0.5 / std::tan(angle / 2);
 
             for(int i = 0; i < vw; i++) {
                 streams[i] = new wf_workspace_stream;
@@ -185,17 +204,56 @@ class wayfire_cube : public wayfire_plugin_t {
         grab_interface->grab();
 
         output->render->set_renderer(renderer);
+        output->render->auto_redraw(true);
 
         offset = 0;
         offsetVert = 0;
         zoomFactor = 1;
+        animation.current_step = 0;
+        animation.in_exit = false;
+        animation.offset_z = {coeff + COEFF_DELTA_NEAR, coeff + COEFF_DELTA_FAR};
 
-        GetTuple(vx, vy, output->workspace->get_current_workspace());
-        /* important: core uses vx = col vy = row */
-        this->vx = vx, this->vy = vy;
+        output->render->auto_redraw(update_animation());
 
         px = x;
         py = y;
+    }
+
+    bool update_animation()
+    {
+        float z_offset = GetProgress(animation.offset_z.start,
+                                     animation.offset_z.end,
+                                     animation.current_step,
+                                     animation.max_steps);
+
+        /* also update rotation and Y offset */
+        if (animation.in_exit)
+        {
+            offsetVert = GetProgress(animation.offset_y.start,
+                                   animation.offset_y.end,
+                                   animation.current_step,
+                                   animation.max_steps);
+
+            offset = GetProgress(animation.rotation.start,
+                                 animation.rotation.end,
+                                 animation.current_step,
+                                 animation.max_steps);
+        }
+
+        view = glm::lookAt(glm::vec3(0., offsetVert, z_offset),
+                glm::vec3(0., 0., 0.),
+                glm::vec3(0., 1., 0.));
+
+        if (animation.current_step < animation.max_steps)
+        {
+            ++animation.current_step;
+            if (animation.current_step == animation.max_steps)
+                return false;
+            else
+                return true;
+        }
+
+        return false;
     }
 
     void render()
@@ -203,11 +261,13 @@ class wayfire_cube : public wayfire_plugin_t {
         if (program.id == (uint)-1)
             load_program();
 
+
         GL_CALL(glClearColor(backgroud_color.r, backgroud_color.g,
                 backgroud_color.b, backgroud_color.a));
 
         GL_CALL(glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT));
 
+        GetTuple(vx, vy, output->workspace->get_current_workspace());
         for(size_t i = 0; i < streams.size(); i++) {
             if (!streams[i]->running) {
                 streams[i]->ws = std::make_tuple(i, vy);
@@ -221,9 +281,6 @@ class wayfire_cube : public wayfire_plugin_t {
         GL_CALL(glEnable(GL_DEPTH_TEST));
         GL_CALL(glDepthFunc(GL_LESS));
 
-        view = glm::lookAt(glm::vec3(0., 2. + offsetVert, 2),
-                glm::vec3(0., 0., 0.),
-                glm::vec3(0., 1., 0.));
         vp = project * view;
 
         GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
@@ -284,6 +341,32 @@ class wayfire_cube : public wayfire_plugin_t {
 
         GL_CALL(glDisableVertexAttribArray(program.posID));
         GL_CALL(glDisableVertexAttribArray(program.uvID));
+
+        bool result = update_animation();
+        output->render->auto_redraw(result);
+
+        if (animation.in_exit && !result)
+            terminate();
+    }
+
+    void input_released()
+    {
+        auto size = streams.size();
+
+        float dx = -(offset) / angle;
+        int dvx = std::floor(dx + 0.5);
+
+        GetTuple(vx, vy, output->workspace->get_current_workspace());
+        int nvx = (vx + (dvx % size) + size) % size;
+        output->workspace->set_workspace(std::make_tuple(nvx, vy));
+
+        animation.in_exit = true;
+        animation.current_step = 0;
+        animation.offset_z = {coeff + COEFF_DELTA_FAR, coeff + COEFF_DELTA_NEAR};
+        animation.offset_y = {offsetVert, 0};
+        animation.rotation = {offset + 1.0f * dvx * angle, 0};
+
+        update_animation();
     }
 
     void terminate()
@@ -292,23 +375,15 @@ class wayfire_cube : public wayfire_plugin_t {
         output->deactivate_plugin(grab_interface);
 
         auto size = streams.size();
-
-        float dx = -(offset) / angle;
-        int dvx = 0;
-        if(dx > -1e-4)
-            dvx = std::floor(dx + 0.5);
-        else
-            dvx = std::floor(dx - 0.5);
-
-        int nvx = (vx + (dvx % size) + size) % size;
-        output->workspace->set_workspace(std::make_tuple(nvx, vy));
-
         for (uint i = 0; i < size; i++)
             output->render->workspace_stream_stop(streams[i]);
     }
 
     void pointer_moved(int x, int y)
     {
+        if (animation.in_exit)
+            return;
+
         int xdiff = x - px;
         int ydiff = y - py;
         offset += xdiff * XVelocity;
