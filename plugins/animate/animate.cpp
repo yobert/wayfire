@@ -75,45 +75,44 @@ struct animation_hook
                 first_run = false;
             }
 
-            if (!base->step())
+            if (effect_running && !base->step())
+            {
+                effect_running = false;
                 delete_hook(this);
+            }
         };
 
         output->render->add_output_effect(&hook);
-
-        if (!effect_running)
-            return;
 
         view_removed = [=] (signal_data *data)
         {
             auto conv = static_cast<destroy_view_signal*> (data);
             assert(conv);
-            if (conv->destroyed_view == view && !close_animation)
+            if (conv->destroyed_view == view && !close_animation && effect_running)
+            {
+                effect_running = false;
                 delete_hook(this);
+            }
         };
 
         output->connect_signal("destroy-view", &view_removed);
         output->connect_signal("detach-view", &view_removed);
 
         output->render->auto_redraw(true);
-        debug << "animate: set renderer " << output->handle->id << " " << view->desktop_surface << std::endl;
         output->render->set_renderer();
     }
 
     ~animation_hook()
     {
-        if (!effect_running)
+        if (!base)
             return;
 
-        if (base)
-            delete base;
+        delete base;
 
         output->render->rem_effect(&hook);
         output->disconnect_signal("detach-view", &view_removed);
         output->disconnect_signal("destroy-view", &view_removed);
 
-
-        debug << "animate: reset renderer " << output->handle->id << std::endl;
         /* will be false if other animations are still running */
         if (output->deactivate_plugin(iface))
         {
@@ -182,10 +181,8 @@ class wayfire_animation : public wayfire_plugin_t {
         assert(data);
 
         if (data->created_view->is_special)
-        {
-            debug << " got a special view " << data->created_view->output->handle->id << std::endl;
             return;
-        }
+
         if (close_animation != "none")
             data->created_view->surface->ref_count++;
 
