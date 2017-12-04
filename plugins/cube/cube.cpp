@@ -367,13 +367,12 @@ class wayfire_cube : public wayfire_plugin_t {
         animation.rotation = {offset + 1.0f * dvx * angle, 0};
 
         update_animation();
+        output->deactivate_plugin(grab_interface);
     }
 
     void terminate()
     {
         output->render->reset_renderer();
-        output->deactivate_plugin(grab_interface);
-
         auto size = streams.size();
         for (uint i = 0; i < size; i++)
             output->render->workspace_stream_stop(streams[i]);
