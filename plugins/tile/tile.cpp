@@ -58,13 +58,23 @@ namespace wf_tiling
 
     void maximize_view(wayfire_view view, bool make_fs = false)
     {
-        if (root->view == view)
+        if (root->view == view && !make_fs)
             return;
 
         unmaximize();
 
         root->view = view;
-        auto box = make_fs ? view->output->get_full_geometry() : root->box;
+        auto box = root->box;
+
+        if (make_fs)
+        {
+            box = view->output->get_full_geometry();
+            GetTuple(vx, vy, view->output->workspace->get_current_workspace());
+            GetTuple(sw, sh, view->output->get_screen_size());
+
+            box.x += sw * vx;
+            box.y += sh * vy;
+        }
 
         view_fit_to_box(view, box);
         view->set_fullscreen(make_fs);
