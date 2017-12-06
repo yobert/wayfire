@@ -34,6 +34,7 @@ struct wf_gesture_recognizer {
     constexpr static int MIN_FINGERS = 3;
     constexpr static int MIN_SWIPE_DISTANCE = 100;
     constexpr static float MIN_PINCH_DISTANCE = 70;
+    constexpr static int EDGE_SWIPE_THRESHOLD = 50;
 
     struct finger {
         int id;
@@ -150,6 +151,31 @@ struct wf_gesture_recognizer {
             gesture.finger_count = current.size();
             gesture.direction = swipe_dir;
 
+            bool bottom_edge = false, upper_edge = false,
+                 left_edge = false, right_edge = false;
+
+            auto og = core->get_active_output()->get_full_geometry();
+
+            for (auto f : current)
+            {
+                bottom_edge |= (f.second.iy >= og.y + og.height - EDGE_SWIPE_THRESHOLD);
+                upper_edge  |= (f.second.iy <= og.y + EDGE_SWIPE_THRESHOLD);
+                left_edge   |= (f.second.ix <= og.x + EDGE_SWIPE_THRESHOLD);
+                right_edge  |= (f.second.ix >= og.x + og.width - EDGE_SWIPE_THRESHOLD);
+            }
+
+            uint32_t edge_swipe_dir = 0;
+            if (bottom_edge)
+                edge_swipe_dir |= GESTURE_DIRECTION_UP;
+            if (upper_edge)
+                edge_swipe_dir |= GESTURE_DIRECTION_DOWN;
+            if (left_edge)
+                edge_swipe_dir |= GESTURE_DIRECTION_RIGHT;
+            if (right_edge)
+                edge_swipe_dir |= GESTURE_DIRECTION_LEFT;
+
+            if ((edge_swipe_dir & swipe_dir) == swipe_dir)
+                gesture.type = GESTURE_EDGE_SWIPE;
 
             handler(gesture);
             gesture_emitted = true;

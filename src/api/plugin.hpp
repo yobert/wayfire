@@ -24,6 +24,7 @@ using touch_gesture_callback = std::function<void(wayfire_touch_gesture*)>;
 enum wayfire_gesture_type {
     GESTURE_NONE,
     GESTURE_SWIPE,
+    GESTURE_EDGE_SWIPE,
     GESTURE_PINCH
 };
 
