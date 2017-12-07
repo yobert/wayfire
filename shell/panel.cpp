@@ -1,5 +1,6 @@
 #include <sstream>
 #include <unistd.h>
+#include <linux/input-event-codes.h>
 #include "panel.hpp"
 #include "widgets.hpp"
 #include "net.hpp"
@@ -52,6 +53,7 @@ void wayfire_panel::create_panel(uint32_t output, uint32_t _width, uint32_t _hei
     render_frame(true);
 }
 
+int last_x, last_y;
 void wayfire_panel::setup_window()
 {
     window = create_window(width, height);
@@ -70,6 +72,34 @@ void wayfire_panel::setup_window()
     window->pointer_leave = std::bind(std::mem_fn(&wayfire_panel::on_leave), this);
     window->pointer_move  = std::bind(std::mem_fn(&wayfire_panel::on_motion), this, _1, _2);
     window->pointer_button= std::bind(std::mem_fn(&wayfire_panel::on_button), this, _1, _2, _3, _4);
+
+    window->touch_down = [=] (int32_t id, int x, int y)
+    {
+        if (id == 0)
+        {
+            on_button(BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED, x, y);
+            on_motion(x, y);
+            last_x = x;
+            last_y = y;
+        }
+    };
+    window->touch_up = [=] (int32_t id)
+    {
+        if (id == 0)
+        {
+            on_button(BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED, last_x, last_y);
+            on_motion(-1, -1);
+        }
+    };
+    window->touch_motion = [=] (int32_t id, int x, int y)
+    {
+        if (id == 0)
+        {
+            last_x = x;
+            last_y = y;
+            on_motion(x, y);
+        }
+    };
 
     wayfire_shell_add_panel(display.wfshell, output, window->surface);
     if (!autohide)

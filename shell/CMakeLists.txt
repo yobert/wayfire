@@ -4,10 +4,10 @@ find_package(PkgConfig REQUIRED)
 file(GLOB SOURCES "window.cpp" "background.cpp" "panel.cpp" "main.cpp" "widgets.cpp" "gamma.cpp" "net.cpp")
 
 if (HAS_CAIRO_GL_H)
-    list(APPEND SOURCES "egl-surface.cpp")
+    set (BACKEND_SRC "egl-surface.cpp")
     pkg_check_modules(EGL_SURF_BACKEND wayland-egl egl cairo-gl)
 else (HAS_CAIRO_GL_H)
-    list(APPEND SOURCES "shm-surface.cpp")
+    set (BACKEND_SRC "shm-surface.cpp")
 endif (HAS_CAIRO_GL_H)
 
 pkg_check_modules(REQLIBS libevdev freetype2 wayland-client cairo wayland-cursor gio-2.0)
@@ -28,21 +28,23 @@ if (HAS_PIXBUF)
     include_directories(${PIXBUF_INCLUDE_DIRS})
 endif(HAS_PIXBUF)
 
-add_executable(wayfire-shell-client ${SOURCES})
+add_executable(wayfire-shell-client ${SOURCES} ${BACKEND_SRC})
 
 find_package (Threads)
 target_link_libraries (wayfire-shell-client ${CMAKE_THREAD_LIBS_INIT})
-
-# Libraries
 target_link_libraries(wayfire-shell-client wayfire-shell-proto wayfire-config)
 target_link_libraries(wayfire-shell-client ${REQLIBS_LIBRARIES})
-
-if (HAS_CAIRO_GL_H)
-    target_link_libraries(wayfire-shell-client ${EGL_SURF_BACKEND_LIBRARIES})
-endif (HAS_CAIRO_GL_H)
-
 if (HAS_PIXBUF)
     target_link_libraries(wayfire-shell-client ${PIXBUF_LIBRARIES})
-endif (HAS_PIXBUF)
+endif(HAS_PIXBUF)
 
-install(TARGETS wayfire-shell-client DESTINATION lib/wayfire/)
+add_executable(wayfire-virtual-keyboard "vkeyboard.cpp" "window.cpp" ${BACKEND_SRC})
+target_link_libraries(wayfire-virtual-keyboard wayfire-shell-proto wayfire-config)
+target_link_libraries(wayfire-virtual-keyboard ${REQLIBS_LIBRARIES})
+
+if (HAS_CAIRO_GL_H)
+    target_link_libraries(wayfire-virtual-keyboard ${EGL_SURF_BACKEND_LIBRARIES})
+endif (HAS_CAIRO_GL_H)
+
+install(TARGETS wayfire-shell-client     DESTINATION lib/wayfire/)
+install(TARGETS wayfire-virtual-keyboard DESTINATION lib/wayfire/)

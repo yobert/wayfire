@@ -62,4 +62,35 @@
             <arg name="output" type="uint"/>
         </request>
     </interface>
+
+    <interface name="wayfire_virtual_keyboard" version="1">
+        <request name="send_key_pressed">
+            <arg name="key" type="uint"/>
+        </request>
+
+        <request name="send_key_released">
+            <arg name="key" type="uint"/>
+        </request>
+
+        <request name="set_virtual_keyboard">
+            <arg name="surface" type="object" interface="wl_surface"/>
+        </request>
+
+        <request name="configure_keyboard">
+            <arg name="surface" type="object" interface = "wl_surface"/>
+            <arg name="x" type="int"/>
+            <arg name="y" type="int"/>
+        </request>
+
+        <request name="start_interactive_move">
+            <arg name="surface" type="object" interface="wl_surface"/>
+        </request>
+
+        <event name="match_output_size">
+            <arg name="width" type="uint"/>
+            <arg name="height" type="uint"/>
+        </event>
+
+        <event name="show_virtual_keyboard"/>
+    </interface>
 </protocol>

@@ -6,8 +6,6 @@
 #include <map>
 #include <signal.h>
 
-wayfire_display display;
-
 struct wayfire_shell_output {
     wayfire_panel* panel;
     wayfire_background *background;

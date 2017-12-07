@@ -1058,7 +1058,7 @@ void wayfire_output::focus_view(wayfire_view v, weston_seat *seat)
         bring_to_front(v);
     } else {
         debug << "output: " << handle->id << " focus: 0" << std::endl;
-        weston_keyboard_set_focus(weston_seat_get_keyboard(seat), NULL);
+        weston_seat_set_keyboard_focus(seat, NULL);
     }
 
     focus_view_signal data;

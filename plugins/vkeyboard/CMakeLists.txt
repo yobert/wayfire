@@ -37,6 +37,6 @@ add_custom_command(OUTPUT zwp-input-method-protocol-v1.c
     COMMAND ${WAYLAND_SCANNER_EXECUTABLE} code ${WAYLAND_PROTOCOLS_PKGDATADIR}/unstable/input-method/input-method-unstable-v1.xml ${CMAKE_CURRENT_BINARY_DIR}/zwp-input-method-protocol-v1.c
     DEPENDS zwp-input-method-server-v1.h zwp-input-method-client-v1.h)
 
-add_library(vkeyboard SHARED "zwp-text-input-protocol-v1.c" "zwp-input-method-protocol-v1.c")
+add_library(vkeyboard SHARED "vkeyboard.cpp")
 
-#install(TARGETS vkeyboard DESTINATION lib/wayfire/)
+install(TARGETS vkeyboard DESTINATION lib/wayfire/)

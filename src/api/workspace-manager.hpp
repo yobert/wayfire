@@ -55,6 +55,11 @@ class workspace_manager
         virtual std::vector<wayfire_view>
             get_renderable_views_on_workspace(std::tuple<int, int> ws) = 0;
 
+        /* add/remove a custom view which should be rendered on the current output
+         * useful for overlays like on-screen keyboard or similar */
+        virtual void add_renderable_view(wayfire_view view) = 0;
+        virtual void rem_renderable_view(wayfire_view view) = 0;
+
         /* panels are the same on each workspace */
         virtual std::vector<wayfire_view> get_panels() = 0;
 

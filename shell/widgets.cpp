@@ -612,7 +612,7 @@ void launchers_widget::create()
 
     pointer_button = [=] (uint32_t button, uint32_t state, int x, int y)
     {
-        if (button != BTN_LEFT || state != WL_POINTER_BUTTON_STATE_PRESSED)
+        if (button != BTN_LEFT || state != WL_POINTER_BUTTON_STATE_RELEASED)
             return;
 
         for (auto l : launchers)

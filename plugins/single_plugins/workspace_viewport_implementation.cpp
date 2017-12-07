@@ -20,6 +20,8 @@ class viewport_manager : public workspace_manager
         wayfire_output *output;
         wayfire_view background;
 
+        std::vector<wayfire_view> custom_views;
+
         weston_layer panel_layer, normal_layer, background_layer;
         signal_callback_t adjust_fullscreen_layer, view_detached;
 
@@ -52,6 +54,9 @@ class viewport_manager : public workspace_manager
         std::vector<wayfire_view>
         get_renderable_views_on_workspace(std::tuple<int, int> ws);
         std::vector<wayfire_view> get_panels();
+
+        void add_renderable_view(wayfire_view view);
+        void rem_renderable_view(wayfire_view view);
 
         void set_workspace(std::tuple<int, int>);
 
@@ -261,7 +266,7 @@ std::vector<wayfire_view> viewport_manager::get_views_on_workspace(std::tuple<in
 std::vector<wayfire_view> viewport_manager::get_renderable_views_on_workspace(
         std::tuple<int, int> ws)
 {
-    std::vector<wayfire_view> ret;
+    std::vector<wayfire_view> ret = custom_views;
     weston_view *view;
     wayfire_view v;
 
@@ -282,6 +287,21 @@ std::vector<wayfire_view> viewport_manager::get_renderable_views_on_workspace(
 
 
     return ret;
+}
+
+void viewport_manager::add_renderable_view(wayfire_view v)
+{
+    custom_views.push_back(v);
+}
+
+void viewport_manager::rem_renderable_view(wayfire_view v)
+{
+    auto it = custom_views.begin();
+    while(it != custom_views.end())
+    {
+        if (*it == v)
+            it = custom_views.erase(it);
+    }
 }
 
 std::vector<wayfire_view> viewport_manager::get_panels()

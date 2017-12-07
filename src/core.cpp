@@ -550,18 +550,26 @@ void input_manager::grab_input(wayfire_grab_interface iface)
     active_grab = iface;
 
     auto ptr = weston_seat_get_pointer(core->get_current_seat());
-    weston_pointer_start_grab(ptr, &pgrab);
-    weston_keyboard_start_grab(weston_seat_get_keyboard(core->get_current_seat()),
-            &kgrab);
+    auto kbd = weston_seat_get_keyboard(core->get_current_seat());
+
+    if (ptr)
+    {
+        weston_pointer_start_grab(ptr, &pgrab);
+        auto background = core->get_active_output()->workspace->get_background_view();
+        if (background)
+            weston_pointer_set_focus(ptr, background->handle, -10000000, -1000000);
+    }
+
+    if (kbd)
+    {
+        weston_keyboard_start_grab(weston_seat_get_keyboard(core->get_current_seat()),
+                                   &kgrab);
+    }
 
     grab_start_finalized = false;
 
     wl_event_loop_add_idle(wl_display_get_event_loop(core->ec->wl_display),
             idle_finalize_grab, nullptr);
-
-    auto background = core->get_active_output()->workspace->get_background_view();
-    if (background)
-        weston_pointer_set_focus(ptr, background->handle, -10000000, -1000000);
 
     if (is_touch_enabled())
         gr->start_grab();
@@ -570,8 +578,14 @@ void input_manager::grab_input(wayfire_grab_interface iface)
 void input_manager::ungrab_input()
 {
     active_grab = nullptr;
-    weston_pointer_end_grab(weston_seat_get_pointer(core->get_current_seat()));
-    weston_keyboard_end_grab(weston_seat_get_keyboard(core->get_current_seat()));
+
+    auto ptr = weston_seat_get_pointer(core->get_current_seat());
+    auto kbd = weston_seat_get_keyboard(core->get_current_seat());
+
+    if (ptr)
+        weston_pointer_end_grab(ptr);
+    if (kbd)
+        weston_keyboard_end_grab(kbd);
 
     if (is_touch_enabled())
         gr->end_grab();
@@ -823,10 +837,15 @@ void wayfire_core::weston_repaint(weston_output *output, pixman_region32_t *dama
 weston_seat* wayfire_core::get_current_seat()
 {
     weston_seat *seat;
-    wl_list_for_each(seat, &ec->seat_list, link) {
-        return seat;
+    weston_seat *target = nullptr;
+    wl_list_for_each(seat, &ec->seat_list, link)
+    {
+        debug << "found seat (" << seat->seat_name << ")" << std::endl;
+        if (std::strcmp(seat->seat_name, "default") == 0)
+            target = seat;
     }
-    return nullptr;
+    debug << "found " << target << std::endl;
+    return target;
 }
 
 void output_destroyed_callback(wl_listener *, void *data)

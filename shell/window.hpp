@@ -18,6 +18,7 @@ extern struct wayfire_display
     wl_shell *shell;
 
     wayfire_shell *wfshell;
+    wayfire_virtual_keyboard *vkbd;
 } display;
 
 bool setup_wayland_connection();
@@ -32,6 +33,10 @@ struct wayfire_window
     std::function<void()> pointer_leave;
     std::function<void(int x, int y)> pointer_move;
     std::function<void(uint32_t button, uint32_t state, int x, int y)> pointer_button;
+
+    std::function<void(int32_t id, uint32_t x, uint32_t y)> touch_down;
+    std::function<void(int32_t id, uint32_t x, uint32_t y)> touch_motion;
+    std::function<void(int32_t id)> touch_up;
 
     cairo_surface_t *cairo_surface;
 

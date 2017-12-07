@@ -1,7 +1,9 @@
 #include <output.hpp>
+#include <debug.hpp>
 #include <core.hpp>
 #include <view.hpp>
 #include <workspace-manager.hpp>
+#include <render-manager.hpp>
 #include <linux/input.h>
 #include <signal-definitions.hpp>
 #include "snap_signal.hpp"
@@ -36,14 +38,20 @@ class wayfire_move : public wayfire_plugin_t
             activate_binding = [=] (weston_pointer* ptr, uint32_t)
             {
                 is_using_touch = false;
-                this->initiate(core->find_view(ptr->focus), ptr->x, ptr->y);
+                auto view = core->find_view(ptr->focus);
+                if (!view || view->is_special)
+                    return;
+                this->initiate(view, ptr->x, ptr->y);
             };
 
             touch_activate_binding = [=] (weston_touch* touch,
                     wl_fixed_t sx, wl_fixed_t sy)
             {
-                is_using_touch = false;
-                initiate(core->find_view(touch->focus), sx, sy);
+                is_using_touch = true;
+                auto view = core->find_view(touch->focus);
+                if (!view || view->is_special)
+                    return;
+                initiate(view, sx, sy);
             };
 
             output->add_button(button.mod, button.button, &activate_binding);
@@ -106,7 +114,7 @@ class wayfire_move : public wayfire_plugin_t
 
         void initiate(wayfire_view view, wl_fixed_t sx, wl_fixed_t sy)
         {
-            if (!view || view->is_special || view->destroyed)
+            if (view->destroyed)
                 return;
 
             if (!output->workspace->
@@ -131,11 +139,13 @@ class wayfire_move : public wayfire_plugin_t
             if (view->fullscreen)
                 view->set_fullscreen(false);
 
-            view->output->focus_view(nullptr);
+            if (!view->is_special)
+                view->output->focus_view(nullptr);
             if (enable_snap)
                 slot = 0;
 
             this->view = view;
+            output->render->auto_redraw(true);
         }
 
         void input_pressed(uint32_t state)
@@ -145,6 +155,11 @@ class wayfire_move : public wayfire_plugin_t
 
             grab_interface->ungrab();
             output->deactivate_plugin(grab_interface);
+            output->render->auto_redraw(false);
+
+            if (view->is_special)
+                return;
+
             view->output->focus_view(view);
 
             if (enable_snap && slot != 0) {
