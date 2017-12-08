@@ -35,6 +35,8 @@ vkeyboard::vkeyboard(wayfire_config *config)
     if (!display.vkbd)
         return;
 
+    this->config = config;
+
     init_layouts();
     wayfire_virtual_keyboard_add_listener(display.vkbd, &vkeyboard_listener, this);
 }
@@ -383,7 +385,12 @@ void vkeyboard::show()
 
 void vkeyboard::resize(uint32_t w, uint32_t h)
 {
-    width = w * 0.8; height = h * 0.33;
+    auto section = config->get_section("vkeyboard");
+
+    auto wcoeff = section->get_double("widthp", 0.8);
+    auto hcoeff = section->get_double("heightp", 0.33);
+
+    width = w * wcoeff; height = h * hcoeff;
 
     if (window)
         delete_window(window);
@@ -392,7 +399,7 @@ void vkeyboard::resize(uint32_t w, uint32_t h)
     cr = cairo_create(window->cairo_surface);
 
     wayfire_virtual_keyboard_set_virtual_keyboard(display.vkbd, window->surface);
-    wayfire_virtual_keyboard_configure_keyboard(display.vkbd, window->surface, w * 0.1, h - height);
+    wayfire_virtual_keyboard_configure_keyboard(display.vkbd, window->surface, (w - width) / 2.0, h - height);
 
     window->touch_down   = [=] (int32_t id, int x, int y) { if (id == 0) input_motion(x, y); };
     window->touch_motion = [=] (int32_t id, int x, int y) { if (id == 0) input_motion(x, y); };
