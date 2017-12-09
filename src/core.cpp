@@ -499,9 +499,7 @@ input_manager::input_manager()
         auto touch = weston_seat_get_touch(core->get_current_seat());
         tgrab.interface = &touch_grab_interface;
         tgrab.touch = touch;
-
-        touch->default_grab = tgrab;
-        touch->grab = &tgrab;
+        weston_touch_start_grab(touch, &tgrab);
 
         using namespace std::placeholders;
         gr = new wf_gesture_recognizer(touch,

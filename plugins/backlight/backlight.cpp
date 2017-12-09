@@ -68,13 +68,28 @@ class weston_backlight_backend : public backlight_backend
         }
 };
 
+using simple_callback = std::function<void()>;
+
+static int timer_callback(void *data)
+{
+    debug << "timer callback" << std::endl;
+    auto call = *(simple_callback*)(data);
+    call();
+
+    return 0;
+}
+
 class wayfire_backlight : public wayfire_plugin_t {
     key_callback up, down;
     signal_callback_t sleep, wake;
 
+    simple_callback restore_brightness;
+
     backlight_backend *backend = nullptr;
-    int max_brightness;
+    int max_brightness, min_brightness;
     int stored_brightness = -1;
+
+    wl_event_source *timer_source;
 
     public:
         void init(wayfire_config *config)
@@ -95,6 +110,7 @@ class wayfire_backlight : public wayfire_plugin_t {
             }
 
             max_brightness = backend->get_max();
+            min_brightness = section->get_int("min_brightness", 0);
 
             wayfire_key br_up = section->get_key("key_up", {0, KEY_BRIGHTNESSUP});
             wayfire_key br_down = section->get_key("key_down", {0, KEY_BRIGHTNESSDOWN});
@@ -124,19 +140,33 @@ class wayfire_backlight : public wayfire_plugin_t {
 
             sleep = [&] (signal_data*)
             {
+                debug << "sleep start" << std::endl;
                 stored_brightness = backend->get_current();
-                backend->set(0);
+                backend->set(min_brightness);
             };
 
-            wake = [&] (signal_data*)
+            restore_brightness = [&] ()
             {
-                if (stored_brightness > 0)
-                    backend->set(stored_brightness);
+                backend->set(stored_brightness);
 
                 /* if we have switched vt, we might have missed the sleep signal
                  * and thus no brightness will be stored. So if we set the stored_brightness
                  * to zero we won't change it when it happens(but will work after sleeping) */
                 stored_brightness = 0;
+            };
+            timer_source = wl_event_loop_add_timer(wl_display_get_event_loop(core->ec->wl_display),
+                                                   timer_callback, &restore_brightness);
+
+            wake = [&] (signal_data*)
+            {
+                /* a delay is necessary because backlight update is not synchronized
+                 * with the refresh rate, so if we use less delay or none at all,
+                 * we will get a temporary flash before the system fade animation or similar
+                 * kicks in. We need such a large delay because we must be sure that at
+                 * least one VBlank has been reached, then a frame has been rendered
+                 * and after that it has been uploaded to the screen */
+               if (stored_brightness > 0)
+                    wl_event_source_timer_update(timer_source, core->ec->repaint_msec * 4);
             };
 
             output->connect_signal("sleep", &sleep);
