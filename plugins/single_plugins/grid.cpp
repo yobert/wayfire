@@ -14,6 +14,19 @@
 
 /* TODO: add support for more than one window animation at a time */
 
+struct sending_signal
+{
+    std::string name;
+    view_maximized_signal *data;
+};
+void idle_send_signal(void *data)
+{
+    auto conv = (sending_signal*) data;
+    conv->data->view->output->emit_signal(conv->name, conv->data);
+    delete conv->data;
+    delete conv;
+}
+
 class wayfire_grid : public wayfire_plugin_t {
 
     std::unordered_map<wayfire_view, weston_geometry> saved_view_geometry;
@@ -42,6 +55,7 @@ class wayfire_grid : public wayfire_plugin_t {
     struct {
         weston_geometry original, target;
         wayfire_view view;
+        bool maximizing = false, fullscreening = false;
     } current_view;
 
     int total_steps, current_step;
@@ -107,6 +121,8 @@ class wayfire_grid : public wayfire_plugin_t {
         }
 
         start_animation(view, tx, ty, tw, th);
+        if (slots[key] == "c")
+            current_view.maximizing = view->maximized;
     }
 
     void start_animation(wayfire_view view, int tx, int ty, int tw, int th)
@@ -126,6 +142,7 @@ class wayfire_grid : public wayfire_plugin_t {
         current_view.view = view;
         current_view.original = view->geometry;
         current_view.target = {tx, ty, tw, th};
+        current_view.maximizing = current_view.fullscreening = false;
 
         weston_desktop_surface_set_resizing(view->desktop_surface, true);
         view->set_geometry(view->geometry);
@@ -165,7 +182,29 @@ class wayfire_grid : public wayfire_plugin_t {
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
         output->focus_view(current_view.view);
+
+        check_send_signal(current_view.view, current_view.maximizing, current_view.fullscreening);
         current_view.view = nullptr;
+    }
+
+    void check_send_signal(wayfire_view view, bool maximizing, bool fullscreening)
+    {
+        if (!fullscreening && !maximizing)
+            return;
+
+        auto sig = new sending_signal;
+        sig->data = new view_maximized_signal;
+
+        sig->data->view = view;
+        sig->data->state = true;
+
+        if (fullscreening)
+            sig->name = "view-fullscreen";
+        else
+            sig->name = "view-maximized";
+
+        auto loop = wl_display_get_event_loop(core->ec->wl_display);
+        wl_event_loop_add_idle(loop, idle_send_signal, sig);
     }
 
     void toggle_maximized(wayfire_view v, int &x, int &y, int &w, int &h,
@@ -243,10 +282,12 @@ class wayfire_grid : public wayfire_plugin_t {
         if (current_view.view)
         {
             data->view->set_geometry(x, y, w, h);
+            check_send_signal(data->view, data->state, false);
             return;
         }
 
         start_animation(data->view, x, y, w, h);
+        current_view.maximizing = data->state;
     }
 
     void fullscreen_signal_cb(signal_data *ddata)
@@ -260,10 +301,12 @@ class wayfire_grid : public wayfire_plugin_t {
         if (current_view.view || data->view->fullscreen == data->state)
         {
             data->view->set_geometry(x, y, w, h);
+            check_send_signal(data->view, false, data->state);
             return;
         }
 
         start_animation(data->view, x, y, w, h);
+        current_view.fullscreening = data->state;
     }
 };
 

@@ -127,6 +127,8 @@ void wayfire_view_t::resize(int w, int h, bool send_signal)
     data.old_geometry = geometry;
 
     weston_desktop_surface_set_size(desktop_surface, w, h);
+    geometry.width = w;
+    geometry.height = h;
 
     if (send_signal)
         output->emit_signal("view-geometry-changed", &data);

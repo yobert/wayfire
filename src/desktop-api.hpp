@@ -97,17 +97,18 @@ void desktop_surface_maximized_requested(weston_desktop_surface *ds,
     if (!view || view->maximized == maximized)
         return;
 
-    view->set_maximized(maximized);
+    view_maximized_signal data;
+    data.view = view;
+    data.state = maximized;
 
     if (view->is_mapped) {
-        view_maximized_signal data;
-        data.view = view;
-        data.state = maximized;
-
         view->output->emit_signal("view-maximized-request", &data);
     } else if (maximized) {
         view->set_geometry(view->output->workspace->get_workarea());
+        view->output->emit_signal("view-maximized", &data);
     }
+
+    view->set_maximized(maximized);
 }
 
 void desktop_surface_fullscreen_requested(weston_desktop_surface *ds,
@@ -129,14 +130,15 @@ void desktop_surface_fullscreen_requested(weston_desktop_surface *ds,
         view->move(view->geometry.x + ng.x - pg.x, view->geometry.y + ng.y - pg.y);
     }
 
-    if (view->is_mapped) {
-        view_fullscreen_signal data;
-        data.view = view;
-        data.state = full;
+    view_fullscreen_signal data;
+    data.view = view;
+    data.state = full;
 
+    if (view->is_mapped) {
         wo->emit_signal("view-fullscreen-request", &data);
     } else if (full) {
         view->set_geometry(view->output->get_full_geometry());
+        view->output->emit_signal("view-fullscreen", &data);
     }
 
     view->set_fullscreen(full);

@@ -34,6 +34,8 @@ struct view_geometry_changed_signal : public signal_data
     weston_geometry old_geometry;
 };
 
+/* The view_maximized_signal and view_fullscreen_signals are
+ * used for both those requests and when these have been applied */
 struct view_maximized_signal : public signal_data
 {
     wayfire_view view;

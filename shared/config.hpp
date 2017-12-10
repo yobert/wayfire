@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <string>
-#include <unordered_map>
+#include <map>
 
 struct wayfire_key {
     uint32_t mod;
@@ -22,7 +22,7 @@ struct wayfire_color {
 struct wayfire_config_section {
     std::string name;
     int refresh_rate;
-    std::unordered_map<std::string, std::string> options;
+    std::map<std::string, std::string> options;
 
     std::string get_string(std::string name, std::string default_value);
     int get_int(std::string name, int default_value);
