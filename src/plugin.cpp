@@ -40,7 +40,7 @@ bool wayfire_grab_interface_t::is_grabbed()
 
 void wayfire_plugin_t::fini() {}
 
-const float MPI = 3.1415926535 / 2;
+const float MPI = 3.1415926535;
 
 float GetProgress(float start, float end, float current_step, float max_steps)
 {
@@ -48,6 +48,6 @@ float GetProgress(float start, float end, float current_step, float max_steps)
         return end;
 
     float c = current_step / max_steps;
-    float prog = std::sin(c * MPI);
+    float prog = (std::sin(1.5 * MPI + MPI * c) + 1) / 2.0;
     return prog * end + (1 - prog) * start;
 }
