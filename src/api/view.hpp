@@ -44,10 +44,17 @@ struct wf_custom_view_data
     virtual ~wf_custom_view_data() {}
 };
 
+class wayfire_view_t;
+using wayfire_view = std::shared_ptr<wayfire_view_t>;
+
 class wayfire_view_t
 {
     public:
-        weston_desktop_surface *desktop_surface, *parent_surface = nullptr;
+        weston_desktop_surface *desktop_surface;
+
+        wayfire_view parent = nullptr;
+        std::vector<wayfire_view> children;
+
         weston_surface *surface;
         weston_view *handle;
 
@@ -105,6 +112,4 @@ class wayfire_view_t
         void simple_render(uint32_t bits = 0, pixman_region32_t *damage = nullptr);
         void render(uint32_t bits = 0, pixman_region32_t *damage = nullptr);
 };
-
-using wayfire_view = std::shared_ptr<wayfire_view_t>;
 #endif

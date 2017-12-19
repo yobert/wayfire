@@ -179,14 +179,22 @@ void wayfire_view_t::map(int sx, int sy)
             geometry.width = ds_geometry.width;
             geometry.height = ds_geometry.height;
 
-            auto parent_view = core->find_view(parent_surface);
-            if (parent_view)
+            auto workarea = output->workspace->get_workarea();
+            if (parent)
             {
-                sx += parent_view->geometry.x + (parent_view->geometry.width  - geometry.width) / 2;
-                sy += parent_view->geometry.y + (parent_view->geometry.height - geometry.height) / 2;
+                if (parent->is_mapped)
+                {
+                    sx += parent->geometry.x + (parent->geometry.width  - geometry.width) / 2;
+                    sy += parent->geometry.y + (parent->geometry.height - geometry.height) / 2;
+                } else
+                {
+                    /* if we have a parent which still isn't mapped, we cannot determine
+                     * the view's position, so we center it on the screen */
+                    sx += workarea.width / 2 - geometry.width / 2;
+                    sy += workarea.height/ 2 - geometry.height/ 2;
+                }
             } else
             {
-                auto workarea = output->workspace->get_workarea();
                 sx += workarea.x;
                 sy += workarea.y;
             }

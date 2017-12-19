@@ -3,6 +3,7 @@
 
 #include <compositor.h>
 #include <libweston-desktop.h>
+#include <algorithm>
 
 #include "debug.hpp"
 #include "core.hpp"
@@ -33,6 +34,13 @@ void desktop_surface_removed(weston_desktop_surface *surface, void *user_data)
 
     auto sig_data = destroy_view_signal{view};
     view->output->emit_signal("destroy-view", &sig_data);
+
+    if (view->parent)
+    {
+        auto it = std::find(view->parent->children.begin(), view->parent->children.end(), view);
+        assert(it != view->parent->children.end());
+        view->parent->children.erase(it);
+    }
 
     core->erase_view(view, view->keep_count <= 0);
 }
@@ -154,7 +162,8 @@ void desktop_surface_set_parent(weston_desktop_surface *ds,
     if (!view || !parent)
         return;
 
-    view->parent_surface = parent_ds;
+    view->parent = parent;
+    parent->children.push_back(view);
 
     view_set_parent_signal sdata; sdata.view = view;
     view->output->emit_signal("view-set-parent", &sdata);

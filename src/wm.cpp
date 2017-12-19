@@ -121,3 +121,37 @@ void wayfire_fullscreen::init(wayfire_config *conf)
     };
     output->connect_signal("_activation_request", &act_request);
 }
+
+void wayfire_handle_focus_parent::focus_view(wayfire_view view)
+{
+    last_view = view;
+    view->output->bring_to_front(view);
+    for (auto child : view->children)
+        focus_view(child);
+}
+
+void wayfire_handle_focus_parent::init(wayfire_config*)
+{
+    focus_event = [&] (signal_data *data)
+    {
+        auto conv = static_cast<focus_view_signal*> (data);
+        assert(conv);
+        if (!conv->focus || intercept_recursion)
+            return;
+
+
+        auto to_focus = conv->focus;
+        while(to_focus->parent)
+            to_focus = to_focus->parent;
+
+        focus_view(to_focus);
+
+        /* because output->focus_view() will fire focus-view signal again,
+         * we use this flag to know that this is happening and don't fall
+         * into the depths of the infinite recursion */
+        intercept_recursion = true;
+        output->focus_view(last_view);
+        intercept_recursion = false;
+    };
+    output->connect_signal("focus-view", &focus_event);
+}

@@ -132,6 +132,7 @@ struct plugin_manager
         plugins.push_back(create_plugin<wayfire_close>());
         plugins.push_back(create_plugin<wayfire_exit>());
         plugins.push_back(create_plugin<wayfire_fullscreen>());
+        plugins.push_back(create_plugin<wayfire_handle_focus_parent>());
     }
 };
 

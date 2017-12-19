@@ -147,7 +147,7 @@ namespace wf_tiling
 
     bool is_floating_view(wayfire_view view)
     {
-        return view->is_special || view->parent_surface != nullptr;
+        return view->is_special || view->parent != nullptr;
     }
 
     namespace selector
@@ -450,7 +450,7 @@ class wayfire_tile : public wayfire_plugin_t
             auto conv = static_cast<view_set_parent_signal*> (data);
             assert(conv);
 
-            if (conv->view->parent_surface && tile_node_from_view(conv->view))
+            if (conv->view->parent && tile_node_from_view(conv->view))
                 wf_tiling::rem_view(conv->view);
         };
         output->connect_signal("view-set-parent", &view_set_parent);
