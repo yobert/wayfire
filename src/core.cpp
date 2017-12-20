@@ -838,11 +838,9 @@ weston_seat* wayfire_core::get_current_seat()
     weston_seat *target = nullptr;
     wl_list_for_each(seat, &ec->seat_list, link)
     {
-        debug << "found seat (" << seat->seat_name << ")" << std::endl;
         if (std::strcmp(seat->seat_name, "default") == 0)
             target = seat;
     }
-    debug << "found " << target << std::endl;
     return target;
 }
 

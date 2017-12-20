@@ -392,8 +392,6 @@ void render_manager::paint(pixman_region32_t *damage)
         pixman_region32_copy(&prev_damage, damage);
 
         update_full_damage_tracking();
-
-        debug << "updated tracking" << std::endl;
     }
 
     if (renderer)
