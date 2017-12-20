@@ -14,6 +14,7 @@ class vkeyboard : public wayfire_plugin_t
     weston_layer input_layer;
     touch_gesture_callback swipe;
 
+    key_callback disable_real_keyboard;
     weston_seat *vseat = nullptr;
     weston_keyboard *vkbd;
 
@@ -129,6 +130,15 @@ void bind_virtual_keyboard(wl_client *client, void *data, uint32_t version, uint
     vk->bind(resource);
 }
 
+using default_grab_key_type = void (*) (weston_keyboard_grab*, uint32_t, uint32_t, uint32_t);
+default_grab_key_type default_grab_cb;
+wayfire_key disabling_key;
+
+weston_keyboard_grab_interface ignore_grab_iface;
+
+void ignore_key(weston_keyboard_grab* kbd, uint32_t, uint32_t key, uint32_t)
+{ }
+
 void vkeyboard::init(wayfire_config *config)
 {
     grab_interface->name = "vkeyboard";
@@ -153,10 +163,34 @@ void vkeyboard::init(wayfire_config *config)
     wayfire_touch_gesture show_gesture;
     show_gesture.type = GESTURE_EDGE_SWIPE;
     show_gesture.finger_count = 3;
-
     output->add_gesture(show_gesture, &swipe);
 
-    keyboard_exec_path = config->get_section("vkeyboard")->get_string("path", keyboard_exec_path);
+    auto section = config->get_section("vkeyboard");
+    disabling_key = section->get_key("disable_real_keyboard",
+                                     {MODIFIER_ALT | MODIFIER_CTRL, KEY_K});
+    if (disabling_key.keyval)
+    {
+        disable_real_keyboard = [=] (weston_keyboard *kbd, uint32_t key)
+        {
+            ignore_grab_iface.cancel = kbd->default_grab.interface->cancel;
+            ignore_grab_iface.modifiers = kbd->default_grab.interface->modifiers;
+            ignore_grab_iface.key = kbd->default_grab.interface->key;
+
+            if (ignore_grab_iface.key == ignore_key)
+            {
+                ignore_grab_iface.key = default_grab_cb;
+            } else
+            {
+                default_grab_cb = kbd->default_grab.interface->key;
+                ignore_grab_iface.key = ignore_key;
+            }
+
+            kbd->default_grab.interface = &ignore_grab_iface;
+        };
+        output->add_key(disabling_key.mod, disabling_key.keyval, &disable_real_keyboard);
+    }
+
+    keyboard_exec_path = section->get_string("path", keyboard_exec_path);
 }
 
 void vkeyboard::bind(wl_resource *res)
