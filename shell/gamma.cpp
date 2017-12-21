@@ -100,6 +100,9 @@ void gamma_adjust::adjustment_loop()
         if (current_temp != target || iter == 0) {
             continuous_change(current_temp, target);
             current_temp = target;
+        } else
+        {
+            continuous_change(target, target);
         }
         ++iter;
 
