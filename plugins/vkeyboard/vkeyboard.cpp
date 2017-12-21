@@ -130,13 +130,13 @@ void bind_virtual_keyboard(wl_client *client, void *data, uint32_t version, uint
     vk->bind(resource);
 }
 
-using default_grab_key_type = void (*) (weston_keyboard_grab*, uint32_t, uint32_t, uint32_t);
+using default_grab_key_type = void (*) (weston_keyboard_grab*, const timespec*, uint32_t, uint32_t);
 default_grab_key_type default_grab_cb;
 wayfire_key disabling_key;
 
 weston_keyboard_grab_interface ignore_grab_iface;
 
-void ignore_key(weston_keyboard_grab* kbd, uint32_t, uint32_t key, uint32_t)
+void ignore_key(weston_keyboard_grab* kbd, const timespec*, uint32_t key, uint32_t)
 { }
 
 void vkeyboard::init(wayfire_config *config)
@@ -213,14 +213,16 @@ void vkeyboard::send_key_down(uint32_t key)
     auto kbd = weston_seat_get_keyboard(core->get_current_seat());
     weston_seat_set_keyboard_focus(vseat, kbd->focus);
 
-    auto t = time(NULL);
-    notify_key(vseat, t, key, WL_KEYBOARD_KEY_STATE_PRESSED, STATE_UPDATE_AUTOMATIC);
+    timespec t;
+    timespec_get(&t, TIME_UTC);
+    notify_key(vseat, &t, key, WL_KEYBOARD_KEY_STATE_PRESSED, STATE_UPDATE_AUTOMATIC);
 }
 
 void vkeyboard::send_key_up(uint32_t key)
 {
-    auto t = time(NULL);
-    notify_key(vseat, t, key, WL_KEYBOARD_KEY_STATE_RELEASED, STATE_UPDATE_AUTOMATIC);
+    timespec t;
+    timespec_get(&t, TIME_UTC);
+    notify_key(vseat, &t, key, WL_KEYBOARD_KEY_STATE_RELEASED, STATE_UPDATE_AUTOMATIC);
 }
 
 void vkeyboard::set_keyboard(wayfire_view view)

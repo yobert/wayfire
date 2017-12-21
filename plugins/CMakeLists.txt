@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1.0)
 
 include_directories(INCLUDE_CONFIG_H)
-pkg_check_modules(PLUGINS REQUIRED pixman-1 libweston-3)
+pkg_check_modules(PLUGINS REQUIRED pixman-1 libweston-4)
 
 link_directories(${PLUGINS_LIBRARY_DIRS})
 include_directories(${PLUGINS_INCLUDE_DIRS})

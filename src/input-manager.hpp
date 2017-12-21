@@ -54,11 +54,11 @@ class input_manager
         void propagate_keyboard_grab_mod(weston_keyboard *kbd, uint32_t depressed,
                                          uint32_t locked, uint32_t latched, uint32_t group);
 
-        void propagate_touch_down(weston_touch*, uint32_t, int32_t, wl_fixed_t, wl_fixed_t);
+        void propagate_touch_down(weston_touch*, const timespec*, int32_t, wl_fixed_t, wl_fixed_t);
         void grab_send_touch_down(weston_touch*, int32_t, wl_fixed_t, wl_fixed_t);
-        void propagate_touch_up(weston_touch*, uint32_t, int32_t);
+        void propagate_touch_up(weston_touch*, const timespec*, int32_t);
         void grab_send_touch_up(weston_touch*, int32_t);
-        void propagate_touch_motion(weston_touch*, uint32_t, int32_t, wl_fixed_t, wl_fixed_t);
+        void propagate_touch_motion(weston_touch*, const timespec*, int32_t, wl_fixed_t, wl_fixed_t);
         void grab_send_touch_motion(weston_touch*, int32_t, wl_fixed_t, wl_fixed_t);
 
         void check_touch_bindings(weston_touch*, wl_fixed_t sx, wl_fixed_t sy);

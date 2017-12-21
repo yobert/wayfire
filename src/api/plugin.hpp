@@ -1,7 +1,7 @@
 #ifndef PLUGIN_H
 #define PLUGIN_H
 
-#include <libweston-3/compositor.h>
+#include <compositor.h>
 #include <functional>
 #include <memory>
 

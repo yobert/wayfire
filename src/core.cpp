@@ -2,6 +2,7 @@
 #include <sys/wait.h>
 #include <cstring>
 #include <cassert>
+#include <time.h>
 
 #include <libweston-desktop.h>
 
@@ -45,7 +46,6 @@ struct wf_gesture_recognizer {
 
     std::map<int, finger> current;
 
-    uint32_t last_time;
     weston_touch *touch;
 
     bool in_gesture = false, gesture_emitted = false;
@@ -59,7 +59,6 @@ struct wf_gesture_recognizer {
             std::function<void(wayfire_touch_gesture)> hnd)
     {
         touch = _touch;
-        last_time = 0;
         handler = hnd;
     }
 
@@ -94,7 +93,8 @@ struct wf_gesture_recognizer {
         for (auto &f : current) {
             if (f.first != reason_id) {
                 if (f.second.sent_to_client) {
-                    weston_touch_send_up(touch, last_time, f.first);
+                    auto t = get_ctime();
+                    weston_touch_send_up(touch, &t, f.first);
                 } else if (f.second.sent_to_grab) {
                     core->input->grab_send_touch_up(touch, f.first);
                 }
@@ -223,6 +223,14 @@ struct wf_gesture_recognizer {
             continue_gesture(id, sx, sy);
     }
 
+    timespec get_ctime()
+    {
+        timespec ts;
+        timespec_get(&ts, TIME_UTC);
+
+        return ts;
+    }
+
     void register_touch(int id, int sx, int sy)
     {
         auto& f = current[id] = {id, sx, sy, sx, sy, false, false};
@@ -256,7 +264,8 @@ struct wf_gesture_recognizer {
 
         if (send_to_client)
         {
-            weston_touch_send_down(touch, last_time, id, wl_fixed_from_int(sx),
+            timespec t = get_ctime();
+            weston_touch_send_down(touch, &t, id, wl_fixed_from_int(sx),
                     wl_fixed_from_int(sy));
         } else if (send_to_grab)
         {
@@ -280,7 +289,8 @@ struct wf_gesture_recognizer {
                 reset_gesture();
             }
         } else if (f.sent_to_client) {
-            weston_touch_send_up(touch, last_time, id);
+            timespec t = get_ctime();
+            weston_touch_send_up(touch, &t, id);
         } else if (f.sent_to_grab) {
             core->input->grab_send_touch_up(touch, id);
         }
@@ -309,7 +319,10 @@ struct wf_gesture_recognizer {
         for (auto &f : current)
         {
             if (f.second.sent_to_client)
-                weston_touch_send_up(touch, last_time, f.first);
+            {
+                timespec t = get_ctime();
+                weston_touch_send_up(touch, &t, f.first);
+            }
 
             f.second.sent_to_client = false;
 
@@ -330,18 +343,18 @@ struct wf_gesture_recognizer {
 
 /* these simply call the corresponding input_manager functions,
  * you can think of them as wrappers for use of libweston */
-void touch_grab_down(weston_touch_grab *grab, uint32_t time, int id,
+void touch_grab_down(weston_touch_grab *grab, const timespec* time, int id,
         wl_fixed_t sx, wl_fixed_t sy)
 {
     core->input->propagate_touch_down(grab->touch, time, id, sx, sy);
 }
 
-void touch_grab_up(weston_touch_grab *grab, uint32_t time, int id)
+void touch_grab_up(weston_touch_grab *grab, const timespec* time, int id)
 {
     core->input->propagate_touch_up(grab->touch, time, id);
 }
 
-void touch_grab_motion(weston_touch_grab *grab, uint32_t time, int id,
+void touch_grab_motion(weston_touch_grab *grab, const timespec* time, int id,
         wl_fixed_t sx, wl_fixed_t sy)
 {
     core->input->propagate_touch_motion(grab->touch, time, id, sx, sy);
@@ -358,26 +371,23 @@ static const weston_touch_grab_interface touch_grab_interface = {
 /* called upon the corresponding event, we actually just call the gesture
  * recognizer functions, they will send the touch event to the client
  * or to plugin callbacks, or emit a gesture */
-void input_manager::propagate_touch_down(weston_touch* touch, uint32_t time,
+void input_manager::propagate_touch_down(weston_touch* touch, const timespec* time,
         int32_t id, wl_fixed_t sx, wl_fixed_t sy)
 {
-    gr->last_time = time;
     gr->touch = touch;
     gr->register_touch(id, wl_fixed_to_int(sx), wl_fixed_to_int(sy));
 }
 
-void input_manager::propagate_touch_up(weston_touch* touch, uint32_t time,
+void input_manager::propagate_touch_up(weston_touch* touch, const timespec* time,
         int32_t id)
 {
-    gr->last_time = time;
     gr->touch = touch;
     gr->unregister_touch(id);
 }
 
-void input_manager::propagate_touch_motion(weston_touch* touch, uint32_t time,
+void input_manager::propagate_touch_motion(weston_touch* touch, const timespec* time,
         int32_t id, wl_fixed_t sx, wl_fixed_t sy)
 {
-    gr->last_time = time;
     gr->touch = touch;
     gr->update_touch(id, wl_fixed_to_int(sx), wl_fixed_to_int(sy));
 
@@ -427,19 +437,19 @@ void input_manager::check_touch_bindings(weston_touch* touch, wl_fixed_t sx, wl_
 }
 
 void pointer_grab_focus(weston_pointer_grab*) { }
-void pointer_grab_axis(weston_pointer_grab *grab, uint32_t time, weston_pointer_axis_event *ev)
+void pointer_grab_axis(weston_pointer_grab *grab, const timespec* time, weston_pointer_axis_event *ev)
 {
     core->input->propagate_pointer_grab_axis(grab->pointer, ev);
 }
 void pointer_grab_axis_source(weston_pointer_grab*, uint32_t) {}
 void pointer_grab_frame(weston_pointer_grab*) {}
-void pointer_grab_motion(weston_pointer_grab *grab, uint32_t time,
+void pointer_grab_motion(weston_pointer_grab *grab, const timespec* time,
         weston_pointer_motion_event *ev)
 {
     weston_pointer_move(grab->pointer, ev);
     core->input->propagate_pointer_grab_motion(grab->pointer, ev);
 }
-void pointer_grab_button(weston_pointer_grab *grab, uint32_t time,
+void pointer_grab_button(weston_pointer_grab *grab, const timespec* time,
         uint32_t button, uint32_t state)
 {
     if (grab_start_finalized) {
@@ -460,7 +470,7 @@ static const weston_pointer_grab_interface pointer_grab_interface = {
 };
 
 /* keyboard grab callbacks */
-void keyboard_grab_key(weston_keyboard_grab *grab, uint32_t time, uint32_t key,
+void keyboard_grab_key(weston_keyboard_grab *grab, const timespec* time, uint32_t key,
                        uint32_t state)
 {
     if (grab_start_finalized) {
@@ -640,9 +650,10 @@ struct key_callback_data {
     wayfire_output *output;
 };
 
-static void keybinding_handler(weston_keyboard *kbd, uint32_t time, uint32_t key, void *data)
+static void keybinding_handler(weston_keyboard *kbd, const timespec* time, uint32_t key, void *data)
 {
-    auto ddata = (key_callback_data*) data;
+    auto ddata = static_cast<key_callback_data*>(data);
+    assert(ddata);
     if (core->get_active_output() == ddata->output)
         (*ddata->call) (kbd, key);
 }
@@ -652,10 +663,12 @@ struct button_callback_data {
     wayfire_output *output;
 };
 
-static void buttonbinding_handler(weston_pointer *ptr, uint32_t time,
+static void buttonbinding_handler(weston_pointer *ptr, const timespec* time,
         uint32_t button, void *data)
 {
-    auto ddata = (button_callback_data*) data;
+    auto ddata = static_cast<button_callback_data*>(data);
+    assert(ddata);
+
     if (core->get_active_output() == ddata->output)
         (*ddata->call) (ptr, button);
 }

@@ -34,7 +34,7 @@ void wayfire_focus::init(wayfire_config *)
     grab_interface->name = "_wf_focus";
     grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
 
-    callback = [=] (weston_pointer * ptr, uint32_t button)
+    callback = [=] (weston_pointer *ptr, uint32_t button)
     {
         core->focus_output(core->get_output_at(
                     wl_fixed_to_int(ptr->x), wl_fixed_to_int(ptr->y)));
