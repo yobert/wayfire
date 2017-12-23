@@ -38,7 +38,8 @@ on_wifi_properties_changed (GDBusProxy          *proxy,
             {
                 info->mutex.lock();
                 info->strength = g_variant_get_byte(value);
-                info->updated = true;
+                for (auto& p : info->updated)
+                    p.second = true;
                 info->mutex.unlock();
             }
         }
@@ -131,7 +132,9 @@ struct network_manager_provider : public network_provider_backend
 
         info->mutex.lock();
         info->strength = g_variant_get_byte(gv);
-        info->updated = true;
+
+        for (auto& p : info->updated)
+            p.second = true;
         info->mutex.unlock();
 
         g_variant_unref(gv);
@@ -154,7 +157,8 @@ struct network_manager_provider : public network_provider_backend
         info->strength = 100;
         info->name = "Ethernet";
 
-        info->updated = true;
+        for (auto& p : info->updated)
+            p.second = true;
         info->mutex.unlock();
     }
 
@@ -171,7 +175,8 @@ struct network_manager_provider : public network_provider_backend
         {
             info->mutex.lock();
             info->name = "No network";
-            info->updated = true;
+            for (auto& p : info->updated)
+                p.second = true;
             info->strength = 0;
             info->mutex.unlock();
 
@@ -228,7 +233,8 @@ struct network_manager_provider : public network_provider_backend
     void load_initial_connection_info()
     {
         /* don't have to lock mutex, as we are still in the main thread */
-        info->updated = true;
+        for (auto& p : info->updated)
+            p.second = true;
         info->icon = info->name = "none";
         info->strength = 0;
 
@@ -261,8 +267,6 @@ struct network_manager_provider : public network_provider_backend
 
         g_main_loop_unref(loop);
         g_object_unref(nm_proxy);
-
-        delete this;
     }
 
     ~network_manager_provider()
@@ -270,20 +274,42 @@ struct network_manager_provider : public network_provider_backend
     }
 };
 
+std::thread network_widget::updater_thread;
+connection_info *network_widget::connection;
+network_provider_backend *network_widget::backend = nullptr;
+
 void network_widget::create()
 {
-    backend = new network_manager_provider();
-    if (!backend->create(&connection))
+    if (!backend)
     {
-        delete backend;
-        backend = nullptr;
-        return;
+        backend = new network_manager_provider();
+        connection = new connection_info;
+        if (!backend || !connection || !backend->create(connection))
+        {
+            std::cerr << "Failed to create network backend!" << std::endl;
+
+            delete backend;
+            backend = nullptr;
+            return;
+        }
+
+        updater_thread = std::thread([=] () { backend->thread_loop(); });
     }
 
-    load_default_font();
-    updater_thread = std::thread([=] () { backend->thread_loop(); });
+    connection->mutex.lock();
+    id = (connection->updated.empty() ? 0 : (--connection->updated.end())->first) + 1;
+    connection->updated[id] = true;
+    connection->mutex.unlock();
 
-        width = 20 * font_size;
+    load_default_font();
+    width = 20 * font_size;
+}
+
+network_widget::~network_widget()
+{
+    connection->mutex.lock();
+    connection->updated.erase(id);
+    connection->mutex.unlock();
 }
 
 bool network_widget::update()
@@ -293,10 +319,10 @@ bool network_widget::update()
 
     bool result;
     std::string text;
-    connection.mutex.lock();
-    result = connection.updated;
-    text = connection.name;
-    connection.mutex.unlock();
+    connection->mutex.lock();
+    result = connection->updated[id];
+    text = connection->name;
+    connection->mutex.unlock();
 
     if (result)
     {
@@ -338,23 +364,23 @@ void network_widget::repaint()
     std::string text;
     wayfire_color color;
 
-    connection.mutex.lock();
+    connection->mutex.lock();
 
 #define STRENGTH_GOOD 40
 #define STRENGTH_AVG 25
 
-    text = connection.name;
-    if (connection.strength >= STRENGTH_GOOD)
+    text = connection->name;
+    if (connection->strength >= STRENGTH_GOOD)
         color = interpolate_color(color_good, color_avg,
-                (connection.strength - STRENGTH_GOOD) * 1.0 / (100 - STRENGTH_GOOD));
-    else if (connection.strength >= STRENGTH_AVG)
+                (connection->strength - STRENGTH_GOOD) * 1.0 / (100 - STRENGTH_GOOD));
+    else if (connection->strength >= STRENGTH_AVG)
         color = interpolate_color(color_avg, color_bad,
-                (connection.strength - STRENGTH_AVG) * 1.0 / (STRENGTH_GOOD - STRENGTH_AVG));
+                (connection->strength - STRENGTH_AVG) * 1.0 / (STRENGTH_GOOD - STRENGTH_AVG));
     else
         color = color_bad;
 
-    connection.updated = false;
-    connection.mutex.unlock();
+    connection->updated[id] = false;
+    connection->mutex.unlock();
 
     cairo_set_source_rgba(cr, color.r, color.g, color.b, color.a);
 

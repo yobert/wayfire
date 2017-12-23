@@ -16,6 +16,7 @@ class wayfire_background {
     public:
         wayfire_window *window;
         wayfire_background(std::string image);
+        ~wayfire_background();
         void create_background(uint32_t output, uint32_t w, uint32_t h);
         void resize(uint32_t w, uint32_t h);
 };

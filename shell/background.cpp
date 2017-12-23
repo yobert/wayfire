@@ -87,7 +87,6 @@ void wayfire_background::create_background(uint32_t output, uint32_t w, uint32_t
 void wayfire_background::resize(uint32_t w, uint32_t h)
 {
     cairo_destroy(cr);
-    cairo_surface_destroy(img_surface);
     delete_window(window);
     create_background(output, w, h);
 }
@@ -95,4 +94,11 @@ void wayfire_background::resize(uint32_t w, uint32_t h)
 void wayfire_background::on_enter(wl_pointer *ptr, uint32_t serial, int x, int y)
 {
     show_default_cursor(serial);
+}
+
+wayfire_background::~wayfire_background()
+{
+    cairo_destroy(cr);
+    cairo_surface_destroy(img_surface);
+    delete_window(window);
 }

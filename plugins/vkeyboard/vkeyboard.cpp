@@ -98,7 +98,6 @@ void start_interactive_move(struct wl_client *client,
         data.serial = touch->grab_serial;
     }
 
-
     view->output->emit_signal("move-request", &data);
 }
 

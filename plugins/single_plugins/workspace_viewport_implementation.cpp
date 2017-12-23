@@ -1,6 +1,5 @@
 #include <output.hpp>
 #include <core.hpp>
-#include <debug.hpp>
 #include <view.hpp>
 #include <workspace-manager.hpp>
 #include <signal-definitions.hpp>
@@ -38,12 +37,14 @@ class viewport_manager : public workspace_manager
 
     public:
         void init(wayfire_output *output);
+        ~viewport_manager();
 
         void view_bring_to_front(wayfire_view view);
         void view_removed(wayfire_view view);
 
         bool view_visible_on(wayfire_view, std::tuple<int, int>);
 
+        void for_all_view(view_callback_proc_t call);
         void for_each_view(view_callback_proc_t call);
         void for_each_view_reverse(view_callback_proc_t call);
 
@@ -120,16 +121,21 @@ void viewport_manager::init(wayfire_output *o)
     o->connect_signal("detach-view", &view_detached);
 }
 
+viewport_manager::~viewport_manager()
+{
+    weston_layer_unset_position(&normal_layer);
+    weston_layer_unset_position(&panel_layer);
+    weston_layer_unset_position(&background_layer);
+}
+
 void viewport_manager::view_bring_to_front(wayfire_view view)
 {
-    debug << "view bring_to_front" << view->desktop_surface << std::endl;
     if (view->handle->layer_link.layer == NULL)
         weston_layer_entry_insert(&normal_layer.view_list, &view->handle->layer_link);
 }
 
 void viewport_manager::view_removed(wayfire_view view)
 {
-    debug << "view removed" << view->desktop_surface << std::endl;
     if (view->handle->layer_link.layer)
         weston_layer_entry_remove(&view->handle->layer_link);
 
@@ -148,26 +154,57 @@ bool viewport_manager::view_visible_on(wayfire_view view, std::tuple<int, int> v
     return rect_intersect(g, view->geometry);
 }
 
-void viewport_manager::for_each_view(view_callback_proc_t call)
+void viewport_manager::for_all_view(view_callback_proc_t call)
 {
     weston_view *view;
     wayfire_view v;
 
+    std::vector<wayfire_view> views = custom_views;
+
+    wl_list_for_each(view, &panel_layer.view_list.link, layer_link.link)
+        if ((v = core->find_view(view)) && v->is_visible())
+            views.push_back(v);
+
+    wl_list_for_each(view, &normal_layer.view_list.link, layer_link.link)
+        if ((v = core->find_view(view)) && v->is_visible())
+            views.push_back(v);
+
+    wl_list_for_each(view, &background_layer.view_list.link, layer_link.link)
+        if ((v = core->find_view(view)) && v->is_visible())
+            views.push_back(v);
+
+    for (auto v : views)
+        call(v);
+}
+
+void viewport_manager::for_each_view(view_callback_proc_t call)
+{
+    weston_view *view;
+    wayfire_view v;
+    std::vector<wayfire_view> views;
+
     wl_list_for_each(view, &normal_layer.view_list.link, layer_link.link) {
         if ((v = core->find_view(view)) && v->is_visible())
-            call(v);
+            views.push_back(v);
     }
+
+    for (auto v : views)
+        call(v);
 }
 
 void viewport_manager::for_each_view_reverse(view_callback_proc_t call)
 {
     weston_view *view;
     wayfire_view v;
+    std::vector<wayfire_view> views;
 
     wl_list_for_each_reverse(view, &normal_layer.view_list.link, layer_link.link) {
         if ((v = core->find_view(view)) && v->is_visible())
-            call(v);
+            views.push_back(v);
     }
+
+    for (auto v : views)
+        call(v);
 }
 
 wf_workspace_implementation* viewport_manager::get_implementation(std::tuple<int, int> vt)

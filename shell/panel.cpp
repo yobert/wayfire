@@ -41,6 +41,18 @@ wayfire_panel::wayfire_panel(wayfire_config *config)
     autohide = config->get_section("shell_panel")->get_int("autohide", 1);
 }
 
+wayfire_panel::~wayfire_panel()
+{
+//    cairo_destroy(cr);
+    for_each_widget(w)
+    {
+ //       cairo_destroy(w->cr);
+        delete w;
+    }
+
+    delete_window(window);
+}
+
 void wayfire_panel::create_panel(uint32_t output, uint32_t _width, uint32_t _height)
 {
     width = _width;

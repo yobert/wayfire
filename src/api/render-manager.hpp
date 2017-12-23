@@ -60,6 +60,7 @@ class render_manager
         static const weston_gl_renderer_api *renderer_api;
 
         render_manager(wayfire_output *o);
+        ~render_manager();
 
         void set_renderer(render_hook_t rh = nullptr);
         void reset_renderer();

@@ -29,6 +29,11 @@ class workspace_manager
         /* return if the view is visible on the given workspace */
         virtual bool view_visible_on(wayfire_view view, std::tuple<int, int>) = 0;
 
+        /* executes call for each view managed by the workspace manager
+         * includes background and panels */
+        virtual void for_all_view(view_callback_proc_t call) = 0;
+
+        /* executes call for each desktop view(~user apps) in the workspace manager */
         virtual void for_each_view(view_callback_proc_t call) = 0;
         virtual void for_each_view_reverse(view_callback_proc_t call) = 0;
 
@@ -73,6 +78,8 @@ class workspace_manager
         /* returns the available area for views, it is basically
          * the output geometry minus the area reserved for panels */
         virtual weston_geometry get_workarea() = 0;
+
+        virtual ~workspace_manager();
 };
 
 #endif /* end of include guard: WORKSPACE_MANAGER_HPP */

@@ -11,8 +11,7 @@ struct connection_info
     int strength; /* in percentage, for Wi-Fi/Broadband */
     std::string icon;
 
-    bool updated;
-
+    std::map<int, bool> updated;
     std::mutex mutex;
 };
 
@@ -21,11 +20,14 @@ struct network_provider_backend;
 struct network_widget : public widget
 {
     private:
-    std::thread updater_thread;
-    connection_info connection;
-    network_provider_backend *backend = nullptr;
+    static std::thread updater_thread;
+    static connection_info *connection;
+    static network_provider_backend *backend;
+
+    int id;
 
     public:
+    ~network_widget();
     void create();
     int  get_width() { return width; };
     bool update();

@@ -149,7 +149,7 @@ struct battery_info
      * it will be used to show time to fill */
     bool charging;
 
-    bool percentage_updated, icon_updated;
+    std::map<int, bool> percentage_updated, icon_updated;
     std::mutex mutex;
 };
 
@@ -201,14 +201,16 @@ on_battery_changed (GDBusProxy          *proxy,
             {
                 info->mutex.lock();
                 info->percentage = g_variant_get_double(value);
-                info->percentage_updated = true;
+                for (auto& p : info->percentage_updated)
+                    p.second = true;
                 info->mutex.unlock();
             } else if (std::string(key) == "IconName")
             {
                 gsize n;
                 info->mutex.lock();
                 info->icon = find_battery_icon_path(g_variant_get_string(value, &n));
-                info->icon_updated = true;
+                for (auto& p : info->icon_updated)
+                    p.second = true;
                 info->mutex.unlock();
             } else if (std::string(key) == "State")
             {
@@ -216,7 +218,8 @@ on_battery_changed (GDBusProxy          *proxy,
 
                 info->mutex.lock();
                 info->charging = (state == 1) || (state == 5);
-                info->percentage_updated = true;
+                for (auto& p : info->percentage_updated)
+                    p.second = true;
                 info->mutex.unlock();
             }
         }
@@ -345,7 +348,10 @@ struct upower_backend
         info->icon = icon;
         info->percentage = percentage;
 
-        info->percentage_updated = info->icon_updated = true;
+        for (auto& p : info->percentage_updated)
+            p.second = true;
+        for (auto& p : info->icon_updated)
+            p.second = true;
         info->mutex.unlock();
 
         return true;
@@ -366,21 +372,37 @@ struct upower_backend
     }
 };
 
+
+battery_info   *battery_widget::info;
+upower_backend *battery_widget::backend = nullptr;
+std::thread     battery_widget::backend_thread;
+
 void battery_widget::create()
 {
-    backend = new upower_backend();
-    info = new battery_info();
-
-    if (!backend || !info || !backend->load(info))
+    if (!backend)
     {
-        delete backend;
-        delete info;
+        backend = new upower_backend();
+        info = new battery_info();
 
-        active = false;
-        return;
+        if (!backend || !info || !backend->load(info))
+        {
+            std::cerr << "Failed to initialize battery backend\n" << std::endl;
+
+            delete backend;
+            delete info;
+
+            active = false;
+            return;
+        }
+
+        backend_thread = std::thread([=] () { backend->start_loop(); });
     }
 
-    backend_thread = std::thread([=] () { backend->start_loop(); });
+    info->mutex.lock();
+    id = (info->percentage_updated.empty() ? 0 : (--info->percentage_updated.end())->first) + 1;
+    info->percentage_updated[id] = true;
+    info->icon_updated[id] = true;
+    info->mutex.unlock();
 
     load_default_font();
 
@@ -392,6 +414,14 @@ void battery_widget::create()
     active = true;
 }
 
+battery_widget::~battery_widget()
+{
+    info->mutex.lock();
+    info->percentage_updated.erase(id);
+    info->icon_updated.erase(id);
+    info->mutex.unlock();
+}
+
 bool battery_widget::update()
 {
     if (!active)
@@ -401,7 +431,9 @@ bool battery_widget::update()
     std::string battery_string;
 
     info->mutex.lock();
-    result = info->icon_updated || info->percentage_updated;
+
+    result = info->icon_updated[id] || info->percentage_updated[id];
+
     battery_string = std::to_string(info->percentage) + "%";
     info->mutex.unlock();
 
@@ -463,7 +495,7 @@ void battery_widget::repaint()
      * to avoid constant lock()/unlock() calls */
     info->mutex.lock();
 
-    if (info->icon_updated)
+    if (info->icon_updated[id])
     {
         if (icon_surface)
             cairo_surface_destroy(icon_surface);
@@ -475,7 +507,7 @@ void battery_widget::repaint()
 
     std::string battery_string = std::to_string(info->percentage) + "%";
 
-    info->icon_updated = info->percentage_updated = false;
+    info->icon_updated[id] = info->percentage_updated[id] = false;
     info->mutex.unlock();
 
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); /* blank to white */
@@ -662,4 +694,13 @@ void launchers_widget::repaint()
 bool launchers_widget::update()
 {
     return need_repaint;
+}
+
+launchers_widget::~launchers_widget()
+{
+    for (auto l : launchers)
+    {
+        cairo_surface_destroy(l->img);
+        delete l;
+    }
 }

@@ -198,6 +198,17 @@ void render_manager::release_context()
     dirty_context = true;
 }
 
+render_manager::~render_manager()
+{
+    release_context();
+
+    pixman_region32_fini(&frame_damage);
+    pixman_region32_fini(&prev_damage);
+
+    output->disconnect_signal("view-geometry-changed", &view_moved_cb);
+    output->disconnect_signal("viewport-changed", &viewport_changed_cb);
+}
+
 void redraw_idle_cb(void *data)
 {
     wayfire_output *output = (wayfire_output*) data;
@@ -885,8 +896,14 @@ wayfire_output::wayfire_output(weston_output *handle, wayfire_config *c)
     	handle->set_dpms(handle, WESTON_DPMS_ON);
 }
 
+workspace_manager::~workspace_manager()
+{ }
+
 wayfire_output::~wayfire_output()
 {
+    core->input->free_output_bindings(this);
+
+    delete workspace;
     delete plugin;
     delete render;
 }

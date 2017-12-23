@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cassert>
 #include <time.h>
+#include <algorithm>
 
 #include <libweston-desktop.h>
 
@@ -518,30 +519,6 @@ input_manager::input_manager()
     }
 }
 
-int input_manager::add_gesture(const wayfire_touch_gesture& gesture,
-        touch_gesture_callback *callback, wayfire_output *output)
-{
-    gesture_listeners[gesture_id] = {gesture, callback, output};
-    gesture_id++;
-    return gesture_id - 1;
-}
-
-void input_manager::rem_gesture(int id)
-{
-    gesture_listeners.erase(id);
-}
-
-void input_manager::handle_gesture(wayfire_touch_gesture g)
-{
-    for (const auto& listener : gesture_listeners) {
-        if (listener.second.gesture.type == g.type &&
-            listener.second.gesture.finger_count == g.finger_count &&
-            core->get_active_output() == listener.second.output)
-        {
-            (*listener.second.call)(&g);
-        }
-    }
-}
 
 static void
 idle_finalize_grab(void *data)
@@ -648,6 +625,7 @@ void input_manager::end_grabs()
 struct key_callback_data {
     key_callback *call;
     wayfire_output *output;
+    weston_binding *binding;
 };
 
 static void keybinding_handler(weston_keyboard *kbd, const timespec* time, uint32_t key, void *data)
@@ -661,6 +639,7 @@ static void keybinding_handler(weston_keyboard *kbd, const timespec* time, uint3
 struct button_callback_data {
     button_callback *call;
     wayfire_output *output;
+    weston_binding *binding;
 };
 
 static void buttonbinding_handler(weston_pointer *ptr, const timespec* time,
@@ -676,15 +655,90 @@ static void buttonbinding_handler(weston_pointer *ptr, const timespec* time,
 weston_binding* input_manager::add_key(uint32_t mod, uint32_t key,
         key_callback *call, wayfire_output *output)
 {
-    return weston_compositor_add_key_binding(core->ec, key,
-            (weston_keyboard_modifier)mod, keybinding_handler, new key_callback_data {call, output});
+    key_pool.push_back(new key_callback_data());
+
+    auto kcd = key_pool.back();
+    kcd->call = call;
+    kcd->output = output;
+    kcd->binding = weston_compositor_add_key_binding(core->ec, key,
+            (weston_keyboard_modifier)mod, keybinding_handler, kcd);
+
+    return kcd->binding;
+}
+
+void input_manager::rem_key(weston_binding *binding)
+{
+    auto it = std::remove_if(key_pool.begin(), key_pool.end(),
+                                  [=] (key_callback_data* data) {
+                                      if (data->binding == binding)
+                                      {
+                                          delete data;
+                                          return true;
+                                      }
+                                      return false;
+                                  });
+
+    key_pool.erase(it, key_pool.end());
+    weston_binding_destroy(binding);
+}
+
+void input_manager::rem_key(key_callback *cb)
+{
+    auto it = std::remove_if(key_pool.begin(), key_pool.end(),
+                             [=] (key_callback_data* data) {
+                                 if (data->call == cb)
+                                 {
+                                     weston_binding_destroy(data->binding);
+                                     return true;
+                                 }
+                                 return false;
+                             });
+
+    key_pool.erase(it, key_pool.end());
 }
 
 weston_binding* input_manager::add_button(uint32_t mod,
         uint32_t button, button_callback *call, wayfire_output *output)
 {
-    return weston_compositor_add_button_binding(core->ec, button,
-            (weston_keyboard_modifier)mod, buttonbinding_handler, new button_callback_data {call, output});
+    button_pool.push_back(new button_callback_data());
+    auto bcd = button_pool.back();
+    bcd->call = call;
+    bcd->output = output;
+    bcd->binding = weston_compositor_add_button_binding(core->ec, button,
+            (weston_keyboard_modifier)mod, buttonbinding_handler, bcd);
+
+    return bcd->binding;
+}
+
+void input_manager::rem_button(weston_binding *binding)
+{
+    auto it = std::remove_if(button_pool.begin(), button_pool.end(),
+                                  [=] (button_callback_data* data) {
+                                      if (data->binding == binding)
+                                      {
+                                          delete data;
+                                          return true;
+                                      }
+                                      return false;
+                                  });
+
+    button_pool.erase(it, button_pool.end());
+    weston_binding_destroy(binding);
+}
+
+void input_manager::rem_button(button_callback *cb)
+{
+    auto it = std::remove_if(button_pool.begin(), button_pool.end(),
+                             [=] (button_callback_data* data) {
+                                 if (data->call == cb)
+                                 {
+                                     weston_binding_destroy(data->binding);
+                                     return true;
+                                 }
+                                 return false;
+                             });
+
+    button_pool.erase(it, button_pool.end());
 }
 
 int input_manager::add_touch(uint32_t mods, touch_callback* call, wayfire_output *output)
@@ -701,6 +755,86 @@ void input_manager::rem_touch(int id)
 {
     touch_listeners.erase(id);
 }
+
+void input_manager::rem_touch(touch_callback *tc)
+{
+    std::vector<int> ids;
+    for (const auto& x : touch_listeners)
+        if (x.second.call == tc)
+            ids.push_back(x.first);
+
+    for (auto x : ids)
+        rem_touch(x);
+}
+
+int input_manager::add_gesture(const wayfire_touch_gesture& gesture,
+        touch_gesture_callback *callback, wayfire_output *output)
+{
+    gesture_listeners[gesture_id] = {gesture, callback, output};
+    gesture_id++;
+    return gesture_id - 1;
+}
+
+void input_manager::rem_gesture(int id)
+{
+    gesture_listeners.erase(id);
+}
+
+void input_manager::rem_gesture(touch_gesture_callback *cb)
+{
+    std::vector<int> ids;
+    for (const auto& x : gesture_listeners)
+        if (x.second.call == cb)
+            ids.push_back(x.first);
+
+    for (auto x : ids)
+        rem_gesture(x);
+}
+
+void input_manager::free_output_bindings(wayfire_output *output)
+{
+    std::vector<weston_binding*> bindings;
+    for (auto kcd : key_pool)
+        if (kcd->output == output)
+            bindings.push_back(kcd->binding);
+
+    for (auto x : bindings)
+        rem_key(x);
+
+    bindings.clear();
+    for (auto bcd : button_pool)
+        if (bcd->output == output)
+            bindings.push_back(bcd->binding);
+    for (auto x : bindings)
+        rem_button(x);
+
+    std::vector<int> ids;
+    for (const auto& x : touch_listeners)
+        if (x.second.output == output)
+            ids.push_back(x.first);
+    for (auto x : ids)
+        rem_touch(x);
+
+    ids.clear();
+    for (const auto& x : gesture_listeners)
+        if (x.second.output == output)
+            ids.push_back(x.first);
+    for (auto x : ids)
+        rem_gesture(x);
+}
+
+void input_manager::handle_gesture(wayfire_touch_gesture g)
+{
+    for (const auto& listener : gesture_listeners) {
+        if (listener.second.gesture.type == g.type &&
+            listener.second.gesture.finger_count == g.finger_count &&
+            core->get_active_output() == listener.second.output)
+        {
+            (*listener.second.call)(&g);
+        }
+    }
+}
+
 /* End input_manager */
 
 void wayfire_core::configure(wayfire_config *config)
@@ -857,7 +991,7 @@ weston_seat* wayfire_core::get_current_seat()
     return target;
 }
 
-void output_destroyed_callback(wl_listener *, void *data)
+static void output_destroyed_callback(wl_listener *, void *data)
 {
     core->remove_output(core->get_output((weston_output*) data));
 }
@@ -873,8 +1007,11 @@ void wayfire_core::add_output(weston_output *output)
         return;
     }
 
-    outputs[output->id] = new wayfire_output(output, config);
-    focus_output(outputs[output->id]);
+    wayfire_output *wo = outputs[output->id] = new wayfire_output(output, config);
+    focus_output(wo);
+
+    wo->destroy_listener.notify = output_destroyed_callback;
+    wl_signal_add(&wo->handle->destroy_signal, &wo->destroy_listener);
 
     if (wf_shell.client)
         wayfire_shell_send_output_created(wf_shell.resource, output->id,
@@ -883,14 +1020,12 @@ void wayfire_core::add_output(weston_output *output)
     weston_output_schedule_repaint(output);
 }
 
-/* TODO: FIXME: we have to delete all bindings set by this output, this should preferably be done
- * automatically(e.g by a register of all key/button/etc bindings associated with an output). However,
- * this shouldn't be much of a problem for now, as these bindings aren't called unless their output
- * matches the currently focused one, and because their output points to an invalid output,
- * they won't be activated at all */
 void wayfire_core::remove_output(wayfire_output *output)
 {
+    debug << "removing output: " << output->handle->id << std::endl;
+
     outputs.erase(output->handle->id);
+    wl_list_remove(&output->destroy_listener.link);
 
     /* we have no outputs, simply quit */
     if (outputs.empty())
@@ -904,15 +1039,30 @@ void wayfire_core::remove_output(wayfire_output *output)
 
     auto og = output->get_full_geometry();
     auto ng = active_output->get_full_geometry();
-
     int dx = ng.x - og.x, dy = ng.y - og.y;
+
+    /* first move each desktop view(e.g windows) to another output */
     output->workspace->for_each_view_reverse([=] (wayfire_view view)
     {
-        move_view_to_output(view, active_output);
+        output->workspace->view_removed(view);
+        view->output = nullptr;
+
+        active_output->attach_view(view);
         view->move(view->geometry.x + dx, view->geometry.y + dy);
+        active_output->focus_view(view);
+    });
+
+    /* just remove all other views - backgrounds, panels, etc.
+     * desktop views have been removed by the previous cycle */
+    output->workspace->for_all_view([output] (wayfire_view view)
+    {
+        output->workspace->view_removed(view);
+        view->output = nullptr;
     });
 
     delete output;
+    if (wf_shell.resource)
+        wayfire_shell_send_output_destroyed(wf_shell.resource, output->handle->id);
 }
 
 void wayfire_core::refocus_active_output_active_view()
@@ -1100,7 +1250,9 @@ void wayfire_core::erase_view(wayfire_view v, bool destroy_handle)
     if (!v) return;
 
     views.erase(v->handle);
-    v->output->detach_view(v);
+
+    if (v->output)
+        v->output->detach_view(v);
 
     if (v->handle && destroy_handle)
         weston_view_destroy(v->handle);

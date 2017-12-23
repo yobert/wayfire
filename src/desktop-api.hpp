@@ -32,14 +32,17 @@ void desktop_surface_removed(weston_desktop_surface *surface, void *user_data)
 
     view->destroyed = true;
 
-    auto sig_data = destroy_view_signal{view};
-    view->output->emit_signal("destroy-view", &sig_data);
-
-    if (view->parent)
+    if (view->output)
     {
-        auto it = std::find(view->parent->children.begin(), view->parent->children.end(), view);
-        assert(it != view->parent->children.end());
-        view->parent->children.erase(it);
+        auto sig_data = destroy_view_signal{view};
+        view->output->emit_signal("destroy-view", &sig_data);
+
+        if (view->parent)
+        {
+            auto it = std::find(view->parent->children.begin(), view->parent->children.end(), view);
+            assert(it != view->parent->children.end());
+            view->parent->children.erase(it);
+        }
     }
 
     core->erase_view(view, view->keep_count <= 0);

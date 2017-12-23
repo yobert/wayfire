@@ -37,6 +37,8 @@ struct widget
 
     virtual void repaint() = 0;
 
+    virtual ~widget() {};
+
     std::function<void(int x, int y)> pointer_motion = nullptr;
     std::function<void(uint32_t, uint32_t, int, int)> pointer_button = nullptr;
 };
@@ -65,12 +67,15 @@ struct battery_options
 struct battery_widget : public widget
 {
     bool active = false;
+    int id;
 
     cairo_surface_t *icon_surface = nullptr;
 
-    battery_info *info;
-    upower_backend *backend;
-    std::thread backend_thread;
+    static battery_info *info;
+    static upower_backend *backend;
+    static std::thread backend_thread;
+
+    ~battery_widget();
 
     void create();
     int get_width() { return width; };
@@ -86,6 +91,8 @@ struct launchers_widget : public widget
 
     std::vector<launcher*> launchers;
     void init_launchers(wayfire_config *config);
+
+    ~launchers_widget();
 
     void create();
     int get_width() { return width; };

@@ -46,6 +46,10 @@
             <arg name="height" type="uint"/>
         </event>
 
+        <event name="output_destroyed">
+            <arg name="output" type="uint"/>
+        </event>
+
         <event name="gamma_size">
             <arg name="output" type="uint"/>
             <arg name="size" type="uint"/>
