@@ -28,7 +28,7 @@ class wayfire_output_manager : public wayfire_plugin_t
 
             switch_output = [=] (weston_keyboard *kbd, uint32_t key) {
                 /* when we switch the output, the oswitch keybinding
-                 * will be activated for the next output, which we don't want,
+                 * may be activated for the next output, which we don't want,
                  * so we postpone the switch */
                 auto next = core->get_next_output(output);
 
@@ -39,6 +39,12 @@ class wayfire_output_manager : public wayfire_plugin_t
             switch_output_with_window = [=] (weston_keyboard *kbd, uint32_t key) {
                 auto next = core->get_next_output(output);
                 auto view = output->get_top_view();
+
+                if (!view)
+                {
+                    switch_output(kbd, key);
+                    return;
+                }
 
                 auto pg = view->output->get_full_geometry();
                 auto ng = next->get_full_geometry();
