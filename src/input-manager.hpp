@@ -18,6 +18,9 @@ class input_manager
     private:
         wayfire_grab_interface active_grab = nullptr;
 
+        wl_listener session_listener;
+        bool session_active = true;
+
         weston_keyboard_grab kgrab;
         weston_pointer_grab pgrab;
         weston_touch_grab tgrab;
@@ -47,9 +50,11 @@ class input_manager
 
     public:
         input_manager();
-        void grab_input(wayfire_grab_interface);
+        bool grab_input(wayfire_grab_interface);
         void ungrab_input();
         bool input_grabbed();
+
+        void toggle_session();
 
         void free_output_bindings(wayfire_output *output);
 

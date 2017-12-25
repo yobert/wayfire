@@ -16,12 +16,14 @@ bool wayfire_grab_interface_t::grab()
     /* unset modifiers, otherwise clients may not receive
      * the release event for them, as the release usually happens in a grab */
     auto kbd = weston_seat_get_keyboard(core->get_current_seat());
-    weston_keyboard_send_modifiers(kbd,
-            wl_display_get_serial(core->ec->wl_display),
-            0, 0, 0, 0);
+    if (kbd)
+    {
+        weston_keyboard_send_modifiers(kbd,
+                                       wl_display_get_serial(core->ec->wl_display),
+                                       0, 0, 0, 0);
+    }
 
-    core->input->grab_input(this);
-    return true;
+    return core->input->grab_input(this);
 }
 
 void wayfire_grab_interface_t::ungrab()

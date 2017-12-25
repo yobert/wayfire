@@ -499,6 +499,17 @@ bool input_manager::is_touch_enabled()
     return weston_seat_get_touch(core->get_current_seat()) != nullptr;
 }
 
+static void session_signal_idle(void *)
+{
+    core->input->toggle_session();
+}
+
+static void session_signal_handler(wl_listener*, void *)
+{
+    auto loop = wl_display_get_event_loop(core->ec->wl_display);
+    wl_event_loop_add_idle(loop, session_signal_idle, NULL);
+}
+
 input_manager::input_manager()
 {
     pgrab.interface = &pointer_grab_interface;
@@ -517,6 +528,9 @@ input_manager::input_manager()
                                        std::bind(std::mem_fn(&input_manager::handle_gesture),
                                                  this, _1));
     }
+
+    session_listener.notify = session_signal_handler;
+    wl_signal_add(&core->ec->session_signal, &session_listener);
 }
 
 
@@ -526,10 +540,10 @@ idle_finalize_grab(void *data)
     grab_start_finalized = true;
 }
 
-void input_manager::grab_input(wayfire_grab_interface iface)
+bool input_manager::grab_input(wayfire_grab_interface iface)
 {
-    if (!iface->grabbed)
-        return;
+    if (!iface || !iface->grabbed || !session_active)
+        return false;
 
     assert(!active_grab); // cannot have two active input grabs!
     active_grab = iface;
@@ -558,6 +572,8 @@ void input_manager::grab_input(wayfire_grab_interface iface)
 
     if (is_touch_enabled())
         gr->start_grab();
+
+    return true;
 }
 
 void input_manager::ungrab_input()
@@ -578,7 +594,31 @@ void input_manager::ungrab_input()
 
 bool input_manager::input_grabbed()
 {
-    return active_grab;
+    return active_grab || !session_active;
+}
+
+void input_manager::toggle_session()
+{
+
+    session_active ^= 1;
+    if (!session_active)
+    {
+        if (active_grab)
+        {
+            auto grab = active_grab;
+            ungrab_input();
+            active_grab = grab;
+        }
+    } else
+    {
+        if (active_grab)
+        {
+            auto grab = active_grab;
+            active_grab = nullptr;
+            grab_input(grab);
+        }
+    }
+
 }
 
 void input_manager::propagate_pointer_grab_axis(weston_pointer *ptr,
@@ -619,7 +659,6 @@ void input_manager::propagate_keyboard_grab_mod(weston_keyboard *kbd,
 
 void input_manager::end_grabs()
 {
-    ungrab_input();
 }
 
 struct key_callback_data {

@@ -125,18 +125,19 @@ class wayfire_grid : public wayfire_plugin_t {
             current_view.maximizing = view->maximized;
     }
 
-    void start_animation(wayfire_view view, int tx, int ty, int tw, int th)
+    bool start_animation(wayfire_view view, int tx, int ty, int tw, int th)
     {
         auto impl = output->workspace->
             get_implementation(output->workspace->get_current_workspace());
 
         if (!impl->view_movable(view) || !impl->view_resizable(view))
-            return;
-        if (!output->activate_plugin(grab_interface))
-            return;
+            return true;
+        if (!output->activate_plugin(grab_interface) || !grab_interface->grab())
+        {
+            output->deactivate_plugin(grab_interface);
+            return false;
+        }
         output->focus_view(nullptr);
-
-        grab_interface->grab();
 
         current_step = 0;
         current_view.view = view;
@@ -149,6 +150,8 @@ class wayfire_grid : public wayfire_plugin_t {
 
         output->render->auto_redraw(true);
         output->render->add_output_effect(&hook);
+
+        return true;
     }
 
     void update_pos_size()
@@ -279,14 +282,13 @@ class wayfire_grid : public wayfire_plugin_t {
         int x, y, w, h;
         toggle_maximized(data->view, x, y, w, h, data->state);
 
-        if (current_view.view)
+        if (current_view.view || !start_animation(data->view, x, y, w, h))
         {
             data->view->set_geometry(x, y, w, h);
             check_send_signal(data->view, data->state, false);
             return;
         }
 
-        start_animation(data->view, x, y, w, h);
         current_view.maximizing = data->state;
     }
 
@@ -298,14 +300,14 @@ class wayfire_grid : public wayfire_plugin_t {
         int x, y, w, h;
         toggle_maximized(data->view, x, y, w, h, data->state, true);
 
-        if (current_view.view || data->view->fullscreen == data->state)
+        if (current_view.view || data->view->fullscreen == data->state ||
+            !start_animation(data->view, x, y, w, h))
         {
             data->view->set_geometry(x, y, w, h);
             check_send_signal(data->view, false, data->state);
             return;
         }
 
-        start_animation(data->view, x, y, w, h);
         current_view.fullscreening = data->state;
     }
 };
