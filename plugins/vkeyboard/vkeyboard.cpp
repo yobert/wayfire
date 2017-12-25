@@ -11,18 +11,18 @@
 
 class vkeyboard : public wayfire_plugin_t
 {
-    weston_layer input_layer;
+    static weston_layer input_layer;
+    static weston_seat *vseat;
+    static weston_keyboard *vkbd;
+
     touch_gesture_callback swipe;
 
     key_callback disable_real_keyboard;
-    weston_seat *vseat = nullptr;
-    weston_keyboard *vkbd;
-
     std::string keyboard_exec_path = INSTALL_PREFIX "/lib/wayfire/wayfire-virtual-keyboard";
 
     public:
-        wl_resource *resource = nullptr;
-        wayfire_view view;
+        static wl_resource *resource;
+        static wayfire_view view;
 
         void init(wayfire_config *config);
         void bind(wl_resource *resource);
@@ -35,6 +35,12 @@ class vkeyboard : public wayfire_plugin_t
         void send_key_up(uint32_t key);
         void send_key_down(uint32_t key);
 };
+
+weston_layer vkeyboard::input_layer;
+weston_seat *vkeyboard::vseat = nullptr;
+weston_keyboard *vkeyboard::vkbd;
+wl_resource *vkeyboard::resource = nullptr;
+wayfire_view vkeyboard::view;
 
 void send_key_pressed(struct wl_client *client,
                       struct wl_resource *resource,
@@ -143,15 +149,19 @@ void vkeyboard::init(wayfire_config *config)
     grab_interface->name = "vkeyboard";
     grab_interface->abilities_mask = 0;
 
-    wl_global *kbd;
-    if ((kbd = wl_global_create(core->ec->wl_display, &wayfire_virtual_keyboard_interface,
-                                1, this, bind_virtual_keyboard)) == NULL)
+    /* we must make sure that we do not create multiple interfaces */
+    if (core->get_num_outputs() == 0)
     {
-        errio << "Failed to create wayfire_shell interface" << std::endl;
-    }
+        wl_global *kbd;
+        if ((kbd = wl_global_create(core->ec->wl_display, &wayfire_virtual_keyboard_interface,
+                                    1, this, bind_virtual_keyboard)) == NULL)
+        {
+            errio << "Failed to create wayfire_shell interface" << std::endl;
+        }
 
-    weston_layer_init(&input_layer, core->ec);
-    weston_layer_set_position(&input_layer, WESTON_LAYER_POSITION_TOP_UI);
+        weston_layer_init(&input_layer, core->ec);
+        weston_layer_set_position(&input_layer, WESTON_LAYER_POSITION_TOP_UI);
+    }
 
     swipe = [=] (wayfire_touch_gesture *gesture)
     {
