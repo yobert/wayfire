@@ -34,7 +34,7 @@ struct wayfire_window
     std::function<void(int x, int y)> pointer_move;
     std::function<void(uint32_t button, uint32_t state, int x, int y)> pointer_button;
 
-    std::function<void(int32_t id, uint32_t x, uint32_t y)> touch_down;
+    std::function<void(uint32_t time, int32_t id, uint32_t x, uint32_t y)> touch_down;
     std::function<void(int32_t id, uint32_t x, uint32_t y)> touch_motion;
     std::function<void(int32_t id)> touch_up;
 

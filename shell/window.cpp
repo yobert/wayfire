@@ -101,7 +101,7 @@ static void touch_down(void *data, struct wl_touch *wl_touch,
     current_window_touch_points++;
 
     if (window->touch_down)
-        window->touch_down(id, wl_fixed_to_int(x), wl_fixed_to_int(y));
+        window->touch_down(time, id, wl_fixed_to_int(x), wl_fixed_to_int(y));
 }
 
 static void

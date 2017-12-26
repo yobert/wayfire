@@ -401,7 +401,7 @@ void vkeyboard::resize(uint32_t w, uint32_t h)
     wayfire_virtual_keyboard_set_virtual_keyboard(display.vkbd, window->surface);
     wayfire_virtual_keyboard_configure_keyboard(display.vkbd, window->surface, (w - width) / 2.0, h - height);
 
-    window->touch_down   = [=] (int32_t id, int x, int y) { if (id == 0) input_motion(x, y); };
+    window->touch_down   = [=] (uint32_t, int32_t id, int x, int y) { if (id == 0) input_motion(x, y); };
     window->touch_motion = [=] (int32_t id, int x, int y) { if (id == 0) input_motion(x, y); };
     window->touch_up     = [=] (int32_t id) { if (id == 0) input_released(); };
 

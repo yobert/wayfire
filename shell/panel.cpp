@@ -1,5 +1,6 @@
 #include <sstream>
 #include <unistd.h>
+#include <sys/time.h>
 #include <linux/input-event-codes.h>
 #include "panel.hpp"
 #include "widgets.hpp"
@@ -71,24 +72,24 @@ void wayfire_panel::setup_window()
     window = create_window(width, height);
     cr = cairo_create(window->cairo_surface);
 
-
-    animation.dy = -5;
-    animation.target_y = hidden_height - height;
-    animation.start_y = 0;
-    animation.current_y = animation.start_y;
+    show();
+    gettimeofday(&last_input_time, 0);
+    time_to_hide = 1e6;
 
     repaint_callback = nullptr;
 
     using namespace std::placeholders;
-    window->pointer_enter = std::bind(std::mem_fn(&wayfire_panel::on_enter), this, _1, _2);
-    window->pointer_leave = std::bind(std::mem_fn(&wayfire_panel::on_leave), this);
+    window->pointer_enter = [=] (wl_pointer*, uint32_t time, int, int) { on_enter(time); };
+    window->pointer_leave = [=] () { time_to_hide = 2e5; on_leave(); };
     window->pointer_move  = std::bind(std::mem_fn(&wayfire_panel::on_motion), this, _1, _2);
     window->pointer_button= std::bind(std::mem_fn(&wayfire_panel::on_button), this, _1, _2, _3, _4);
 
-    window->touch_down = [=] (int32_t id, int x, int y)
+    window->touch_down = [=] (uint32_t time, int32_t id, int x, int y)
     {
+        ++count_finger;
         if (id == 0)
         {
+            on_enter(time);
             on_button(BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED, x, y);
             on_motion(x, y);
             last_x = x;
@@ -97,10 +98,17 @@ void wayfire_panel::setup_window()
     };
     window->touch_up = [=] (int32_t id)
     {
+        --count_finger;
         if (id == 0)
         {
             on_button(BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED, last_x, last_y);
             on_motion(-1, -1);
+        }
+
+        if (count_finger == 0)
+        {
+            time_to_hide = 1e6;
+            on_leave();
         }
     };
     window->touch_motion = [=] (int32_t id, int x, int y)
@@ -141,24 +149,40 @@ void wayfire_panel::resize(uint32_t w, uint32_t h)
     render_frame(true);
 }
 
-void wayfire_panel::toggle_animation()
+void wayfire_panel::show()
 {
-    std::swap(animation.target_y, animation.start_y);
-    animation.dy *= -1;
+    if (animation.dy <= 0)
+    {
+        animation.target = 0;
+        animation.dy = 5;
+    }
 }
 
-void wayfire_panel::on_enter(wl_pointer *ptr, uint32_t serial)
+void wayfire_panel::hide()
 {
+    if (animation.dy >= 0)
+    {
+        animation.target = hidden_height - height;
+        animation.dy = -5;
+    }
+}
+
+void wayfire_panel::on_enter(uint32_t serial)
+{
+    do_hide = false;
     show_default_cursor(serial);
     if (autohide)
-        toggle_animation();
+        show();
     add_callback(false);
 }
 
 void wayfire_panel::on_leave()
 {
     if (autohide)
-        toggle_animation();
+    {
+        do_hide = true;
+        gettimeofday(&last_input_time, 0);
+    }
 
     on_motion(-1, -1);
 }
@@ -271,18 +295,34 @@ void wayfire_panel::init_widgets()
 void wayfire_panel::render_frame(bool first_call)
 {
     set_active_window(window);
-    if (autohide && animation.current_y != animation.target_y) {
-        animation.current_y += animation.dy;
 
-        if (animation.current_y * animation.dy > animation.target_y * animation.dy)
-            animation.current_y = animation.target_y;
+    if (do_hide)
+    {
+        timeval time;
+        gettimeofday(&time, 0);
+
+        long long delta = (time.tv_sec - last_input_time.tv_sec) * 1e6 +
+            (time.tv_usec - last_input_time.tv_usec);
+
+        if (delta > time_to_hide)
+        {
+            do_hide = false;
+            hide();
+        }
+    }
+
+    if (autohide && animation.y != animation.target) {
+        animation.y += animation.dy;
+
+        if (animation.y * animation.dy > animation.target * animation.dy)
+            animation.y = animation.target;
 
         wayfire_shell_configure_panel(display.wfshell, output,
-                window->surface, 0, animation.current_y);
+                window->surface, 0, animation.y);
     }
 
     bool should_swap = first_call;
-    if (animation.current_y > hidden_height - (int)height || !autohide)
+    if (animation.target == 0 || !autohide)
     {
         for_each_widget(w)
             should_swap |= w->update();
@@ -305,7 +345,8 @@ void wayfire_panel::render_frame(bool first_call)
             w->repaint();
     }
 
-    if (animation.current_y != hidden_height - (int)height || !autohide)
+    /* we don't need to redraw only if we are autohiding and hidden now */
+    if (!(animation.y == hidden_height - (int)height && autohide))
         add_callback(should_swap);
 
     if (should_swap)

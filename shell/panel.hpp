@@ -19,14 +19,21 @@ class wayfire_panel {
     bool need_fullredraw = false;
 
     struct {
-        int dy;
-        int start_y, current_y, target_y;
+        int dy = 0;
+        int y, target;
     } animation;
 
-    void toggle_animation();
+    timeval last_input_time;
+    bool do_hide = true;
+    int64_t time_to_hide;
 
-    void on_enter(wl_pointer*, uint32_t);
+    void hide();
+    void show();
+
+    int count_finger = 0;
+    void on_enter(uint32_t);
     void on_leave();
+
     void on_button(uint32_t, uint32_t, int, int);
     void on_motion(int, int);
 
