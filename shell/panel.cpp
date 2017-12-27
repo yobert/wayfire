@@ -79,7 +79,7 @@ void wayfire_panel::setup_window()
     repaint_callback = nullptr;
 
     using namespace std::placeholders;
-    window->pointer_enter = [=] (wl_pointer*, uint32_t time, int, int) { on_enter(time); };
+    window->pointer_enter = [=] (wl_pointer*, uint32_t time, int, int) { time_to_show = 2e5; on_enter(time); };
     window->pointer_leave = [=] () { time_to_hide = 2e5; on_leave(); };
     window->pointer_move  = std::bind(std::mem_fn(&wayfire_panel::on_motion), this, _1, _2);
     window->pointer_button= std::bind(std::mem_fn(&wayfire_panel::on_button), this, _1, _2, _3, _4);
@@ -89,6 +89,7 @@ void wayfire_panel::setup_window()
         ++count_finger;
         if (id == 0)
         {
+            time_to_show = 0;
             on_enter(time);
             on_button(BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED, x, y);
             on_motion(x, y);
@@ -169,10 +170,14 @@ void wayfire_panel::hide()
 
 void wayfire_panel::on_enter(uint32_t serial)
 {
-    do_hide = false;
-    show_default_cursor(serial);
     if (autohide)
-        show();
+    {
+        do_hide = false;
+        do_show = true;
+        gettimeofday(&last_input_time, 0);
+    }
+
+    show_default_cursor(serial);
     add_callback(false);
 }
 
@@ -180,6 +185,7 @@ void wayfire_panel::on_leave()
 {
     if (autohide)
     {
+        do_show = false;
         do_hide = true;
         gettimeofday(&last_input_time, 0);
     }
@@ -296,7 +302,7 @@ void wayfire_panel::render_frame(bool first_call)
 {
     set_active_window(window);
 
-    if (do_hide)
+    if (do_hide || do_show)
     {
         timeval time;
         gettimeofday(&time, 0);
@@ -304,10 +310,16 @@ void wayfire_panel::render_frame(bool first_call)
         long long delta = (time.tv_sec - last_input_time.tv_sec) * 1e6 +
             (time.tv_usec - last_input_time.tv_usec);
 
-        if (delta > time_to_hide)
+        if (do_hide && delta > time_to_hide)
         {
             do_hide = false;
             hide();
+        }
+
+        if (do_show && delta > time_to_show)
+        {
+            do_show = false;
+            show();
         }
     }
 
@@ -346,7 +358,7 @@ void wayfire_panel::render_frame(bool first_call)
     }
 
     /* we don't need to redraw only if we are autohiding and hidden now */
-    if (!(animation.y == hidden_height - (int)height && autohide))
+    if (!(animation.y == hidden_height - (int)height && autohide) || do_show)
         add_callback(should_swap);
 
     if (should_swap)

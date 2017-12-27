@@ -24,8 +24,8 @@ class wayfire_panel {
     } animation;
 
     timeval last_input_time;
-    bool do_hide = true;
-    int64_t time_to_hide;
+    bool do_hide = true, do_show = false;
+    int64_t time_to_hide, time_to_show;
 
     void hide();
     void show();
