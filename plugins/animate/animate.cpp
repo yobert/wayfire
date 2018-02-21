@@ -52,8 +52,12 @@ struct animation_hook
         this->view = view;
         output = view->output;
 
-        if (!output->activate_plugin(iface))
+        bool mapped = weston_surface_is_mapped(view->surface);
+        if (!mapped || !output->activate_plugin(iface))
         {
+            if (!mapped)
+                view->surface = NULL;
+
             effect_running = false;
             delete_hook(this);
             return;
@@ -123,7 +127,7 @@ struct animation_hook
         /* make sure we "unhide" the view */
         view->transform.color[3] = 1;
 
-        if (close_animation)
+        if (close_animation && view->surface)
             weston_surface_destroy(view->surface);
     }
 };
