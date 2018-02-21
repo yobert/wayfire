@@ -129,19 +129,60 @@ wayfire_color wayfire_config_section::get_color(string name, wayfire_color df)
     return ans;
 }
 
-namespace
+static string trim(const string& x)
 {
-    string trim(string x)
-    {
-        int i = 0, j = x.length() - 1;
-        while(i < (int)x.length() && std::iswspace(x[i])) ++i;
-        while(j >= 0 && std::iswspace(x[j])) --j;
+    int i = 0, j = x.length() - 1;
+    while(i < (int)x.length() && std::iswspace(x[i])) ++i;
+    while(j >= 0 && std::iswspace(x[j])) --j;
 
-        if (i <= j)
-            return x.substr(i, j - i + 1);
-        else
-            return "";
+    if (i <= j)
+        return x.substr(i, j - i + 1);
+    else
+        return "";
+}
+
+using lines_t = std::vector<string>;
+static void prune_comments(lines_t& file)
+{
+    for (auto& line : file)
+    {
+        size_t i = line.find_first_of('#');
+        if (i != string::npos)
+            line = line.substr(0, i);
     }
+}
+
+static lines_t filter_empty_lines(const lines_t& file)
+{
+    lines_t pruned;
+    for (const auto& line : file)
+    {
+        string cleaned_line = trim(line);
+        if (cleaned_line.size())
+            pruned.push_back(cleaned_line);
+    }
+
+    return pruned;
+}
+
+static lines_t merge_lines(const lines_t& file)
+{
+    lines_t merged;
+    int i = 0;
+    for (; i < (int)file.size(); i++)
+    {
+        string result = file[i]; ++i;
+        while(file[i - 1].back() == '\\' && i < (int)file.size())
+        {
+            result.pop_back();
+            result += file[i++];
+        }
+        --i;
+
+        merged.push_back(result);
+    }
+
+    return merged;
 }
 
 wayfire_config::wayfire_config(string name, int rr)
@@ -156,20 +197,19 @@ wayfire_config::wayfire_config(string name, int rr)
 
     refresh_rate = rr;
     wayfire_config_section *current_section;
-    int line_id = -1;
 
+    lines_t lines;
     while(std::getline(file, line))
     {
-        ++line_id;
+        lines.push_back(line);
+    }
 
-        line = trim(line);
-        if (line.size() == 0 || line[0] == '#')
-            continue;
+    prune_comments(lines);
+    lines = filter_empty_lines(lines);
+    lines = merge_lines(lines);
 
-#if WAYFIRE_DEBUG_ENABLED
-        out << "process line " << line << std::endl;
-#endif
-
+    for (auto line : lines)
+    {
         if (line[0] == '[')
         {
             current_section = new wayfire_config_section();
@@ -180,13 +220,16 @@ wayfire_config::wayfire_config(string name, int rr)
         }
 
         string name, value;
-        int i = 0;
-        while (i < (int)line.size() && line[i] != '=') i++;
-        name = trim(line.substr(0, i));
-        if (i < (int)line.size())
+        size_t i = line.find_first_of('=');
+        if (i != string::npos)
         {
+            name = trim(line.substr(0, i));
             value = trim(line.substr(i + 1, line.size() - i - 1));
             current_section->options[name] = value;
+
+#if WAYFIRE_DEBUG_ENABLED
+            out << current_section->name << ": " << name << " = " << value << std::endl;
+#endif
         }
     }
 }
