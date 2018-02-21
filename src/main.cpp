@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
     auto ec = weston_compositor_create(display, NULL);
 
     crash_compositor = ec;
-    ec->idle_time = 300;
+    ec->idle_time = 3000000;
     ec->repaint_msec = 16;
     ec->default_pointer_grab = NULL;
     ec->vt_switching = true;

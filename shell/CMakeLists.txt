@@ -46,5 +46,23 @@ if (HAS_CAIRO_GL_H)
     target_link_libraries(wayfire-virtual-keyboard ${EGL_SURF_BACKEND_LIBRARIES})
 endif (HAS_CAIRO_GL_H)
 
+pkg_check_modules(ALSA alsa)
+if (${PKG_CONFIG_FOUND})
+    add_definitions(${ALSA_CFLAGS_OTHER})
+    link_directories(${ALSA_LIBRARY_DIRS})
+    include_directories(${ALSA_INCLUDE_DIRS})
+
+    add_executable(wayfire-sound-popup "sound-popup.cpp" "window.cpp" ${BACKEND_SRC})
+    target_link_libraries(wayfire-sound-popup wayfire-shell-proto)
+    target_link_libraries(wayfire-sound-popup ${REQLIBS_LIBRARIES} ${ALSA_LIBRARIES})
+
+    if (HAS_CAIRO_GL_H)
+        target_link_libraries(wayfire-sound-popup ${EGL_SURF_BACKEND_LIBRARIES})
+    endif (HAS_CAIRO_GL_H)
+
+endif(${PKG_CONFIG_FOUND})
+
+
 install(TARGETS wayfire-shell-client     DESTINATION lib/wayfire/)
 install(TARGETS wayfire-virtual-keyboard DESTINATION lib/wayfire/)
+install(TARGETS wayfire-sound-popup      DESTINATION lib/wayfire/)

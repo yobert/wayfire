@@ -47,6 +47,8 @@ struct wayfire_window
 void show_default_cursor(uint32_t serial);
 
 void delete_window(wayfire_window *window);
+void render_rounded_rectangle(cairo_t *cr, int x, int y, int width, int height, double radius,
+        double r, double g, double b, double a);
 
 extern const struct wl_shell_surface_listener shell_surface_listener;
 

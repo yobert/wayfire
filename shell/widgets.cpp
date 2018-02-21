@@ -47,22 +47,6 @@ void load_default_font()
     cairo_font_face = cairo_ft_font_face_create_for_ft_face (face, 0);
 }
 
-void render_rounded_rectangle(cairo_t *cr, int x, int y, int width, int height,
-        double radius, double r, double g, double b, double a)
-{
-    double degrees = M_PI / 180.0;
-
-    cairo_new_sub_path (cr);
-    cairo_arc(cr, x + width, y, 1, -90 * degrees, 0 * degrees);
-    cairo_arc(cr, x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
-    cairo_arc(cr, x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
-    cairo_arc(cr, x, y, 1, 180 * degrees, 270 * degrees);
-    cairo_close_path (cr);
-
-    cairo_set_source_rgba(cr, r, g, b, a);
-    cairo_fill_preserve(cr);
-}
-
 /* -------------------- Clock widget ----------------- */
 void clock_widget::create()
 {

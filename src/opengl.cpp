@@ -30,9 +30,8 @@ void gl_call(const char *func, uint32_t line, const char *glfunc) {
 }
 
 namespace OpenGL {
-    GLuint compile_shader(const char *src, GLuint type) {
-        printf("compile shader\n");
-
+    GLuint compile_shader(const char *src, GLuint type)
+    {
         GLuint shader = GL_CALL(glCreateShader(type));
         GL_CALL(glShaderSource(shader, 1, &src, NULL));
 

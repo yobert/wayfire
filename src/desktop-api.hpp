@@ -14,13 +14,13 @@
 
 void desktop_surface_added(weston_desktop_surface *desktop_surface, void *shell)
 {
-    debug << "desktop_surface_added" << std::endl;
+    debug << "desktop_surface_added " << desktop_surface << std::endl;
     core->add_view(desktop_surface);
 }
 
 void desktop_surface_removed(weston_desktop_surface *surface, void *user_data)
 {
-    debug << "desktop_surface_removed" << std::endl;
+    debug << "desktop_surface_removed " << surface << std::endl;
 
     auto view = core->find_view(surface);
     weston_desktop_surface_unlink_view(view->handle);

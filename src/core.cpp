@@ -910,14 +910,16 @@ void wayfire_core::configure(wayfire_config *config)
     ec->kb_repeat_delay = section->get_int("kb_repeat_delay", 400);
 }
 
-void notify_output_created_idle_cb(void *data)
+void finish_wf_shell_bind_cb(void *data)
 {
-    core->for_each_output([] (wayfire_output *out) {
-        wayfire_shell_send_output_created(core->wf_shell.resource,
+    auto resource = (wl_resource*) data;
+    core->shell_clients.push_back(resource);
+    core->for_each_output([=] (wayfire_output *out) {
+        wayfire_shell_send_output_created(resource,
                 out->handle->id,
                 out->handle->width, out->handle->height);
         if (out->handle->set_gamma) {
-            wayfire_shell_send_gamma_size(core->wf_shell.resource,
+            wayfire_shell_send_gamma_size(resource,
                     out->handle->id, out->handle->gamma_size);
         }
     });
@@ -925,19 +927,19 @@ void notify_output_created_idle_cb(void *data)
 
 void unbind_desktop_shell(wl_resource *resource)
 {
-    core->wf_shell.client = NULL;
+    auto it = std::find(core->shell_clients.begin(), core->shell_clients.end(),
+                        resource);
+    core->shell_clients.erase(it);
 }
 
 void bind_desktop_shell(wl_client *client, void *data, uint32_t version, uint32_t id)
 {
-    core->wf_shell.resource = wl_resource_create(client, &wayfire_shell_interface, 1, id);
-    core->wf_shell.client = client;
-
-    wl_resource_set_implementation(core->wf_shell.resource, &shell_interface_impl,
+    auto resource = wl_resource_create(client, &wayfire_shell_interface, 1, id);
+    wl_resource_set_implementation(resource, &shell_interface_impl,
             NULL, unbind_desktop_shell);
 
     auto loop = wl_display_get_event_loop(core->ec->wl_display);
-    wl_event_loop_add_idle(loop, notify_output_created_idle_cb, NULL);
+    wl_event_loop_add_idle(loop, finish_wf_shell_bind_cb, resource);
 }
 
 void wayfire_core::init(weston_compositor *comp, wayfire_config *conf)
@@ -1052,8 +1054,8 @@ void wayfire_core::add_output(weston_output *output)
     wo->destroy_listener.notify = output_destroyed_callback;
     wl_signal_add(&wo->handle->destroy_signal, &wo->destroy_listener);
 
-    if (wf_shell.client)
-        wayfire_shell_send_output_created(wf_shell.resource, output->id,
+    for (auto resource : shell_clients)
+        wayfire_shell_send_output_created(resource, output->id,
                 output->width, output->height);
 
     weston_output_schedule_repaint(output);
@@ -1100,8 +1102,8 @@ void wayfire_core::remove_output(wayfire_output *output)
     });
 
     delete output;
-    if (wf_shell.resource)
-        wayfire_shell_send_output_destroyed(wf_shell.resource, output->handle->id);
+    for (auto resource : shell_clients)
+        wayfire_shell_send_output_destroyed(resource, output->handle->id);
 }
 
 void wayfire_core::refocus_active_output_active_view()

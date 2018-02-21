@@ -615,6 +615,18 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     pixman_region32_init(&ws_damage);
     get_ws_damage(stream->ws, &ws_damage);
 
+    float current_resolution = stream->scale_x * stream->scale_y;
+    float target_resolution = scale_x * scale_y;
+
+    float scaling = std::max(current_resolution / target_resolution,
+                             target_resolution / current_resolution);
+
+    if (scaling > 2)
+    {
+        pixman_region32_union_rect(&ws_damage, &ws_damage, dx, dy,
+                g.width, g.height);
+    }
+
     /* we don't have to update anything */
     if (!pixman_region32_not_empty(&ws_damage))
     {
@@ -778,11 +790,11 @@ void shell_add_background(struct wl_client *client, struct wl_resource *resource
         uint32_t output, struct wl_resource *surface, int32_t x, int32_t y)
 {
     weston_surface *wsurf = (weston_surface*) wl_resource_get_user_data(surface);
+    wayfire_view view = (wsurf ? core->find_view(wsurf) : nullptr);
     auto wo = wl_output_to_wayfire_output(output);
+    if (!wo) wo = view ? view->output : nullptr;
 
-    wayfire_view view = nullptr;
-
-    if (!wo || !wsurf || !(view = core->find_view(wsurf))) {
+     if (!wo || !view) {
         errio << "shell_add_background called with invalid surface or output" << std::endl;
         return;
     }
@@ -795,11 +807,12 @@ void shell_add_panel(struct wl_client *client, struct wl_resource *resource,
         uint32_t output, struct wl_resource *surface)
 {
     weston_surface *wsurf = (weston_surface*) wl_resource_get_user_data(surface);
+    wayfire_view view = (wsurf ? core->find_view(wsurf) : nullptr);
     auto wo = wl_output_to_wayfire_output(output);
+    if (!wo) wo = view ? view->output : nullptr;
 
-    wayfire_view view = nullptr;
 
-    if (!wo || !wsurf || !(view = core->find_view(wsurf))) {
+    if (!wo || !wsurf) {
         errio << "shell_add_panel called with invalid surface or output" << std::endl;
         return;
     }
@@ -812,11 +825,11 @@ void shell_configure_panel(struct wl_client *client, struct wl_resource *resourc
         uint32_t output, struct wl_resource *surface, int32_t x, int32_t y)
 {
     weston_surface *wsurf = (weston_surface*) wl_resource_get_user_data(surface);
+    wayfire_view view = (wsurf ? core->find_view(wsurf) : nullptr);
     auto wo = wl_output_to_wayfire_output(output);
+    if (!wo) wo = view ? view->output : nullptr;
 
-    wayfire_view view = nullptr;
-
-    if (!wo || !wsurf || !(view = core->find_view(wsurf))) {
+    if (!wo || !view) {
         errio << "shell_configure_panel called with invalid surface or output" << std::endl;
         return;
     }
@@ -923,8 +936,9 @@ void wayfire_output::set_transform(wl_output_transform new_tr)
     render->ctx->width = handle->width;
     render->ctx->height = handle->height;
 
-    wayfire_shell_send_output_resized(core->wf_shell.resource, handle->id,
-		    handle->width, handle->height);
+    for (auto resource : core->shell_clients)
+        wayfire_shell_send_output_resized(resource, handle->id,
+                                          handle->width, handle->height);
     emit_signal("output-resized", nullptr);
 
     //ensure_pointer();
@@ -967,6 +981,8 @@ std::tuple<int, int> wayfire_output::get_screen_size()
 void wayfire_output::ensure_pointer()
 {
     auto ptr = weston_seat_get_pointer(core->get_current_seat());
+    if (!ptr) return;
+
     int px = wl_fixed_to_int(ptr->x), py = wl_fixed_to_int(ptr->y);
 
     auto g = get_full_geometry();
@@ -1013,7 +1029,7 @@ void wayfire_output::detach_view(wayfire_view v)
 
     auto views = workspace->get_views_on_workspace(workspace->get_current_workspace());
     for (auto wview : views) {
-        if (wview->handle != v->handle && wview->is_mapped) {
+        if (wview->handle != v->handle && wview->is_mapped && !wview->destroyed) {
             next = wview;
             break;
         }

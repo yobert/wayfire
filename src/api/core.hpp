@@ -21,6 +21,7 @@ using output_callback_proc = std::function<void(wayfire_output *)>;
 class wayfire_core
 {
         friend struct plugin_manager;
+        friend class wayfire_output;
 
         wayfire_config *config;
 
@@ -34,15 +35,15 @@ class wayfire_core
         void (*weston_renderer_repaint) (weston_output *output, pixman_region32_t *damage);
 
         int times_wake = 0;
+
     public:
+
+        std::vector<wl_resource*> shell_clients;
+
+
         std::string wayland_display, xwayland_display;
 
         input_manager *input;
-
-        struct {
-            wl_client *client;
-            wl_resource *resource;
-        } wf_shell;
 
         weston_compositor *ec;
         void init(weston_compositor *ec, wayfire_config *config);
