@@ -1,3 +1,4 @@
+#include <config.hpp>
 #include <output.hpp>
 #include <core.hpp>
 #include <view.hpp>
@@ -75,6 +76,7 @@ class viewport_manager : public workspace_manager
         weston_geometry get_workarea();
 
         void check_lower_panel_layer(int base);
+        bool draw_panel_over_fullscreen_windows;
 };
 
 /* Start viewport_manager */
@@ -456,7 +458,7 @@ void viewport_manager::check_lower_panel_layer(int base)
     for (auto v : views)
         cnt_fullscreen += (v->fullscreen ? 1 : 0);
 
-    if (cnt_fullscreen)
+    if (cnt_fullscreen && !draw_panel_over_fullscreen_windows)
     {
         weston_layer_unset_position(&panel_layer);
     } else
@@ -471,6 +473,8 @@ class viewport_impl_plugin : public wayfire_plugin_t {
     {
         auto vp = new viewport_manager();
         vp->init(output);
+        vp->draw_panel_over_fullscreen_windows =
+            config->get_section("core")->get_int("draw_panel_over_fullscreen_windows", 0);
 
         output->workspace = vp;
     }
