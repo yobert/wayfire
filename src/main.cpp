@@ -54,15 +54,16 @@ int main(int argc, char *argv[]) {
     auto ec = weston_compositor_create(display, NULL);
 
     crash_compositor = ec;
-    ec->idle_time = 3000000;
-    ec->repaint_msec = 16;
     ec->default_pointer_grab = NULL;
     ec->vt_switching = true;
 
     std::string home_dir = secure_getenv("HOME");
     debug << "Using home directory: " << home_dir << std::endl;
 
-    wayfire_config *config = new wayfire_config(home_dir + "/.config/wayfire.ini", 1000 / ec->repaint_msec);
+    wayfire_config *config = new wayfire_config(home_dir + "/.config/wayfire.ini", -1);
+    ec->repaint_msec = config->get_section("core")->get_int("repaint_msec", 16);
+    ec->idle_time = config->get_section("core")->get_int("idle_time", 300);
+    config->set_refresh_rate(1000 / ec->repaint_msec);
     device_config::load(config);
 
     core = new wayfire_core();

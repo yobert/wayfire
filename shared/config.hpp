@@ -46,6 +46,7 @@ class wayfire_config {
     public:
     wayfire_config(std::string file, int refresh_rate = -1);
     wayfire_config_section* get_section(std::string name);
+    void set_refresh_rate(int refresh_rate);
 };
 
 #endif /* end of include guard: CONFIG_HPP */

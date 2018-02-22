@@ -246,3 +246,9 @@ wayfire_config_section* wayfire_config::get_section(string name)
     sections.push_back(nsect);
     return nsect;
 }
+
+void wayfire_config::set_refresh_rate(int rr)
+{
+    for (auto section : sections)
+        section->refresh_rate = rr;
+}
