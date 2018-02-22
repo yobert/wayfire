@@ -174,7 +174,9 @@ class wayfire_animation : public wayfire_plugin_t {
 
         output->connect_signal("create-view", &create_cb);
         output->connect_signal("destroy-view", &destroy_cb);
-        output->connect_signal("wake", &wake_cb);
+
+        if (config->get_section("backlight")->get_int("min_brightness", 1) > -1)
+            output->connect_signal("wake", &wake_cb);
         output->connect_signal("output-fade-in-request", &wake_cb);
     }
 

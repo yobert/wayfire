@@ -140,9 +140,9 @@ class wayfire_backlight : public wayfire_plugin_t {
 
             sleep = [&] (signal_data*)
             {
-                debug << "sleep start" << std::endl;
                 stored_brightness = backend->get_current();
-                backend->set(min_brightness);
+                if (min_brightness >= 0)
+                    backend->set(min_brightness);
             };
 
             restore_brightness = [&] ()
