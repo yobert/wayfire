@@ -178,7 +178,7 @@ void render_frame()
 
     cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
     render_rounded_rectangle(cr, 0, 0, geometry.w, geometry.h,
-                             5.0, 0.033, 0.041, 0.047, alpha / 10.f);
+                             0.02 * geometry.w, 0.022, 0.028, 0.032, alpha / 10.f);
 
     std::string label = " " + std::to_string(level) + "%  ";
     if (level < 10) label = " " + label;

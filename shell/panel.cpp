@@ -388,7 +388,7 @@ void wayfire_panel::render_frame(bool first_call)
     {
         cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
         render_rounded_rectangle(cr, 0, 0, width, height,
-                4, widget::background_color.r, widget::background_color.g,
+                0, widget::background_color.r, widget::background_color.g,
                 widget::background_color.b, widget::background_color.a);
         need_fullredraw = false;
 
