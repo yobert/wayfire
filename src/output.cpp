@@ -777,6 +777,9 @@ void wayfire_output::emit_signal(std::string name, signal_data *data)
 /* Start output */
 wayfire_output* wl_output_to_wayfire_output(uint32_t output)
 {
+    if (output == (uint32_t) -1)
+        return core->get_active_output();
+
     wayfire_output *result = nullptr;
     core->for_each_output([output, &result] (wayfire_output *wo) {
         if (wo->handle->id == output)

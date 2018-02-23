@@ -6,6 +6,7 @@
 #include <signal-definitions.hpp>
 #include <pixman-1/pixman.h>
 #include <opengl.hpp>
+#include "proto/wayfire-shell-server.h"
 
 struct wf_default_workspace_implementation : wf_workspace_implementation
 {
@@ -77,6 +78,7 @@ class viewport_manager : public workspace_manager
 
         void check_lower_panel_layer(int base);
         bool draw_panel_over_fullscreen_windows;
+        bool sent_autohide = false;
 };
 
 /* Start viewport_manager */
@@ -458,12 +460,31 @@ void viewport_manager::check_lower_panel_layer(int base)
     for (auto v : views)
         cnt_fullscreen += (v->fullscreen ? 1 : 0);
 
-    if (cnt_fullscreen && !draw_panel_over_fullscreen_windows)
+    if (cnt_fullscreen)
     {
-        weston_layer_unset_position(&panel_layer);
+        if (draw_panel_over_fullscreen_windows)
+        {
+            if (!sent_autohide)
+            {
+                sent_autohide = 1;
+
+                for (auto res : core->shell_clients)
+                    wayfire_shell_send_output_autohide_panels(res, output->handle->id, 1);
+            }
+        } else
+        {
+            weston_layer_unset_position(&panel_layer);
+        }
     } else
     {
         weston_layer_set_position(&panel_layer, WESTON_LAYER_POSITION_UI);
+
+        if (sent_autohide)
+        {
+            sent_autohide = 0;
+            for (auto res : core->shell_clients)
+                wayfire_shell_send_output_autohide_panels(res, output->handle->id, 0);
+        }
     }
 }
 

@@ -15,7 +15,7 @@ class wayfire_panel {
     uint32_t width, height;
 
     int hidden_height = 1;
-    bool autohide = true;
+    int autohide = 0;
     bool need_fullredraw = false;
 
     struct {
@@ -23,14 +23,19 @@ class wayfire_panel {
         int y, target;
     } animation;
 
-    timeval last_input_time;
-    bool do_hide = true, do_show = false;
-    int64_t time_to_hide, time_to_show;
+    timeval timer_target;
+    enum animation_state
+    { WAITING = (1 << 0),
+      ANIMATING = (1 << 1),
+      HIDDEN = (1 << 2),
+      SHOWN = (1 << 3)
+    };
+    uint32_t state = HIDDEN;
 
-    void hide();
-    void show();
+    void show(int delay_ms);
+    void hide(int delay_ms);
 
-    int count_finger = 0;
+    int count_input = 0;
     void on_enter(uint32_t);
     void on_leave();
 
@@ -69,6 +74,7 @@ class wayfire_panel {
         ~wayfire_panel();
         void create_panel(uint32_t output, uint32_t width, uint32_t height);
         void render_frame(bool first_call = false);
+        void set_autohide(bool ah);
 
         void resize(uint32_t width, uint32_t height);
 };

@@ -68,8 +68,6 @@ extern weston_compositor *crash_compositor;
 void signalHandle(int sig) {
     errio << "Crash detected!" << std::endl;
     print_trace();
-
-    crash_compositor->backend->restore(crash_compositor);
     raise(SIGTRAP);
 }
 

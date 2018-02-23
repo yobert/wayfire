@@ -60,6 +60,17 @@ void output_destroyed_cb(void *data, wayfire_shell *wayfire_shell, uint32_t outp
         delete it->second.gamma;
 }
 
+void output_autohide_panels_cb(void *data, wayfire_shell *wayfire_shell, uint32_t output, uint32_t autohide)
+{
+    auto it = outputs.find(output);
+
+    if (it == outputs.end())
+        return;
+
+    if (it->second.panel)
+        it->second.panel->set_autohide(autohide);
+}
+
 bool gamma_adjust_enabled;
 
 void output_gamma_size_cb(void *data, wayfire_shell *shell, uint32_t output,
@@ -73,6 +84,7 @@ static const struct wayfire_shell_listener bg_shell_listener = {
     .output_created = output_created_cb,
     .output_resized = output_resized_cb,
     .output_destroyed = output_destroyed_cb,
+    .output_autohide_panels = output_autohide_panels_cb,
     .gamma_size = output_gamma_size_cb,
 };
 

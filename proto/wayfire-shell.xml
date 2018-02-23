@@ -50,6 +50,11 @@
             <arg name="output" type="uint"/>
         </event>
 
+        <event name="output_autohide_panels">
+            <arg name="output" type="uint"/>
+            <arg name="autohide" type="uint"/>
+        </event>
+
         <event name="gamma_size">
             <arg name="output" type="uint"/>
             <arg name="size" type="uint"/>
