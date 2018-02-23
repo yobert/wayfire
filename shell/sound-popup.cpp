@@ -106,6 +106,8 @@ wayfire_window *window = nullptr;
 cairo_t *cr = nullptr;
 
 int input_count = 0;
+const int input_pointer_button = (1 << 31);
+const int input_input_focus = (1 << 30);
 timeval start_time;
 
 struct
@@ -253,6 +255,7 @@ void setup_window()
 
     window->touch_down = [] (uint32_t, int id, int x, int y)
     {
+        input_count |= input_input_focus;
         if (should_handle_input(x, y))
         {
             input_count |= (1 << id);
@@ -263,6 +266,7 @@ void setup_window()
     window->touch_up = [] (int id)
     {
         input_count &= ~(1 << id);
+        input_count &= ~input_input_focus;
     };
 
     window->touch_motion = [] (int id, int x, int y)
@@ -274,6 +278,12 @@ void setup_window()
     window->pointer_enter = [] (wl_pointer*, uint32_t time, int, int)
     {
         show_default_cursor(time);
+        input_count |= input_input_focus;
+    };
+
+    window->pointer_leave = [] ()
+    {
+        input_count &= ~input_input_focus;
     };
 
     window->pointer_button = [] (uint32_t button, uint32_t type, int x, int y)
@@ -282,18 +292,18 @@ void setup_window()
         {
             if (should_handle_input(x, y))
             {
-                input_count |= (1 << 31);
+                input_count |= input_pointer_button;
                 handle_input(x, y);
             }
         } else
         {
-            input_count &= ~(1 << 31);
+            input_count &= ~input_pointer_button;
         }
     };
 
     window->pointer_move = [] (int x, int y)
     {
-        if (input_count)
+        if (input_count & ~input_input_focus)
             handle_input(x, y);
     };
 
