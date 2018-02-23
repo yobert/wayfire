@@ -271,6 +271,11 @@ void setup_window()
             handle_input(x, y);
     };
 
+    window->pointer_enter = [] (wl_pointer*, uint32_t time, int, int)
+    {
+        show_default_cursor(time);
+    };
+
     window->pointer_button = [] (uint32_t button, uint32_t type, int x, int y)
     {
         if (type == WL_POINTER_BUTTON_STATE_PRESSED)

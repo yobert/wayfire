@@ -13,7 +13,7 @@ extern struct wayfire_display
     wl_compositor *compositor;
     wl_display *wl_disp;
     wl_pointer *pointer;
-    wl_seat *seat;
+    wl_seat *seat = NULL;
     wl_shm *shm;
     wl_shell *shell;
 

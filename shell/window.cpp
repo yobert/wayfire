@@ -155,7 +155,9 @@ void registry_add_object(void *data, struct wl_registry *registry, uint32_t name
         display.compositor = (wl_compositor*) wl_registry_bind (registry, name, &wl_compositor_interface, std::min(version, 2u));
     } else if (!strcmp(interface,"wl_shell")) {
         display.shell = (wl_shell*) wl_registry_bind(registry, name, &wl_shell_interface, std::min(version, 2u));
-    } else if (strcmp(interface, wl_seat_interface.name) == 0) {
+    /* make sure we use the first seat, as it is the one created by weston. Some plugins might
+     * create their own seat, which we shouldn't use */
+    } else if (strcmp(interface, wl_seat_interface.name) == 0 && display.seat == NULL) {
         display.seat = (wl_seat*) wl_registry_bind(registry, name, &wl_seat_interface, std::min(version, 2u));
         display.pointer = wl_seat_get_pointer(display.seat);
         auto touch = wl_seat_get_touch(display.seat);
@@ -242,7 +244,8 @@ void show_default_cursor(uint32_t serial)
     wl_surface_damage(cursor_surface, 0, 0, image->width, image->height);
     wl_surface_commit(cursor_surface);
 
-    wl_pointer_set_cursor(display.pointer, serial, cursor_surface,
+    auto ptr = wl_seat_get_pointer(display.seat);
+    wl_pointer_set_cursor(ptr, serial, cursor_surface,
             image->hotspot_x, image->hotspot_y);
 }
 
