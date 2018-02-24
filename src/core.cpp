@@ -1301,15 +1301,14 @@ void wayfire_core::erase_view(wayfire_view v, bool destroy_handle)
 
 void wayfire_core::run(const char *command)
 {
-    std::string cmd = command;
-    cmd = "WAYLAND_DISPLAY=" + wayland_display + " " + cmd;
     pid_t pid = fork();
 
     /* The following is a "hack" for disowning the child processes,
      * otherwise they will simply stay as zombie processes */
     if (!pid) {
         if (!fork()) {
-            exit(execl("/bin/sh", "/bin/sh", "-c", cmd.c_str(), NULL));
+            setenv("WAYLAND_DISPLAY", wayland_display.c_str(), 1);
+            exit(execl("/bin/sh", "/bin/bash", "-c", command, NULL));
         } else {
             exit(0);
         }
