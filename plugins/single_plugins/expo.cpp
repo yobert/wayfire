@@ -29,7 +29,7 @@ class wayfire_expo : public wayfire_plugin_t {
             bool in_zoom = false;
             bool button_pressed = false;
 
-            int zoom_delta = 1;
+            bool zoom_in = false;
         } state;
         int target_vx, target_vy;
         std::tuple<int, int> move_started_ws;
@@ -158,8 +158,7 @@ class wayfire_expo : public wayfire_plugin_t {
         state.button_pressed = false;
         state.moving = false;
 
-        state.zoom_delta = 1;
-
+        state.zoom_in = false;
         GetTuple(vx, vy, output->workspace->get_current_workspace());
 
         target_vx = vx;
@@ -174,7 +173,7 @@ class wayfire_expo : public wayfire_plugin_t {
     void deactivate()
     {
         state.in_zoom = true;
-        state.zoom_delta = -1;
+        state.zoom_in = true;
         state.moving = false;
 
         output->workspace->set_workspace(std::make_tuple(target_vx, target_vy));
@@ -428,11 +427,10 @@ class wayfire_expo : public wayfire_plugin_t {
         float center_w = vw / 2.f;
         float center_h = vh / 2.f;
 
+        zoom_target.steps = 0;
         if (zoom_in) {
-            zoom_target.steps = 0;
             render_params.scale_x = render_params.scale_y = 1;
         } else {
-            zoom_target.steps = max_steps;
             render_params.scale_x = 1.f / vw;
             render_params.scale_y = 1.f / vh;
         }
@@ -449,22 +447,35 @@ class wayfire_expo : public wayfire_plugin_t {
 
     void update_zoom()
     {
-        render_params.scale_x = GetProgress(zoom_target.scale_x.begin,
-                zoom_target.scale_x.end, zoom_target.steps, max_steps);
-        render_params.scale_y = GetProgress(zoom_target.scale_y.begin,
-                zoom_target.scale_y.end, zoom_target.steps, max_steps);
-        render_params.off_x = GetProgress(zoom_target.off_x.begin,
-                zoom_target.off_x.end, zoom_target.steps, max_steps);
-        render_params.off_y = GetProgress(zoom_target.off_y.begin,
-                zoom_target.off_y.end, zoom_target.steps, max_steps);
+        if (state.zoom_in)
+        {
+            render_params.scale_x = GetProgress(zoom_target.scale_x.end,
+                    zoom_target.scale_x.begin, zoom_target.steps, max_steps);
+            render_params.scale_y = GetProgress(zoom_target.scale_y.end,
+                    zoom_target.scale_y.begin, zoom_target.steps, max_steps);
+            render_params.off_x = GetProgress(zoom_target.off_x.end,
+                    zoom_target.off_x.begin, zoom_target.steps, max_steps);
+            render_params.off_y = GetProgress(zoom_target.off_y.end,
+                    zoom_target.off_y.begin, zoom_target.steps, max_steps);
+        } else
+        {
+            render_params.scale_x = GetProgress(zoom_target.scale_x.begin,
+                    zoom_target.scale_x.end, zoom_target.steps, max_steps);
+            render_params.scale_y = GetProgress(zoom_target.scale_y.begin,
+                    zoom_target.scale_y.end, zoom_target.steps, max_steps);
+            render_params.off_x = GetProgress(zoom_target.off_x.begin,
+                    zoom_target.off_x.end, zoom_target.steps, max_steps);
+            render_params.off_y = GetProgress(zoom_target.off_y.begin,
+                    zoom_target.off_y.end, zoom_target.steps, max_steps);
+        }
 
-        zoom_target.steps += state.zoom_delta;
+        zoom_target.steps++;
 
-        if (zoom_target.steps == max_steps + 1 && state.zoom_delta == 1) {
+        if (zoom_target.steps == max_steps + 1)
+        {
             state.in_zoom = false;
-        } else if (state.zoom_delta == -1 && zoom_target.steps == -1) {
-            state.in_zoom = false;
-            finalize_and_exit();
+            if (state.zoom_in)
+                finalize_and_exit();
         }
     }
 
