@@ -79,7 +79,7 @@ std::string format(int x)
     }
 }
 
-bool clock_widget::update()
+bool clock_widget::update(bool reset)
 {
     using std::chrono::system_clock;
 
@@ -89,7 +89,7 @@ bool clock_widget::update()
     std::string time_string = std::to_string(time->tm_mday) + " " +
         months[time->tm_mon] + " " + format(time->tm_hour) +
         ":" + format(time->tm_min);
-    if (time_string != this->current_text)
+    if (time_string != this->current_text || reset)
     {
         current_text = time_string;
 
@@ -406,7 +406,7 @@ battery_widget::~battery_widget()
     info->mutex.unlock();
 }
 
-bool battery_widget::update()
+bool battery_widget::update(bool reset)
 {
     if (!active)
         return false;
@@ -421,7 +421,7 @@ bool battery_widget::update()
     battery_string = std::to_string(info->percentage) + "%";
     info->mutex.unlock();
 
-    if (result)
+    if (result || reset)
     {
         cairo_set_font_size(cr, font_size * battery_options::text_scale);
         cairo_set_font_face(cr, cairo_font_face);
@@ -675,9 +675,9 @@ void launchers_widget::repaint()
     need_repaint = false;
 }
 
-bool launchers_widget::update()
+bool launchers_widget::update(bool reset)
 {
-    return need_repaint;
+    return need_repaint || reset;
 }
 
 launchers_widget::~launchers_widget()

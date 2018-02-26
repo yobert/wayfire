@@ -30,7 +30,7 @@ struct widget
     virtual int get_width() = 0;
 
     /* return true if widget has to be painted on this iter */
-    virtual bool update() = 0;
+    virtual bool update(bool reset = false) = 0;
 
     virtual void repaint() = 0;
 
@@ -46,7 +46,7 @@ struct clock_widget : public widget
 
     void create();
     int get_width() { return width; };
-    bool update();
+    bool update(bool reset);
     bool resized();
     void repaint();
 };
@@ -76,7 +76,7 @@ struct battery_widget : public widget
 
     void create();
     int get_width() { return width; };
-    bool update();
+    bool update(bool reset);
     bool resized();
     void repaint();
 };
@@ -93,7 +93,7 @@ struct launchers_widget : public widget
 
     void create();
     int get_width() { return width; };
-    bool update();
+    bool update(bool reset);
     bool resized();
     void repaint();
 

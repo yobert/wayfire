@@ -312,7 +312,7 @@ network_widget::~network_widget()
     connection->mutex.unlock();
 }
 
-bool network_widget::update()
+bool network_widget::update(bool reset)
 {
     if (!backend)
         return false;
@@ -324,7 +324,7 @@ bool network_widget::update()
     text = connection->name;
     connection->mutex.unlock();
 
-    if (result)
+    if (result || reset)
     {
 
         cairo_set_font_size(cr, font_size);

@@ -169,6 +169,9 @@ void wayfire_panel::resize(uint32_t w, uint32_t h)
     for_each_widget(w)
         w->cr = cairo_create(window->cairo_surface);
 
+    for_each_widget(w)
+        w->update(true);
+
     cr = cairo_create(window->cairo_surface);
     render_frame(true);
 }
