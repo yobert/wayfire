@@ -403,10 +403,12 @@ bool render_manager::paint(pixman_region32_t *damage)
 
     if (renderer)
     {
+        frame_was_custom_rendered = 1;
         OpenGL::bind_context(ctx);
         renderer();
         return true;
     } else {
+        frame_was_custom_rendered = 0;
         return false;
     }
 }
@@ -414,7 +416,7 @@ bool render_manager::paint(pixman_region32_t *damage)
 void render_manager::post_paint()
 {
     run_effects();
-    if (renderer && draw_overlay_panel)
+    if (frame_was_custom_rendered && draw_overlay_panel)
         render_panels();
 
     if (constant_redraw)

@@ -51,6 +51,7 @@ class render_manager
 
         std::vector<effect_hook_t*> output_effects;
         int constant_redraw = 0;
+        bool frame_was_custom_rendered = false;
         render_hook_t renderer;
 
         bool paint(pixman_region32_t *damage);
