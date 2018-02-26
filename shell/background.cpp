@@ -13,7 +13,19 @@ wayfire_background::wayfire_background(std::string image)
 
 bool g_type_init_ran = false;
 
-static cairo_surface_t *create_cairo_surface_from_file(std::string name)
+static cairo_surface_t *create_dummy_surface(int w, int h)
+{
+    cairo_surface_t *surf = cairo_image_surface_create(CAIRO_FORMAT_RGB24, w, h);
+    cairo_t *cr = cairo_create(surf);
+    cairo_rectangle(cr, 0, 0, w, h);
+    cairo_set_source_rgb(cr, 0.1, 0.1, 0.1);
+    cairo_fill(cr);
+    cairo_destroy(cr);
+
+    return surf;
+}
+
+static cairo_surface_t *create_cairo_surface_from_file(std::string name, int w, int h)
 {
 #if HAS_PIXBUF
 
@@ -30,19 +42,16 @@ static cairo_surface_t *create_cairo_surface_from_file(std::string name)
 
     if (!pbuf)
     {
-        std::cerr << "Failed to create a pbuf" << std::endl;
-        unsigned char data[] = {0, 0, 0, 1} ;
-        cairo_surface_t *surf = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32, 1, 1, 0);
-        return surf;
+        std::cerr << "Failed to create a pbuf. Possibly wrong background path?" << std::endl;
+        return create_dummy_surface(w, h);
     }
 
-
-    int w = gdk_pixbuf_get_width(pbuf);
-    int h = gdk_pixbuf_get_height(pbuf);
+    int w_ = gdk_pixbuf_get_width(pbuf);
+    int h_ = gdk_pixbuf_get_height(pbuf);
 
     auto surface = cairo_image_surface_create(
         gdk_pixbuf_get_has_alpha(pbuf) ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24,
-        w, h);
+        w_, h_);
 
     auto cr = cairo_create(surface);
     gdk_cairo_set_source_pixbuf(cr, pbuf, 0, 0);
@@ -53,7 +62,9 @@ static cairo_surface_t *create_cairo_surface_from_file(std::string name)
 
     return surface;
 #else
-    return cairo_image_surface_create_from_png(name.c_str());
+
+    auto surface = cairo_image_surface_create_from_png(name.c_str());
+    return surface ?: create_dummy_surface(w, h);
 #endif
 }
 
@@ -68,7 +79,9 @@ void wayfire_background::create_background(uint32_t output, uint32_t w, uint32_t
             this, _1, _2, _3, _4);
 
     cr = cairo_create(window->cairo_surface);
-    img_surface = create_cairo_surface_from_file(image);
+
+    if (!img_surface)
+        img_surface = create_cairo_surface_from_file(image, w, h);
 
     set_active_window(window);
 
@@ -76,9 +89,8 @@ void wayfire_background::create_background(uint32_t output, uint32_t w, uint32_t
     double img_h = cairo_image_surface_get_height(img_surface);
 
     cairo_rectangle(cr, 0, 0, w, h);
-    cairo_scale(cr, 1.0 * w / img_w, 1.0 * h / img_h);
+    cairo_scale(cr, w / img_w, h / img_h);
     cairo_set_source_surface(cr, img_surface, 0, 0);
-
     cairo_fill(cr);
 
     damage_commit_window(window);

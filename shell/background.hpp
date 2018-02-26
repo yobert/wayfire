@@ -8,7 +8,7 @@ class wayfire_background {
 
     uint32_t output;
     std::string image;
-    cairo_surface_t *img_surface;
+    cairo_surface_t *img_surface = NULL;
     cairo_t *cr;
 
     void setup(uint32_t w, uint32_t h);
