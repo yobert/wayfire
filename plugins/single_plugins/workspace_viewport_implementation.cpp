@@ -24,7 +24,7 @@ class viewport_manager : public workspace_manager
         std::vector<wayfire_view> custom_views;
 
         weston_layer panel_layer, normal_layer, background_layer;
-        signal_callback_t adjust_fullscreen_layer, view_detached;
+        signal_callback_t adjust_fullscreen_layer, view_detached, output_resized;
 
         struct {
             int top_padding;
@@ -120,9 +120,19 @@ void viewport_manager::init(wayfire_output *o)
     {
         check_lower_panel_layer(0);
     };
+
+    output_resized = [=] (signal_data *data)
+    {
+        auto og = output->get_full_geometry();
+        weston_layer_set_mask(&normal_layer,     og.x, og.y, og.width, og.height);
+        weston_layer_set_mask(&panel_layer,      og.x, og.y, og.width, og.height);
+        weston_layer_set_mask(&background_layer, og.x, og.y, og.width, og.height);
+    };
+
     o->connect_signal("view-fullscreen-request", &adjust_fullscreen_layer);
     o->connect_signal("attach-view", &view_detached);
     o->connect_signal("detach-view", &view_detached);
+    o->connect_signal("output-resized", &output_resized);
 }
 
 viewport_manager::~viewport_manager()
