@@ -32,7 +32,6 @@ class wayfire_core
         std::map<weston_view *, wayfire_view> views;
 
         void configure(wayfire_config *config);
-        void (*weston_renderer_repaint) (weston_output *output, pixman_region32_t *damage);
 
         int times_wake = 0;
 
@@ -51,8 +50,7 @@ class wayfire_core
         void sleep();
         void refocus_active_output_active_view();
 
-        void hijack_renderer();
-        void weston_repaint(weston_output *output, pixman_region32_t *damage);
+        void setup_renderer();
 
         weston_seat *get_current_seat();
 

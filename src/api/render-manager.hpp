@@ -26,7 +26,9 @@ struct wf_workspace_stream
 class render_manager
 {
     private:
-        friend void repaint_output_callback(weston_output *o, pixman_region32_t *damage);
+        friend bool custom_renderer_cb(weston_output *o, pixman_region32_t *damage);
+        friend void post_render_cb(weston_output *o);
+        friend void redraw_idle_cb(void *data);
 
         wayfire_output *output;
 
@@ -35,7 +37,8 @@ class render_manager
         void release_context();
 
         bool draw_overlay_panel = true;
-        pixman_region32_t frame_damage, prev_damage;
+        pixman_region32_t frame_damage, single_pixel;
+
         int streams_running = 0;
 
         signal_callback_t view_moved_cb, viewport_changed_cb;
@@ -50,7 +53,9 @@ class render_manager
         int constant_redraw = 0;
         render_hook_t renderer;
 
-        void paint(pixman_region32_t *damage);
+        bool paint(pixman_region32_t *damage);
+        void post_paint();
+
         void transformation_renderer();
         void run_effects();
         void render_panels();
@@ -65,7 +70,10 @@ class render_manager
         void set_renderer(render_hook_t rh = nullptr);
         void reset_renderer();
 
-        void auto_redraw(bool redraw); /* schedule repaint immediately after finishing the last */
+        /* schedule repaint immediately after finishing the last one
+         * to undo, call auto_redraw(false) as much times as auto_redraw(true) was called */
+        void auto_redraw(bool redraw);
+        void schedule_redraw();
         void set_hide_overlay_panels(bool set);
 
         void add_output_effect(effect_hook_t*, wayfire_view v = nullptr);

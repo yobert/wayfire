@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include <libweston-desktop.h>
+#include <gl-renderer-api.h>
 
 #include "core.hpp"
 #include "output.hpp"
@@ -996,28 +997,30 @@ void wayfire_core::sleep()
     weston_compositor_sleep(ec);
 }
 
-/* FIXME: currently wayfire hijacks the built-in renderer, assuming that it is the gl-renderer
- * However, this isn't always true. Also, hijacking isn't the best option
- * Maybe we should draw to a surface and display it? */
-void repaint_output_callback(weston_output *o, pixman_region32_t *damage)
+bool custom_renderer_cb(weston_output *o, pixman_region32_t *damage)
 {
     auto output = core->get_output(o);
     if (output)
-        output->render->paint(damage);
+        return output->render->paint(damage);
+    return false;
 }
 
-void wayfire_core::hijack_renderer()
+void post_render_cb(weston_output *o)
 {
-    if (core->ec->renderer->repaint_output != repaint_output_callback)
-    {
-        weston_renderer_repaint = core->ec->renderer->repaint_output;
-        core->ec->renderer->repaint_output = repaint_output_callback;
-    }
+    auto output = core->get_output(o);
+    if (output)
+        output->render->post_paint();
 }
 
-void wayfire_core::weston_repaint(weston_output *output, pixman_region32_t *damage)
+void wayfire_core::setup_renderer()
 {
-    weston_renderer_repaint(output, damage);
+    const auto api = render_manager::renderer_api = (const weston_gl_renderer_api*)
+        weston_plugin_api_get(core->ec, WESTON_GL_RENDERER_API_NAME,
+                              sizeof(weston_gl_renderer_api));
+
+    assert(api);
+    api->set_custom_renderer(ec, custom_renderer_cb);
+    api->set_post_render(ec, post_render_cb);
 }
 
 weston_seat* wayfire_core::get_current_seat()

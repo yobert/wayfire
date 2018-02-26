@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    core->hijack_renderer();
+    core->setup_renderer();
 
     auto server_name = wl_display_add_socket_auto(display);
     if (!server_name) {

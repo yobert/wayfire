@@ -145,13 +145,6 @@ render_manager::render_manager(wayfire_output *o)
 {
     output = o;
 
-    if (!renderer_api)
-    {
-	    renderer_api = (const weston_gl_renderer_api*)
-		    weston_plugin_api_get(core->ec, WESTON_GL_RENDERER_API_NAME,
-				    sizeof(weston_gl_renderer_api));
-    }
-
     if (core->backend == WESTON_BACKEND_WAYLAND) {
         output->output_dx = output->output_dy = 38;
     } else {
@@ -159,7 +152,7 @@ render_manager::render_manager(wayfire_output *o)
     }
 
     pixman_region32_init(&frame_damage);
-    pixman_region32_init(&prev_damage);
+    pixman_region32_init_rect(&single_pixel, output->handle->x, output->handle->y, 1, 1);
 
     view_moved_cb = [=] (signal_data *data)
     {
@@ -201,9 +194,8 @@ void render_manager::release_context()
 render_manager::~render_manager()
 {
     release_context();
-
     pixman_region32_fini(&frame_damage);
-    pixman_region32_fini(&prev_damage);
+    pixman_region32_fini(&single_pixel);
 
     output->disconnect_signal("view-geometry-changed", &view_moved_cb);
     output->disconnect_signal("viewport-changed", &viewport_changed_cb);
@@ -214,7 +206,7 @@ void redraw_idle_cb(void *data)
     wayfire_output *output = (wayfire_output*) data;
     assert(output);
 
-    weston_output_schedule_repaint(output->handle);
+    render_manager::renderer_api->schedule_repaint(output->handle);
 }
 
 void render_manager::auto_redraw(bool redraw)
@@ -228,6 +220,11 @@ void render_manager::auto_redraw(bool redraw)
         return;
     }
 
+    schedule_redraw();
+}
+
+void render_manager::schedule_redraw()
+{
     auto loop = wl_display_get_event_loop(core->ec->wl_display);
     wl_event_loop_add_idle(loop, redraw_idle_cb, output);
 }
@@ -392,49 +389,36 @@ void render_manager::render_panels()
     }
 }
 
-void render_manager::paint(pixman_region32_t *damage)
+bool render_manager::paint(pixman_region32_t *damage)
 {
     if (dirty_context)
         load_context();
 
     if (streams_running || renderer)
     {
-        pixman_region32_union(&frame_damage, damage, &prev_damage);
-        pixman_region32_copy(&prev_damage, damage);
-
+        pixman_region32_copy(&frame_damage, damage);
+        pixman_region32_subtract(&frame_damage, &frame_damage, &single_pixel);
         update_full_damage_tracking();
     }
 
     if (renderer)
     {
-        EGLSurface surf = renderer_api->output_get_egl_surface(output->handle);
-        EGLContext context = renderer_api->compositor_get_egl_context(core->ec);
-        EGLDisplay display = renderer_api->compositor_get_egl_display(core->ec);
-
-        eglMakeCurrent(display, surf, surf, context);
-
-        GL_CALL(glViewport(0, 0, output->handle->width, output->handle->height));
-
         OpenGL::bind_context(ctx);
         renderer();
-
-        run_effects();
-
-        if (draw_overlay_panel)
-            render_panels();
-
-        wl_signal_emit(&output->handle->frame_signal, output->handle);
-        eglSwapBuffers(display, surf);
+        return true;
     } else {
-        core->weston_repaint(output->handle, damage);
-        run_effects();
+        return false;
     }
+}
+
+void render_manager::post_paint()
+{
+    run_effects();
+    if (renderer && draw_overlay_panel)
+        render_panels();
 
     if (constant_redraw)
-    {
-        wl_event_loop_add_idle(wl_display_get_event_loop(core->ec->wl_display),
-                redraw_idle_cb, output);
-    }
+        schedule_redraw();
 }
 
 void render_manager::run_effects()

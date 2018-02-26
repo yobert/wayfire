@@ -202,9 +202,7 @@ class wayfire_cube : public wayfire_plugin_t {
         if (!output->activate_plugin(grab_interface))
             return;
         grab_interface->grab();
-
         output->render->set_renderer(renderer);
-        output->render->auto_redraw(true);
 
         offset = 0;
         offsetVert = 0;
@@ -213,7 +211,8 @@ class wayfire_cube : public wayfire_plugin_t {
         animation.in_exit = false;
         animation.offset_z = {coeff + COEFF_DELTA_NEAR, coeff + COEFF_DELTA_FAR};
 
-        output->render->auto_redraw(update_animation());
+        if (update_animation())
+            output->render->schedule_redraw();
 
         px = x;
         py = y;
@@ -343,7 +342,8 @@ class wayfire_cube : public wayfire_plugin_t {
         GL_CALL(glDisableVertexAttribArray(program.uvID));
 
         bool result = update_animation();
-        output->render->auto_redraw(result);
+        if (result)
+            output->render->schedule_redraw();
 
         if (animation.in_exit && !result)
             terminate();
@@ -367,6 +367,7 @@ class wayfire_cube : public wayfire_plugin_t {
         animation.rotation = {offset + 1.0f * dvx * angle, 0};
 
         update_animation();
+        output->render->schedule_redraw();
         output->deactivate_plugin(grab_interface);
     }
 
@@ -388,6 +389,8 @@ class wayfire_cube : public wayfire_plugin_t {
         offset += xdiff * XVelocity;
         offsetVert += ydiff * YVelocity;
         px = x, py = y;
+
+        output->render->schedule_redraw();
     }
 
     void pointer_scrolled(double amount)
@@ -399,6 +402,8 @@ class wayfire_cube : public wayfire_plugin_t {
 
         if (zoomFactor <= 0.1)
             zoomFactor = 0.1;
+
+        output->render->schedule_redraw();
     }
 };
 
