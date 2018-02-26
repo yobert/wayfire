@@ -50,6 +50,6 @@ float GetProgress(float start, float end, float current_step, float max_steps)
         return end;
 
     float c = current_step / max_steps;
-    float prog = (std::sin(1.5 * MPI + MPI * c) + 1) / 2.0;
+    float prog = std::sqrt(2 * c - c * c);
     return prog * end + (1 - prog) * start;
 }
