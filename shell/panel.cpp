@@ -175,7 +175,6 @@ void wayfire_panel::resize(uint32_t w, uint32_t h)
 
 static inline void set_timer_target(timeval& timer, int delay)
 {
-
     gettimeofday(&timer, 0);
     timer.tv_usec += delay * 1000;
 
@@ -214,7 +213,10 @@ void wayfire_panel::hide(int delay)
 
     if (state & HIDDEN)
     {
-        state = SHOWN | ANIMATING;
+        if (state == (HIDDEN | WAITING))
+            state = HIDDEN;
+        else
+            state = SHOWN | ANIMATING;
         return;
     } else if (!(state & WAITING))
     {
@@ -366,9 +368,16 @@ void wayfire_panel::render_frame(bool first_call)
         {
             animation.y = animation.target;
             if (state & HIDDEN)
+            {
                 state = SHOWN;
+
+                if (!count_input && autohide)
+                    hide(300);
+            }
             else
+            {
                 state = HIDDEN;
+            }
         }
 
         wayfire_shell_configure_panel(display.wfshell, output,
