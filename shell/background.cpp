@@ -71,7 +71,12 @@ static cairo_surface_t *create_cairo_surface_from_file(std::string name, int w, 
 void wayfire_background::create_background(uint32_t output, uint32_t w, uint32_t h)
 {
     this->output = output;
+
+    w *= display.scale;
+    h *= display.scale;
+
     window = create_window(w, h);
+    window->set_scale(display.scale);
     wayfire_shell_add_background(display.wfshell, output, window->surface, 0, 0);
 
     using namespace std::placeholders;

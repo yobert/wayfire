@@ -280,8 +280,10 @@ class wayfire_cube : public wayfire_plugin_t {
         GL_CALL(glEnable(GL_DEPTH_TEST));
         GL_CALL(glDepthFunc(GL_LESS));
 
-        vp = project * view;
+        auto dg = OpenGL::get_device_viewport();
+        GL_CALL(glViewport(dg.x, dg.y, dg.width, dg.height));
 
+        vp = project * view;
         GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
 
         glm::mat4 base_model = glm::scale(glm::mat4(),

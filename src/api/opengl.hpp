@@ -53,6 +53,8 @@ namespace OpenGL {
         int32_t device_width, device_height;
     };
 
+    weston_geometry get_device_viewport();
+
     context_t* create_gles_context(wayfire_output *output, const char *shader_src_path);
     void bind_context(context_t* ctx);
     void release_context(context_t *ctx);

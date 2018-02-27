@@ -166,7 +166,8 @@ namespace OpenGL {
         int w = ctx->output->handle->width;
         int h = ctx->output->handle->height;
 
-        int real_w = w, real_h = h;
+        int real_w = w * ctx->output->handle->current_scale,
+            real_h = h * ctx->output->handle->current_scale;
 
         switch(ctx->output->get_transform()) {
             case WL_OUTPUT_TRANSFORM_270:
@@ -184,7 +185,16 @@ namespace OpenGL {
 
         bound->device_width = real_w;
         bound->device_height = real_h;
+    }
 
+    weston_geometry get_device_viewport()
+    {
+        weston_geometry geometry;
+        geometry.x = geometry.y = 0;
+        geometry.width = bound->device_width;
+        geometry.height = bound->device_height;
+
+        return geometry;
     }
 
     void release_context(context_t *ctx) {

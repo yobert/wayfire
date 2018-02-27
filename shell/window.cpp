@@ -23,7 +23,7 @@ void pointer_enter(void *data, struct wl_pointer *wl_pointer,
     auto window = (wayfire_window*) wl_surface_get_user_data(surface);
     if (window && window->pointer_enter)
         window->pointer_enter(wl_pointer, serial,
-                pointer_x, pointer_y);
+                pointer_x * window->scale, pointer_y * window->scale);
     if (window)
     {
         current_pointer_window = window;
@@ -54,14 +54,17 @@ void pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time,
     pointer_x = wl_fixed_to_int(surface_x);
     pointer_y = wl_fixed_to_int(surface_y);
     if (current_pointer_window && current_pointer_window->pointer_move)
-        current_pointer_window->pointer_move(pointer_x, pointer_y);
+        current_pointer_window->pointer_move(pointer_x * current_pointer_window->scale,
+                                             pointer_y * current_pointer_window->scale);
 }
 
 void pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
     uint32_t time, uint32_t button, uint32_t state)
 {
     if (current_pointer_window && current_pointer_window->pointer_button)
-        current_pointer_window->pointer_button(button, state, pointer_x, pointer_y);
+        current_pointer_window->pointer_button(button, state,
+                                               pointer_x * current_pointer_window->scale,
+                                               pointer_y * current_pointer_window->scale);
 }
 
 void pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time,
@@ -101,7 +104,9 @@ static void touch_down(void *data, struct wl_touch *wl_touch,
     current_window_touch_points++;
 
     if (window->touch_down)
-        window->touch_down(time, id, wl_fixed_to_int(x), wl_fixed_to_int(y));
+        window->touch_down(time, id,
+                           wl_fixed_to_int(x) * window->scale,
+                           wl_fixed_to_int(y) * window->scale);
 }
 
 static void
@@ -121,7 +126,9 @@ touch_motion(void *data, struct wl_touch *wl_touch,
              uint32_t time, int32_t id, wl_fixed_t x, wl_fixed_t y)
 {
     if (current_touch_window->touch_motion)
-        current_touch_window->touch_motion(id, wl_fixed_to_int(x), wl_fixed_to_int(y));
+        current_touch_window->touch_motion(id,
+                                           wl_fixed_to_int(x) * current_touch_window->scale,
+                                           wl_fixed_to_int(y) * current_touch_window->scale);
 }
 
 static const struct wl_touch_listener touch_listener = {
@@ -147,12 +154,32 @@ void delete_window(wayfire_window *window)
     backend_delete_window(window);
 }
 
+void output_geometry(void *data, struct wl_output *wl_output,
+                     int32_t x, int32_t y,
+                     int32_t physical_width, int32_t physical_height,
+                     int32_t subpixel, const char *make,
+                     const char *model, int32_t transform) {}
+
+void output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
+                 int32_t width, int32_t height, int32_t refresh) {}
+
+void output_done(void *data, struct wl_output *wl_output) {}
+void output_scale(void *data, struct wl_output *wl_output, int32_t factor) { display.scale = factor; }
+
+const wl_output_listener output_listener =
+{
+    output_geometry,
+    output_mode,
+    output_done,
+    output_scale
+};
+
 // listeners
 void registry_add_object(void *data, struct wl_registry *registry, uint32_t name,
         const char *interface, uint32_t version)
 {
     if (!strcmp(interface,"wl_compositor")) {
-        display.compositor = (wl_compositor*) wl_registry_bind (registry, name, &wl_compositor_interface, std::min(version, 2u));
+        display.compositor = (wl_compositor*) wl_registry_bind (registry, name, &wl_compositor_interface, std::min(version, 3u));
     } else if (!strcmp(interface,"wl_shell")) {
         display.shell = (wl_shell*) wl_registry_bind(registry, name, &wl_shell_interface, std::min(version, 2u));
     /* make sure we use the first seat, as it is the one created by weston. Some plugins might
@@ -172,6 +199,10 @@ void registry_add_object(void *data, struct wl_registry *registry, uint32_t name
         display.wfshell = (wayfire_shell*) wl_registry_bind(registry, name, &wayfire_shell_interface, std::min(version, 1u));
     } else if (strcmp(interface, wayfire_virtual_keyboard_interface.name) == 0) {
         display.vkbd = (wayfire_virtual_keyboard*) wl_registry_bind(registry, name, &wayfire_virtual_keyboard_interface, std::min(version, 1u));
+    } else if (strcmp(interface, wl_output_interface.name) == 0)
+    {
+        auto output = (wl_output*) wl_registry_bind(registry, name, &wl_output_interface, std::min(version, 2u));
+        wl_output_add_listener(output, &output_listener, NULL);
     }
 }
 
@@ -293,4 +324,10 @@ void render_rounded_rectangle(cairo_t *cr, int x, int y, int width, int height,
 
     cairo_set_source_rgba(cr, r, g, b, a);
     cairo_fill_preserve(cr);
+}
+
+void wayfire_window::set_scale(int scale)
+{
+    this->scale = scale;
+    wl_surface_set_buffer_scale(surface, scale);
 }

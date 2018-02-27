@@ -25,7 +25,7 @@ class fade_animation : public animation_base
     bool step()
     {
         view->transform.color[3] = GetProgress(start, end, current_frame, total_frames);
-        view->simple_render();
+        view->simple_render(TEXTURE_TRANSFORM_USE_DEVCOORD);
         view->transform.color[3] = 0.0f;
 
         return current_frame++ < total_frames;
@@ -85,7 +85,7 @@ class zoom_animation : public animation_base
         view->geometry.x = og.x + og.width  / 2 - view->geometry.width / 2;
         view->geometry.y = og.y + og.height / 2 - view->geometry.height / 2;
 
-        view->simple_render();
+        view->simple_render(TEXTURE_TRANSFORM_USE_DEVCOORD);
         view->transform.color[3] = 0.0f;
 
         view->geometry = compositor_geometry;

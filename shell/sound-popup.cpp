@@ -196,7 +196,7 @@ void render_frame()
     cairo_move_to(cr, 0, y);
     cairo_show_text(cr, label.c_str());
 
-    cairo_set_source_rgba(cr, 0.3, 0.5, 1.0, 1.25 * alpha / 10.f);
+    cairo_set_source_rgba(cr, 0.3, 0.7, 1.0, 1.25 * alpha / 10.f);
     float x = te.x_advance;
 
     cairo_new_path(cr);
@@ -223,7 +223,7 @@ void render_frame()
     cairo_rectangle(cr, x, y, vol_width, bar_height);
     cairo_fill(cr);
     cairo_new_path(cr);
-    cairo_set_source_rgba(cr, 0.2, 0.2, 0.2, 1.25 * alpha / 10.f);
+    cairo_set_source_rgba(cr, 0.3, 0.3, 0.3, 1.25 * alpha / 10.f);
     cairo_rectangle(cr, x + vol_width, y, bar_width - vol_width, bar_height);
     cairo_fill(cr);
     cairo_new_path(cr);

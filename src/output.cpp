@@ -383,7 +383,7 @@ void render_manager::render_panels()
     {
         auto view = *it;
         if (!view->is_hidden) /* use is_visible() when implemented */
-            view->render();
+            view->render(TEXTURE_TRANSFORM_USE_DEVCOORD);
 
         ++it;
     }
@@ -446,7 +446,7 @@ void render_manager::transformation_renderer()
         auto view = *it;
         if (!view->is_hidden) /* use is_visible() when implemented */
         {
-            view->render();
+            view->render(TEXTURE_TRANSFORM_USE_DEVCOORD);
         }
 
         ++it;

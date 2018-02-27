@@ -71,7 +71,9 @@ wayfire_panel::~wayfire_panel()
 
 void wayfire_panel::create_panel(uint32_t output, uint32_t _width, uint32_t _height)
 {
-    width = _width;
+    width = _width * display.scale;
+    widget::font_size *= display.scale;
+
     height = 1.3 * widget::font_size;
 
     this->output = output;
@@ -85,6 +87,8 @@ int last_x, last_y;
 void wayfire_panel::setup_window()
 {
     window = create_window(width, height);
+    window->set_scale(display.scale);
+
     cr = cairo_create(window->cairo_surface);
 
     repaint_callback = nullptr;
@@ -145,7 +149,7 @@ void wayfire_panel::setup_window()
 
     wayfire_shell_add_panel(display.wfshell, output, window->surface);
     if (!autohide)
-        wayfire_shell_reserve(display.wfshell, output, WAYFIRE_SHELL_PANEL_POSITION_UP, width, height);
+        wayfire_shell_reserve(display.wfshell, output, WAYFIRE_SHELL_PANEL_POSITION_UP, width / display.scale, height / display.scale);
 
     wayfire_shell_configure_panel(display.wfshell, output, window->surface, 0, -height);
 

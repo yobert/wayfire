@@ -19,6 +19,8 @@ extern struct wayfire_display
 
     wayfire_shell *wfshell;
     wayfire_virtual_keyboard *vkbd;
+
+    int32_t scale;
 } display;
 
 bool setup_wayland_connection();
@@ -37,6 +39,9 @@ struct wayfire_window
     std::function<void(uint32_t time, int32_t id, uint32_t x, uint32_t y)> touch_down;
     std::function<void(int32_t id, uint32_t x, uint32_t y)> touch_motion;
     std::function<void(int32_t id)> touch_up;
+
+    int scale = 1;
+    void set_scale(int scale);
 
     cairo_surface_t *cairo_surface;
 
