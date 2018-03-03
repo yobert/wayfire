@@ -56,7 +56,7 @@ float get_scale_factor(float w, float h, float sw, float sh, float c)
  * 1. "Fold" - views are moved to the center of the screen(they might overlap)
  *    and all except the focused one are made smaller
  * 2. "Unfold" - views are moved to the left/right and rotated
- * 3. "Rotate" - views are rotated from left to right and vice versa 
+ * 3. "Rotate" - views are rotated from left to right and vice versa
  * 4. "Reverse unfold"
  * 5. "Reverse fold"
  * */
@@ -197,6 +197,7 @@ class view_switcher : public wayfire_plugin_t
         state.first_press_skipped = false;
         state.in_continuous_switch = false;
         state.reversed_folds = false;
+        next_actions = std::queue<int>();
 
         grab_interface->grab();
         output->focus_view(nullptr);
