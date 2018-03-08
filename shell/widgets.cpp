@@ -34,14 +34,14 @@ void load_default_font()
     auto status = FT_Init_FreeType(&value);
     if (status != 0) {
         std::cerr << "failed to open freetype library" << std::endl;
-        exit (EXIT_FAILURE);
+        return;
     }
 
     FT_Face face;
     status = FT_New_Face (value, widget::font_face.c_str(), 0, &face);
     if (status != 0) {
         std::cerr << "Error opening font file " << widget::font_face << std::endl;
-	    exit (EXIT_FAILURE);
+        return;
     }
 
     cairo_font_face = cairo_ft_font_face_create_for_ft_face (face, 0);
