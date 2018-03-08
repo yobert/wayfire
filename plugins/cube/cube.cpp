@@ -41,6 +41,9 @@ class wayfire_cube : public wayfire_plugin_t {
         GLuint id = -1;
         GLuint modelID, vpID;
         GLuint posID, uvID;
+#if USE_GLES32
+        GLuint easeID;
+#endif
     } program;
 
     struct duple { float start, end; };
@@ -52,6 +55,10 @@ class wayfire_cube : public wayfire_plugin_t {
         duple rotation;
         int current_step, max_steps;
 
+#if USE_GLES32
+        duple ease_deformation;
+#endif
+
         bool in_exit;
     } animation;
 
@@ -61,6 +68,7 @@ class wayfire_cube : public wayfire_plugin_t {
 #if USE_GLES32
     bool use_light;
     int use_deform;
+    float current_ease;
 #endif
 
     wayfire_color backgroud_color;
@@ -181,6 +189,8 @@ class wayfire_cube : public wayfire_plugin_t {
 
             GLuint lightID = GL_CALL(glGetUniformLocation(program.id, "light"));
             glUniform1i(lightID, use_light);
+
+            program.easeID = GL_CALL(glGetUniformLocation(program.id, "ease"));
 #endif
 
             GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
@@ -211,6 +221,10 @@ class wayfire_cube : public wayfire_plugin_t {
         animation.in_exit = false;
         animation.offset_z = {coeff + COEFF_DELTA_NEAR, coeff + COEFF_DELTA_FAR};
 
+#if USE_GLES32
+        animation.ease_deformation = {0, 1};
+#endif
+
         if (update_animation())
             output->render->schedule_redraw();
 
@@ -224,6 +238,13 @@ class wayfire_cube : public wayfire_plugin_t {
                                      animation.offset_z.end,
                                      animation.current_step,
                                      animation.max_steps);
+
+#if USE_GLES32
+        current_ease = GetProgress(animation.ease_deformation.start,
+                                   animation.ease_deformation.end,
+                                   animation.current_step,
+                                   animation.max_steps);
+#endif
 
         /* also update rotation and Y offset */
         if (animation.in_exit)
@@ -285,6 +306,10 @@ class wayfire_cube : public wayfire_plugin_t {
 
         vp = project * view;
         GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
+
+#if USE_GLES32
+        GL_CALL(glUniform1f(program.easeID, current_ease));
+#endif
 
         glm::mat4 base_model = glm::scale(glm::mat4(),
                 glm::vec3(1. / zoomFactor, 1. / zoomFactor,
@@ -367,6 +392,10 @@ class wayfire_cube : public wayfire_plugin_t {
         animation.offset_z = {coeff + COEFF_DELTA_FAR, coeff + COEFF_DELTA_NEAR};
         animation.offset_y = {offsetVert, 0};
         animation.rotation = {offset + 1.0f * dvx * angle, 0};
+
+#if USE_GLES32
+        animation.ease_deformation = {1, 0};
+#endif
 
         update_animation();
         output->render->schedule_redraw();

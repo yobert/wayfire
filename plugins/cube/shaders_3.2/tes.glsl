@@ -10,6 +10,7 @@ out vec3 tePosition;
 uniform mat4 model;
 uniform mat4 VP;
 uniform int  deform;
+uniform float ease;
 
 vec2 interpolate2D(vec2 v0, vec2 v1, vec2 v2) {
     return vec2(gl_TessCoord.x) * v0
@@ -39,6 +40,8 @@ void main() {
             scale = r / d;
         else
             scale = d / r;
+
+        scale = pow(scale, ease);
         tp = vec3(tp[0] * scale, tp[1], tp[2] * scale);
     }
 
