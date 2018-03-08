@@ -557,7 +557,10 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
         weston_pointer_start_grab(ptr, &pgrab);
         auto background = core->get_active_output()->workspace->get_background_view();
         if (background)
+        {
+            weston_pointer_clear_focus(ptr);
             weston_pointer_set_focus(ptr, background->handle, -10000000, -1000000);
+        }
     }
 
     if (kbd)
