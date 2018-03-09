@@ -131,12 +131,18 @@ touch_motion(void *data, struct wl_touch *wl_touch,
                                            wl_fixed_to_int(y) * current_touch_window->scale);
 }
 
+static void
+touch_frame(void *data, wl_touch *) {}
+
+static void
+touch_cancel(void *data, wl_touch *) {}
+
 static const struct wl_touch_listener touch_listener = {
     touch_down,
     touch_up,
     touch_motion,
-    NULL,
-    NULL,
+    touch_frame,
+    touch_cancel,
     NULL,
     NULL
 };
