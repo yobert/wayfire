@@ -9,7 +9,7 @@
 
 
 class wayfire_resize : public wayfire_plugin_t {
-    signal_callback_t resize_request;
+    signal_callback_t resize_request, view_destroyed;
 
     button_callback activate_binding;
     touch_callback touch_activate_binding;
@@ -76,6 +76,20 @@ class wayfire_resize : public wayfire_plugin_t {
         resize_request = std::bind(std::mem_fn(&wayfire_resize::resize_requested),
                 this, _1);
         output->connect_signal("resize-request", &resize_request);
+
+        view_destroyed = [=] (signal_data* data)
+        {
+            auto conv = static_cast<destroy_view_signal*> (data);
+            assert(conv);
+
+            if (conv->destroyed_view == view)
+            {
+                view = nullptr;
+                input_pressed(WL_POINTER_BUTTON_STATE_RELEASED);
+            }
+        };
+        output->connect_signal("detach-view", &view_destroyed);
+        output->connect_signal("destroy-view", &view_destroyed);
     }
 
     void resize_requested(signal_data *data)
@@ -158,7 +172,9 @@ class wayfire_resize : public wayfire_plugin_t {
 
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
-        weston_desktop_surface_set_resizing(view->desktop_surface, false);
+
+        if (view)
+            weston_desktop_surface_set_resizing(view->desktop_surface, false);
     }
 
     void input_motion(wl_fixed_t sx, wl_fixed_t sy)

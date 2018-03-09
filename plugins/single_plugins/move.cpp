@@ -12,7 +12,7 @@
 
 class wayfire_move : public wayfire_plugin_t
 {
-    signal_callback_t move_request;
+    signal_callback_t move_request, view_destroyed;
     button_callback activate_binding;
     touch_callback touch_activate_binding;
     wayfire_view view;
@@ -91,6 +91,20 @@ class wayfire_move : public wayfire_plugin_t
 
             move_request = std::bind(std::mem_fn(&wayfire_move::move_requested), this, _1);
             output->connect_signal("move-request", &move_request);
+
+            view_destroyed = [=] (signal_data* data)
+            {
+                auto conv = static_cast<destroy_view_signal*> (data);
+                assert(conv);
+
+                if (conv->destroyed_view == view)
+                {
+                    view = nullptr;
+                    input_pressed(WL_POINTER_BUTTON_STATE_RELEASED);
+                }
+            };
+            output->connect_signal("detach-view", &view_destroyed);
+            output->connect_signal("destroy-view", &view_destroyed);
         }
 
         void move_requested(signal_data *data)
@@ -157,17 +171,20 @@ class wayfire_move : public wayfire_plugin_t
             output->deactivate_plugin(grab_interface);
             output->render->auto_redraw(false);
 
-            if (view->is_special)
-                return;
+            if (view)
+            {
+                if (view->is_special)
+                    return;
 
-            view->output->focus_view(view);
+                view->output->focus_view(view);
 
-            if (enable_snap && slot != 0) {
-                snap_signal data;
-                data.view = view;
-                data.tslot = (slot_type)slot;
+                if (enable_snap && slot != 0) {
+                    snap_signal data;
+                    data.view = view;
+                    data.tslot = (slot_type)slot;
 
-                output->emit_signal("view-snap", &data);
+                    output->emit_signal("view-snap", &data);
+                }
             }
         }
 
