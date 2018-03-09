@@ -216,10 +216,10 @@ duration = 249
 # the duration of fade-in animation when starting compositor
 startup_duration = 500
 
-# switch currently focused output
+# switch currently focused output and move pointer
 [oswitch]
 next_output = <super> KEY_K
-# switch and move active view
+# switch output and move active view there
 next_output_with_win = <super> <shift> KEY_K
 
 # take a screenshot of only the current output and save it in ~/Pictures
