@@ -155,6 +155,8 @@ class wayfire_move : public wayfire_plugin_t
 
             if (!view->is_special)
                 view->output->focus_view(nullptr);
+            view->set_moving(true);
+
             if (enable_snap)
                 slot = 0;
 
@@ -177,6 +179,7 @@ class wayfire_move : public wayfire_plugin_t
                     return;
 
                 view->output->focus_view(view);
+                view->set_moving(false);
 
                 if (enable_snap && slot != 0) {
                     snap_signal data;

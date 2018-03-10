@@ -93,6 +93,12 @@ wayfire_view_t::wayfire_view_t(weston_desktop_surface *ds)
 
 wayfire_view_t::~wayfire_view_t()
 {
+    if (source_resize_plus)
+        wl_event_source_remove(source_resize_plus);
+
+    if (source_resize_minus)
+        wl_event_source_remove(source_resize_minus);
+
     for (auto& kv : custom_data)
         delete kv.second;
 }
@@ -105,6 +111,70 @@ bool wayfire_view_t::is_visible()
     return true;
 }
 
+void idle_resize_minus(void *data)
+{
+    auto view = static_cast<wayfire_view_t*> (data);
+    assert(view);
+
+    if (view->desktop_surface && !view->destroyed)
+    {
+        weston_desktop_surface_set_size(view->desktop_surface,
+                                        view->geometry.width, view->geometry.height);
+
+    }
+
+    view->source_resize_minus = NULL;
+}
+
+void idle_resize_plus(void *data)
+{
+    auto view = static_cast<wayfire_view_t*> (data);
+    assert(view);
+
+    if (view->desktop_surface && !view->destroyed && !view->source_resize_minus)
+    {
+        weston_desktop_surface_set_size(view->desktop_surface,
+                                        view->geometry.width - 1, view->geometry.height);
+
+        auto loop = wl_display_get_event_loop(core->ec->wl_display);
+        view->source_resize_minus = wl_event_loop_add_idle(loop,
+                                                           idle_resize_minus,
+                                                           data);
+    }
+
+    view->source_resize_plus = NULL;
+}
+
+/* To properly position override-redirect windows (such as menus),
+ * the xwayland apps need to know their position on screen. However, due
+ * to the way weston's window-manager works, the app receives such events
+ * only when it is resized. That's why we force a resize at the end
+ * of each continuous move(to avoid unnecessary resizes at each coordinate change */
+void wayfire_view_t::force_update_xwayland_position()
+{
+    if (!source_resize_plus && !source_resize_minus)
+    {
+        auto loop = wl_display_get_event_loop(core->ec->wl_display);
+        source_resize_plus = wl_event_loop_add_idle(loop,
+                                                    idle_resize_plus, this);
+    }
+}
+
+void wayfire_view_t::set_moving(bool moving)
+{
+    in_continuous_move += moving ? 1 : -1;
+    if (!moving && xwayland_surface_api &&
+        xwayland_surface_api->is_xwayland_surface(surface))
+        force_update_xwayland_position();
+}
+
+void wayfire_view_t::set_resizing(bool resizing)
+{
+    in_continuous_resize += resizing ? 1 : -1;
+    weston_desktop_surface_set_resizing(desktop_surface, resizing);
+}
+
+
 void wayfire_view_t::move(int x, int y, bool send_signal)
 {
     view_geometry_changed_signal data;
@@ -116,7 +186,11 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
     weston_view_set_position(handle, x - ds_geometry.x, y - ds_geometry.y);
 
     if (xwayland_surface_api && xwayland_surface_api->is_xwayland_surface(surface))
+    {
         xwayland_surface_api->send_position(surface, x, y);
+        if (!in_continuous_move)
+            force_update_xwayland_position();
+    }
 
     if (send_signal)
         output->emit_signal("view-geometry-changed", &data);

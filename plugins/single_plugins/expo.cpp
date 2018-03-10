@@ -241,6 +241,8 @@ class wayfire_expo : public wayfire_plugin_t {
         move_started_ws = {target_vx, target_vy};
         state.moving = true;
         output->bring_to_front(moving_view);
+
+        moving_view->set_moving(true);
     }
 
     void end_move()
@@ -255,6 +257,7 @@ class wayfire_expo : public wayfire_plugin_t {
             data.to   = {target_vx, target_vy};
 
             output->emit_signal("view-change-viewport", &data);
+            moving_view->set_moving(false);
         }
     }
     void input_coordinates_to_global_coordinates(int &sx, int &sy)

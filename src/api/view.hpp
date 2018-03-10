@@ -49,6 +49,16 @@ using wayfire_view = std::shared_ptr<wayfire_view_t>;
 
 class wayfire_view_t
 {
+    /* a nasty hack, a better solution should be done in libweston */
+    wl_event_source *source_resize_plus = NULL;
+    wl_event_source *source_resize_minus = NULL;
+
+    friend void idle_resize_plus(void *data);
+    friend void idle_resize_minus(void *data);
+
+    void force_update_xwayland_position();
+    int in_continuous_move = 0, in_continuous_resize = 0;
+
     public:
         weston_desktop_surface *desktop_surface;
 
@@ -81,6 +91,9 @@ class wayfire_view_t
         void set_geometry(weston_geometry g);
         /* convenience function */
         void set_geometry(int x, int y, int w, int h);
+
+        void set_resizing(bool resizing);
+        void set_moving(bool moving);
 
         bool maximized = false, fullscreen = false;
 
