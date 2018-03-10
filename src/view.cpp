@@ -87,9 +87,8 @@ wayfire_view_t::wayfire_view_t(weston_desktop_surface *ds)
 
     transform.color = glm::vec4(1, 1, 1, 1);
 
-    if (!xwayland_surface_api) {
+    if (!xwayland_surface_api)
         xwayland_surface_api = weston_xwayland_surface_get_api(core->ec);
-    }
 }
 
 wayfire_view_t::~wayfire_view_t()
@@ -115,6 +114,9 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
     geometry.x = x;
     geometry.y = y;
     weston_view_set_position(handle, x - ds_geometry.x, y - ds_geometry.y);
+
+    if (xwayland_surface_api && xwayland_surface_api->is_xwayland_surface(surface))
+        xwayland_surface_api->send_position(surface, x, y);
 
     if (send_signal)
         output->emit_signal("view-geometry-changed", &data);
