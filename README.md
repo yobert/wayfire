@@ -7,30 +7,30 @@ Wayfire is a wayland compositor based on libweston. It aims to create a customiz
 
 # Build and install
 
-Unfortunately, the upstream libweston library doesn't have all the necessary functionality needed by wayfire(mainly it doesn't support custom rendering), so you need to compile a patched version, which you can find here: [Patched libweston](https://github.com/ammen99/weston).
+Unfortunately, the upstream libweston library doesn't have all the necessary functionality needed by wayfire(mainly it doesn't support custom rendering), so you need to compile a patched version, which you can find here: [libweston](https://github.com/ammen99/weston).
+Here is a list of the changes included: [applied patches](https://github.com/ammen99/wayfire/wiki/Libweston-changes)
 
-Note: if you install this repo, it will overwrite the weston package provided by your distro. If you don't want to overwrite it, then you can install the patched weston in another location, for example `/opt/weston`. However, in this case don't forget to specify `PKG_CONFIG_PATH` when configuring and compiling Wayfire:
+Note: if you install as shown below, it will likely overwrite the weston package provided by your distro. If you don't want to overwrite it, then you can install the patched weston in another location, for example `/opt/weston`. In this case don't forget to specify `PKG_CONFIG_PATH` when running cmake and then `LD_LIBRARY_PATH` when running `wayfire`.
+
 ```
 git clone https://github.com/ammen99/weston && cd weston
-./autogen.sh --prefix=/opt/weston
+./autogen.sh --prefix=/usr
 make -j4 && sudo make install
 ```
 
-Here is a list of the changes included in the repo: [applied patches](https://github.com/ammen99/wayfire/wiki/Libweston-changes)
-
-Now, in order to build wayfire, you'll need cmake and the build dependencies for libweston, which you should already have installed. Simply clone this repo and execute the following commands
+To build wayfire, you'll need `cmake`, `glm` and the build dependencies for libweston. Optionally(and it is recommended) to install `alsa-libs` and `alsa-utils` for managing sound(wayfire-sound-popup), `gdk-pixbuf-2.0`(for loading jpeg backgrounds). When ready simply clone this repo, compile and install:
 
 ```
 git clone https://github.com/ammen99/wayfire && cd wayfire
 mkdir build && cd build
-PKG_CONFIG_PATH=/opt/weston/lib/pkgconfig cmake ../ -DCMAKE_BUILD_TYPE=Release -DUSE_GLES32=False
+cmake ../ -DCMAKE_BUILD_TYPE=Release -DUSE_GLES32=False
 make -j4 && sudo make install
 ```
 If your system has OpenGL ES 3.2 headers and supports tesselation shaders, then you can also compile with support for it(currently just adds deformation to the cube plugin):
 ```
 git clone https://github.com/ammen99/wayfire && cd wayfire
 mkdir build && cd build
-PKG_CONFIG_PATH=/opt/weston/lib/pkgconfig cmake ../ -DCMAKE_BUILD_TYPE=Release -DUSE_GLES32=True
+cmake ../ -DCMAKE_BUILD_TYPE=Release -DUSE_GLES32=True
 make -j4 && sudo make install
 ```
 
@@ -39,7 +39,7 @@ make -j4 && sudo make install
 cp wayfire.ini.default ~/.config/wayfire.ini
 ```
 
-You can adjust background, panel properties (font family/size, which launchers to use, etc.) in this file to your liking. To start wayfire, just execute `wayfire` from a TTY. If you encounter any issues, please read [debug report guidelines](https://github.com/ammen99/wayfire/wiki/Debugging-problems) and open a bug in this repo. You can also write in the gitter chat.
+You can adjust background, panel properties (font family/size, which launchers to use, etc.) and key/button bindings in this file to your liking. To start wayfire, just execute `wayfire` from a TTY. If you encounter any issues, please read [debug report guidelines](https://github.com/ammen99/wayfire/wiki/Debugging-problems) and open a bug in this repo. You can also write in gitter.
 # Project status
 
 **IMPORTANT**: Although many of the features one can expect from a WM are implemented, Wayfire should be considered as **WIP** and **pre-alpha**. In my setup it works flawlessly, but this project hasn't been thoroughly tested, so there are a lot of bugs to be expected and to be fixed.
