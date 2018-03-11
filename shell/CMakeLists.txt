@@ -47,7 +47,7 @@ if (HAS_CAIRO_GL_H)
 endif (HAS_CAIRO_GL_H)
 
 pkg_check_modules(ALSA alsa)
-if (${PKG_CONFIG_FOUND})
+if (${ALSA_FOUND})
     add_definitions(${ALSA_CFLAGS_OTHER})
     link_directories(${ALSA_LIBRARY_DIRS})
     include_directories(${ALSA_INCLUDE_DIRS})
@@ -59,8 +59,7 @@ if (${PKG_CONFIG_FOUND})
     if (HAS_CAIRO_GL_H)
         target_link_libraries(wayfire-sound-popup ${EGL_SURF_BACKEND_LIBRARIES})
     endif (HAS_CAIRO_GL_H)
-
-endif(${PKG_CONFIG_FOUND})
+endif(${ALSA_FOUND})
 
 
 install(TARGETS wayfire-shell-client     DESTINATION lib/wayfire/)
