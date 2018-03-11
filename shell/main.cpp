@@ -21,10 +21,8 @@ std::string bg_path;
 void output_created_cb(void *data, wayfire_shell *wayfire_shell,
         uint32_t output, uint32_t width, uint32_t height)
 {
-    if (bg_path != "none") {
-        auto bg = (outputs[output].background = new wayfire_background(bg_path));
-        bg->create_background(output, width, height);
-    }
+    auto bg = (outputs[output].background = new wayfire_background(bg_path));
+    bg->create_background(output, width, height);
 
     auto panel = (outputs[output].panel = new wayfire_panel(config));
     panel->create_panel(output, width, height);
