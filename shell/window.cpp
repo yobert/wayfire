@@ -2,6 +2,7 @@
 #include <cstring>
 #include <algorithm>
 #include <wayland-cursor.h>
+#include <unistd.h>
 
 wayfire_display display;
 
@@ -330,6 +331,15 @@ void render_rounded_rectangle(cairo_t *cr, int x, int y, int width, int height,
 
     cairo_set_source_rgba(cr, r, g, b, a);
     cairo_fill_preserve(cr);
+}
+
+cairo_surface_t *cairo_try_load_png(const char *path)
+{
+    if (access(path, F_OK) != -1) {
+        return cairo_image_surface_create_from_png(path);
+    } else {
+        return NULL;
+    }
 }
 
 void wayfire_window::set_scale(int scale)

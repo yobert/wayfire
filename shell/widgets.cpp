@@ -1,4 +1,5 @@
 #include "widgets.hpp"
+#include "window.hpp"
 
 #include <iostream>
 #include <chrono>
@@ -588,9 +589,16 @@ void launchers_widget::init_launchers(wayfire_config *config)
 
         launcher *l = new launcher;
         l->scale = default_launcher_scale;
-        l->img = cairo_image_surface_create_from_png(icon.c_str());
-        l->command = cmd;
 
+        l->img = cairo_try_load_png(icon.c_str());
+
+        if (!l->img)
+        {
+            delete l;
+            continue;
+        }
+
+        l->command = cmd;
         launchers.push_back(l);
     }
 }

@@ -62,8 +62,7 @@ static cairo_surface_t *create_cairo_surface_from_file(std::string name, int w, 
 
     return surface;
 #else
-
-    auto surface = cairo_image_surface_create_from_png(name.c_str());
+    auto surface = cairo_try_load_png(name.c_str());
     return surface ?: create_dummy_surface(w, h);
 #endif
 }
