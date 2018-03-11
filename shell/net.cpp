@@ -107,7 +107,7 @@ struct network_manager_provider : public network_provider_backend
                                          "org.freedesktop.NetworkManager",
                                          NULL, &error);
 
-        return true;
+        return nm_proxy != NULL && !error;
     }
 
     GDBusProxy* current_specific_proxy = NULL;
@@ -166,6 +166,12 @@ struct network_manager_provider : public network_provider_backend
     {
         GVariant *gv = g_dbus_proxy_get_cached_property(
                 nm_proxy, "PrimaryConnection");
+
+        if (!gv)
+        {
+            std::cerr << "Couldn't get information about the primary internet connection" << std::endl;
+            return;
+        }
 
         gsize n;
         const gchar *active_connection = g_variant_get_string(gv, &n);
