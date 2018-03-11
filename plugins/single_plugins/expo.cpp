@@ -238,7 +238,7 @@ class wayfire_expo : public wayfire_plugin_t {
         if (!moving_view)
             return;
 
-        move_started_ws = {target_vx, target_vy};
+        move_started_ws = std::tuple<int, int> {target_vx, target_vy};
         state.moving = true;
         output->bring_to_front(moving_view);
 
@@ -254,7 +254,7 @@ class wayfire_expo : public wayfire_plugin_t {
             view_change_viewport_signal data;
             data.view = moving_view;
             data.from = move_started_ws;
-            data.to   = {target_vx, target_vy};
+            data.to   = std::tuple<int, int> {target_vx, target_vy};
 
             output->emit_signal("view-change-viewport", &data);
             moving_view->set_moving(false);
