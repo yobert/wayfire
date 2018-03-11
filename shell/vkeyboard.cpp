@@ -214,7 +214,7 @@ void vkeyboard::set_layout(layout& l)
 
 void vkeyboard::input_motion(int x, int y)
 {
-    uint32_t code1, code2;
+    uint32_t code1 = 0, code2 = 0;
     for (const auto& row : *current_layout)
     {
         for (const auto& key : row)
