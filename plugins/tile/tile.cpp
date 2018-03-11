@@ -335,7 +335,7 @@ class wayfire_tile : public wayfire_plugin_t
 
                 root[i][j].set_geometry(g);
 
-                output->workspace->set_implementation({i, j}, &default_impl, true);
+                output->workspace->set_implementation(std::tuple<int, int> {i, j}, &default_impl, true);
             }
         }
     }
@@ -441,7 +441,7 @@ class wayfire_tile : public wayfire_plugin_t
             auto conv = static_cast<change_viewport_notify*> (data);
             assert(conv);
 
-            change_workspace({conv->new_vx, conv->new_vy});
+            change_workspace(std::tuple<int, int> {conv->new_vx, conv->new_vy});
         };
         output->connect_signal("viewport-changed", &viewport_changed);
 
@@ -574,7 +574,7 @@ class wayfire_tile : public wayfire_plugin_t
         };
     }
 
-    void change_workspace(std::tuple<int, int> ws = {-1, -1})
+    void change_workspace(std::tuple<int, int> ws = std::tuple<int, int> {-1, -1})
     {
         int x, y;
         std::tie(x, y) = ws;
