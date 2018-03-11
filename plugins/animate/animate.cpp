@@ -1,4 +1,3 @@
-#include "fire.hpp"
 #include <output.hpp>
 #include <signal-definitions.hpp>
 #include <render-manager.hpp>
@@ -7,6 +6,10 @@
 #include <type_traits>
 #include "system_fade.hpp"
 #include "basic_animations.hpp"
+
+#if USE_GLES32
+#include "fire.hpp"
+#endif
 
 void animation_base::init(wayfire_view, int, bool) {}
 bool animation_base::step() {return false;}
@@ -196,8 +199,10 @@ class wayfire_animation : public wayfire_plugin_t {
             new animation_hook<fade_animation, false>(grab_interface, data->created_view, frame_count);
         else if (open_animation == "zoom")
             new animation_hook<zoom_animation, false>(grab_interface, data->created_view, frame_count);
+#if USE_GLES32
         else if (open_animation == "fire")
             new animation_hook<wf_fire_effect, false>(grab_interface, data->created_view, frame_count);
+#endif
     }
 
     void view_destroyed(signal_data *ddata)
@@ -213,8 +218,10 @@ class wayfire_animation : public wayfire_plugin_t {
             new animation_hook<fade_animation, true> (grab_interface, data->destroyed_view, frame_count);
         else if (close_animation == "zoom")
             new animation_hook<zoom_animation, true> (grab_interface, data->destroyed_view, frame_count);
+#if USE_GLES32
         else if (close_animation == "fire")
             new animation_hook<wf_fire_effect, true> (grab_interface, data->destroyed_view, frame_count);
+#endif
     }
 
     void fini()
