@@ -153,7 +153,8 @@ class wayfire_resize : public wayfire_plugin_t {
             edges = forced_edges;
         }
 
-        weston_desktop_surface_set_resizing(view->desktop_surface, true);
+        view->set_moving(true);
+        view->set_resizing(true);
 
         if (view->maximized)
             view->set_maximized(false);
@@ -174,7 +175,10 @@ class wayfire_resize : public wayfire_plugin_t {
         output->deactivate_plugin(grab_interface);
 
         if (view)
-            weston_desktop_surface_set_resizing(view->desktop_surface, false);
+        {
+            view->set_moving(false);
+            view->set_resizing(false);
+        }
     }
 
     void input_motion(wl_fixed_t sx, wl_fixed_t sy)

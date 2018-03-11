@@ -145,7 +145,8 @@ class wayfire_grid : public wayfire_plugin_t {
         current_view.target = {tx, ty, tw, th};
         current_view.maximizing = current_view.fullscreening = false;
 
-        weston_desktop_surface_set_resizing(view->desktop_surface, true);
+        view->set_moving(true);
+        view->set_resizing(true);
         view->set_geometry(view->geometry);
 
         output->render->auto_redraw(true);
@@ -171,7 +172,8 @@ class wayfire_grid : public wayfire_plugin_t {
         if (current_step == total_steps)
         {
             current_view.view->set_geometry(current_view.target);
-            weston_desktop_surface_set_resizing(current_view.view->desktop_surface, false);
+            current_view.view->set_moving(false);
+            current_view.view->set_resizing(false);
 
             stop_animation();
         }

@@ -167,7 +167,10 @@ class vswitch : public wayfire_plugin_t
         vy += dy;
 
         for (auto v : views)
+        {
             v.v->move(v.ox, v.oy);
+            v.v->set_moving(false);
+        }
 
         output->workspace->set_workspace(std::make_tuple(vx, vy));
 
@@ -219,7 +222,10 @@ class vswitch : public wayfire_plugin_t
 
         for (auto view : views_to_move) {
             if (view->is_mapped && !view->destroyed && view != static_view)
+            {
+                view->set_moving(true);
                 views.push_back({view, view->geometry.x, view->geometry.y});
+            }
         }
 
         /* both workspaces are empty, so no animation, just switch */
