@@ -29,6 +29,7 @@ namespace device_config
     bool touchpad_dwl_enabled;
     bool touchpad_natural_scroll_enabled;
 
+    std::string drm_device;
 
     wayfire_config *config;
 
@@ -40,6 +41,8 @@ namespace device_config
         touchpad_tap_enabled = section->get_int("tap_to_click", 1);
         touchpad_dwl_enabled = section->get_int("disable_while_typing", 1);
         touchpad_natural_scroll_enabled = section->get_int("natural_scroll", 0);
+
+        drm_device = config->get_section("core")->get_string("drm_device", "default");
     }
 }
 
@@ -142,6 +145,9 @@ int load_drm_backend(weston_compositor *ec)
     config.seat_id = 0;
     config.use_pixman = 0;
     config.tty = 0;
+
+    if (device_config::drm_device != "default")
+        config.specific_device = const_cast<char*> (device_config::drm_device.c_str());
 
     set_output_pending_handler(ec, configure_drm_backend_output);
     auto ret = weston_compositor_load_backend(ec, WESTON_BACKEND_DRM, &config.base);
