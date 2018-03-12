@@ -355,8 +355,6 @@ void render_manager::reset_renderer()
     renderer = nullptr;
 
     weston_output_damage(output->handle);
-    weston_output_schedule_repaint(output->handle);
-
     if (!streams_running)
         disable_full_damage_tracking();
 }

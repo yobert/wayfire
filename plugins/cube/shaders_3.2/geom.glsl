@@ -16,14 +16,22 @@ out vec3 colorFactor;
 
 void main() {
 
+    const vec3 lightSource = vec3(0, 0, 2);
+    const vec3 lightNormal = normalize(lightSource);
+
     if(light == 1) {
         vec3 A = tePosition[2] - tePosition[0];
         vec3 B = tePosition[1] - tePosition[0];
         vec3 N = normalize(cross(A, B));
-        vec3 L = normalize(vec3(0, 0, 10)); // basically light source coords
 
-        float value = clamp(pow(abs(dot(N, L)), 1.5), 0.0, 1.0);
-        float df = AL + DL * value;
+        vec3 center = (tePosition[0] + tePosition[1] + tePosition[2]) / 3.0;
+
+        float d = distance(center, lightSource);
+        float ambient_coeff = pow(clamp(2.0 / d, 0.0, 1.0), 10.0);
+
+        float value = clamp(pow(abs(dot(N, lightNormal)), 1.5), 0.0, 1.0);
+
+        float df = AL * ambient_coeff + DL * value;
         colorFactor = vec3(df, df, df);
     }
     else

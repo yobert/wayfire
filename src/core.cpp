@@ -235,6 +235,7 @@ struct wf_gesture_recognizer {
 
     void register_touch(int id, int sx, int sy)
     {
+        debug << "register touch " << id << std::endl;
         auto& f = current[id] = {id, sx, sy, sx, sy, false, false};
         if (in_gesture)
             reset_gesture();
@@ -281,6 +282,8 @@ struct wf_gesture_recognizer {
         /* shouldn't happen, but just in case */
         if (!current.count(id))
             return;
+
+        debug << "unregister touch\n";
 
         finger f = current[id];
         current.erase(id);
