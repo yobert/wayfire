@@ -380,8 +380,13 @@ class view_switcher : public wayfire_plugin_t
         v->geometry.x = cx - compositor_geometry.width / 2;
         v->geometry.y = cy - compositor_geometry.height / 2;
 
-        v->render(0);
+        auto old_color = v->transform.color;
+        if (views[current_view_index] != v)
+            v->transform.color = {0.6, 0.6, 0.6, 0.8};
 
+        v->render(TEXTURE_TRANSFORM_USE_COLOR);
+
+        v->transform.color = old_color;
         v->geometry = compositor_geometry;
     }
 
