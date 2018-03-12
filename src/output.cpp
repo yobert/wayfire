@@ -403,6 +403,10 @@ bool render_manager::paint(pixman_region32_t *damage)
 
     if (renderer)
     {
+        /* this is needed so that the buffers can be swapped appropriately
+         * and that screen recording can track the damage */
+        pixman_region32_union(damage, damage, &output->handle->region);
+
         frame_was_custom_rendered = 1;
         OpenGL::bind_context(ctx);
         renderer();
