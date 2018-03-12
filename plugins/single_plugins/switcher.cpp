@@ -319,6 +319,14 @@ class view_switcher : public wayfire_plugin_t
         views = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace());
     }
 
+    void view_chosen(int i)
+    {
+        for (int i = views.size() - 1; i >= 0; i--)
+            output->bring_to_front(views[i]);
+
+        output->focus_view(views[i]);
+    }
+
     void render_view(wayfire_view v)
     {
         GetTuple(sw, sh, output->get_screen_size());
@@ -666,7 +674,7 @@ class view_switcher : public wayfire_plugin_t
             v->transform.scale = v->transform.translation = v->transform.rotation = glm::mat4();
 
         state.active = false;
-        output->focus_view(views[current_view_index]);
+        view_chosen(current_view_index);
     }
 
     void fast_switch()
@@ -720,7 +728,7 @@ class view_switcher : public wayfire_plugin_t
                 weston_view_update_transform(view->handle);
             }
         }
-        output->focus_view(views[current_view_index]);
+        view_chosen(current_view_index);
 
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
