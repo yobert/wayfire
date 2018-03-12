@@ -1,7 +1,6 @@
 #include <opengl.hpp>
 #include <output.hpp>
 #include <core.hpp>
-#include <debug.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
 
@@ -59,7 +58,7 @@ class wayfire_cube : public wayfire_plugin_t {
         duple ease_deformation;
 #endif
 
-        bool in_exit;
+        bool in_exit, active = false;
     } animation;
 
     glm::mat4 vp, model, view, project;
@@ -209,10 +208,17 @@ class wayfire_cube : public wayfire_plugin_t {
 
     void initiate(int x, int y)
     {
-        if (!output->activate_plugin(grab_interface))
-            return;
-        grab_interface->grab();
-        output->render->set_renderer(renderer);
+        if (!animation.active)
+        {
+            if (!output->activate_plugin(grab_interface))
+                return;
+
+            grab_interface->grab();
+            output->render->set_renderer(renderer);
+        }
+
+        animation.in_exit = false;
+        animation.active = true;
 
         offset = 0;
         offsetVert = 0;
@@ -399,12 +405,16 @@ class wayfire_cube : public wayfire_plugin_t {
 
         update_animation();
         output->render->schedule_redraw();
-        output->deactivate_plugin(grab_interface);
     }
 
     void terminate()
     {
+        animation.active = false;
+        animation.in_exit = false;
+
         output->render->reset_renderer();
+        output->deactivate_plugin(grab_interface);
+
         auto size = streams.size();
         for (uint i = 0; i < size; i++)
             output->render->workspace_stream_stop(streams[i]);
