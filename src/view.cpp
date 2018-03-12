@@ -290,7 +290,22 @@ void wayfire_view_t::map(int sx, int sy)
         output->emit_signal("create-view", &sig_data);
 
         if (!is_special)
-            output->focus_view(core->find_view(handle), core->get_current_seat());
+        {
+            output->focus_view(core->find_view(handle));
+
+            auto seat = core->get_current_seat();
+            auto kbd = seat ? weston_seat_get_keyboard(seat) : NULL;
+
+            if (kbd)
+            {
+                /* we send zero depressed modifiers, because some modifiers are
+                 * stuck when opening a window(for example if the app was opened while some plugin
+                 * was working or similar) */
+                weston_keyboard_send_modifiers(kbd, wl_display_next_serial(core->ec->wl_display),
+                                               0, kbd->modifiers.mods_latched,
+                                               kbd->modifiers.mods_locked, kbd->modifiers.group);
+            }
+        }
 
         return;
     }

@@ -593,7 +593,15 @@ void input_manager::ungrab_input()
     if (ptr)
         weston_pointer_end_grab(ptr);
     if (kbd)
+    {
         weston_keyboard_end_grab(kbd);
+        weston_keyboard_send_modifiers(kbd,
+                                       wl_display_next_serial(core->ec->wl_display),
+                                       0,
+                                       kbd->modifiers.mods_latched,
+                                       kbd->modifiers.mods_locked,
+                                       kbd->modifiers.group);
+    }
 
     if (is_touch_enabled())
         gr->end_grab();
