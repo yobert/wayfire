@@ -1,5 +1,6 @@
 #include <output.hpp>
 #include <opengl.hpp>
+#include <signal-definitions.hpp>
 #include <view.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
@@ -66,6 +67,8 @@ class view_switcher : public wayfire_plugin_t
     key_callback init_binding, fast_switch_binding;
     wayfire_key next_view, prev_view, terminate;
     wayfire_key activate_key, fast_switch_key;
+
+    signal_callback_t destroyed;
 
 #define MAX_ACTIONS 4
     std::queue<int> next_actions;
@@ -158,6 +161,14 @@ class view_switcher : public wayfire_plugin_t
         terminate = section->get_key("exit", {0, KEY_ENTER});
 
         renderer = std::bind(std::mem_fn(&view_switcher::render), this);
+
+        destroyed = [=] (signal_data *data)
+        {
+            auto conv = static_cast<destroy_view_signal*> (data);
+            assert(conv);
+
+            cleanup_view(conv->destroyed_view);
+        };
     }
 
     void setup_graphics()
@@ -204,6 +215,9 @@ class view_switcher : public wayfire_plugin_t
 
         output->render->auto_redraw(true);
         output->render->set_renderer(renderer);
+
+        output->connect_signal("destroy-view", &destroyed);
+        output->connect_signal("detach-view", &destroyed);
 
         setup_graphics();
         start_fold();
@@ -325,6 +339,34 @@ class view_switcher : public wayfire_plugin_t
             output->bring_to_front(views[i]);
 
         output->focus_view(views[i]);
+    }
+
+    void cleanup_view(wayfire_view view)
+    {
+        size_t i = 0;
+        for (; i < views.size() && views[i] != view; i++);
+        if (i == views.size())
+            return;
+
+        views.erase(views.begin() + i);
+
+        if (views.empty())
+            deactivate();
+
+        if (i <= current_view_index)
+            current_view_index = (current_view_index + views.size() - 1) % views.size();
+
+        auto it = active_views.begin();
+        while(it != active_views.end())
+        {
+            if (it->view == view)
+                it = active_views.erase(it);
+            else
+                ++it;
+        }
+
+        if (views.size() == 2)
+            push_next_view(1);
     }
 
     void render_view(wayfire_view v)
@@ -574,7 +616,6 @@ class view_switcher : public wayfire_plugin_t
         state.in_rotate = true;
         current_step = 0;
 
-        /* TODO: whap happens if view gets destroyed? */
         current_view_index    = (current_view_index + dir + sz) % sz;
         output->bring_to_front(views[current_view_index]);
 
@@ -675,6 +716,9 @@ class view_switcher : public wayfire_plugin_t
 
         state.active = false;
         view_chosen(current_view_index);
+
+        output->disconnect_signal("destroy-view", &destroyed);
+        output->disconnect_signal("detach-view", &destroyed);
     }
 
     void fast_switch()
@@ -734,6 +778,9 @@ class view_switcher : public wayfire_plugin_t
         output->deactivate_plugin(grab_interface);
         state.active = false;
         state.in_fast_switch = false;
+
+        output->disconnect_signal("destroy-view", &destroyed);
+        output->disconnect_signal("detach-view", &destroyed);
     }
 
     void fast_switch_next()
