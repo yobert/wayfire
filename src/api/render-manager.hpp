@@ -29,6 +29,7 @@ class render_manager
         friend bool custom_renderer_cb(weston_output *o, pixman_region32_t *damage);
         friend void post_render_cb(weston_output *o);
         friend void redraw_idle_cb(void *data);
+        friend void idle_full_redraw_cb(void *data);
 
         wayfire_output *output;
 
@@ -51,7 +52,8 @@ class render_manager
 
         std::vector<effect_hook_t*> output_effects;
         int constant_redraw = 0;
-        bool frame_was_custom_rendered = false;
+        bool frame_was_custom_rendered = false, dirty_renderer = false;
+        wl_event_source *idle_redraw_source = NULL, *full_repaint_source = NULL;
         render_hook_t renderer;
 
         bool paint(pixman_region32_t *damage);

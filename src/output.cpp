@@ -193,6 +193,11 @@ void render_manager::release_context()
 
 render_manager::~render_manager()
 {
+    if (idle_redraw_source)
+        wl_event_source_remove(idle_redraw_source);
+    if (full_repaint_source)
+        wl_event_source_remove(full_repaint_source);
+
     release_context();
     pixman_region32_fini(&frame_damage);
     pixman_region32_fini(&single_pixel);
@@ -207,6 +212,7 @@ void redraw_idle_cb(void *data)
     assert(output);
 
     render_manager::renderer_api->schedule_repaint(output->handle);
+    output->render->idle_redraw_source = NULL;
 }
 
 void render_manager::auto_redraw(bool redraw)
@@ -226,7 +232,9 @@ void render_manager::auto_redraw(bool redraw)
 void render_manager::schedule_redraw()
 {
     auto loop = wl_display_get_event_loop(core->ec->wl_display);
-    wl_event_loop_add_idle(loop, redraw_idle_cb, output);
+
+    if (idle_redraw_source == NULL)
+        idle_redraw_source = wl_event_loop_add_idle(loop, redraw_idle_cb, output);
 }
 
 struct wf_fdamage_track_cdata : public wf_custom_view_data
@@ -353,10 +361,10 @@ void render_manager::get_ws_damage(std::tuple<int, int> ws, pixman_region32_t *o
 void render_manager::reset_renderer()
 {
     renderer = nullptr;
-
-    weston_output_damage(output->handle);
     if (!streams_running)
         disable_full_damage_tracking();
+
+    dirty_renderer = true;
 }
 
 void render_manager::set_renderer(render_hook_t rh)
@@ -415,6 +423,14 @@ bool render_manager::paint(pixman_region32_t *damage)
     }
 }
 
+void idle_full_redraw_cb(void *data)
+{
+    auto output = (wayfire_output*) data;
+
+    weston_output_damage(output->handle);
+    output->render->full_repaint_source = NULL;
+}
+
 void render_manager::post_paint()
 {
     run_effects();
@@ -423,6 +439,18 @@ void render_manager::post_paint()
 
     if (constant_redraw)
         schedule_redraw();
+
+    if (dirty_renderer)
+    {
+        if (full_repaint_source == NULL)
+        {
+            auto loop = wl_display_get_event_loop(core->ec->wl_display);
+            full_repaint_source = wl_event_loop_add_idle(loop,
+                                                         idle_full_redraw_cb, output);
+        }
+
+        dirty_renderer = false;
+    }
 }
 
 void render_manager::run_effects()
@@ -1126,6 +1154,7 @@ bool wayfire_output::activate_plugin(wayfire_grab_interface owner, bool lower_fs
 
     if (active_plugins.find(owner) != active_plugins.end())
     {
+        debug << "output: " << handle->id << " activating plugin: " << owner->name << std::endl;
         active_plugins.insert(owner);
         return true;
     }
@@ -1144,6 +1173,7 @@ bool wayfire_output::activate_plugin(wayfire_grab_interface owner, bool lower_fs
         emit_signal("_activation_request", (signal_data*)1);
 
     active_plugins.insert(owner);
+    debug << "output: " << handle->id << " activating plugin: " << owner->name << std::endl;
     return true;
 }
 
@@ -1154,6 +1184,7 @@ bool wayfire_output::deactivate_plugin(wayfire_grab_interface owner)
         return true;
 
     active_plugins.erase(it);
+    debug << "output: " << handle->id << " deactivating plugin: " << owner->name << std::endl;
 
     if (active_plugins.count(owner) == 0)
     {
