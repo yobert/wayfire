@@ -37,9 +37,7 @@ static cairo_surface_t *create_cairo_surface_from_file(std::string name, int w, 
     }
 #endif
 
-    GError *err = NULL;
-    auto pbuf = gdk_pixbuf_new_from_file(name.c_str(), &err);
-
+    auto pbuf = gdk_pixbuf_new_from_file(name.c_str(), NULL);
     if (!pbuf)
     {
         std::cerr << "Failed to create a pbuf. Possibly wrong background path?" << std::endl;
