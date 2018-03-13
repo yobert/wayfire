@@ -329,7 +329,10 @@ void wayfire_panel::init_widgets(std::string str, position_policy policy)
     std::istringstream stream(str);
     std::string name;
     while(stream >> name)
-        widgets[policy].push_back(create_widget_from_name(name));
+    {
+        auto w = create_widget_from_name(name);
+        if (w) widgets[policy].push_back(w);
+    }
 
     position_widgets(policy);
 }
