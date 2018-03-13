@@ -1,5 +1,4 @@
 #include <output.hpp>
-#include <debug.hpp>
 #include <core.hpp>
 #include <view.hpp>
 #include <workspace-manager.hpp>
@@ -110,6 +109,7 @@ class wayfire_move : public wayfire_plugin_t
         void move_requested(signal_data *data)
         {
             auto converted = static_cast<move_request_signal*> (data);
+
             if(converted && converted->view) {
                 auto seat = core->get_current_seat();
 
@@ -120,7 +120,7 @@ class wayfire_move : public wayfire_plugin_t
                     is_using_touch = false;
                     initiate(converted->view, ptr->x, ptr->y);
                 } else if (touch && touch->grab_serial == converted->serial) {
-                    is_using_touch = false;
+                    is_using_touch = true;
                     initiate(converted->view, touch->grab_x, touch->grab_y);
                 }
             }
@@ -234,20 +234,18 @@ class wayfire_move : public wayfire_plugin_t
             auto target_output = core->get_output_at(nx, ny);
             if (target_output != output)
             {
-                input_pressed(WL_POINTER_BUTTON_STATE_RELEASED);
-
                 weston_view_damage_below(view->handle);
                 weston_view_geometry_dirty(view->handle);
-
-                core->move_view_to_output(view, target_output);
-                core->focus_view(view, core->get_current_seat());
 
                 move_request_signal req;
                 req.view = view;
                 req.serial = is_using_touch ?  weston_seat_get_touch(core->get_current_seat())->grab_serial :
                     weston_seat_get_pointer(core->get_current_seat())->grab_serial;
 
+                core->move_view_to_output(view, target_output);
+                core->focus_output(target_output);
                 target_output->emit_signal("move-request", &req);
+
                 return;
             }
 
