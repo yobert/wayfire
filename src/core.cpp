@@ -901,7 +901,7 @@ void wayfire_core::configure(wayfire_config *config)
 
     shadersrc   = section->get_string("shadersrc", INSTALL_PREFIX "/share/wayfire/shaders");
     plugin_path = section->get_string("plugin_path_prefix", INSTALL_PREFIX "/lib/");
-    plugins     = section->get_string("plugins", "");
+    plugins     = section->get_string("plugins", "viewport_impl move resize animation switcher vswitch cube expo command grid");
     run_panel   = section->get_int("run_panel", 1);
 
     section = config->get_section("input");

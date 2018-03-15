@@ -51,6 +51,16 @@ class wayfire_command : public wayfire_plugin_t
 
             output->add_key((weston_keyboard_modifier)key.mod, key.keyval, &v[i - 1]);
         }
+
+        if (commands.empty())
+        {
+            v.resize(1);
+            v[0] = [] (weston_keyboard *, uint32_t)
+            {
+                core->run("weston-terminal");
+            };
+            output->add_key(MODIFIER_ALT, KEY_ENTER, &v.back());
+        }
     }
 };
 
