@@ -18,7 +18,7 @@ git clone https://github.com/ammen99/weston && cd weston
 make -j4 && sudo make install
 ```
 
-To build wayfire, you'll need `cmake`, `glm` and the build dependencies for libweston. Optionally(and it is recommended) to install `alsa-libs` and `alsa-utils` for managing sound(wayfire-sound-popup), `gdk-pixbuf-2.0`(for loading jpeg backgrounds). When ready simply clone this repo, compile and install:
+To build wayfire, you'll need `cmake`, `glm`, `gio-2.0`, `freetype2`, `cairo` and the build dependencies for libweston(which you should have already installed in the previous step). Optionally(and it is recommended) to install `alsa-libs` and `alsa-utils` for managing sound(wayfire-sound-popup), `gdk-2.0`/`gtk2` and `gdk-pixbuf-2.0`(for loading jpeg backgrounds). When ready, simply clone this repo, compile and install:
 
 ```
 git clone https://github.com/ammen99/wayfire && cd wayfire
@@ -72,4 +72,6 @@ Future plans:
 
 # Contributing to the project
 
-I am currently developing Wayfire alone, but contributions of any kind(bug reports and/or fixes/new features/documentation/whatever) are very welcome. If you want to write your own plugin, I'll try to provide more documentation sometime in the future. In the mean time a general outline of how the plugin system works is here: [plugin architecture](https://github.com/ammen99/wayfire/wiki/Plugin-architecture). You can also have a look at some of the simpler plugins (located in plugins/single_plugins/command.cpp for ex.). Don't hesitate to ask in gitter if you have any questions.
+I am currently the only one working on Wayfire, so contributions of any kind are welcome! There are many ways you can help, aside from developing - open bug reports, test features, add documentation, etc.
+
+If you want to write your own plugin, a general outline of how the plugin system works is here: [plugin architecture](https://github.com/ammen99/wayfire/wiki/Plugin-architecture). Sadly, I don't have much time so there's close to none documentation. You can take a look at the simpler plugins(in `plugins/single_plugins`, the simplest are `command`, `screenshot`, `rotator`, around 50-60 loc each). Don't hesitate to write in gitter if you have any questions.
