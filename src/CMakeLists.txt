@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.1.0)
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(WFREQLIBS REQUIRED wayland-server libweston-4 libweston-desktop-4
-                                     xkbcommon libinput pixman-1 egl libevdev glesv2)
+                                     xkbcommon libinput pixman-1 egl libevdev glesv2 glm)
 
 add_compile_options(-Wall -Wextra -Wno-unused-parameter)
 
