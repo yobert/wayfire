@@ -54,6 +54,8 @@ namespace OpenGL {
     };
 
     weston_geometry get_device_viewport();
+    /* simply calls glViewport() with the geometry from get_device_viewport() */
+    void use_device_viewport();
 
     context_t* create_gles_context(wayfire_output *output, const char *shader_src_path);
     void bind_context(context_t* ctx);

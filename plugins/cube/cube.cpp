@@ -287,7 +287,7 @@ class wayfire_cube : public wayfire_plugin_t {
         if (program.id == (uint)-1)
             load_program();
 
-
+        OpenGL::use_device_viewport();
         GL_CALL(glClearColor(backgroud_color.r, backgroud_color.g,
                 backgroud_color.b, backgroud_color.a));
 
@@ -307,9 +307,7 @@ class wayfire_cube : public wayfire_plugin_t {
         GL_CALL(glEnable(GL_DEPTH_TEST));
         GL_CALL(glDepthFunc(GL_LESS));
 
-        auto dg = OpenGL::get_device_viewport();
-        GL_CALL(glViewport(dg.x, dg.y, dg.width, dg.height));
-
+        OpenGL::use_device_viewport();
         vp = project * view;
         GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
 

@@ -2,6 +2,8 @@
 #include <compositor.h>
 #include "debug.hpp"
 #include "output.hpp"
+#include "render-manager.hpp"
+#include <gl-renderer-api.h>
 
 namespace {
     OpenGL::context_t *bound;
@@ -116,7 +118,8 @@ namespace OpenGL {
         debug << "_______________________________________________\n";
     } */
 
-    context_t* create_gles_context(wayfire_output *output, const char *shaderSrcPath) {
+    context_t* create_gles_context(wayfire_output *output, const char *shaderSrcPath)
+    {
         context_t *ctx = new context_t;
         ctx->output = output;
 
@@ -189,12 +192,13 @@ namespace OpenGL {
 
     weston_geometry get_device_viewport()
     {
-        weston_geometry geometry;
-        geometry.x = geometry.y = 0;
-        geometry.width = bound->device_width;
-        geometry.height = bound->device_height;
+        return render_manager::renderer_api->get_output_gl_viewport(bound->output->handle);
+    }
 
-        return geometry;
+    void use_device_viewport()
+    {
+        const auto vp = get_device_viewport();
+        GL_CALL(glViewport(vp.x, vp.y, vp.width, vp.height));
     }
 
     void release_context(context_t *ctx) {
@@ -205,15 +209,17 @@ namespace OpenGL {
     void render_texture(GLuint tex, const weston_geometry& g,
             const texture_geometry& texg, uint32_t bits)
     {
-        if ((bits & DONT_RELOAD_PROGRAM) == 0) {
+        if ((bits & DONT_RELOAD_PROGRAM) == 0)
             GL_CALL(glUseProgram(bound->program));
-        }
+
         GL_CALL(glUniform1f(bound->w2ID, bound->width / 2));
         GL_CALL(glUniform1f(bound->h2ID, bound->height / 2));
 
-        if ((bits & TEXTURE_TRANSFORM_USE_DEVCOORD)) {
-            GL_CALL(glViewport(0, 0, bound->device_width, bound->device_height));
-        } else {
+        if ((bits & TEXTURE_TRANSFORM_USE_DEVCOORD))
+        {
+            use_device_viewport();
+        } else
+        {
             GL_CALL(glViewport(0, 0, bound->width, bound->height));
         }
 

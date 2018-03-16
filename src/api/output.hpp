@@ -35,10 +35,6 @@ class wayfire_output
 
     public:
     weston_output* handle;
-
-
-    /* used for differences between backends */
-    int output_dx, output_dy;
     std::tuple<int, int> get_screen_size();
 
     render_manager *render;

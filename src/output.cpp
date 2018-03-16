@@ -145,12 +145,6 @@ render_manager::render_manager(wayfire_output *o)
 {
     output = o;
 
-    if (core->backend == WESTON_BACKEND_WAYLAND) {
-        output->output_dx = output->output_dy = 38;
-    } else {
-        output->output_dx = output->output_dy = 0;
-    }
-
     pixman_region32_init(&frame_damage);
     pixman_region32_init_rect(&single_pixel, output->handle->x, output->handle->y, 1, 1);
 
@@ -468,6 +462,7 @@ void render_manager::transformation_renderer()
     auto views = output->workspace->get_renderable_views_on_workspace(
             output->workspace->get_current_workspace());
 
+    OpenGL::use_device_viewport();
     GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
 
     auto it = views.rbegin();
@@ -527,7 +522,6 @@ void render_manager::texture_from_workspace(std::tuple<int, int> vp,
         OpenGL::prepare_framebuffer(fbuff, tex);
 
     GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbuff));
-    GL_CALL(glViewport(0, 0, output->handle->width, output->handle->height));
 
     auto g = output->get_full_geometry();
 
@@ -577,8 +571,6 @@ void render_manager::workspace_stream_start(wf_workspace_stream *stream)
         OpenGL::prepare_framebuffer(stream->fbuff, stream->tex);
 
     GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, stream->fbuff));
-    GL_CALL(glViewport(0, 0, output->handle->width * stream->scale_x,
-                output->handle->height * stream->scale_y));
 
     GetTuple(x, y, stream->ws);
     GetTuple(cx, cy, output->workspace->get_current_workspace());
@@ -710,7 +702,6 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     };
 
     GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, stream->fbuff));
-    GL_CALL(glViewport(0, 0, g.width * scale_x, g.height * scale_y));
 
     glm::mat4 scale = glm::scale(glm::mat4(), glm::vec3(scale_x, scale_y, 1));
     glm::mat4 translate = glm::translate(glm::mat4(), glm::vec3(scale_x - 1, scale_y - 1, 0));

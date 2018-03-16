@@ -365,9 +365,11 @@ class wayfire_expo : public wayfire_plugin_t {
         matrix = glm::translate(matrix, glm::vec3(render_params.off_x, render_params.off_y, 0));
         matrix = glm::scale(matrix, glm::vec3(render_params.scale_x, render_params.scale_y, 1));
 
+        OpenGL::use_device_viewport();
         glClearColor(background_color.r, background_color.g,
                      background_color.b, background_color.a);
         glClear(GL_COLOR_BUFFER_BIT);
+
         for(int j = 0; j < vh; j++) {
             for(int i = 0; i < vw; i++) {
                 if (!streams[i][j]->running) {
