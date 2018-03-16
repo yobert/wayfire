@@ -17,9 +17,6 @@
 #include <dlfcn.h>
 #include <algorithm>
 
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-
 #include <libweston-desktop.h>
 #include <gl-renderer-api.h>
 
