@@ -370,6 +370,7 @@ class wayfire_expo : public wayfire_plugin_t {
                      background_color.b, background_color.a);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        auto vp_geometry = OpenGL::get_device_viewport();
         for(int j = 0; j < vh; j++) {
             for(int i = 0; i < vw; i++) {
                 if (!streams[i][j]->running) {
@@ -393,8 +394,9 @@ class wayfire_expo : public wayfire_plugin_t {
                 texg.y2 = streams[i][j]->scale_y;
 
                 GL_CALL(glEnable(GL_SCISSOR_TEST));
-                GL_CALL(glScissor(0, 0, output->render->ctx->device_width,
-                            output->render->ctx->device_height));
+
+                GL_CALL(glScissor(vp_geometry.x, vp_geometry.y,
+                                  vp_geometry.width, vp_geometry.height));
 
                 OpenGL::render_transformed_texture(streams[i][j]->tex, g, texg, matrix,
                         glm::vec4(1), TEXTURE_TRANSFORM_USE_DEVCOORD | TEXTURE_TRANSFORM_INVERT_Y |

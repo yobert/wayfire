@@ -163,8 +163,9 @@ void wf_fire_effect::init(wayfire_view win, int fr_cnt, bool burnout)
          wi = w->geometry.width,
          he = w->geometry.height;
 
-    float sw = w->output->render->ctx->device_width;
-    float sh = w->output->render->ctx->device_height;
+    auto vp = OpenGL::get_device_viewport();
+    float sw = vp.width;
+    float sh = vp.height;
 
     float w2 = float(sw) / 2.,
           h2 = float(sh) / 2.;

@@ -50,7 +50,6 @@ namespace OpenGL {
 
         wayfire_output *output;
         int32_t width, height;
-        int32_t device_width, device_height;
     };
 
     weston_geometry get_device_viewport();

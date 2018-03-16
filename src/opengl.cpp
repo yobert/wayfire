@@ -166,28 +166,8 @@ namespace OpenGL {
     void bind_context(context_t *ctx) {
         bound = ctx;
 
-        int w = ctx->output->handle->width;
-        int h = ctx->output->handle->height;
-
-        int real_w = w * ctx->output->handle->current_scale,
-            real_h = h * ctx->output->handle->current_scale;
-
-        switch(ctx->output->get_transform()) {
-            case WL_OUTPUT_TRANSFORM_270:
-            case WL_OUTPUT_TRANSFORM_90:
-                /* OpenGL doesn't know about rotation, so we must give it
-                 * with context size(not rotated) */
-                std::swap(real_w, real_h);
-                break;
-
-            default: break;
-        }
-
-        bound->width = w;
-        bound->height = h;
-
-        bound->device_width = real_w;
-        bound->device_height = real_h;
+        bound->width  = ctx->output->handle->width;
+        bound->height = ctx->output->handle->height;
     }
 
     weston_geometry get_device_viewport()
