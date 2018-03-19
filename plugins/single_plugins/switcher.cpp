@@ -123,6 +123,9 @@ class view_switcher : public wayfire_plugin_t
         fast_switch_key = section->get_key("fast_switch", {MODIFIER_ALT, KEY_ESC});
         fast_switch_binding = [=] (weston_keyboard *kbd, uint32_t key)
         {
+            if (state.active && !state.in_fast_switch)
+                return;
+
             fast_switch();
         };
 
@@ -137,6 +140,9 @@ class view_switcher : public wayfire_plugin_t
 
         init_binding = [=] (weston_keyboard *, uint32_t)
         {
+            if (state.in_fast_switch)
+                return;
+
             if (!state.active)
             {
                 activate();
@@ -193,6 +199,8 @@ class view_switcher : public wayfire_plugin_t
 
     void activate()
     {
+        if (output->is_plugin_active(grab_interface->name))
+            return;
         if (!output->activate_plugin(grab_interface))
             return;
 
@@ -305,7 +313,7 @@ class view_switcher : public wayfire_plugin_t
         if (!state.mod_released && (key == activate_key.keyval || fast_switch_on))
             state.in_continuous_switch = true;
 
-        if (key == activate_key.keyval && state.in_continuous_switch)
+        if (key == activate_key.keyval && state.in_continuous_switch && !state.in_fast_switch)
         {
             push_next_view(1);
             return;
@@ -317,10 +325,10 @@ class view_switcher : public wayfire_plugin_t
             return;
         }
 
-        if (state.active && (key == terminate.keyval || key == activate_key.keyval))
+        if (state.active && (key == terminate.keyval || key == activate_key.keyval) && !state.in_fast_switch)
             push_exit();
 
-        if (key == prev_view.keyval || key == next_view.keyval)
+        if ((key == prev_view.keyval || key == next_view.keyval) && !state.in_fast_switch)
         {
             int dx = (key == prev_view.keyval ? -1 : 1);
             push_next_view(dx);
