@@ -107,7 +107,7 @@ kb_repeat_rate  = 40
 [command]
 command_1 = bemenu-run
 binding_1 = <super> KEY_D
-command_2 = tilix
+command_2 = weston-terminal
 binding_2 = <super> KEY_ENTER
 command_3 = amixer -q sset Master 5%+ unmute && /usr/lib/wayfire/wayfire-sound-popup 30 60 400 80 500
 binding_3 = KEY_VOLUMEUP
