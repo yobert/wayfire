@@ -41,7 +41,7 @@ font_size = 45
 # which widgets to load at different parts of the panel
 widgets_left = launchers
 widgets_center = clock
-widgets_right = network battery
+widgets_right = network
 # list of launcheres
 launcher1_icon = /usr/share/icons/hicolor/64x64/apps/google-chrome.png
 launcher1_cmd = /usr/bin/google-chrome
