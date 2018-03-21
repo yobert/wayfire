@@ -38,8 +38,10 @@ make -j4 && sudo make install
 ```
 cp wayfire.ini.default ~/.config/wayfire.ini
 ```
+**Preferably, also setup the [command] and [shell_panel] sections in the config(simply search for these words) to be able to have some launchers and/or terminals.**
+You can adjust background, panel properties (font family/size, which launchers to use, etc.) and key/button bindings in this file to your liking. To start wayfire, just execute `wayfire` from a TTY.
 
-You can adjust background, panel properties (font family/size, which launchers to use, etc.) and key/button bindings in this file to your liking. To start wayfire, just execute `wayfire` from a TTY. If you encounter any issues, please read [debug report guidelines](https://github.com/ammen99/wayfire/wiki/Debugging-problems) and open a bug in this repo. You can also write in gitter.
+If you encounter any issues, please read [debug report guidelines](https://github.com/ammen99/wayfire/wiki/Debugging-problems) and open a bug in this repo. You can also write in gitter.
 # Project status
 
 **IMPORTANT**: Although many of the features one can expect from a WM are implemented, Wayfire should be considered as **WIP** and **pre-alpha**. In my setup it works flawlessly, but this project hasn't been thoroughly tested, so there are a lot of bugs to be expected and to be fixed.
