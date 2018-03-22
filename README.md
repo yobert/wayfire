@@ -39,7 +39,7 @@ make -j4 && sudo make install
 cp wayfire.ini.default ~/.config/wayfire.ini
 ```
 **Preferably, also setup the [command] and [shell_panel] sections in the config(simply search for these words) to be able to have some launchers and/or terminals.**
-You can adjust background, panel properties (font family/size, which launchers to use, etc.) and key/button bindings in this file to your liking. To start wayfire, just execute `wayfire` from a TTY.
+You can adjust background, panel properties (font family/size, which launchers to use, etc.) and key/button bindings in this file to your liking. To start wayfire, just execute `wayfire` from a TTY. If you have compiled libweston without systemd-login support, then use `wayfire-launch`, but make sure `wayfire` and the patched `weston` are configured with the same prefix(`/usr` for example). You should be fine if you followed the instructions.
 
 If you encounter any issues, please read [debug report guidelines](https://github.com/ammen99/wayfire/wiki/Debugging-problems) and open a bug in this repo. You can also write in gitter.
 # Project status
