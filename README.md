@@ -23,14 +23,14 @@ To build wayfire, you'll need `cmake`, `glm`, `gio-2.0`, `freetype2`, `cairo` an
 ```
 git clone https://github.com/ammen99/wayfire && cd wayfire
 mkdir build && cd build
-cmake ../ -DCMAKE_BUILD_TYPE=Release -DUSE_GLES32=False
+cmake ../ -DCMAKE_BUILD_TYPE=Release -DUSE_GLES32=False -DCMAKE_INSTALL_PREFIX=/usr
 make -j4 && sudo make install
 ```
 If your system has OpenGL ES 3.2 headers and supports tesselation shaders, then you can also compile with support for it(currently just adds deformation to the cube plugin):
 ```
 git clone https://github.com/ammen99/wayfire && cd wayfire
 mkdir build && cd build
-cmake ../ -DCMAKE_BUILD_TYPE=Release -DUSE_GLES32=True
+cmake ../ -DCMAKE_BUILD_TYPE=Release -DUSE_GLES32=True -DCMAKE_INSTALL_PREFIX=/usr
 make -j4 && sudo make install
 ```
 
