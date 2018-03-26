@@ -1,7 +1,9 @@
 #include "core.hpp"
 #include "output.hpp"
-#include <cmath>
 #include "input-manager.hpp"
+#include "signal-definitions.hpp"
+#include "debug.hpp"
+#include <cmath>
 
 bool wayfire_grab_interface_t::grab()
 {
@@ -15,12 +17,15 @@ bool wayfire_grab_interface_t::grab()
 
     /* unset modifiers, otherwise clients may not receive
      * the release event for them, as the release usually happens in a grab */
-    auto kbd = weston_seat_get_keyboard(core->get_current_seat());
-    if (kbd)
+//    auto kbd = weston_seat_get_keyboard(core->get_current_seat());
+ //   if (kbd)
     {
+        // TODO: check how wlr handles grabs
+        /*
         weston_keyboard_send_modifiers(kbd,
                                        wl_display_get_serial(core->ec->wl_display),
                                        0, 0, 0, 0);
+                                       */
     }
 
     return core->input->grab_input(this);
@@ -41,6 +46,33 @@ bool wayfire_grab_interface_t::is_grabbed()
 }
 
 void wayfire_plugin_t::fini() {}
+
+wayfire_view get_signaled_view(signal_data *data)
+{
+    auto conv = static_cast<_view_signal*> (data);
+    if (!conv || !conv->view)
+    {
+        errio << "Got a bad _view_signal" << std::endl;
+        return nullptr;
+    }
+
+    return conv->view;
+}
+
+bool get_signaled_state(signal_data *data)
+{
+    auto conv = static_cast<_view_state_signal*> (data);
+
+    if (!conv || !conv->view)
+    {
+        errio << "Got a bad _view_state_signal" << std::endl;
+        return false;
+    }
+
+    return conv->state;
+}
+
+
 
 const float MPI = 3.1415926535;
 

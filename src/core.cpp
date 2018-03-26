@@ -4,9 +4,15 @@
 #include <cassert>
 #include <time.h>
 #include <algorithm>
+#include <libinput.h>
+#include <linux/input-event-codes.h>
 
-#include <libweston-desktop.h>
-#include <gl-renderer-api.h>
+#include <iostream>
+
+extern "C"
+{
+#include <wlr/backend/libinput.h>
+}
 
 #include "core.hpp"
 #include "output.hpp"
@@ -15,6 +21,7 @@
 #include "workspace-manager.hpp"
 #include "debug.hpp"
 #include "render-manager.hpp"
+#include "desktop-api.hpp"
 
 #if BUILD_WITH_IMAGEIO
 #include "img.hpp"
@@ -31,7 +38,8 @@ namespace {
 bool grab_start_finalized;
 };
 
-/* TODO: probably should be made better, this is just basic gesture recognition */
+/*
+ TODO: probably should be made better, this is just basic gesture recognition 
 struct wf_gesture_recognizer {
 
     constexpr static int MIN_FINGERS = 3;
@@ -48,7 +56,7 @@ struct wf_gesture_recognizer {
 
     std::map<int, finger> current;
 
-    weston_touch *touch;
+    wlr_seat *seat;
 
     bool in_gesture = false, gesture_emitted = false;
     bool in_grab = false;
@@ -57,10 +65,10 @@ struct wf_gesture_recognizer {
 
     std::function<void(wayfire_touch_gesture)> handler;
 
-    wf_gesture_recognizer(weston_touch *_touch,
+    wf_gesture_recognizer(wlr_seat *_seat,
             std::function<void(wayfire_touch_gesture)> hnd)
     {
-        touch = _touch;
+        seat = _seat;
         handler = hnd;
     }
 
@@ -96,7 +104,7 @@ struct wf_gesture_recognizer {
             if (f.first != reason_id) {
                 if (f.second.sent_to_client) {
                     auto t = get_ctime();
-                    weston_touch_send_up(touch, &t, f.first);
+                    wlr_seat_touch_notify_up(seat, 0, f.first);
                 } else if (f.second.sent_to_grab) {
                     core->input->grab_send_touch_up(touch, f.first);
                 }
@@ -116,8 +124,8 @@ struct wf_gesture_recognizer {
         if (gesture_emitted)
             return;
 
-        /* first case - consider swipe, we go through each
-         * of the directions and check whether such swipe has occured */
+         first case - consider swipe, we go through each
+         * of the directions and check whether such swipe has occured 
 
         bool is_left_swipe = true, is_right_swipe = true,
              is_up_swipe = true, is_down_swipe = true;
@@ -184,7 +192,7 @@ struct wf_gesture_recognizer {
             return;
         }
 
-        /* second case - this has been a pinch */
+        second case - this has been a pinch 
 
         int cx = 0, cy = 0;
         for (auto f : current) {
@@ -252,8 +260,8 @@ struct wf_gesture_recognizer {
                     wl_fixed_from_int(sx), wl_fixed_from_int(sy));
         }
 
-        /* while checking for touch grabs, some plugin might have started the grab,
-         * so check again */
+        while checking for touch grabs, some plugin might have started the grab,
+         * so check again 
         if (in_grab && send_to_client)
         {
             send_to_client = false;
@@ -279,7 +287,7 @@ struct wf_gesture_recognizer {
 
     void unregister_touch(int id)
     {
-        /* shouldn't happen, but just in case */
+        shouldn't happen, but just in case 
         if (!current.count(id))
             return;
 
@@ -344,10 +352,10 @@ struct wf_gesture_recognizer {
     {
         in_grab = false;
     }
-};
+}; */
 
 /* these simply call the corresponding input_manager functions,
- * you can think of them as wrappers for use of libweston */
+ * you can think of them as wrappers for use of libweston
 void touch_grab_down(weston_touch_grab *grab, const timespec* time, int id,
         wl_fixed_t sx, wl_fixed_t sy)
 {
@@ -373,9 +381,9 @@ static const weston_touch_grab_interface touch_grab_interface = {
     touch_grab_frame, touch_grab_cancel
 };
 
-/* called upon the corresponding event, we actually just call the gesture
+ called upon the corresponding event, we actually just call the gesture
  * recognizer functions, they will send the touch event to the client
- * or to plugin callbacks, or emit a gesture */
+ * or to plugin callbacks, or emit a gesture 
 void input_manager::propagate_touch_down(weston_touch* touch, const timespec* time,
         int32_t id, wl_fixed_t sx, wl_fixed_t sy)
 {
@@ -404,8 +412,8 @@ void input_manager::propagate_touch_motion(weston_touch* touch, const timespec* 
 }
 
 
-/* grab_send_touch_down/up/motion() are called from the gesture recognizer
- * in case they should be processed by plugin grabs */
+ grab_send_touch_down/up/motion() are called from the gesture recognizer
+ * in case they should be processed by plugin grabs 
 void input_manager::grab_send_touch_down(weston_touch* touch, int32_t id,
         wl_fixed_t sx, wl_fixed_t sy)
 {
@@ -440,85 +448,350 @@ void input_manager::check_touch_bindings(weston_touch* touch, wl_fixed_t sx, wl_
     for (auto call : calls)
         (*call)(touch, sx, sy);
 }
+*/
 
-void pointer_grab_focus(weston_pointer_grab*) { }
-void pointer_grab_axis(weston_pointer_grab *grab, const timespec* time, weston_pointer_axis_event *ev)
+struct wf_callback
 {
-    core->input->propagate_pointer_grab_axis(grab->pointer, ev);
-}
-void pointer_grab_axis_source(weston_pointer_grab*, uint32_t) {}
-void pointer_grab_frame(weston_pointer_grab*) {}
-void pointer_grab_motion(weston_pointer_grab *grab, const timespec* time,
-        weston_pointer_motion_event *ev)
-{
-    weston_pointer_move(grab->pointer, ev);
-    core->input->propagate_pointer_grab_motion(grab->pointer, ev);
-}
-void pointer_grab_button(weston_pointer_grab *grab, const timespec* time,
-        uint32_t button, uint32_t state)
-{
-    if (grab_start_finalized) {
-        weston_compositor_run_button_binding(core->ec, grab->pointer,
-                time, button, (wl_pointer_button_state) state);
-    }
-    core->input->propagate_pointer_grab_button(grab->pointer, button, state);
-}
-void pointer_grab_cancel(weston_pointer_grab *grab)
-{
-    core->input->end_grabs();
-}
-
-static const weston_pointer_grab_interface pointer_grab_interface = {
-    pointer_grab_focus, pointer_grab_motion,      pointer_grab_button,
-    pointer_grab_axis,  pointer_grab_axis_source, pointer_grab_frame,
-    pointer_grab_cancel
+    int id;
+    wayfire_output *output;
+    uint32_t mod;
 };
 
-/* keyboard grab callbacks */
-void keyboard_grab_key(weston_keyboard_grab *grab, const timespec* time, uint32_t key,
-                       uint32_t state)
+struct key_callback_data : wf_callback
 {
-    if (grab_start_finalized) {
-        weston_compositor_run_key_binding(core->ec, grab->keyboard, time, key,
-                (wl_keyboard_key_state)state);
-    }
-    core->input->propagate_keyboard_grab_key(grab->keyboard, key, state);
-}
-void keyboard_grab_mod(weston_keyboard_grab *grab, uint32_t time,
-                       uint32_t depressed, uint32_t locked, uint32_t latched,
-                       uint32_t group)
-{
-    core->input->propagate_keyboard_grab_mod(grab->keyboard, depressed, locked, latched, group);
-}
-void keyboard_grab_cancel(weston_keyboard_grab *)
-{
-    core->input->end_grabs();
-}
-static const weston_keyboard_grab_interface keyboard_grab_interface = {
-    keyboard_grab_key, keyboard_grab_mod, keyboard_grab_cancel
+    key_callback *call;
+    uint32_t key;
 };
+
+struct button_callback_data : wf_callback
+{
+    button_callback *call;
+    uint32_t button;
+};
+
+/* TODO: inhibit idle */
+void handle_pointer_button_cb(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_event_pointer_button*> (data);
+    core->input->handle_pointer_button(ev->device->pointer,
+                                            ev->button, ev->state);
+        wlr_seat_pointer_notify_button(core->input->seat, ev->time_msec,
+                                       ev->button, ev->state);
+}
+
+void handle_pointer_motion_cb(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_event_pointer_motion*> (data);
+    core->input->handle_pointer_motion(ev->device->pointer, ev);
+}
+
+void handle_pointer_motion_absolute_cb(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_event_pointer_motion_absolute*> (data);
+    core->input->handle_pointer_motion_absolute(ev->device->pointer, ev);
+}
+
+void handle_keyboard_key_cb(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_event_keyboard_key*> (data);
+    if (!core->input->handle_keyboard_key(ev->keycode, ev->state))
+    {
+        wlr_seat_keyboard_notify_key(core->input->seat, ev->time_msec,
+                                     ev->keycode, ev->state);
+    }
+}
+
+static uint32_t mod_from_key(uint32_t key)
+{
+    if (key == KEY_LEFTALT || key == KEY_RIGHTALT)
+        return MODIFIER_ALT;
+    if (key == KEY_LEFTCTRL || key == KEY_RIGHTCTRL)
+        return MODIFIER_CTRL;
+    if (key == KEY_LEFTSHIFT || key == KEY_RIGHTSHIFT)
+        return MODIFIER_SHIFT;
+    if (key == KEY_LEFTMETA || key == KEY_RIGHTMETA)
+        return MODIFIER_SUPER;
+
+    return 0;
+}
+
+void handle_keyboard_mod_cb(wl_listener*, void* data)
+{
+    auto kbd = static_cast<wlr_keyboard*> (data);
+    if (!core->input->input_grabbed())
+        wlr_seat_keyboard_send_modifiers(core->input->seat, &kbd->modifiers);
+}
+
+bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
+{
+    auto mod = mod_from_key(key);
+    if (mod) return handle_keyboard_mod(mod, state);
+
+    if (state == WLR_KEY_PRESSED)
+    {
+        std::vector<key_callback*> callbacks;
+
+        auto mod_state = get_modifiers();
+
+        for (auto& pair : key_bindings)
+        {
+            auto& binding = pair.second;
+            if (binding->output == core->get_active_output() &&
+                mod_state == binding->mod && key == binding->key)
+                callbacks.push_back(binding->call);
+        }
+
+        for (auto call : callbacks)
+            (*call) (key);
+
+        return callbacks.size();
+    }
+
+    if (active_grab)
+    {
+        if (active_grab->callbacks.keyboard.key)
+            active_grab->callbacks.keyboard.key(key, state);
+        return true;
+    }
+
+    return false;
+}
+
+bool input_manager::handle_keyboard_mod(uint32_t modifier, uint32_t state)
+{
+    mods_count[modifier] += (state == WLR_KEY_PRESSED ? 1 : -1);
+
+    std::cout << "mod state: " << get_modifiers() << std::endl;
+
+    if (active_grab)
+    {
+        if (active_grab->callbacks.keyboard.mod)
+            active_grab->callbacks.keyboard.mod(modifier, state);
+        return true;
+    }
+
+    return false;
+}
+
+void input_manager::handle_pointer_button(wlr_pointer *ptr, uint32_t button, uint32_t state)
+{
+    std::cout << "pressed shit\n" << std::endl;
+    if (state == WLR_BUTTON_PRESSED)
+    {
+        std::vector<button_callback*> callbacks;
+
+        auto mod_state = get_modifiers();
+
+        std::cout << "get pressed, mods: " << mod_state << std::endl;
+
+        for (auto& pair : button_bindings)
+        {
+            auto& binding = pair.second;
+            std::cout << mod_state << " " << binding->mod << " " << button << " " << binding->button << std::endl;
+            if (binding->output == core->get_active_output() &&
+                mod_state == binding->mod && button == binding->button)
+                callbacks.push_back(binding->call);
+        }
+
+        for (auto call : callbacks)
+            (*call) (button);
+    }
+
+    if (active_grab && active_grab->callbacks.pointer.button)
+        active_grab->callbacks.pointer.button(button, state);
+}
+
+void input_manager::update_cursor_position(uint32_t time_msec)
+{
+    /* TODO: focus only on click, as this way we cannot do anything in move plugin */
+    auto output = core->get_output_at(cursor->x, cursor->y);
+    if (!output) return;
+    assert(output);
+
+    core->focus_output(output);
+
+    if (input_grabbed())
+    {
+        if (active_grab->callbacks.pointer.motion)
+            active_grab->callbacks.pointer.motion();
+        return;
+    }
+
+    auto view = output->get_view_at_point(cursor->x, cursor->y);
+    if (view && view->is_mapped)
+    {
+        int sx, sy;
+        view->map_input_coordinates(cursor->x, cursor->y, sx, sy);
+
+        wlr_seat_pointer_notify_enter(seat, view->surface, sx, sy);
+        wlr_seat_pointer_notify_motion(core->input->seat, time_msec, sx, sy);
+    }
+
+}
+
+void input_manager::handle_pointer_motion(wlr_pointer *ptr, wlr_event_pointer_motion *ev)
+{
+    wlr_cursor_move(cursor, ev->device, ev->delta_x, ev->delta_y);
+    update_cursor_position(ev->time_msec);
+}
+
+void input_manager::handle_pointer_motion_absolute(wlr_pointer *ptr, wlr_event_pointer_motion_absolute *ev)
+{
+    wlr_cursor_warp_absolute(cursor, ev->device, ev->x, ev->y);
+    update_cursor_position(ev->time_msec);;
+}
+
 
 bool input_manager::is_touch_enabled()
 {
-    return weston_seat_get_touch(core->get_current_seat()) != nullptr;
+    return touch_count > 0;
 }
 
-static void session_signal_idle(void *)
+/* TODO: possibly add more input options which aren't available right now */
+namespace device_config
 {
-    core->input->toggle_session();
+    bool touchpad_tap_enabled;
+    bool touchpad_dwl_enabled;
+    bool touchpad_natural_scroll_enabled;
+
+    std::string drm_device;
+
+    wayfire_config *config;
+
+    void load(wayfire_config *conf)
+    {
+        config = conf;
+
+        auto section = config->get_section("input");
+        touchpad_tap_enabled = section->get_int("tap_to_click", 1);
+        touchpad_dwl_enabled = section->get_int("disable_while_typing", 1);
+        touchpad_natural_scroll_enabled = section->get_int("natural_scroll", 0);
+
+        drm_device = config->get_section("core")->get_string("drm_device", "default");
+    }
 }
 
-static void session_signal_handler(wl_listener*, void *)
+void configure_input_device(libinput_device *device)
 {
-    auto loop = wl_display_get_event_loop(core->ec->wl_display);
-    wl_event_loop_add_idle(loop, session_signal_idle, NULL);
+    assert(device);
+    /* we are configuring a touchpad */
+    debug << "configure libinput device" << std::endl;
+    if (libinput_device_config_tap_get_finger_count(device) > 0)
+    {
+        libinput_device_config_tap_set_enabled(device,
+                device_config::touchpad_tap_enabled ?
+                    LIBINPUT_CONFIG_TAP_ENABLED : LIBINPUT_CONFIG_TAP_DISABLED);
+        libinput_device_config_dwt_set_enabled(device,
+                device_config::touchpad_dwl_enabled ?
+                LIBINPUT_CONFIG_DWT_ENABLED : LIBINPUT_CONFIG_DWT_DISABLED);
+
+        if (libinput_device_config_scroll_has_natural_scroll(device) > 0)
+        {
+            libinput_device_config_scroll_set_natural_scroll_enabled(device,
+                    device_config::touchpad_natural_scroll_enabled);
+        }
+    }
+}
+
+void input_manager::update_capabilities()
+{
+    uint32_t cap = 0;
+    if (pointer_count)
+        cap |= WL_SEAT_CAPABILITY_POINTER;
+    if (keyboard_count)
+        cap |= WL_SEAT_CAPABILITY_KEYBOARD;
+    if (touch_count)
+        cap |= WL_SEAT_CAPABILITY_TOUCH;
+
+    wlr_seat_set_capabilities(seat, cap);
+}
+
+void handle_new_input_cb(wl_listener*, void *data)
+{
+    auto dev = static_cast<wlr_input_device*> (data);
+    assert(dev);
+    core->input->handle_new_input(dev);
+}
+
+/* TODO: repeat info, xkb options - language, model, etc */
+void input_manager::setup_keyboard(wlr_input_device *dev)
+{
+    auto ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    xkb_rule_names rules = {0, 0, 0, 0, 0};
+    auto keymap = xkb_map_new_from_names(ctx, &rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
+
+    wlr_keyboard_set_keymap(dev->keyboard, keymap);
+    xkb_keymap_unref(keymap);
+    xkb_context_unref(ctx);
+
+    wlr_keyboard_set_repeat_info(dev->keyboard, 40, 400);
+
+    wl_signal_add(&dev->keyboard->events.key, &key);
+    wl_signal_add(&dev->keyboard->events.modifiers, &modifier);
+    wlr_seat_set_keyboard(seat, dev);
+
+    keyboard_count++;
+}
+
+void input_manager::handle_new_input(wlr_input_device *dev)
+{
+    if (!cursor)
+        create_seat();
+
+    debug << "handle new input: " << dev->name << std::endl;
+
+    if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
+        setup_keyboard(dev);
+
+    if (dev->type == WLR_INPUT_DEVICE_POINTER)
+    {
+        wlr_cursor_attach_input_device(cursor, dev);
+        pointer_count++;
+    }
+
+    if (dev->type == WLR_INPUT_DEVICE_TOUCH)
+        touch_count++;
+
+    if (wlr_input_device_is_libinput(dev))
+        configure_input_device(wlr_libinput_get_device_handle(dev));
+
+    update_capabilities();
+}
+
+void input_manager::create_seat()
+{
+    cursor = wlr_cursor_create();
+
+    wlr_cursor_attach_output_layout(cursor, core->output_layout);
+    wlr_cursor_map_to_output(cursor, NULL);
+    wlr_cursor_warp(cursor, NULL, cursor->x, cursor->y);
+
+    xcursor = wlr_xcursor_manager_create(NULL, 32);
+    wlr_xcursor_manager_load(xcursor, 1);
+
+    core->set_default_cursor();
+  //  wlr_cursor_warp(cursor, NULL, cursor->x, cursor->y);
+
+    debug << "create seat, add events" << std::endl;
+    wl_signal_add(&cursor->events.button, &button);
+    wl_signal_add(&cursor->events.motion, &motion);
+    wl_signal_add(&cursor->events.motion_absolute, &motion_absolute);
 }
 
 input_manager::input_manager()
 {
-    pgrab.interface = &pointer_grab_interface;
-    kgrab.interface = &keyboard_grab_interface;
+    input_device_created.notify = handle_new_input_cb;
+    seat = wlr_seat_create(core->display, "default");
+    wl_signal_add(&core->backend->events.new_input,
+                  &input_device_created);
 
+    key.notify             = handle_keyboard_key_cb;
+    modifier.notify        = handle_keyboard_mod_cb;
+    button.notify          = handle_pointer_button_cb;
+    motion.notify          = handle_pointer_motion_cb;
+    motion_absolute.notify = handle_pointer_motion_absolute_cb;
+
+    /*
     if (is_touch_enabled())
     {
 
@@ -535,15 +808,20 @@ input_manager::input_manager()
 
     session_listener.notify = session_signal_handler;
     wl_signal_add(&core->ec->session_signal, &session_listener);
+    */
 }
 
-
-static void
-idle_finalize_grab(void *data)
+uint32_t input_manager::get_modifiers()
 {
-    grab_start_finalized = true;
+    uint32_t result = 0;
+    for (int i = 0; i < 4; i++)
+        if (mods_count[(1 << i)] > 0)
+            result |= (1 << i);
+
+    return result;
 }
 
+// TODO: set pointer, reset mods, grab gr */
 bool input_manager::grab_input(wayfire_grab_interface iface)
 {
     if (!iface || !iface->grabbed || !session_active)
@@ -552,9 +830,8 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
     assert(!active_grab); // cannot have two active input grabs!
     active_grab = iface;
 
-    auto ptr = weston_seat_get_pointer(core->get_current_seat());
-    auto kbd = weston_seat_get_keyboard(core->get_current_seat());
 
+    /*
     if (ptr)
     {
         weston_pointer_start_grab(ptr, &pgrab);
@@ -566,19 +843,12 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
         }
     }
 
-    if (kbd)
-    {
-        weston_keyboard_start_grab(weston_seat_get_keyboard(core->get_current_seat()),
-                                   &kgrab);
-    }
-
     grab_start_finalized = false;
 
-    wl_event_loop_add_idle(wl_display_get_event_loop(core->ec->wl_display),
-            idle_finalize_grab, nullptr);
 
     if (is_touch_enabled())
         gr->start_grab();
+        */
 
     return true;
 }
@@ -587,24 +857,18 @@ void input_manager::ungrab_input()
 {
     active_grab = nullptr;
 
-    auto ptr = weston_seat_get_pointer(core->get_current_seat());
-    auto kbd = weston_seat_get_keyboard(core->get_current_seat());
+    /*
 
-    if (ptr)
-        weston_pointer_end_grab(ptr);
-    if (kbd)
-    {
-        weston_keyboard_end_grab(kbd);
         weston_keyboard_send_modifiers(kbd,
                                        wl_display_next_serial(core->ec->wl_display),
                                        0,
                                        kbd->modifiers.mods_latched,
                                        kbd->modifiers.mods_locked,
                                        kbd->modifiers.group);
-    }
 
     if (is_touch_enabled())
         gr->end_grab();
+        */
 }
 
 bool input_manager::input_grabbed()
@@ -635,164 +899,84 @@ void input_manager::toggle_session()
     }
 
 }
+static int _last_id = 0;
 
-void input_manager::propagate_pointer_grab_axis(weston_pointer *ptr,
-        weston_pointer_axis_event *ev)
+int input_manager::add_key(uint32_t mod, uint32_t key,
+                                key_callback *call, wayfire_output *output)
 {
-    if (active_grab->callbacks.pointer.axis)
-        active_grab->callbacks.pointer.axis(ptr, ev);
-}
-
-void input_manager::propagate_pointer_grab_motion(
-    weston_pointer *ptr, weston_pointer_motion_event *ev)
-{
-    if (active_grab->callbacks.pointer.motion)
-        active_grab->callbacks.pointer.motion(ptr, ev);
-}
-
-void input_manager::propagate_pointer_grab_button(weston_pointer *ptr,
-        uint32_t button,
-        uint32_t state)
-{
-    if (active_grab->callbacks.pointer.button)
-        active_grab->callbacks.pointer.button(ptr, button, state);
-}
-
-void input_manager::propagate_keyboard_grab_key(weston_keyboard *kbd,
-        uint32_t key, uint32_t state)
-{
-    if (active_grab->callbacks.keyboard.key)
-        active_grab->callbacks.keyboard.key(kbd, key, state);
-}
-
-void input_manager::propagate_keyboard_grab_mod(weston_keyboard *kbd,
-        uint32_t depressed, uint32_t locked, uint32_t latched, uint32_t group)
-{
-    if (active_grab->callbacks.keyboard.mod)
-        active_grab->callbacks.keyboard.mod(kbd, depressed, locked, latched, group);
-}
-
-void input_manager::end_grabs()
-{
-}
-
-struct key_callback_data {
-    key_callback *call;
-    wayfire_output *output;
-    weston_binding *binding;
-};
-
-static void keybinding_handler(weston_keyboard *kbd, const timespec* time, uint32_t key, void *data)
-{
-    auto ddata = static_cast<key_callback_data*>(data);
-    assert(ddata);
-    if (core->get_active_output() == ddata->output)
-        (*ddata->call) (kbd, key);
-}
-
-struct button_callback_data {
-    button_callback *call;
-    wayfire_output *output;
-    weston_binding *binding;
-};
-
-static void buttonbinding_handler(weston_pointer *ptr, const timespec* time,
-        uint32_t button, void *data)
-{
-    auto ddata = static_cast<button_callback_data*>(data);
-    assert(ddata);
-
-    if (core->get_active_output() == ddata->output)
-        (*ddata->call) (ptr, button);
-}
-
-weston_binding* input_manager::add_key(uint32_t mod, uint32_t key,
-        key_callback *call, wayfire_output *output)
-{
-    key_pool.push_back(new key_callback_data());
-
-    auto kcd = key_pool.back();
+    auto kcd = new key_callback_data;
     kcd->call = call;
     kcd->output = output;
-    kcd->binding = weston_compositor_add_key_binding(core->ec, key,
-            (weston_keyboard_modifier)mod, keybinding_handler, kcd);
+    kcd->mod = mod;
+    kcd->key = key;
+    kcd->id = ++_last_id;
 
-    return kcd->binding;
+    key_bindings[_last_id] = kcd;
+    return _last_id;
 }
 
-void input_manager::rem_key(weston_binding *binding)
+void input_manager::rem_key(int id)
 {
-    auto it = std::remove_if(key_pool.begin(), key_pool.end(),
-                                  [=] (key_callback_data* data) {
-                                      if (data->binding == binding)
-                                      {
-                                          delete data;
-                                          return true;
-                                      }
-                                      return false;
-                                  });
-
-    key_pool.erase(it, key_pool.end());
-    weston_binding_destroy(binding);
+    auto it = key_bindings.find(id);
+    if (it != key_bindings.end())
+    {
+        delete it->second;
+        key_bindings.erase(it);
+    }
 }
 
 void input_manager::rem_key(key_callback *cb)
 {
-    auto it = std::remove_if(key_pool.begin(), key_pool.end(),
-                             [=] (key_callback_data* data) {
-                                 if (data->call == cb)
-                                 {
-                                     weston_binding_destroy(data->binding);
-                                     return true;
-                                 }
-                                 return false;
-                             });
+    auto it = key_bindings.begin();
 
-    key_pool.erase(it, key_pool.end());
+    while(it != key_bindings.end())
+    {
+        if (it->second->call == cb)
+        {
+            delete it->second;
+            it = key_bindings.erase(it);
+        } else
+            ++it;
+    }
 }
 
-weston_binding* input_manager::add_button(uint32_t mod,
-        uint32_t button, button_callback *call, wayfire_output *output)
+int input_manager::add_button(uint32_t mod, uint32_t button,
+                                button_callback *call, wayfire_output *output)
 {
-    button_pool.push_back(new button_callback_data());
-    auto bcd = button_pool.back();
+    auto bcd = new button_callback_data;
     bcd->call = call;
     bcd->output = output;
-    bcd->binding = weston_compositor_add_button_binding(core->ec, button,
-            (weston_keyboard_modifier)mod, buttonbinding_handler, bcd);
+    bcd->mod = mod;
+    bcd->button = button;
+    bcd->id = ++_last_id;
 
-    return bcd->binding;
+    button_bindings[_last_id] = bcd;
+    return _last_id;
 }
 
-void input_manager::rem_button(weston_binding *binding)
+void input_manager::rem_button(int id)
 {
-    auto it = std::remove_if(button_pool.begin(), button_pool.end(),
-                                  [=] (button_callback_data* data) {
-                                      if (data->binding == binding)
-                                      {
-                                          delete data;
-                                          return true;
-                                      }
-                                      return false;
-                                  });
-
-    button_pool.erase(it, button_pool.end());
-    weston_binding_destroy(binding);
+    auto it = button_bindings.find(id);
+    if (it != button_bindings.end())
+    {
+        delete it->second;
+        button_bindings.erase(it);
+    }
 }
 
 void input_manager::rem_button(button_callback *cb)
 {
-    auto it = std::remove_if(button_pool.begin(), button_pool.end(),
-                             [=] (button_callback_data* data) {
-                                 if (data->call == cb)
-                                 {
-                                     weston_binding_destroy(data->binding);
-                                     return true;
-                                 }
-                                 return false;
-                             });
+    auto it = button_bindings.begin();
 
-    button_pool.erase(it, button_pool.end());
+    while(it != button_bindings.end())
+    {
+        if (it->second->call == cb)
+        {
+            delete it->second;
+            it = button_bindings.erase(it);
+        } else
+            ++it;
+    }
 }
 
 int input_manager::add_touch(uint32_t mods, touch_callback* call, wayfire_output *output)
@@ -847,18 +1031,19 @@ void input_manager::rem_gesture(touch_gesture_callback *cb)
 
 void input_manager::free_output_bindings(wayfire_output *output)
 {
-    std::vector<weston_binding*> bindings;
-    for (auto kcd : key_pool)
-        if (kcd->output == output)
-            bindings.push_back(kcd->binding);
+    std::vector<int> bindings;
+    for (auto kcd : key_bindings)
+        if (kcd.second->output == output)
+            bindings.push_back(kcd.second->id);
 
     for (auto x : bindings)
         rem_key(x);
 
     bindings.clear();
-    for (auto bcd : button_pool)
-        if (bcd->output == output)
-            bindings.push_back(bcd->binding);
+    for (auto bcd : button_bindings)
+        if (bcd.second->output == output)
+            bindings.push_back(bcd.second->id);
+
     for (auto x : bindings)
         rem_button(x);
 
@@ -906,12 +1091,13 @@ void wayfire_core::configure(wayfire_config *config)
 
     section = config->get_section("input");
 
-    string model   = section->get_string("xkb_model", "pc100");
-    string variant = section->get_string("xkb_variant", "");
-    string layout  = section->get_string("xkb_layout", "us");
-    string options = section->get_string("xkb_option", "");
-    string rules   = section->get_string("xkb_rule", "evdev");
+    std::string model   = section->get_string("xkb_model", "pc100");
+    std::string variant = section->get_string("xkb_variant", "");
+    std::string layout  = section->get_string("xkb_layout", "us");
+    std::string options = section->get_string("xkb_option", "");
+    std::string rules   = section->get_string("xkb_rule", "evdev");
 
+    // TODO: set keyboard options
     xkb_rule_names names;
     names.rules   = strdup(rules.c_str());
     names.model   = strdup(model.c_str());
@@ -919,10 +1105,10 @@ void wayfire_core::configure(wayfire_config *config)
     names.variant = strdup(variant.c_str());
     names.options = strdup(options.c_str());
 
-    weston_compositor_set_xkb_rule_names(ec, &names);
+    //weston_compositor_set_xkb_rule_names(ec, &names);
 
-    ec->kb_repeat_rate  = section->get_int("kb_repeat_rate", 40);
-    ec->kb_repeat_delay = section->get_int("kb_repeat_delay", 400);
+    //ec->kb_repeat_rate  = section->get_int("kb_repeat_rate", 40);
+    //ec->kb_repeat_delay = section->get_int("kb_repeat_delay", 400);
 }
 
 void finish_wf_shell_bind_cb(void *data)
@@ -931,12 +1117,13 @@ void finish_wf_shell_bind_cb(void *data)
     core->shell_clients.push_back(resource);
     core->for_each_output([=] (wayfire_output *out) {
         wayfire_shell_send_output_created(resource,
-                out->handle->id,
+                out->id,
                 out->handle->width, out->handle->height);
+        /*
         if (out->handle->set_gamma) {
             wayfire_shell_send_gamma_size(resource,
                     out->handle->id, out->handle->gamma_size);
-        }
+        } */
     });
 }
 
@@ -953,23 +1140,32 @@ void bind_desktop_shell(wl_client *client, void *data, uint32_t version, uint32_
     wl_resource_set_implementation(resource, &shell_interface_impl,
             NULL, unbind_desktop_shell);
 
-    auto loop = wl_display_get_event_loop(core->ec->wl_display);
+    auto loop = wl_display_get_event_loop(core->display);
     wl_event_loop_add_idle(loop, finish_wf_shell_bind_cb, resource);
 }
 
-void wayfire_core::init(weston_compositor *comp, wayfire_config *conf)
+void wayfire_core::init(wayfire_config *conf)
 {
-    ec = comp;
     configure(conf);
+    device_config::load(conf);
+
+    data_device_manager = wlr_data_device_manager_create(display);
+    wl_display_init_shm(core->display);
+
+    output_layout = wlr_output_layout_create();
+    core->compositor = wlr_compositor_create(display, wlr_backend_get_renderer(backend));
+    init_desktop_apis();
+    input = new input_manager();
 
 #if BUILD_WITH_IMAGEIO
     image_io::init();
 #endif
 
-    if (wl_global_create(ec->wl_display, &wayfire_shell_interface,
-                1, NULL, bind_desktop_shell) == NULL) {
+    if (wl_global_create(display, &wayfire_shell_interface,
+                         1, NULL, bind_desktop_shell) == NULL) {
         errio << "Failed to create wayfire_shell interface" << std::endl;
     }
+
 }
 
 void refocus_idle_cb(void *data)
@@ -979,20 +1175,14 @@ void refocus_idle_cb(void *data)
 
 void wayfire_core::wake()
 {
-    if (times_wake == 0)
-    {
-        input = new input_manager();
+    if (times_wake == 0 && run_panel)
+        run(INSTALL_PREFIX "/lib/wayfire/wayfire-shell-client");
 
-        if (run_panel)
-            run(INSTALL_PREFIX "/lib/wayfire/wayfire-shell-client");
-    }
-
-    for (auto out : pending_outputs)
-        add_output(out);
+    for (auto o : pending_outputs)
+        add_output(o);
     pending_outputs.clear();
-    weston_compositor_wake(ec);
 
-    auto loop = wl_display_get_event_loop(ec->wl_display);
+    auto loop = wl_display_get_event_loop(display);
     wl_event_loop_add_idle(loop, refocus_idle_cb, 0);
 
     if (times_wake > 0)
@@ -1008,56 +1198,36 @@ void wayfire_core::sleep()
 {
     for_each_output([] (wayfire_output *output)
             { output->emit_signal("sleep", nullptr); });
-    weston_compositor_sleep(ec);
 }
 
-bool custom_renderer_cb(weston_output *o, pixman_region32_t *damage)
-{
-    auto output = core->get_output(o);
-    if (output)
-        return output->render->paint(damage);
-    return false;
-}
-
-void post_render_cb(weston_output *o)
-{
-    auto output = core->get_output(o);
-    if (output)
-        output->render->post_paint();
-}
-
-void wayfire_core::setup_renderer()
-{
-    const auto api = render_manager::renderer_api = (const weston_gl_renderer_api*)
-        weston_plugin_api_get(core->ec, WESTON_GL_RENDERER_API_NAME,
-                              sizeof(weston_gl_renderer_api));
-
-    assert(api);
-    api->set_custom_renderer(ec, custom_renderer_cb);
-    api->set_post_render(ec, post_render_cb);
-}
-
-weston_seat* wayfire_core::get_current_seat()
-{
-    weston_seat *seat;
-    weston_seat *target = nullptr;
-    wl_list_for_each(seat, &ec->seat_list, link)
-    {
-        if (std::strcmp(seat->seat_name, "default") == 0)
-            target = seat;
-    }
-    return target;
-}
+wlr_seat* wayfire_core::get_current_seat()
+{ return input->seat; }
 
 static void output_destroyed_callback(wl_listener *, void *data)
 {
-    core->remove_output(core->get_output((weston_output*) data));
+    core->remove_output(core->get_output((wlr_output*) data));
 }
 
-void wayfire_core::add_output(weston_output *output)
+void wayfire_core::set_default_cursor()
 {
-    debug << "Adding output " << output->id << std::endl;
-    if (outputs.find(output->id) != outputs.end() || !output->enabled)
+    if (input->cursor)
+        wlr_xcursor_manager_set_cursor_image(input->xcursor, "left_ptr", input->cursor);
+}
+
+std::tuple<int, int> wayfire_core::get_cursor_position()
+{
+    if (input->cursor)
+        return std::tuple<int, int> (input->cursor->x, input->cursor->y);
+    else
+        return std::tuple<int, int> (0, 0);
+}
+
+static int _last_output_id = 0;
+/* TODO: remove pending_outputs, they are no longer necessary */
+void wayfire_core::add_output(wlr_output *output)
+{
+    debug << "Adding output " << output->name<< std::endl;
+    if (outputs.find(output) != outputs.end())
         return;
 
     if (!input) {
@@ -1065,30 +1235,28 @@ void wayfire_core::add_output(weston_output *output)
         return;
     }
 
-    wayfire_output *wo = outputs[output->id] = new wayfire_output(output, config);
+    wayfire_output *wo = outputs[output] = new wayfire_output(output, config);
+    wo->id = _last_output_id++;
     focus_output(wo);
 
     wo->destroy_listener.notify = output_destroyed_callback;
-    wl_signal_add(&wo->handle->destroy_signal, &wo->destroy_listener);
+    wl_signal_add(&wo->handle->events.destroy, &wo->destroy_listener);
 
     for (auto resource : shell_clients)
-        wayfire_shell_send_output_created(resource, output->id,
+        wayfire_shell_send_output_created(resource, wo->id,
                 output->width, output->height);
-
-    weston_output_schedule_repaint(output);
 }
 
 void wayfire_core::remove_output(wayfire_output *output)
 {
-    debug << "removing output: " << output->handle->id << std::endl;
+    debug << "removing output: " << output->handle->name << std::endl;
 
-    outputs.erase(output->handle->id);
+    outputs.erase(output->handle);
     wl_list_remove(&output->destroy_listener.link);
 
     /* we have no outputs, simply quit */
     if (outputs.empty())
     {
-        weston_compositor_exit(ec);
         std::exit(0);
     }
 
@@ -1120,7 +1288,7 @@ void wayfire_core::remove_output(wayfire_output *output)
 
     delete output;
     for (auto resource : shell_clients)
-        wayfire_shell_send_output_destroyed(resource, output->handle->id);
+        wayfire_shell_send_output_destroyed(resource, output->id);
 }
 
 void wayfire_core::refocus_active_output_active_view()
@@ -1153,7 +1321,7 @@ void wayfire_core::focus_output(wayfire_output *wo)
 
     active_output = wo;
     if (wo)
-        debug << "focus output: " << wo->handle->id << std::endl;
+        debug << "focus output: " << wo->handle->name << std::endl;
 
     /* invariant: input is grabbed only if the current output
      * has an input grab */
@@ -1174,14 +1342,14 @@ void wayfire_core::focus_output(wayfire_output *wo)
 
     if (active_output)
     {
-        weston_output_schedule_repaint(active_output->handle);
+        wlr_output_schedule_frame(active_output->handle);
         active_output->emit_signal("output-gain-focus", nullptr);
     }
 }
 
-wayfire_output* wayfire_core::get_output(weston_output *handle)
+wayfire_output* wayfire_core::get_output(wlr_output *handle)
 {
-    auto it = outputs.find(handle->id);
+    auto it = outputs.find(handle);
     if (it != outputs.end()) {
         return it->second;
     } else {
@@ -1213,7 +1381,7 @@ wayfire_output* wayfire_core::get_next_output(wayfire_output *output)
 {
     if (outputs.empty())
         return output;
-    auto id = output->handle->id;
+    auto id = output->handle;
     auto it = outputs.find(id);
     ++it;
 
@@ -1235,28 +1403,14 @@ void wayfire_core::for_each_output(output_callback_proc call)
         call(o.second);
 }
 
-void wayfire_core::add_view(weston_desktop_surface *ds)
+void wayfire_core::add_view(wayfire_view view)
 {
-    auto view = std::make_shared<wayfire_view_t> (ds);
-    views[view->handle] = view;
-
-    auto ptr = weston_seat_get_pointer(get_current_seat());
-
-    /* pointer may not be availble if we are on another tty as
-     * libweston "suspends" input devices while inactive */
-    if (ptr)
-    {
-        auto x = wl_fixed_to_int(ptr->x);
-        auto y = wl_fixed_to_int(ptr->y);
-
-        focus_output(get_output_at(x, y));
-    }
-
+    views[view->surface] = view;
     assert(active_output);
     active_output->attach_view(view);
 }
 
-wayfire_view wayfire_core::find_view(weston_view *handle)
+wayfire_view wayfire_core::find_view(wlr_surface *handle)
 {
     auto it = views.find(handle);
     if (it == views.end()) {
@@ -1266,25 +1420,7 @@ wayfire_view wayfire_core::find_view(weston_view *handle)
     }
 }
 
-wayfire_view wayfire_core::find_view(weston_desktop_surface *desktop_surface)
-{
-    for (auto v : views)
-        if (v.second->desktop_surface == desktop_surface)
-            return v.second;
-
-    return nullptr;
-}
-
-wayfire_view wayfire_core::find_view(weston_surface *surface)
-{
-    for (auto v : views)
-        if (v.second->surface == surface)
-            return v.second;
-
-    return nullptr;
-}
-
-void wayfire_core::focus_view(wayfire_view v, weston_seat *seat)
+void wayfire_core::focus_view(wayfire_view v, wlr_seat *seat)
 {
     if (!v)
         return;
@@ -1292,28 +1428,23 @@ void wayfire_core::focus_view(wayfire_view v, weston_seat *seat)
     if (v->output != active_output)
         focus_output(v->output);
 
-    active_output->focus_view(v);
+    active_output->focus_view(v, seat);
 }
 
-void wayfire_core::close_view(wayfire_view v)
-{
-    if (!v)
-       return;
-
-    weston_desktop_surface_close(v->desktop_surface);
-}
-
-void wayfire_core::erase_view(wayfire_view v, bool destroy_handle)
+void wayfire_core::erase_view(wayfire_view v)
 {
     if (!v) return;
 
-    views.erase(v->handle);
+    /* TODO: what do we do now? */
+    views.erase(v->surface);
 
     if (v->output)
         v->output->detach_view(v);
 
+    /*
     if (v->handle && destroy_handle)
         weston_view_destroy(v->handle);
+        */
 }
 
 void wayfire_core::run(const char *command)
@@ -1337,16 +1468,11 @@ void wayfire_core::run(const char *command)
 
 void wayfire_core::move_view_to_output(wayfire_view v, wayfire_output *new_output)
 {
+    assert(new_output);
     if (v->output)
-    {
         v->output->detach_view(v);
-    }
 
-    if (new_output) {
-        new_output->attach_view(v);
-    } else {
-        close_view(v);
-    }
+    new_output->attach_view(v);
 }
 
 wayfire_core *core;
