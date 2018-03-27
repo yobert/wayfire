@@ -481,7 +481,6 @@ static void render_surface(weston_surface *surface, pixman_region32_t *damage,
                               surface_box, &damaged_region,
                               transform, color, bits);
 
-        pixman_region32_fini(&damaged_region);
         pixman_region32_fini(&opaque);
     } else
     {
@@ -490,6 +489,8 @@ static void render_surface(weston_surface *surface, pixman_region32_t *damage,
                               surface_box, &damaged_region,
                               transform, color, bits | fmt_bits);
     }
+
+    pixman_region32_fini(&damaged_region);
 
     weston_subsurface *sub;
     if (!wl_list_empty(&surface->subsurface_list)) {
