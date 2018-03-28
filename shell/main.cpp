@@ -1,5 +1,4 @@
 #include "panel.hpp"
-#include "background.hpp"
 #include "gamma.hpp"
 #include "../shared/config.hpp"
 #include <vector>
@@ -8,7 +7,6 @@
 
 struct wayfire_shell_output {
     wayfire_panel* panel;
-    wayfire_background *background;
     gamma_adjust *gamma;
 };
 
@@ -21,13 +19,10 @@ std::string bg_path;
 void output_created_cb(void *data, wayfire_shell *wayfire_shell,
         uint32_t output, uint32_t width, uint32_t height)
 {
-    auto bg = (outputs[output].background = new wayfire_background(bg_path));
-    bg->create_background(output, width, height);
-
     auto panel = (outputs[output].panel = new wayfire_panel(config));
     panel->create_panel(output, width, height);
 
-    wayfire_shell_output_fade_in_start(wayfire_shell, output);
+    //wayfire_shell_output_fade_in_start(wayfire_shell, output);
 }
 
 void output_resized_cb(void *data, wayfire_shell *wayfire_shell,
@@ -37,8 +32,6 @@ void output_resized_cb(void *data, wayfire_shell *wayfire_shell,
     if (it == outputs.end())
         return;
 
-    if (it->second.background)
-        it->second.background->resize(width, height);
     if (it->second.panel)
         it->second.panel->resize(width, height);
 }
@@ -52,8 +45,6 @@ void output_destroyed_cb(void *data, wayfire_shell *wayfire_shell, uint32_t outp
 
     if (it->second.panel)
         delete it->second.panel;
-    if (it->second.background)
-        delete it->second.background;
     if (it->second.gamma)
         delete it->second.gamma;
 }
@@ -108,8 +99,6 @@ int main()
     for (auto x : outputs) {
         if (x.second.panel)
             delete x.second.panel;
-        if (x.second.background)
-            delete x.second.background;
         if (x.second.gamma)
             delete x.second.gamma;
     }

@@ -30,27 +30,17 @@ if (NOT DEFINED USE_GLES32)
     set(USE_GLES32 TRUE)
 endif(NOT DEFINED USE_GLES32)
 
-if (NOT DEFINED HAS_CAIRO_GL_H)
-    include(CheckIncludeFiles)
-    CHECK_INCLUDE_FILES("cairo/cairo-gl.h" HAS_CAIRO_GL_H)
-endif(NOT DEFINED HAS_CAIRO_GL_H)
-
-if (HAS_CAIRO_GL_H)
-    set(HAS_CAIRO_GL_H TRUE)
-else (HAS_CAIRO_GL_H)
-    set(HAS_CAIRO_GL_H FALSE)
-endif (HAS_CAIRO_GL_H)
-
 # TODO: check if the egl-surface backend in shell still works
 set(HAS_CAIRO_GL_H FALSE)
 
 configure_file(config.h.in config.h)
+configure_file(wayfire.ini.in ${CMAKE_CURRENT_SOURCE_DIR}/wayfire.ini)
+
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 message("\n\nConfiguration options:\n")
 message("\tImageIO:          " ${BUILD_WITH_IMAGEIO})
 message("\tOpenGL ES 3.2:    " ${USE_GLES32})
-message("\tCario-GL:         " ${HAS_CAIRO_GL_H})
 message("\tGdk-Pixbuf:       " ${HAS_PIXBUF})
 message("\tDebugging output: " ${WAYFIRE_DEBUG_ENABLED})
 message("\n")

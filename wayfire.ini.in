@@ -10,8 +10,6 @@ plugins = viewport_impl move resize command vswitch switcher expo oswitch rotato
 # workspace grid dimensions
 vwidth = 4
 vheight = 2
-# start built-in client
-run_panel = 1
 # set to 0 if you don't want panels to show over fullscreen windows
 draw_panel_over_fullscreen_windows = 1
 # used to determine refresh rate for animations
@@ -70,6 +68,8 @@ battery_invert_icons = 1
 # run custom commands at startup
 # option "names" aren't meaningful, but they must be different for each command
 [autostart]
+bg = ${CMAKE_INSTALL_PREFIX}/lib/wayfire/wayfire-shell-background
+panel = sleep 1 && ${CMAKE_INSTALL_PREFIX}/lib/wayfire/wayfire-shell-panel
 # script = /home/<username>/.config/wayfire.sh
 # example: start a terminal on startup:
 # terminal = gnome-terminal
@@ -109,11 +109,11 @@ command_1 = bemenu-run
 binding_1 = <super> KEY_D
 command_2 = weston-terminal
 binding_2 = <super> KEY_ENTER
-command_3 = amixer -q sset Master 5%+ unmute && /usr/lib/wayfire/wayfire-sound-popup 30 60 400 80 500
+command_3 = amixer -q sset Master 5%+ unmute && ${CMAKE_INSTALL_PREFIX}/lib/wayfire/wayfire-sound-popup 30 60 400 80 500
 binding_3 = KEY_VOLUMEUP
-command_4 = amixer -q sset Master 5%- unmute && /usr/lib/wayfire/wayfire-sound-popup 30 60 400 80 500
+command_4 = amixer -q sset Master 5%- unmute && ${CMAKE_INSTALL_PREFIX}/lib/wayfire/wayfire-sound-popup 30 60 400 80 500
 binding_4 = KEY_VOLUMEDOWN
-command_5 = amixer -q sset Master toggle && /usr/lib/wayfire/wayfire-sound-popup 30 60 400 80 500
+command_5 = amixer -q sset Master toggle && ${CMAKE_INSTALL_PREFIX}/lib/wayfire/wayfire-sound-popup 30 60 400 80 500
 binding_5 = KEY_MUTE
 
 [vkeyboard]

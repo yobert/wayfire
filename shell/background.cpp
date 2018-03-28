@@ -1,5 +1,7 @@
 #include "background.hpp"
 #include "../proto/wayfire-shell-client.h"
+#include "../shared/config.hpp"
+#include <memory>
 
 #if HAS_PIXBUF
 #include <gdk-pixbuf/gdk-pixbuf.h>
@@ -115,4 +117,80 @@ wayfire_background::~wayfire_background()
     cairo_destroy(cr);
     cairo_surface_destroy(img_surface);
     delete_window(window);
+}
+
+wayfire_config *config;
+std::map<uint32_t, std::unique_ptr<wayfire_background>> outputs;
+
+std::string bg_path;
+
+void output_created_cb(void *data, wayfire_shell *wayfire_shell,
+        uint32_t output, uint32_t width, uint32_t height)
+{
+
+    outputs[output] = std::unique_ptr<wayfire_background> (new wayfire_background(bg_path));
+    outputs[output]->create_background(output, width, height);
+
+    wayfire_shell_output_fade_in_start(wayfire_shell, output);
+}
+
+void output_resized_cb(void *data, wayfire_shell *wayfire_shell,
+        uint32_t output, uint32_t width, uint32_t height)
+{
+    auto it = outputs.find(output);
+    if (it == outputs.end() || !it->second)
+        return;
+
+    it->second->resize(width, height);
+}
+
+void output_destroyed_cb(void *data, wayfire_shell *wayfire_shell, uint32_t output)
+{
+    auto it = outputs.find(output);
+
+    if (it == outputs.end())
+        return;
+
+    if (it->second)
+        delete it->second.release();
+    outputs.erase(it);
+}
+
+void output_autohide_panels_cb(void *data, wayfire_shell *wayfire_shell, uint32_t output, uint32_t autohide) { }
+void output_gamma_size_cb(void *data, wayfire_shell *shell, uint32_t output, uint32_t size) { }
+
+static const struct wayfire_shell_listener bg_shell_listener = {
+    .output_created = output_created_cb,
+    .output_resized = output_resized_cb,
+    .output_destroyed = output_destroyed_cb,
+    .output_autohide_panels = output_autohide_panels_cb,
+    .gamma_size = output_gamma_size_cb,
+};
+
+int main()
+{
+    std::string home_dir = secure_getenv("HOME");
+    config = new wayfire_config(home_dir + "/.config/wayfire.ini");
+    auto section = config->get_section("shell");
+
+    bg_path = section->get_string("background", "none");
+
+    if (!setup_wayland_connection())
+        return -1;
+
+    wayfire_shell_add_listener(display.wfshell, &bg_shell_listener, 0);
+
+    while(true)
+    {
+        if (wl_display_dispatch(display.wl_disp) < 0)
+            break;
+    }
+
+    for (auto& x : outputs)
+    {
+        if (x.second)
+            delete x.second.release();
+    }
+
+    finish_wayland_connection();
 }

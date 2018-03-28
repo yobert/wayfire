@@ -902,7 +902,6 @@ void wayfire_core::configure(wayfire_config *config)
     shadersrc   = section->get_string("shadersrc", INSTALL_PREFIX "/share/wayfire/shaders");
     plugin_path = section->get_string("plugin_path_prefix", INSTALL_PREFIX "/lib/");
     plugins     = section->get_string("plugins", "viewport_impl move resize animation switcher vswitch cube expo command grid");
-    run_panel   = section->get_int("run_panel", 1);
 
     section = config->get_section("input");
 
@@ -980,12 +979,7 @@ void refocus_idle_cb(void *data)
 void wayfire_core::wake()
 {
     if (times_wake == 0)
-    {
         input = new input_manager();
-
-        if (run_panel)
-            run(INSTALL_PREFIX "/lib/wayfire/wayfire-shell-client");
-    }
 
     for (auto out : pending_outputs)
         add_output(out);
