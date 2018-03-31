@@ -8,6 +8,7 @@
 #include "xwayland.hpp"
 
 #include <wayland-server.h>
+#include <getopt.h>
 
 std::ofstream wf_debug::logfile;
 weston_compositor *crash_compositor;
@@ -33,12 +34,36 @@ void seat_created_cb (wl_listener*, void*)
 }
 
 weston_desktop_api desktop_api;
-int main(int argc, char *argv[]) {
-    if (argc > 1) {
-        wf_debug::logfile.open(argv[1]);
-    } else {
-        wf_debug::logfile.open("/dev/null");
+int main(int argc, char *argv[])
+{
+    std::string home_dir = secure_getenv("HOME");
+    std::string config_file = home_dir + "/.config/wayfire.ini";
+    std::string logfile = "/dev/null";
+
+    struct option opts[] = {
+        { "config",   required_argument, NULL, 'c' },
+        { "log-file", required_argument, NULL, 'l' },
+        { 0,          0,                 NULL,  0  }
+    };
+
+    int c, i;
+    while((c = getopt_long(argc, argv, "c:l:", opts, &i)) != -1)
+    {
+        switch(c)
+        {
+            case 'c':
+                config_file = optarg;
+                std::cout << "set config to " << config_file << std::endl;
+                break;
+            case 'l':
+                logfile = optarg;
+                break;
+            default:
+                errio << "failed to parse option " << optarg << std::endl;
+        }
     }
+
+    wf_debug::logfile.open(logfile.c_str());
 
     weston_log_set_handler(vlog, vlog_continue);
     wl_log_set_handler_server(wayland_log_handler);
@@ -49,18 +74,16 @@ int main(int argc, char *argv[]) {
     signal(SIGILL, signalHandle);
     signal(SIGABRT, signalHandle);
 
-    auto display = wl_display_create();
+    debug << "Using config file " << config_file << std::endl;
+    wayfire_config *config = new wayfire_config(config_file, -1);
 
+    auto display = wl_display_create();
     auto ec = weston_compositor_create(display, NULL);
 
     crash_compositor = ec;
     ec->default_pointer_grab = NULL;
     ec->vt_switching = true;
 
-    std::string home_dir = secure_getenv("HOME");
-    debug << "Using home directory: " << home_dir << std::endl;
-
-    wayfire_config *config = new wayfire_config(home_dir + "/.config/wayfire.ini", -1);
     ec->repaint_msec = config->get_section("core")->get_int("repaint_msec", 16);
     ec->idle_time = config->get_section("core")->get_int("idle_time", 300);
     config->set_refresh_rate(1000 / ec->repaint_msec);

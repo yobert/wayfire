@@ -3,6 +3,7 @@
 #include "../shared/config.hpp"
 #include <vector>
 #include <map>
+#include <getopt.h>
 #include <signal.h>
 
 struct wayfire_shell_output {
@@ -77,10 +78,30 @@ static const struct wayfire_shell_listener bg_shell_listener = {
     .gamma_size = output_gamma_size_cb,
 };
 
-int main()
+int main(int argc, char *argv[])
 {
     std::string home_dir = secure_getenv("HOME");
-    config = new wayfire_config(home_dir + "/.config/wayfire.ini");
+    std::string config_file = home_dir + "/.config/wayfire.ini";
+
+    struct option opts[] = {
+        { "config",   required_argument, NULL, 'c' },
+        { 0,          0,                 NULL,  0  }
+    };
+
+    int c, i;
+    while((c = getopt_long(argc, argv, "c:l:", opts, &i)) != -1)
+    {
+        switch(c)
+        {
+            case 'c':
+                config_file = optarg;
+                break;
+            default:
+                std::cerr << "failed to parse option " << optarg << std::endl;
+        }
+    }
+
+    config = new wayfire_config(config_file);
     auto section = config->get_section("shell");
 
     bg_path = section->get_string("background", "none");
