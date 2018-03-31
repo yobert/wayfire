@@ -23,13 +23,13 @@ extern "C"
 #include "render-manager.hpp"
 #include "desktop-api.hpp"
 
-#if BUILD_WITH_IMAGEIO
+#ifdef BUILD_WITH_IMAGEIO
 #include "img.hpp"
 #endif
 
 #include "signal-definitions.hpp"
 #include "../shared/config.hpp"
-#include "../proto/wayfire-shell-server.h"
+#include "wayfire-shell-protocol.h"
 
 
 /* Start input_manager */
@@ -1146,7 +1146,7 @@ void wayfire_core::init(wayfire_config *conf)
     init_desktop_apis();
     input = new input_manager();
 
-#if BUILD_WITH_IMAGEIO
+#ifdef BUILD_WITH_IMAGEIO
     image_io::init();
 #endif
 
