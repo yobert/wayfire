@@ -40,6 +40,10 @@ using wf_geometry = wlr_box;
 bool operator == (const wf_geometry& a, const wf_geometry& b);
 bool operator != (const wf_geometry& a, const wf_geometry& b);
 
+wf_point operator + (const wf_point& a, const wf_point& b);
+wf_point operator + (const wf_point& a, const wf_geometry& b);
+wf_geometry operator + (const wf_geometry &a, const wf_point& b);
+
 bool point_inside(wf_point point, wf_geometry rect);
 bool rect_intersect(wf_geometry screen, wf_geometry win);
 
@@ -56,6 +60,8 @@ using wayfire_view = std::shared_ptr<wayfire_view_t>;
 /* do not copy the surface, it is not reference counted and you will get crashes */
 class wayfire_surface_t;
 using wf_surface_iterator_callback = std::function<void(wayfire_surface_t*, int, int)>;
+
+class wf_decorator_frame_t;
 
 /* abstraction for desktop-apis, no real need for plugins
  * This is a base class to all "drawables" - desktop views, subsurfaces, popups */
@@ -83,7 +89,11 @@ class wayfire_surface_t
         virtual ~wayfire_surface_t();
 
         wlr_surface *surface;
+
         bool is_mapped = false;
+        virtual void map() {is_mapped = true; }
+        virtual void unmap() {is_mapped = false;}
+
         float alpha = 1.0;
 
         /* returns top-left corner in output coordinates */
@@ -110,14 +120,25 @@ class wayfire_surface_t
 /* Represents a desktop window (not as X11 window, but like a xdg_toplevel surface) */
 class wayfire_view_t : public wayfire_surface_t
 {
+    friend class wayfire_xdg6_decoration_view;
+    friend void surface_destroyed_cb(wl_listener*, void *data);
+
     protected:
+        wayfire_view decoration;
 
         void force_update_xwayland_position();
         int in_continuous_move = 0, in_continuous_resize = 0;
 
+        bool wait_decoration = false;
+
         inline wayfire_view self();
         virtual void update_size();
 
+        wf_geometry geometry;
+
+        uint32_t id;
+
+        virtual void get_child_position(int &x, int &y);
     public:
 
         /* these represent toplevel relations, children here are transient windows,
@@ -132,17 +153,19 @@ class wayfire_view_t : public wayfire_surface_t
 
         wayfire_view_t(wlr_surface *surface);
         virtual ~wayfire_view_t();
-
-        wf_geometry geometry;
+        uint32_t get_id() { return id; }
 
         virtual void move(int x, int y, bool send_signal = true);
         virtual void resize(int w, int h, bool send_signal = true);
-        virtual void activate(bool active) {};
+        virtual void activate(bool active);
         virtual void close() {};
 
         virtual void set_parent(wayfire_view parent);
 
-        virtual wf_point get_output_position() { return {geometry.x, geometry.y}; }
+        virtual wf_point get_output_position();
+
+        virtual wf_geometry get_wm_geometry() { return decoration ? decoration->get_wm_geometry() : geometry; }
+
         /* return geometry together with shadows, etc.
          * view->geometry contains "WM" geometry */
         virtual wf_geometry get_output_geometry() { return geometry; };
@@ -151,6 +174,7 @@ class wayfire_view_t : public wayfire_surface_t
          * returns the (sub)surface under the cursor or NULL iff the cursor is outside of the view
          * TODO: it should be overwritable by plugins which deform the view */
         virtual wayfire_surface_t *map_input_coordinates(int cursor_x, int cursor_y, int &sx, int &sy);
+        virtual wlr_surface *get_keyboard_focus_surface() { return surface; };
 
         virtual void set_geometry(wf_geometry g);
         virtual void set_resizing(bool resizing);
@@ -164,10 +188,15 @@ class wayfire_view_t : public wayfire_surface_t
         wayfire_view_transform transform;
 
         bool is_visible();
-        virtual void map();
-        virtual void unmap() {is_mapped = false;};
         virtual void commit();
         virtual void damage();
+        virtual void map();
+
+        virtual std::string get_app_id() { return ""; }
+        virtual std::string get_title() { return ""; }
+
+        virtual void set_decoration(wayfire_view view,
+                                    std::unique_ptr<wf_decorator_frame_t> frame);
 
         /* Used to specify that this view has been destroyed.
          * Useful when animating view close */
@@ -180,6 +209,11 @@ class wayfire_view_t : public wayfire_surface_t
         /* backgrounds, panels, lock surfaces -> they shouldn't be touched
          * by plugins like move, animate, etc. */
         bool is_special = false;
+
+        virtual void move_request();
+        virtual void resize_request();
+        virtual void maximize_request(bool state);
+        virtual void fullscreen_request(wayfire_output *output, bool state);
 };
 
 #endif
