@@ -109,6 +109,13 @@ void subsurface_created_cb(wl_listener*, void *data)
         return;
     }
 
+    if (core->api->desktop_surfaces.count(sub->surface))
+    {
+        log_error ("adding same subsurface twice!");
+        return;
+    }
+
+    log_info("subsurface %p", sub->surface);
     new wayfire_surface_t(sub->surface, parent);
 }
 
@@ -137,11 +144,13 @@ wayfire_surface_t::wayfire_surface_t(wlr_surface *surface, wayfire_surface_t* pa
     wl_signal_add(&surface->events.commit,         &committed);
     wl_signal_add(&surface->events.destroy,        &destroy);
 
+    log_info("map %p -> %p", surface, this);
     core->api->desktop_surfaces[surface] = this;
 }
 
 wayfire_surface_t::~wayfire_surface_t()
 {
+    log_info("unmap %p", this);
     core->api->desktop_surfaces.erase(surface);
 
     if (parent_surface)
@@ -188,14 +197,40 @@ wf_geometry wayfire_surface_t::get_output_geometry()
     };
 }
 
+void wayfire_surface_t::map()
+{
+    is_mapped = true;
+    damage();
+}
+
+void wayfire_surface_t::unmap()
+{
+    is_mapped = false;
+    damage();
+}
+
+void wayfire_surface_t::damage()
+{
+    /* TODO: bounding box damage */
+    output->render->damage(get_output_geometry());
+}
+
 void wayfire_surface_t::commit()
 {
     pixman_region32_t damage;
     pixman_region32_init(&damage);
     pixman_region32_copy(&damage, &surface->current->buffer_damage);
 
-    auto pos = get_output_position();
-    pixman_region32_translate(&damage, pos.x, pos.y);
+    auto rect = get_output_geometry();
+    pixman_region32_translate(&damage, rect.x, rect.y);
+
+    if (is_subsurface() && rect != geometry)
+    {
+        output->render->damage(geometry);
+        output->render->damage(rect);
+
+        geometry = rect;
+    }
 
     /* TODO: transform damage */
     output->render->damage(&damage);
@@ -463,6 +498,7 @@ void wayfire_view_t::map()
 
     if (!is_special)
     {
+        output->attach_view(self());
         output->focus_view(self());
 
         /* TODO: check mods
@@ -481,12 +517,6 @@ void wayfire_view_t::map()
     }
 
     return;
-}
-
-void wayfire_view_t::damage()
-{
-    /* TODO: bounding box damage */
-    output->render->damage(get_output_geometry());
 }
 
 void wayfire_view_t::move_request()
@@ -570,7 +600,6 @@ void wayfire_view_t::fullscreen_request(wayfire_output *out, bool state)
 /* TODO: unmap */
 
 static void handle_new_popup(wl_listener*, void*);
-static void handle_popup_destroy(wl_listener*, void*);
 static void handle_v6_map(wl_listener*, void *data);
 static void handle_v6_unmap(wl_listener*, void *data);
 
@@ -593,16 +622,15 @@ class wayfire_xdg6_popup : public wayfire_surface_t
             :wayfire_surface_t(popup->base->surface,
                                core->api->desktop_surfaces[popup->parent->surface])
         {
+            log_info("doing it like a pro");
             assert(parent_surface);
             this->popup = popup;
 
             new_popup.notify     = handle_new_popup;
-            destroy_popup.notify = handle_popup_destroy;
             m_popup_map.notify   = handle_v6_map;
             m_popup_unmap.notify = handle_v6_unmap;
 
             wl_signal_add(&popup->base->events.new_popup, &new_popup);
-     //       wl_signal_add(&popup->base->events.destroy,   &destroy_popup);
             wl_signal_add(&popup->base->events.map,       &m_popup_map);
             wl_signal_add(&popup->base->events.unmap,     &m_popup_unmap);
         }
@@ -613,6 +641,8 @@ class wayfire_xdg6_popup : public wayfire_surface_t
             wlr_xdg_surface_v6_popup_get_position(popup->base, &sx, &sy);
             x = sx; y = sy;
         }
+
+        virtual bool is_subsurface() { return true; }
 };
 
 void handle_new_popup(wl_listener*, void *data)
@@ -626,20 +656,6 @@ void handle_new_popup(wl_listener*, void *data)
     }
 
     new wayfire_xdg6_popup(popup);
-}
-
-/* TODO: damage from popups, recursive till top */
-void handle_popup_destroy(wl_listener*, void *data)
-{
-    auto popup = static_cast<wlr_xdg_surface_v6*> (data);
-    auto it = core->api->desktop_surfaces.find(popup->surface);
-    if (it == core->api->desktop_surfaces.end())
-    {
-        log_error("attempting to destroy an unknown popup");
-        return;
-    }
-
-    delete it->second;
 }
 
 static void handle_v6_map(wl_listener*, void *data)
@@ -657,7 +673,7 @@ static void handle_v6_unmap(wl_listener*, void *data)
     auto wf_surface = core->api->desktop_surfaces[surface->surface];
 
     assert(wf_surface);
-    wf_surface->map();
+    wf_surface->unmap();
 }
 
 static void handle_v6_request_move(wl_listener*, void *data)
@@ -722,6 +738,8 @@ class wayfire_xdg6_view : public wayfire_view_t
         wl_signal_add(&v6_surface->toplevel->events.request_resize,     &request_resize);
         wl_signal_add(&v6_surface->toplevel->events.request_maximize,   &request_maximize);
         wl_signal_add(&v6_surface->toplevel->events.request_fullscreen, &request_fullscreen);
+
+        set_maximized(true);
     }
 
     virtual void get_child_position(int &x, int &y)
@@ -940,7 +958,6 @@ void handle_decoration_destroyed(wl_listener*, void* data)
 {
     auto surf = static_cast<wlr_xdg_surface_v6*> (data);
     auto view = core->find_view(surf->surface);
-
     auto decor = std::dynamic_pointer_cast<wayfire_xdg6_decoration_view> (view);
 
     assert(decor);
@@ -950,12 +967,7 @@ void handle_decoration_destroyed(wl_listener*, void* data)
 void wayfire_view_t::commit()
 {
     wayfire_surface_t::commit();
-
-    auto old_geometry = geometry;
     update_size();
-
-    log_info("%s committed %dx%d was %dx%d", get_title().c_str(), old_geometry.width,
-             old_geometry.height, geometry.width, geometry.height);
 
     /* configure frame_interior */
     if (decoration)
@@ -971,6 +983,8 @@ void surface_destroyed_cb(wl_listener*, void *data)
 {
     auto surface = core->api->desktop_surfaces[(wlr_surface*) data];
     assert(surface);
+
+    surface->damage();
 
     auto view = core->find_view(surface->surface);
     if (view)
@@ -995,6 +1009,7 @@ void surface_destroyed_cb(wl_listener*, void *data)
 
     /* we can safely delete here as this was an xdg popup/subsurface */
     /* Probably do something else? */
+    log_info("delete destroyed %p", surface);
     delete surface;
 }
 
@@ -1094,7 +1109,6 @@ class wayfire_xwayland_view : public wayfire_view_t
     {
         log_info("new xwayland surface %s class: %s instance: %s",
                  nonull(xw->title), nonull(xw->class_t), nonull(xw->instance));
-        map();
 
         configure.notify          = handle_xwayland_request_configure;
         request_move.notify       = handle_xwayland_request_move;
@@ -1107,6 +1121,13 @@ class wayfire_xwayland_view : public wayfire_view_t
         wl_signal_add(&xw->events.request_maximize,   &request_maximize);
         wl_signal_add(&xw->events.request_fullscreen, &request_fullscreen);
         wl_signal_add(&xw->events.request_configure,  &configure);
+    }
+
+    virtual void commit()
+    {
+        wayfire_view_t::commit();
+        if (!is_mapped)
+            map();
     }
 
     void activate(bool active)
@@ -1147,6 +1168,9 @@ class wayfire_xwayland_view : public wayfire_view_t
         wlr_xwayland_surface_set_maximized(xw, maxim);
 
     }
+
+    std::string get_title() { return nonull(xw->title); }
+    std::string get_app_id() {return nonull(xw->class_t); }
 
     void set_fullscreen(bool full)
     {
