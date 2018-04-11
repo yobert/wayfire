@@ -11,8 +11,8 @@ class gtk_frame : public wf_decorator_frame_t
 {
     wf_geometry get_child_geometry(wf_geometry frame_geometry)
     {
-        frame_geometry.x = 5;
-        frame_geometry.y = 40;
+        frame_geometry.x += 5;
+        frame_geometry.y += 40;
         frame_geometry.width -= 10;
         frame_geometry.height -= 45;
 
@@ -59,7 +59,6 @@ class gtk_decorator : public decorator_base_t
 
         log_info("decor ready for %s %d", title.c_str(), id);
         auto view = core->find_view(id);
-        assert(view);
 
         auto frame = new gtk_frame();
         view->set_decoration(decor_window, std::unique_ptr<wf_decorator_frame_t>(frame));
