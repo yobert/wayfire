@@ -658,12 +658,12 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
     int sx = cursor->x, sy = cursor->y;
     wayfire_surface_t *new_focus = NULL;
 
-    output->workspace->for_all_view(
+    output->workspace->for_each_view(
         [&] (wayfire_view view)
         {
             if (new_focus) return;
             new_focus = view->map_input_coordinates(cursor->x, cursor->y, sx, sy);
-        });
+        }, WF_ALL_LAYERS);
 
     update_cursor_focus(new_focus, sx, sy);
     wlr_seat_pointer_notify_motion(core->input->seat, time_msec, sx, sy);
@@ -1355,22 +1355,22 @@ void wayfire_core::remove_output(wayfire_output *output)
     /* first move each desktop view(e.g windows) to another output */
     output->workspace->for_each_view_reverse([=] (wayfire_view view)
     {
-        output->workspace->view_removed(view);
+        output->workspace->add_view_to_layer(view, 0);
         view->set_output(nullptr);
 
         active_output->attach_view(view);
         /* TODO: do we actually move()? */
        // view->move(view->get_geometry().x + dx, view->get_geometry().y + dy);
         active_output->focus_view(view);
-    });
+    }, WF_WM_LAYERS);
 
     /* just remove all other views - backgrounds, panels, etc.
      * desktop views have been removed by the previous cycle */
-    output->workspace->for_all_view([output] (wayfire_view view)
+    output->workspace->for_each_view([output] (wayfire_view view)
     {
-        output->workspace->view_removed(view);
+        output->workspace->add_view_to_layer(view, 0);
         view->set_output(nullptr);
-    });
+    }, WF_ALL_LAYERS);
 
     delete output;
     for (auto resource : shell_clients)
@@ -1491,18 +1491,21 @@ void wayfire_core::for_each_output(output_callback_proc call)
 
 void wayfire_core::add_view(wayfire_view view)
 {
-    views[view->surface] = view;
+    views[view.get()] = view;
     assert(active_output);
 }
 
-wayfire_view wayfire_core::find_view(wlr_surface *handle)
+wayfire_view wayfire_core::find_view(wayfire_surface_t *handle)
 {
-    auto it = views.find(handle);
-    if (it == views.end()) {
+    auto view = dynamic_cast<wayfire_view_t*> (handle);
+    if (!view)
         return nullptr;
-    } else {
-        return it->second;
-    }
+
+    auto it = views.find(view);
+    if (it == views.end())
+        return nullptr;
+
+    return it->second;
 }
 
 wayfire_view wayfire_core::find_view(uint32_t id)
@@ -1530,7 +1533,7 @@ void wayfire_core::erase_view(wayfire_view v)
     if (!v) return;
 
     /* TODO: what do we do now? */
-    views.erase(v->surface);
+    views.erase(v.get());
 
     if (v->get_output())
         v->get_output()->detach_view(v);

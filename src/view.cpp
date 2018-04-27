@@ -101,10 +101,37 @@ bool rect_intersect(wf_geometry screen, wf_geometry win)
     return true;
 }
 
+static wayfire_surface_t* wf_surface_from_void(void *handle)
+{
+    auto type_container = static_cast<wf_surface_type_data_container*> (handle);
+    return type_container->keep_rtti;
+}
+
+static wayfire_view_t* wf_view_from_void(void *handle)
+{
+    return dynamic_cast<wayfire_view_t*> (wf_surface_from_void(handle));
+}
+
+wayfire_view wl_surface_to_wayfire_view(wl_resource *resource)
+{
+    auto surface = (wlr_surface*) wl_resource_get_user_data(resource);
+
+    void *handle = NULL;
+
+    if (wlr_surface_is_xdg_surface_v6(surface))
+        handle = wlr_xdg_surface_v6_from_wlr_surface(surface)->data;
+
+    if (wlr_surface_is_xwayland_surface(surface))
+        handle = wlr_xwayland_surface_from_wlr_surface(surface)->data;
+
+    return core->find_view(wf_surface_from_void(handle));
+}
+
 /* wayfire_surface_t implementation */
 void handle_surface_committed(wl_listener*, void *data)
 {
-    auto surface = core->api->desktop_surfaces[(wlr_surface*) data];
+    auto wlr_surf = (wlr_surface*) data;
+    auto surface = wf_surface_from_void(wlr_surf->data);
     assert(surface);
 
     surface->commit();
@@ -113,29 +140,34 @@ void handle_surface_committed(wl_listener*, void *data)
 void handle_subsurface_created(wl_listener*, void *data)
 {
     auto sub = static_cast<wlr_subsurface*> (data);
+    if (sub->surface->data)
+        return;
 
-    auto parent = core->api->desktop_surfaces[sub->parent];
+    auto parent = wf_surface_from_void(sub->parent->data);
     if (!parent)
     {
         log_error("subsurface created with invalid parent!");
         return;
     }
 
-    if (core->api->desktop_surfaces.count(sub->surface))
-        return;
-
-    new wayfire_surface_t(sub->surface, parent);
+    auto surf = new wayfire_surface_t(parent);
+    surf->map(sub->surface);
 }
 
-void handle_surface_destroyed(wl_listener*, void*);
+void handle_subsurface_destroyed(wl_listener*, void *data)
+{
+    auto wlr_surf = (wlr_surface*) data;
+    auto surface = wf_surface_from_void(wlr_surf->data);
 
-wayfire_surface_t::wayfire_surface_t(wlr_surface *surface, wayfire_surface_t* parent)
+    surface->unmap();
+    surface->dec_keep_count();
+}
+
+wayfire_surface_t::wayfire_surface_t(wayfire_surface_t* parent)
+    : type_data_container(new wf_surface_type_data_container{this})
 {
     inc_keep_count();
-
-    this->surface = surface;
     this->parent_surface = parent;
-
 
     if (parent)
     {
@@ -145,28 +177,12 @@ wayfire_surface_t::wayfire_surface_t(wlr_surface *surface, wayfire_surface_t* pa
 
     new_sub.notify   = handle_subsurface_created;
     committed.notify = handle_surface_committed;
-    destroy.notify   = handle_surface_destroyed;
+    destroy.notify   = nullptr;
 
-    wl_signal_add(&surface->events.new_subsurface, &new_sub);
-    wl_signal_add(&surface->events.commit,         &committed);
-
-    /* map by default if this is a subsurface, only toplevels/popups have map/unmap events */
-    if (wlr_surface_is_subsurface(surface))
-    {
-        map();
-        wl_signal_add(&surface->events.destroy, &destroy);
-    }
-
-    core->api->desktop_surfaces[surface] = this;
 }
 
 wayfire_surface_t::~wayfire_surface_t()
 {
-    if (is_subsurface())
-        unmap();
-
-    core->api->desktop_surfaces.erase(surface);
-
     if (parent_surface)
     {
         auto it = parent_surface->surface_children.begin();
@@ -180,7 +196,7 @@ wayfire_surface_t::~wayfire_surface_t()
     }
 
     for (auto c : surface_children)
-        delete c;
+        c->destruct();
 }
 
 wayfire_surface_t *wayfire_surface_t::get_main_surface()
@@ -212,8 +228,10 @@ wf_point wayfire_surface_t::get_output_position()
 
 wf_geometry wayfire_surface_t::get_output_geometry()
 {
-    auto pos = get_output_position();
+    if (!is_mapped())
+        return {0, 0, 0, 0};
 
+    auto pos = get_output_position();
     return {
         pos.x, pos.y,
         surface->current ? surface->current->width : 0,
@@ -221,15 +239,35 @@ wf_geometry wayfire_surface_t::get_output_geometry()
     };
 }
 
-void wayfire_surface_t::map()
+void wayfire_surface_t::map(wlr_surface *surface)
 {
-    is_mapped = true;
+    assert(!this->surface && surface);
+    this->surface = surface;
+
+    wl_signal_add(&surface->events.new_subsurface, &new_sub);
+    wl_signal_add(&surface->events.commit,         &committed);
+
+    /* map by default if this is a subsurface, only toplevels/popups have map/unmap events */
+    if (wlr_surface_is_subsurface(surface))
+    {
+        destroy.notify = handle_subsurface_destroyed;
+        wl_signal_add(&surface->events.destroy, &destroy);
+    }
+
+    surface->data = type_data_container.get();
     damage();
 }
 
 void wayfire_surface_t::unmap()
 {
-    is_mapped = false;
+    assert(this->surface);
+    this->surface = nullptr;
+
+    wl_list_remove(&new_sub.link);
+    wl_list_remove(&committed.link);
+    if (destroy.notify)
+        wl_list_remove(&destroy.link);
+
     damage();
 }
 
@@ -289,12 +327,16 @@ void wayfire_surface_t::for_each_surface_recursive(wf_surface_iterator_callback 
 {
     if (reverse)
     {
-        call(this, x, y);
+        if (is_mapped())
+            call(this, x, y);
 
         int dx, dy;
 
         for (auto c : surface_children)
         {
+            if (!c->is_mapped())
+                continue;
+
             c->get_child_position(dx, dy);
             c->for_each_surface_recursive(call, x + dx, y + dy, reverse);
         }
@@ -306,13 +348,18 @@ void wayfire_surface_t::for_each_surface_recursive(wf_surface_iterator_callback 
         while(it != surface_children.rend())
         {
             auto& c = *it;
-            c->get_child_position(dx, dy);
-            c->for_each_surface_recursive(call, x + dx, y + dy, reverse);
+
+            if (c->is_mapped())
+            {
+                c->get_child_position(dx, dy);
+                c->for_each_surface_recursive(call, x + dx, y + dy, reverse);
+            }
 
             ++it;
         }
 
-        call(this, x, y);
+        if (is_mapped())
+            call(this, x, y);
     }
 }
 
@@ -408,24 +455,16 @@ void wayfire_surface_t::render_fb(int x, int y, pixman_region32_t *damage, int f
 
 /* wayfire_view_t implementation */
 uint32_t _last_view_id = 0;
-wayfire_view_t::wayfire_view_t(wlr_surface *surf)
-    : wayfire_surface_t (surf, NULL), id(_last_view_id++)
+wayfire_view_t::wayfire_view_t()
+    : wayfire_surface_t (NULL), id(_last_view_id++)
 {
     set_output(core->get_active_output());
-    output->render->schedule_redraw();
-
-    surface = surf;
-
-    geometry.x = geometry.y = 0;
-    geometry.width = surface->current->width;
-    geometry.height = surface->current->height;
-
     pixman_region32_init(&offscreen_buffer.cached_damage);
 }
 
 wayfire_view wayfire_view_t::self()
 {
-    return core->find_view(surface);
+    return core->find_view((wayfire_surface_t*) this);
 }
 
 // TODO: implement is_visible
@@ -436,6 +475,8 @@ bool wayfire_view_t::is_visible()
 
 bool wayfire_view_t::update_size()
 {
+    assert(surface);
+
     int old_w = geometry.width, old_h = geometry.height;
 
     geometry.width = surface->current ? surface->current->width  : 0;
@@ -461,7 +502,7 @@ void wayfire_view_t::set_resizing(bool resizing)
 void wayfire_view_t::move(int x, int y, bool send_signal)
 {
     view_geometry_changed_signal data;
-    data.view = core->find_view(surface);
+    data.view = self();
     data.old_geometry = get_wm_geometry();
 
     damage();
@@ -476,7 +517,7 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
 void wayfire_view_t::resize(int w, int h, bool send_signal)
 {
     view_geometry_changed_signal data;
-    data.view = core->find_view(surface);
+    data.view = self();
     data.old_geometry = get_wm_geometry();
 
     damage();
@@ -707,8 +748,10 @@ void wayfire_view_t::set_transformer(std::unique_ptr<wf_view_transformer_t> tran
     transform = std::move(transformer);
 }
 
-void wayfire_view_t::map()
+void wayfire_view_t::map(wlr_surface *surface)
 {
+    wayfire_surface_t::map(surface);
+
     if (!is_special)
     {
         auto workarea = output->workspace->get_workarea();
@@ -719,27 +762,16 @@ void wayfire_view_t::map()
     if (update_size())
         damage();
 
-    if (is_mapped)
-    {
-        log_error ("request to map %p twice!", surface);
-        return;
-    }
-
-    is_mapped = true;
-
     /* TODO: consider not emitting a create-view for special surfaces */
     map_view_signal data;
     data.view = self();
     output->emit_signal("map-view", &data);
-
 
     if (!is_special)
     {
         output->attach_view(self());
         output->focus_view(self());
     }
-
-    return;
 }
 
 void wayfire_view_t::unmap()
@@ -755,7 +787,6 @@ void wayfire_view_t::unmap()
     data.view = self();
     output->emit_signal("unmap-view", &data);
 }
-
 
 void wayfire_view_t::move_request()
 {
@@ -789,7 +820,7 @@ void wayfire_view_t::maximize_request(bool state)
     data.view = self();
     data.state = state;
 
-    if (is_mapped)
+    if (surface)
     {
         output->emit_signal("view-maximized-request", &data);
     } else if (state)
@@ -824,7 +855,7 @@ void wayfire_view_t::fullscreen_request(wayfire_output *out, bool state)
     data.view = self();
     data.state = state;
 
-    if (is_mapped) {
+    if (surface) {
         wo->emit_signal("view-fullscreen-request", &data);
     } else if (state) {
         set_geometry(output->get_full_geometry());
@@ -859,8 +890,7 @@ class wayfire_xdg6_popup : public wayfire_surface_t
 
     public:
         wayfire_xdg6_popup(wlr_xdg_popup_v6 *popup)
-            :wayfire_surface_t(popup->base->surface,
-                               core->api->desktop_surfaces[popup->parent->surface])
+            :wayfire_surface_t(wf_surface_from_void(popup->parent->surface->data))
         {
             assert(parent_surface);
             log_info("new xdg6 popup");
@@ -875,6 +905,8 @@ class wayfire_xdg6_popup : public wayfire_surface_t
             wl_signal_add(&popup->base->events.map,       &m_popup_map);
             wl_signal_add(&popup->base->events.unmap,     &m_popup_unmap);
             wl_signal_add(&popup->base->events.destroy,   &destroy);
+
+            popup->base->data = type_data_container.get();
         }
 
         virtual void get_child_position(int &x, int &y)
@@ -890,8 +922,8 @@ class wayfire_xdg6_popup : public wayfire_surface_t
 void handle_new_popup(wl_listener*, void *data)
 {
     auto popup = static_cast<wlr_xdg_popup_v6*> (data);
-    auto it = core->api->desktop_surfaces.find(popup->parent->surface);
-    if (it == core->api->desktop_surfaces.end())
+    auto parent = wf_surface_from_void(popup->parent->surface->data);
+    if (!parent)
     {
         log_error("attempting to create a popup with unknown parent");
         return;
@@ -903,16 +935,16 @@ void handle_new_popup(wl_listener*, void *data)
 static void handle_v6_map(wl_listener*, void *data)
 {
     auto surface = static_cast<wlr_xdg_surface_v6*> (data);
-    auto wf_surface = core->api->desktop_surfaces[surface->surface];
+    auto wf_surface = wf_surface_from_void(surface->data);
 
     assert(wf_surface);
-    wf_surface->map();
+    wf_surface->map(surface->surface);
 }
 
 static void handle_v6_unmap(wl_listener*, void *data)
 {
     auto surface = static_cast<wlr_xdg_surface_v6*> (data);
-    auto wf_surface = core->api->desktop_surfaces[surface->surface];
+    auto wf_surface = wf_surface_from_void(surface->data);
 
     assert(wf_surface);
     wf_surface->unmap();
@@ -921,7 +953,7 @@ static void handle_v6_unmap(wl_listener*, void *data)
 static void handle_v6_destroy(wl_listener*, void *data)
 {
     auto surface = static_cast<wlr_xdg_surface_v6*> (data);
-    auto wf_surface = core->api->desktop_surfaces[surface->surface];
+    auto wf_surface = wf_surface_from_void(surface->data);
 
     assert(wf_surface);
     wf_surface->destroyed = 1;
@@ -931,29 +963,28 @@ static void handle_v6_destroy(wl_listener*, void *data)
 static void handle_v6_request_move(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_xdg_toplevel_v6_move_event*> (data);
-    auto view = core->find_view(ev->surface->surface);
-
+    auto view = wf_view_from_void(ev->surface->data);
     view->move_request();
 }
 
 static void handle_v6_request_resize(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_xdg_toplevel_v6_resize_event*> (data);
-    auto view = core->find_view(ev->surface->surface);
+    auto view = wf_view_from_void(ev->surface->data);
     view->resize_request();
 }
 
 static void handle_v6_request_maximized(wl_listener*, void *data)
 {
     auto surf = static_cast<wlr_xdg_surface_v6*> (data);
-    auto view = core->find_view(surf->surface);
+    auto view = wf_view_from_void(surf->data);
     view->maximize_request(surf->toplevel->client_pending.maximized);
 }
 
 static void handle_v6_request_fullscreen(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_xdg_toplevel_v6_set_fullscreen_event*> (data);
-    auto view = core->find_view(ev->surface->surface);
+    auto view = wf_view_from_void(ev->surface->data);
     auto wo = core->get_output(ev->output);
     view->fullscreen_request(wo, ev->fullscreen);
 }
@@ -970,7 +1001,7 @@ class wayfire_xdg6_view : public wayfire_view_t
 
     public:
     wayfire_xdg6_view(wlr_xdg_surface_v6 *s)
-        : wayfire_view_t (s->surface), v6_surface(s)
+        : wayfire_view_t(), v6_surface(s)
     {
         log_info ("new xdg_shell_v6 surface: %s app-id: %s",
                   nonull(v6_surface->toplevel->title),
@@ -996,7 +1027,7 @@ class wayfire_xdg6_view : public wayfire_view_t
         wl_signal_add(&v6_surface->toplevel->events.request_maximize,   &request_maximize);
         wl_signal_add(&v6_surface->toplevel->events.request_fullscreen, &request_fullscreen);
 
-        set_maximized(true);
+        v6_surface->data = type_data_container.get();
     }
 
     virtual wf_point get_output_position()
@@ -1011,6 +1042,9 @@ class wayfire_xdg6_view : public wayfire_view_t
 
     virtual wf_geometry get_output_geometry()
     {
+        if (!is_mapped())
+            return {0, 0, 0, 0};
+
         auto pos = get_output_position();
         return {
             pos.x,
@@ -1213,8 +1247,8 @@ class wayfire_xdg6_decoration_view : public wayfire_xdg6_view
 void handle_decoration_destroyed(wl_listener*, void* data)
 {
     auto surf = static_cast<wlr_xdg_surface_v6*> (data);
-    auto view = core->find_view(surf->surface);
-    auto decor = std::dynamic_pointer_cast<wayfire_xdg6_decoration_view> (view);
+    auto view = wf_view_from_void(surf->data);
+    auto decor = dynamic_cast<wayfire_xdg6_decoration_view*> (view);
 
     assert(decor);
     decor->release_child();
@@ -1245,22 +1279,6 @@ void wayfire_view_t::damage()
     damage(get_bounding_box());
 }
 
-// TODO: do better
-void handle_surface_destroyed(wl_listener*, void *data)
-{
-    auto wlr_surf = (wlr_surface*) data;
-    auto surface = core->api->desktop_surfaces.count(wlr_surf) ?
-        core->api->desktop_surfaces[wlr_surf] : nullptr;
-
-    /* this handles just subsurfaces,
-     * others (xdg6/xwayland) have their own destroy event */
-    assert(surface || !wlr_surface_is_subsurface(wlr_surf));
-    if (!surface)
-        return;
-
-    surface->destroyed = true;
-    surface->dec_keep_count();
-}
 
 void wayfire_view_t::destruct()
 {
@@ -1313,8 +1331,9 @@ void notify_v6_created(wl_listener*, void *data)
             core->api->decorator->is_decoration_window(surf->toplevel->title))
         {
             log_info("create wf decoration view");
-            core->add_view(std::make_shared<wayfire_xdg6_decoration_view> (surf));
-            auto view = core->find_view(surf->surface);
+
+            auto view = std::make_shared<wayfire_xdg6_decoration_view> (surf);
+            core->add_view(view);
 
             core->api->decorator->decoration_ready(view);
         } else
@@ -1328,69 +1347,85 @@ void notify_v6_created(wl_listener*, void *data)
 static void handle_xwayland_request_move(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_xwayland_move_event*> (data);
-    auto view = core->find_view(ev->surface->surface);
+    auto view = wf_view_from_void(ev->surface->data);
     view->move_request();
 }
 
 static void handle_xwayland_request_resize(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_xwayland_resize_event*> (data);
-    auto view = core->find_view(ev->surface->surface);
+    auto view = wf_view_from_void(ev->surface->data);
     view->resize_request();
 }
 
 static void handle_xwayland_request_configure(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_xwayland_surface_configure_event*> (data);
-    auto view = core->find_view(ev->surface->surface);
-    view->set_geometry({ev->x, ev->y, ev->width, ev->height});
+    log_info("configure request");
+    auto view = wf_view_from_void(ev->surface->data);
+     view->set_geometry({ev->x, ev->y, ev->width, ev->height});
 }
 
 static void handle_xwayland_request_maximize(wl_listener*, void *data)
 {
     auto surf = static_cast<wlr_xwayland_surface*> (data);
-    auto view = core->find_view(surf->surface);
+    auto view = wf_view_from_void(surf->data);
     view->maximize_request(surf->maximized_horz && surf->maximized_vert);
 }
 
 static void handle_xwayland_request_fullscreen(wl_listener*, void *data)
 {
     auto surf = static_cast<wlr_xwayland_surface*> (data);
-    auto view = core->find_view(surf->surface);
+    auto view = wf_view_from_void(surf->data);
     view->fullscreen_request(view->get_output(), surf->fullscreen);
+}
+
+static void handle_xwayland_map(wl_listener* listener, void *data)
+{
+    auto xsurf = static_cast<wlr_xwayland_surface*> (data);
+    auto view = wf_view_from_void(xsurf->data);
+
+    log_info("xwayland map %p %p -> %p", xsurf, xsurf->surface, view);
+    view->map(xsurf->surface);
 }
 
 static void handle_xwayland_unmap(wl_listener*, void *data)
 {
-    auto surf = static_cast<wlr_xwayland_surface*> (data);
-    auto view = core->find_view(surf->surface);
+    auto xsurf = static_cast<wlr_xwayland_surface*> (data);
+    auto view = wf_view_from_void(xsurf->data);
+
+    log_info("xwayland unmap %p", xsurf);
     view->unmap();
 }
 
 static void handle_xwayland_destroy(wl_listener*, void *data)
 {
     auto xsurf = static_cast<wlr_xwayland_surface*> (data);
-    auto surface = static_cast<wayfire_surface_t*> (xsurf->data);
+    auto view = wf_view_from_void(xsurf->data);
 
-    surface->destroyed = 1;
-    surface->dec_keep_count();
+    log_info("xwayland destroy %p", xsurf);
+    view->destroyed = 1;
+    view->dec_keep_count();
 }
 
 class wayfire_xwayland_view : public wayfire_view_t
 {
     wlr_xwayland_surface *xw;
-    wl_listener destroy, unmap, configure,
+
+    /* TODO: very bad names, also in other shells */
+    wl_listener destroy, map_ev, unmap, configure,
                 request_move, request_resize,
                 request_maximize, request_fullscreen;
 
     public:
     wayfire_xwayland_view(wlr_xwayland_surface *xww)
-        : wayfire_view_t(xww->surface), xw(xww)
+        : wayfire_view_t(), xw(xww)
     {
         log_info("new xwayland surface %s class: %s instance: %s",
                  nonull(xw->title), nonull(xw->class_t), nonull(xw->instance));
 
         destroy.notify            = handle_xwayland_destroy;
+        map_ev.notify             = handle_xwayland_map;
         unmap.notify              = handle_xwayland_unmap;
         configure.notify          = handle_xwayland_request_configure;
         request_move.notify       = handle_xwayland_request_move;
@@ -1400,16 +1435,30 @@ class wayfire_xwayland_view : public wayfire_view_t
 
         wl_signal_add(&xw->events.destroy,            &destroy);
         wl_signal_add(&xw->events.unmap,              &unmap);
+        wl_signal_add(&xw->events.map,                &map_ev);
         wl_signal_add(&xw->events.request_move,       &request_move);
         wl_signal_add(&xw->events.request_resize,     &request_resize);
         wl_signal_add(&xw->events.request_maximize,   &request_maximize);
         wl_signal_add(&xw->events.request_fullscreen, &request_fullscreen);
         wl_signal_add(&xw->events.request_configure,  &configure);
+
+        xw->data = type_data_container.get();
     }
+
+    void map(wlr_surface *surface)
+    {
+        geometry.x = xw->x;
+        geometry.y = xw->y;
+        wayfire_view_t::map(surface);
+    }
+
+    bool is_subsurface() { return false; }
 
     virtual void commit()
     {
         wayfire_view_t::commit();
+        if (xw->x != geometry.x || xw->y != geometry.y)
+            wayfire_view_t::move(xw->x, xw->y, false);
     }
 
     void activate(bool active)
@@ -1468,28 +1517,115 @@ class wayfire_xwayland_view : public wayfire_view_t
     }
 };
 
-void handle_xwayland_map(wl_listener*, void *data)
+class wayfire_unmanaged_xwayland_view : public wayfire_view_t
 {
-    auto xsurf = (wlr_xwayland_surface*) data;
-    auto view = core->find_view(xsurf->surface);
+    wlr_xwayland_surface *xw;
+    wl_listener destroy, unmap_listener, map_ev, configure;
 
-    /* when a xwayland surface is created, it still doesn't have a xsurf->surface,
-     * this happens when the surface is mapped. To be consistent with other shells,
-     * we create the view only when it has been mapped */
-    if (!view)
+    public:
+    wayfire_unmanaged_xwayland_view(wlr_xwayland_surface *xww)
+        : wayfire_view_t(), xw(xww)
     {
-        view = std::make_shared<wayfire_xwayland_view> (xsurf);
-        xsurf->data = view.get();
-        core->add_view(view);
+        log_info("new unmanaged xwayland surface %s class: %s instance: %s",
+                 nonull(xw->title), nonull(xw->class_t), nonull(xw->instance));
+
+        map_ev.notify         = handle_xwayland_map;
+        destroy.notify        = handle_xwayland_destroy;
+        unmap_listener.notify = handle_xwayland_unmap;
+        configure.notify      = handle_xwayland_request_configure;
+
+        wl_signal_add(&xw->events.destroy,            &destroy);
+        wl_signal_add(&xw->events.unmap,              &unmap_listener);
+        wl_signal_add(&xw->events.request_configure,  &configure);
+        wl_signal_add(&xw->events.map,                &map_ev);
+
+        xw->data = type_data_container.get();
     }
 
-    view->map();
-}
+    bool is_subsurface() { return false; }
+
+    void commit()
+    {
+        log_info("commit at %dx%d", xw->x, xw->y);
+        if (geometry.x != xw->x || geometry.y != xw->y)
+            wayfire_view_t::move(xw->x, xw->y, false);
+
+        wayfire_surface_t::commit();
+    }
+
+    void map(wlr_surface *surface)
+    {
+        log_info("map unmanaged %p", surface);
+        wayfire_surface_t::map(surface);
+        wayfire_view_t::move(xw->x, xw->y, false);
+        damage();
+
+        output->workspace->add_view_to_layer(self(), WF_LAYER_XWAYLAND);
+    }
+
+    void unmap()
+    {
+        wayfire_surface_t::unmap();
+        output->workspace->add_view_to_layer(self(), 0);
+    }
+
+    void activate(bool active)
+    {
+        wayfire_view_t::activate(active);
+        wlr_xwayland_surface_activate(xw, active);
+    }
+
+    void send_configure()
+    { assert(false); }
+    void move(int x, int y, bool s)
+    { assert(false); }
+    void resize(int w, int h, bool s)
+    { assert(false); }
+    void set_geometry(wf_geometry g)
+    { assert(false); }
+
+    void close()
+    {
+        wlr_xwayland_surface_close(xw);
+    }
+
+    void dec_keep_count()
+    {
+        wayfire_surface_t::dec_keep_count();
+        log_info("dec keep count");
+    }
+
+    virtual void render_fb(int x, int y, pixman_region32_t* damage, int target_fb)
+    {
+        log_info("render fb unmanaged");
+        wayfire_view_t::render_fb(x, y, damage, target_fb);
+    }
+
+    ~wayfire_unmanaged_xwayland_view()
+    {
+        log_info("destroy unmanaged xwayland view");
+    }
+
+    std::string get_title()  { return nonull(xw->title);   }
+    std::string get_app_id() { return nonull(xw->class_t); }
+};
+
 
 void notify_xwayland_created(wl_listener *, void *data)
 {
     auto xsurf = (wlr_xwayland_surface*) data;
-    wl_signal_add(&xsurf->events.map, &core->api->xwayland_mapped);
+
+    wayfire_view view = nullptr;
+    if (wlr_xwayland_surface_is_unmanaged(xsurf) || xsurf->override_redirect)
+    {
+        view = std::make_shared<wayfire_unmanaged_xwayland_view> (xsurf);
+    } else
+    {
+        view = std::make_shared<wayfire_xwayland_view> (xsurf);
+    }
+
+    core->add_view(view);
+    log_info("xwayland create %p -> %p", xsurf, view.get());
 }
 
 /* end of xwayland implementation */
@@ -1506,7 +1642,6 @@ void init_desktop_apis()
     core->api->xwayland = wlr_xwayland_create(core->display, core->compositor);
 
     log_info("xwayland display started at%d", core->api->xwayland->display);
-    core->api->xwayland_mapped.notify = handle_xwayland_map;
     wl_signal_add(&core->api->xwayland->events.new_surface, &core->api->xwayland_created);
 }
 
