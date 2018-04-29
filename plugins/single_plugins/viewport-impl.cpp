@@ -386,21 +386,15 @@ void viewport_manager::check_lower_panel_layer(int base)
     for (auto v : views)
         cnt_fullscreen += (v->fullscreen ? 1 : 0);
 
+    log_info("send autohide %d", base);
     if (cnt_fullscreen)
     {
-        if (draw_panel_over_fullscreen_windows)
+        if (!sent_autohide)
         {
-            if (!sent_autohide)
-            {
-                sent_autohide = 1;
+            sent_autohide = 1;
 
-                for (auto res : core->shell_clients)
-                    wayfire_shell_send_output_autohide_panels(res, output->id, 1);
-            }
-        } else
-        {
-            /* TODO: Implement hiding of layers, possibly custom struct */
-            //weston_layer_unset_position(&panel_layer);
+            for (auto res : core->shell_clients)
+                wayfire_shell_send_output_autohide_panels(res, output->id, 1);
         }
     } else
     {
