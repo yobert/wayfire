@@ -674,9 +674,12 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
         view->for_each_surface([&] (wayfire_surface_t *surface, int x, int y)
         {
-            log_info("render surface %p", surface);
+          //  log_info("render surface %p", surface);
             if (!surface->is_mapped())
+            {
+                log_info("has unmapped surface");
                 return;
+            }
 
             if (!wlr_surface_has_buffer(surface->surface)
                 || !pixman_region32_not_empty(&ws_damage))
@@ -1126,6 +1129,9 @@ void wayfire_output::focus_view(wayfire_view v, wlr_seat *seat)
 {
     if (seat == nullptr)
         seat = core->get_current_seat();
+
+    if (v && !v->get_keyboard_focus_surface())
+        return;
 
     set_active_view(v);
 
