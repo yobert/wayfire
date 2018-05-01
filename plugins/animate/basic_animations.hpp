@@ -1,10 +1,13 @@
 #include "animate.hpp"
 #include <plugin.hpp>
 #include <opengl.hpp>
+#include <view-transform.hpp>
+#include <output.hpp>
 
 class fade_animation : public animation_base
 {
     wayfire_view view;
+    wf_2D_view *our_transform = nullptr;
 
     float start = 0, end = 1;
     int total_frames, current_frame;
@@ -20,26 +23,34 @@ class fade_animation : public animation_base
         if (close)
             std::swap(start, end);
 
+        auto output = view->get_output();
+        GetTuple(sw, sh, output->get_screen_size());
+
+        our_transform = new wf_2D_view(sw, sh);
+        view->set_transformer(std::unique_ptr<wf_2D_view> (our_transform));
     }
 
     bool step()
     {
-        view->transform.color[3] = GetProgress(start, end, current_frame, total_frames);
-        view->simple_render(TEXTURE_TRANSFORM_USE_DEVCOORD);
-        view->transform.color[3] = 0.0f;
+        if (view->get_transformer() != our_transform)
+            return false;
 
+        our_transform->alpha = GetProgress(start, end, current_frame, total_frames);
         return current_frame++ < total_frames;
     }
 
     ~fade_animation()
     {
-        view->transform.color[3] = 1.0f;
+        view->alpha = 1.0f;
+        if (view->get_transformer() == our_transform)
+            view->set_transformer(nullptr);
     }
 };
 
 class zoom_animation : public animation_base
 {
     wayfire_view view;
+    wf_2D_view *our_transform = nullptr;
 
     float alpha_start = 0, alpha_end = 1;
     float zoom_start = 1./3, zoom_end = 1;
@@ -59,44 +70,31 @@ class zoom_animation : public animation_base
             std::swap(zoom_start, zoom_end);
         }
 
+        auto output = view->get_output();
+        GetTuple(sw, sh, output->get_screen_size());
+
+        our_transform = new wf_2D_view(sw, sh);
+        view->set_transformer(std::unique_ptr<wf_2D_view> (our_transform));
     }
 
     bool step()
     {
-        view->transform.color[3] = GetProgress(alpha_start, alpha_end, current_frame, total_frames);
+        if (view->get_transformer() != our_transform)
+            return false;
 
         float c = GetProgress(zoom_start, zoom_end, current_frame, total_frames);
 
-        auto og = view->output->get_full_geometry();
-
-        int cx = view->geometry.x + view->geometry.width  / 2 - og.x;
-        int cy = view->geometry.y + view->geometry.height / 2 - og.y;
-
-        float tx = (cx - og.width / 2 ) * 2. / og.width;
-        float ty = (og.height / 2 - cy) * 2. / og.height;
-
-        view->transform.translation = glm::translate(glm::mat4(),
-                {tx, ty, 0});
-
-        view->transform.scale = glm::scale(glm::mat4(), {c, c, 1});
-
-        auto compositor_geometry = view->geometry;
-
-        view->geometry.x = og.x + og.width  / 2 - view->geometry.width / 2;
-        view->geometry.y = og.y + og.height / 2 - view->geometry.height / 2;
-
-        view->simple_render(TEXTURE_TRANSFORM_USE_DEVCOORD);
-        view->transform.color[3] = 0.0f;
-
-        view->geometry = compositor_geometry;
+        our_transform->alpha = GetProgress(alpha_start, alpha_end, current_frame, total_frames);
+        our_transform->scale_x = c;
+        our_transform->scale_y = c;
 
         return current_frame++ < total_frames;
     }
 
     ~zoom_animation()
     {
-        view->transform.color[3] = 1.0f;
-        view->transform.scale = glm::mat4();
-        view->transform.translation = glm::mat4();
+        if (view->get_transformer() == our_transform)
+            view->set_transformer(nullptr);
+        view->alpha = 1.0;
     }
 };

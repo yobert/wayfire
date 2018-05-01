@@ -1382,7 +1382,7 @@ void wayfire_core::refocus_active_output_active_view()
     if (!active_output)
         return;
 
-    auto view = active_output->get_top_view();
+    auto view = active_output->get_active_view();
     if (view) {
         active_output->focus_view(nullptr);
         active_output->focus_view(view);
@@ -1532,11 +1532,10 @@ void wayfire_core::erase_view(wayfire_view v)
 {
     if (!v) return;
 
-    /* TODO: what do we do now? */
-    views.erase(v.get());
-
     if (v->get_output())
         v->get_output()->detach_view(v);
+
+    views.erase(v.get());
 
     /*
     if (v->handle && destroy_handle)
