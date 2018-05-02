@@ -11,6 +11,7 @@
 
 extern "C"
 {
+#include <wlr/backend/wayland.h>
 #include <wlr/backend/libinput.h>
 #include <wlr/backend/session.h>
 #include <wlr/backend/multi.h>
@@ -622,8 +623,9 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
                 callbacks.push_back(binding->call);
         }
 
+        GetTuple(ox, oy, core->get_active_output()->get_cursor_position());
         for (auto call : callbacks)
-            (*call) (ev->button, cursor->x, cursor->y);
+            (*call) (ev->button, ox, oy);
     }
 
     if (active_grab && active_grab->callbacks.pointer.button)
@@ -650,19 +652,21 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 
     if (input_grabbed() && real_update)
     {
+        GetTuple(sx, sy, core->get_active_output()->get_cursor_position());
         if (active_grab->callbacks.pointer.motion)
-            active_grab->callbacks.pointer.motion(cursor->x, cursor->y);
+            active_grab->callbacks.pointer.motion(sx, sy);
         return;
     }
 
-    int sx = cursor->x, sy = cursor->y;
+    GetTuple(px, py, output->get_cursor_position());
+    int sx, sy;
     wayfire_surface_t *new_focus = NULL;
 
     output->workspace->for_each_view(
         [&] (wayfire_view view)
         {
             if (new_focus) return;
-            new_focus = view->map_input_coordinates(cursor->x, cursor->y, sx, sy);
+            new_focus = view->map_input_coordinates(px, py, sx, sy);
         }, WF_ALL_LAYERS);
 
     update_cursor_focus(new_focus, sx, sy);
@@ -1313,7 +1317,10 @@ void wayfire_core::add_output(wlr_output *output)
 {
     log_info("add new output: %s", output->name);
     if (outputs.find(output) != outputs.end())
+    {
+        log_info("old output");
         return;
+    }
 
     if (!input) {
         pending_outputs.push_back(output);
@@ -1337,13 +1344,13 @@ void wayfire_core::remove_output(wayfire_output *output)
     log_info("removing output: %s", output->handle->name);
 
     outputs.erase(output->handle);
-    wl_list_remove(&output->destroy_listener.link);
 
     /* we have no outputs, simply quit */
     if (outputs.empty())
-    {
         std::exit(0);
-    }
+
+    for (auto resource : shell_clients)
+        wayfire_shell_send_output_destroyed(resource, output->id);
 
     if (output == active_output)
         focus_output(outputs.begin()->second);
@@ -1355,12 +1362,10 @@ void wayfire_core::remove_output(wayfire_output *output)
     /* first move each desktop view(e.g windows) to another output */
     output->workspace->for_each_view_reverse([=] (wayfire_view view)
     {
-        output->workspace->add_view_to_layer(view, 0);
         view->set_output(nullptr);
+        output->workspace->add_view_to_layer(view, 0);
 
         active_output->attach_view(view);
-        /* TODO: do we actually move()? */
-       // view->move(view->get_geometry().x + dx, view->get_geometry().y + dy);
         active_output->focus_view(view);
     }, WF_WM_LAYERS);
 
@@ -1368,13 +1373,11 @@ void wayfire_core::remove_output(wayfire_output *output)
      * desktop views have been removed by the previous cycle */
     output->workspace->for_each_view([output] (wayfire_view view)
     {
-        output->workspace->add_view_to_layer(view, 0);
         view->set_output(nullptr);
+        output->workspace->add_view_to_layer(view, 0);
     }, WF_ALL_LAYERS);
 
     delete output;
-    for (auto resource : shell_clients)
-        wayfire_shell_send_output_destroyed(resource, output->id);
 }
 
 void wayfire_core::refocus_active_output_active_view()
@@ -1572,6 +1575,7 @@ void wayfire_core::move_view_to_output(wayfire_view v, wayfire_output *new_outpu
         v->get_output()->detach_view(v);
 
     new_output->attach_view(v);
+    new_output->focus_view(v);
 }
 
 wayfire_core *core;

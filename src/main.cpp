@@ -8,6 +8,7 @@
 extern "C"
 {
 #include <wlr/backend/multi.h>
+#include <wlr/backend/wayland.h>
 #include <wlr/util/log.h>
 }
 
@@ -32,11 +33,13 @@ void compositor_sleep_cb (wl_listener*, void*)
 
 int main(int argc, char *argv[])
 {
+    /*
     signal(SIGINT, signalHandle);
     signal(SIGSEGV, signalHandle);
     signal(SIGFPE, signalHandle);
     signal(SIGILL, signalHandle);
     signal(SIGABRT, signalHandle);
+    */
 
 #ifdef WAYFIRE_DEBUG_ENABLED
     wlr_log_init(L_DEBUG, NULL);

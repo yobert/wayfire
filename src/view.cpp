@@ -678,6 +678,9 @@ void wayfire_view_t::damage(const wlr_box& box)
     if (decoration)
         return decoration->damage(box);
 
+    if (!output)
+        return;
+
     auto wm_geometry = get_wm_geometry();
     if (transform)
     {
@@ -792,7 +795,7 @@ void wayfire_view_t::render_fb(int x, int y, pixman_region32_t* damage, int fb)
 
         obox.x = x;
         obox.y = y;
-        auto centric_geometry = get_output_centric_geometry(output->get_full_geometry(), obox);
+        auto centric_geometry = get_output_centric_geometry(output->get_relative_geometry(), obox);
 
         int n_rect;
         auto rects = pixman_region32_rectangles(damage, &n_rect);
@@ -846,9 +849,12 @@ void wayfire_view_t::map(wlr_surface *surface)
 
 void wayfire_view_t::unmap()
 {
-    unmap_view_signal data;
-    data.view = self();
-    output->emit_signal("unmap-view", &data);
+    if (output)
+    {
+        unmap_view_signal data;
+        data.view = self();
+        output->emit_signal("unmap-view", &data);
+    }
 
     wayfire_surface_t::unmap();
     if (decoration)
@@ -929,7 +935,7 @@ void wayfire_view_t::fullscreen_request(wayfire_output *out, bool state)
     if (surface) {
         wo->emit_signal("view-fullscreen-request", &data);
     } else if (state) {
-        set_geometry(output->get_full_geometry());
+        set_geometry(output->get_relative_geometry());
         output->emit_signal("view-fullscreen", &data);
     }
 
@@ -978,6 +984,14 @@ class wayfire_xdg6_popup : public wayfire_surface_t
             wl_signal_add(&popup->base->events.destroy,   &destroy);
 
             popup->base->data = this;
+        }
+
+        ~wayfire_xdg6_popup()
+        {
+            wl_list_remove(&new_popup.link);
+            wl_list_remove(&m_popup_map.link);
+            wl_list_remove(&m_popup_unmap.link);
+            wl_list_remove(&destroy.link);
         }
 
         virtual void get_child_position(int &x, int &y)
@@ -1197,6 +1211,15 @@ class wayfire_xdg6_view : public wayfire_view_t
 
     ~wayfire_xdg6_view()
     {
+
+        wl_list_remove(&destroy.link);
+        wl_list_remove(&new_popup.link);
+        wl_list_remove(&map_ev.link);
+        wl_list_remove(&unmap.link);
+        wl_list_remove(&request_move.link);
+        wl_list_remove(&request_resize.link);
+        wl_list_remove(&request_maximize.link);
+        wl_list_remove(&request_fullscreen.link);
     }
 };
 
@@ -1373,7 +1396,6 @@ void wayfire_view_t::damage()
 
 void wayfire_view_t::destruct()
 {
-    output->detach_view(self());
     core->erase_view(self());
 }
 
@@ -1527,6 +1549,18 @@ class wayfire_xwayland_view : public wayfire_view_t
         wl_signal_add(&xw->events.request_configure,  &configure);
 
         xw->data = this;
+    }
+
+    ~wayfire_xwayland_view()
+    {
+        wl_list_remove(&destroy.link);
+        wl_list_remove(&unmap.link);
+        wl_list_remove(&map_ev.link);
+        wl_list_remove(&request_move.link);
+        wl_list_remove(&request_resize.link);
+        wl_list_remove(&request_maximize.link);
+        wl_list_remove(&request_fullscreen.link);
+        wl_list_remove(&configure.link);
     }
 
     void map(wlr_surface *surface)
@@ -1735,7 +1769,10 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
 
     ~wayfire_unmanaged_xwayland_view()
     {
-        log_info("destroy unmanaged xwayland view");
+        wl_list_remove(&destroy.link);
+        wl_list_remove(&unmap_listener.link);
+        wl_list_remove(&configure.link);
+        wl_list_remove(&map_ev.link);
     }
 
     std::string get_title()  { return nonull(xw->title);   }
@@ -1772,9 +1809,5 @@ void init_desktop_apis()
 
     core->api->xwayland_created.notify = notify_xwayland_created;
     core->api->xwayland = wlr_xwayland_create(core->display, core->compositor);
-
-    log_info("xwayland display started at%d", core->api->xwayland->display);
     wl_signal_add(&core->api->xwayland->events.new_surface, &core->api->xwayland_created);
 }
-
-

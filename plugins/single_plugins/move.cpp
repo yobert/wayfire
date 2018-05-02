@@ -1,4 +1,5 @@
 #include <output.hpp>
+#include <debug.hpp>
 #include <core.hpp>
 #include <view.hpp>
 #include <workspace-manager.hpp>
@@ -36,6 +37,7 @@ class wayfire_move : public wayfire_plugin_t
             activate_binding = [=] (uint32_t, int x, int y)
             {
                 is_using_touch = false;
+                log_info("search at %d %d", x, y);
                 auto view = output->get_view_at_point(x, y);
                 if (!view || view->is_special)
                     return;
@@ -112,7 +114,7 @@ class wayfire_move : public wayfire_plugin_t
             if (view)
             {
                 is_using_touch = false;
-                GetTuple(x, y, core->get_cursor_position());
+                GetTuple(x, y, output->get_cursor_position());
                 initiate(view, x, y);
             }
         }
@@ -186,10 +188,10 @@ class wayfire_move : public wayfire_plugin_t
         {
             auto g = output->get_full_geometry();
 
-            bool is_left = std::abs(prev_x - g.x) <= snap_pixels;
-            bool is_right = std::abs(g.x + g.width - prev_x) <= snap_pixels;
-            bool is_top = std::abs(prev_y - g.y) < snap_pixels;
-            bool is_bottom = std::abs(g.y + g.height - prev_y) < snap_pixels;
+            bool is_left = std::abs(prev_x) <= snap_pixels;
+            bool is_right = std::abs(g.width - prev_x) <= snap_pixels;
+            bool is_top = std::abs(prev_y) < snap_pixels;
+            bool is_bottom = std::abs(g.height - prev_y) < snap_pixels;
 
             if (is_left && is_top)
                 return SLOT_TL;
@@ -218,25 +220,27 @@ class wayfire_move : public wayfire_plugin_t
             prev_x = x;
             prev_y = y;
 
-
-            /* TODO: move to another place
-            auto target_output = core->get_output_at(nx, ny);
+            GetTuple(global_x, global_y, core->get_cursor_position());
+            auto target_output = core->get_output_at(global_x, global_y);
             if (target_output != output)
             {
-                weston_view_damage_below(view->handle);
-                weston_view_geometry_dirty(view->handle);
-
                 move_request_signal req;
                 req.view = view;
-                req.serial = is_using_touch ?  weston_seat_get_touch(core->get_current_seat())->grab_serial :
-                    weston_seat_get_pointer(core->get_current_seat())->grab_serial;
+
+                auto old_g = output->get_full_geometry();
+                auto new_g = target_output->get_full_geometry();
+                auto wm_g = view->get_wm_geometry();
+
+                view->move(wm_g.x + old_g.x - new_g.x, wm_g.y + old_g.y - new_g.y, false);
+                view->set_moving(false);
 
                 core->move_view_to_output(view, target_output);
+
                 core->focus_output(target_output);
                 target_output->emit_signal("move-request", &req);
 
                 return;
-            } */
+            }
 
             /* TODO: possibly show some visual indication */
             if (enable_snap)
