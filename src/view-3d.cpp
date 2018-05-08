@@ -2,6 +2,7 @@
 #include "opengl.hpp"
 #include "debug.hpp"
 #include "core.hpp"
+#include "output.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -22,8 +23,14 @@ wlr_box wf_view_transformer_t::get_bounding_box(wlr_box region)
     return {x1, y1, x2 - x1, y1 - y2};
 }
 
-wf_2D_view::wf_2D_view(float w, float h)
+wf_2D_view::wf_2D_view(wayfire_output *output)
 {
+    int sw, sh;
+    wlr_output_effective_resolution(output->handle, &sw, &sh);
+
+    float w = sw;
+    float h = sh;
+
     ortho = glm::ortho(-w/2, w/2, h/2, -h/2);
     m_aspect = w / h;
 }
@@ -64,6 +71,7 @@ wf_point wf_2D_view::transformed_to_local_point(wf_point point)
 void wf_2D_view::render_with_damage(uint32_t src_tex,
                                     uint32_t target_fbo,
                                     wlr_box src_box,
+                                    glm::mat4 output_matrix,
                                     wlr_box scissor_box)
 {
     const float w = src_box.width * scale_x;
@@ -86,7 +94,7 @@ void wf_2D_view::render_with_damage(uint32_t src_tex,
     auto scale = glm::scale(glm::mat4(1.0), {0.5, 0.5, 1});
     auto translate = glm::translate(transform, {off_x, off_y, 0});
 
-    transform = ortho * translate * scale * rotate;
+    transform = output_matrix * ortho * translate * scale * rotate;
 
     wlr_renderer_scissor(core->renderer, &scissor_box);
     GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, target_fbo));
@@ -95,9 +103,17 @@ void wf_2D_view::render_with_damage(uint32_t src_tex,
     OpenGL::render_transformed_texture(src_tex, {tlx, tly, brx, bry},{}, transform, {1.0f, 1.0f, 1.0f, alpha});
 }
 
-wf_3D_view::wf_3D_view(float w, float h)
-    : m_width(w), m_height(h), m_aspect(w/h)
+wf_3D_view::wf_3D_view(wayfire_output *output)
 {
+    int sw, sh;
+    wlr_output_effective_resolution(output->handle, &sw, &sh);
+
+    float w = sw;
+    float h = sh;
+
+    m_width = w;
+    m_height = h;
+    m_aspect = w / h;
     const float fov = PI / 8; // 45 degrees
     auto view = glm::lookAt(glm::vec3(0., 0., 1.0 / std::tan(fov / 2)),
                             glm::vec3(0., 0., 0.),
@@ -134,6 +150,7 @@ wf_point wf_3D_view::transformed_to_local_point(wf_point point)
 void wf_3D_view::render_with_damage(uint32_t src_tex,
                                 uint32_t target_fbo,
                                 wlr_box src_box,
+                                glm::mat4 output_matrix,
                                 wlr_box scissor_box)
 {
     wlr_renderer_scissor(core->renderer, &scissor_box);
@@ -158,8 +175,36 @@ void wf_3D_view::render_with_damage(uint32_t src_tex,
                             });
 
   //  log_info("render@ %f@%f %f@%f, scale %f@%f", tlx, tly, brx, bry, m_width / 2.0, m_height / 2.0);
+  //
 
-    transform = scale * translate * transform;
+    transform = output_matrix * scale * translate * transform;
     OpenGL::render_transformed_texture(src_tex, {tlx, tly, brx, bry}, {},
                                        transform, color, TEXTURE_TRANSFORM_INVERT_Y);
 }
+
+#define WF_PI 3.141592f
+
+/* look up the actual values of wl_output_transform enum
+ * All _flipped transforms have values (regular_transfrom + 4) */
+glm::mat4 get_output_matrix_from_transform(wl_output_transform transform)
+{
+    glm::mat4 scale = glm::mat4(1.0);
+
+    if (transform >= 4)
+        scale = glm::scale(scale, {-1, 1, 0});
+
+    /* remove the third bit if it's set */
+    uint32_t rotation = transform & (~4);
+    glm::mat4 rotation_matrix;
+
+    if (rotation == WL_OUTPUT_TRANSFORM_90)
+        rotation_matrix = glm::rotate(rotation_matrix, -WF_PI / 2.0f, {0, 0, 1});
+    if (rotation == WL_OUTPUT_TRANSFORM_180)
+        rotation_matrix = glm::rotate(rotation_matrix,  WF_PI,        {0, 0, 1});
+    if (rotation == WL_OUTPUT_TRANSFORM_270)
+        rotation_matrix = glm::rotate(rotation_matrix,  WF_PI / 2.0f, {0, 0, 1});
+
+    return rotation_matrix * scale;
+}
+
+

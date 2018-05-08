@@ -647,9 +647,9 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
         /* We use the snapshot of a view if either condition is happening:
          * 1. The view has a transform
          * 2. The view is visible, but not mapped
-         *    => it is snapshoted and kept alive by some plugin */
+         *    => it is snapshotted and kept alive by some plugin */
 
-        /* Snapshoted views include all of their subsurfaces, so we handle them separately */
+        /* Snapshotted views include all of their subsurfaces, so we handle them separately */
         if (view->get_transformer() || !view->is_mapped())
         {
             auto ds = damaged_surface(new damaged_surface_t);
@@ -658,8 +658,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             auto obox = view->get_output_geometry();
 
             bbox = bbox + wf_point{view_dx, view_dy};
-            bbox = get_output_box_from_box(bbox, output->handle->scale,
-                                           WL_OUTPUT_TRANSFORM_NORMAL);
+            bbox = get_output_box_from_box(bbox, output->handle->scale);
 
             pixman_region32_init_rect(&ds->damage,
                                       bbox.x, bbox.y, bbox.width, bbox.height);
@@ -697,8 +696,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             obox.x = x;
             obox.y = y;
 
-            obox = get_output_box_from_box(obox, output->handle->scale,
-                                           WL_OUTPUT_TRANSFORM_NORMAL);
+            obox = get_output_box_from_box(obox, output->handle->scale);
 
             pixman_region32_init_rect(&ds->damage,
                                       obox.x, obox.y,
@@ -956,6 +954,29 @@ const struct wayfire_shell_interface shell_interface_impl {
     .output_fade_in_start = shell_output_fade_in_start
 };
 
+static wl_output_transform get_transform_from_string(std::string transform)
+{
+    if (transform == "normal")
+        return WL_OUTPUT_TRANSFORM_NORMAL;
+    else if (transform == "90")
+        return WL_OUTPUT_TRANSFORM_90;
+    else if (transform == "180")
+        return WL_OUTPUT_TRANSFORM_180;
+    else if (transform == "270")
+        return WL_OUTPUT_TRANSFORM_180;
+    else if (transform == "flipped")
+        return WL_OUTPUT_TRANSFORM_FLIPPED;
+    else if (transform == "180_flipped")
+        return WL_OUTPUT_TRANSFORM_FLIPPED_180;
+    else if (transform == "90_flipped")
+        return WL_OUTPUT_TRANSFORM_FLIPPED_90;
+    else if (transform == "270_flipped")
+        return WL_OUTPUT_TRANSFORM_FLIPPED_270;
+
+    log_error ("Bad output transform in config: %s", transform.c_str());
+    return WL_OUTPUT_TRANSFORM_NORMAL;
+}
+
 wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
 {
     this->handle = handle;
@@ -971,8 +992,9 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
 
     auto section = c->get_section(handle->name);
     wlr_output_set_scale(handle, section->get_double("scale", 1));
+    wlr_output_set_transform(handle,
+                             get_transform_from_string(section->get_string("transform", "normal")));
 
-    wlr_output_set_transform(handle, WL_OUTPUT_TRANSFORM_NORMAL);
     wlr_output_layout_add_auto(core->output_layout, handle);
 
     core->set_default_cursor();

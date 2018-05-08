@@ -24,9 +24,7 @@ class fade_animation : public animation_base
             std::swap(start, end);
 
         auto output = view->get_output();
-        GetTuple(sw, sh, output->get_screen_size());
-
-        our_transform = new wf_2D_view(sw, sh);
+        our_transform = new wf_2D_view(output);
         view->set_transformer(std::unique_ptr<wf_2D_view> (our_transform));
     }
 
@@ -71,9 +69,7 @@ class zoom_animation : public animation_base
         }
 
         auto output = view->get_output();
-        GetTuple(sw, sh, output->get_screen_size());
-
-        our_transform = new wf_2D_view(sw, sh);
+        our_transform = new wf_2D_view(output);
         view->set_transformer(std::unique_ptr<wf_2D_view> (our_transform));
     }
 

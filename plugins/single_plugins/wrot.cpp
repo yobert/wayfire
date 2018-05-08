@@ -22,19 +22,12 @@ class wf_wrot : public wayfire_plugin_t
                 auto view = output->get_top_view();
 
                 if (!view->get_transformer())
-                {
-                    int w, h;
-                    wlr_output_effective_resolution(view->get_output()->handle, &w, &h);
-                    view->set_transformer(std::unique_ptr<wf_2D_view> (new wf_2D_view(w, h)));
-                }
+                    view->set_transformer(std::unique_ptr<wf_2D_view> (new wf_2D_view(output)));
 
                 auto tr = dynamic_cast<wf_2D_view*> (view->get_transformer());
                 view->damage();
                 tr->angle += 0.02;
                 view->damage();
-
- //               tr->angle += 0.01;
-//                tr->angle = M_PI/2;
             };
 
             grab_interface->callbacks.pointer.button = [=] (uint32_t, uint32_t s)

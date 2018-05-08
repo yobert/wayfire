@@ -20,14 +20,16 @@ class wf_view_transformer_t
         /* return the boundingbox of region after applying all transformations */
         virtual wlr_box get_bounding_box(wlr_box region);
 
-        /* src_tex      the internal FBO texture,
-         * target_fbo   the fbo to render to
-         * src_box      the geometry of src_tex in screen-centric coordinates
-         * scissor_box  the area in which the transform renderer must update,
-         *              drawing outside of it will cause artifacts */
+        /* src_tex        the internal FBO texture,
+         * target_fbo     the fbo to render to
+         * src_box        the geometry of src_tex in screen-centric coordinates
+         * output_matrix  the transformation which maps framebuffer coordinates to output coordinates
+         * scissor_box    the area in which the transform renderer must update,
+         *                drawing outside of it will cause artifacts */
         virtual void render_with_damage(uint32_t src_tex,
                                         uint32_t target_fbo,
                                         wlr_box src_box,
+                                        glm::mat4 output_matrix,
                                         wlr_box scissor_box) = 0;
 };
 
@@ -44,7 +46,7 @@ class wf_2D_view : public wf_view_transformer_t
         glm::mat4 ortho;
 
     public:
-        wf_2D_view(float w, float h);
+        wf_2D_view(wayfire_output *output);
 
         virtual wf_point local_to_transformed_point(wf_point point);
         virtual wf_point transformed_to_local_point(wf_point point);
@@ -52,6 +54,7 @@ class wf_2D_view : public wf_view_transformer_t
         virtual void render_with_damage(uint32_t src_tex,
                                         uint32_t target_fbo,
                                         wlr_box src_box,
+                                        glm::mat4 output_matrix,
                                         wlr_box scissor_box);
 };
 
@@ -67,7 +70,7 @@ class wf_3D_view : public wf_view_transformer_t
         float m_aspect;
 
     public:
-        wf_3D_view(float width, float height);
+        wf_3D_view(wayfire_output *output);
 
         virtual wf_point local_to_transformed_point(wf_point point);
         virtual wf_point transformed_to_local_point(wf_point point);
@@ -75,7 +78,10 @@ class wf_3D_view : public wf_view_transformer_t
         virtual void render_with_damage(uint32_t src_tex,
                                         uint32_t target_fbo,
                                         wlr_box src_box,
+                                        glm::mat4 output_matrix,
                                         wlr_box scissor_box);
 };
+
+glm::mat4 get_output_matrix_from_transform(wl_output_transform transform);
 
 #endif /* end of include guard: VIEW_TRANSFORM_HPP */

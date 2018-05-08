@@ -41,7 +41,7 @@ bool operator != (const wf_geometry& a, const wf_geometry& b)
 }
 
 /* TODO: implement rotation */
-wf_geometry get_output_box_from_box(const wf_geometry& g, float scale, wl_output_transform)
+wf_geometry get_output_box_from_box(const wf_geometry& g, float scale)
 {
     wf_geometry r;
     r.x = std::floor(g.x * scale);
@@ -429,8 +429,7 @@ void wayfire_surface_t::render(int x, int y, wlr_box *damage)
         return;
 
     wlr_box geometry {x, y, surface->current->width, surface->current->height};
-    geometry = get_output_box_from_box(geometry, output->handle->scale,
-                                       WL_OUTPUT_TRANSFORM_NORMAL);
+    geometry = get_output_box_from_box(geometry, output->handle->scale);
 
     if (!damage) damage = &geometry;
 
@@ -695,20 +694,18 @@ void wayfire_view_t::damage(const wlr_box& box)
 
         /* TODO: damage only the bounding box of region */
         output->render->damage(get_output_box_from_box(get_bounding_box(),
-                                                       output->handle->scale,
-                                                       WL_OUTPUT_TRANSFORM_NORMAL));
+                                                       output->handle->scale));
     } else
     {
         output->render->damage(get_output_box_from_box(box,
-                                                       output->handle->scale,
-                                                       WL_OUTPUT_TRANSFORM_NORMAL));
+                                                       output->handle->scale));
     }
 }
 
-static wf_geometry get_output_centric_geometry(const wf_geometry& output, wf_geometry view)
+static wf_geometry get_output_centric_geometry(int32_t screen_w, int32_t screen_h, wf_geometry view)
 {
-    view.x = view.x - output.width / 2;
-    view.y = output.height /2 - view.y;
+    view.x = view.x - screen_w / 2;
+    view.y = screen_h /2 - view.y;
 
     return view;
 }
@@ -795,10 +792,14 @@ void wayfire_view_t::render_fb(int x, int y, pixman_region32_t* damage, int fb)
 
         obox.x = x;
         obox.y = y;
-        auto centric_geometry = get_output_centric_geometry(output->get_relative_geometry(), obox);
+
+        int w, h;
+        wlr_output_effective_resolution(output->handle, &w, &h);
+        obox = get_output_centric_geometry(w, h, obox);
 
         int n_rect;
         auto rects = pixman_region32_rectangles(damage, &n_rect);
+        auto output_matrix = get_output_matrix_from_transform(output->get_transform());
 
         for (int i = 0; i < n_rect; i++)
         {
@@ -806,7 +807,7 @@ void wayfire_view_t::render_fb(int x, int y, pixman_region32_t* damage, int fb)
                 rects[i].x2 - rects[i].x1, rects[i].y2 - rects[i].y1};
 
             auto sbox = get_scissor_box(output, &box);
-            transform->render_with_damage(offscreen_buffer.tex, fb, centric_geometry, sbox);
+            transform->render_with_damage(offscreen_buffer.tex, fb, obox, output_matrix, sbox);
         }
 
     } else

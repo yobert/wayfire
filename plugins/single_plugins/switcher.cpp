@@ -230,8 +230,7 @@ class view_switcher : public wayfire_plugin_t
         {
             auto bg = bgl[0];
 
-            GetTuple(sw, sh, output->get_screen_size());
-            bg->set_transformer(std::unique_ptr<wf_3D_view> (new wf_3D_view(sw, sh)));
+            bg->set_transformer(std::unique_ptr<wf_3D_view> (new wf_3D_view(output)));
             auto tr = dynamic_cast<wf_3D_view*> (bg->get_transformer());
             assert(tr);
 
@@ -340,13 +339,11 @@ class view_switcher : public wayfire_plugin_t
 
     void update_transforms()
     {
-        GetTuple(sw, sh, output->get_screen_size());
-
         for (auto v : views)
         {
             auto tr = v->get_transformer();
             if (!tr || !dynamic_cast<wf_3D_view*>(tr))
-                v->set_transformer(std::unique_ptr<wf_3D_view> (new wf_3D_view(sw, sh)));
+                v->set_transformer(std::unique_ptr<wf_3D_view> (new wf_3D_view(output)));
         }
     }
 
