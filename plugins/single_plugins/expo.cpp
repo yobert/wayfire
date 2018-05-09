@@ -168,7 +168,6 @@ class wayfire_expo : public wayfire_plugin_t
 
         output->render->set_renderer(renderer);
         output->render->auto_redraw(true);
-        output->focus_view(nullptr);
     }
 
     void deactivate()
@@ -178,7 +177,6 @@ class wayfire_expo : public wayfire_plugin_t
         state.moving = false;
 
         output->workspace->set_workspace(std::make_tuple(target_vx, target_vy));
-        output->focus_view(nullptr);
 
         calculate_zoom(false);
         update_zoom();
@@ -510,7 +508,6 @@ class wayfire_expo : public wayfire_plugin_t
 
         output->render->reset_renderer();
         output->render->auto_redraw(false);
-        output->focus_view(output->get_active_view());
     }
 };
 

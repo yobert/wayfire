@@ -82,6 +82,7 @@ class input_manager
         /* TODO: move this in a wf_keyboard struct,
          * This might not work with multiple keyboards */
         bool in_mod_binding = false;
+        int count_other_inputs = 0;
         std::vector<key_callback*> match_keys(uint32_t mods, uint32_t key);
 
     public:

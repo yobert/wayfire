@@ -598,7 +598,7 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
         /* as long as we have pressed only modifiers, we should check for modifier bindings on release */
         if (mod)
         {
-            bool modifiers_only = true;
+            bool modifiers_only = !count_other_inputs;
             for (size_t i = 0; i < kbd->num_keycodes; i++)
                 if (!mod_from_key(kbd->keycodes[i]))
                     modifiers_only = false;
@@ -641,8 +641,12 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         update_cursor_position(ev->time_msec, false);
     } */
 
+    in_mod_binding = false;
+
     if (ev->state == WLR_BUTTON_PRESSED)
     {
+        count_other_inputs++;
+
         std::vector<button_callback*> callbacks;
 
         auto mod_state = get_modifiers();
@@ -657,6 +661,9 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         GetTuple(ox, oy, core->get_active_output()->get_cursor_position());
         for (auto call : callbacks)
             (*call) (ev->button, ox, oy);
+    } else
+    {
+        count_other_inputs--;
     }
 
     if (active_grab && active_grab->callbacks.pointer.button)
@@ -970,7 +977,10 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
         return false;
 
     assert(!active_grab); // cannot have two active input grabs!
+
     active_grab = iface;
+
+    iface->output->set_keyboard_focus(NULL, seat);
     update_cursor_focus(nullptr, 0, 0);
 
     /*
@@ -986,6 +996,8 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
 
 void input_manager::ungrab_input()
 {
+    if (active_grab)
+        active_grab->output->set_active_view(active_grab->output->get_active_view());
     active_grab = nullptr;
 
     /*

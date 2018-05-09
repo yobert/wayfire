@@ -1197,7 +1197,7 @@ void wayfire_output::bring_to_front(wayfire_view v) {
     v->damage();
 }
 
-static void set_keyboard_focus(wlr_seat *seat, wlr_surface *surface)
+void wayfire_output::set_keyboard_focus(wlr_surface *surface, wlr_seat *seat)
 {
     auto kbd = wlr_seat_get_keyboard(seat);
     if (kbd != NULL) {
@@ -1212,9 +1212,6 @@ static void set_keyboard_focus(wlr_seat *seat, wlr_surface *surface)
 
 void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
 {
-    if (v == active_view)
-        return;
-
     if (v && !v->is_mapped())
         return set_active_view(nullptr, seat);
 
@@ -1227,11 +1224,11 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
     active_view = v;
     if (active_view)
     {
-        set_keyboard_focus(seat, active_view->get_keyboard_focus_surface());
+        set_keyboard_focus(active_view->get_keyboard_focus_surface(), seat);
         active_view->activate(true);
     } else
     {
-        set_keyboard_focus(seat, NULL);
+        set_keyboard_focus(NULL, seat);
     }
 }
 

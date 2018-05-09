@@ -212,7 +212,6 @@ class view_switcher : public wayfire_plugin_t
         next_actions = std::queue<int>();
 
         grab_interface->grab();
-        output->focus_view(nullptr);
 
         output->render->auto_redraw(true);
         output->render->damage(NULL);
@@ -733,8 +732,6 @@ class view_switcher : public wayfire_plugin_t
             }
 
             grab_interface->grab();
-            output->focus_view(nullptr);
-
             fast_switch_next();
         }
     }

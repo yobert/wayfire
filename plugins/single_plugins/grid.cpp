@@ -132,7 +132,6 @@ class wayfire_grid : public wayfire_plugin_t {
             output->deactivate_plugin(grab_interface);
             return false;
         }
-        output->focus_view(nullptr);
 
         current_step = 0;
         current_view.view = view;
@@ -180,7 +179,6 @@ class wayfire_grid : public wayfire_plugin_t {
 
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
-        output->focus_view(current_view.view);
 
         check_send_signal(current_view.view, current_view.maximizing, current_view.fullscreening);
         current_view.view = nullptr;
