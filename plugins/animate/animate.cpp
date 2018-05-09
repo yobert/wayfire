@@ -61,7 +61,7 @@ struct animation_hook
             view->damage();
 
             if (!result)
-                delete this;
+                finalize();
         };
 
         output->render->add_output_effect(&hook);
@@ -69,17 +69,15 @@ struct animation_hook
         view_removed = [=] (signal_data *data)
         {
             if (get_signaled_view(data) == view && !close_animation)
-                delete this;
+                finalize();
         };
 
         output->connect_signal("destroy-view", &view_removed);
         output->connect_signal("detach-view", &view_removed);
     }
 
-    ~animation_hook()
+    void finalize()
     {
-        delete base;
-
         output->render->rem_effect(&hook);
 
         output->disconnect_signal("detach-view", &view_removed);
@@ -89,6 +87,13 @@ struct animation_hook
         view->alpha = 1.0;
         if (close_animation)
             view->dec_keep_count();
+
+        wl_event_loop_add_idle(core->ev_loop, delete_hook_idle<animation_type, close_animation>, this);
+    }
+
+    ~animation_hook()
+    {
+        delete base;
     }
 };
 

@@ -21,7 +21,7 @@ void wayfire_exit::init(wayfire_config*)
 
 void wayfire_close::init(wayfire_config *config)
 {
-    auto key = config->get_section("core")->get_key("view_close", {WLR_MODIFIER_LOGO, KEY_Q});
+    auto key = config->get_section("core")->get_key("view_close", {WLR_MODIFIER_LOGO, KEY_N});
     callback = [=] (uint32_t key)
     {
         auto view = output->get_active_view();

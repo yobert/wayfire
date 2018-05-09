@@ -491,13 +491,14 @@ void render_manager::post_paint()
     /* TODO: do this only if the view isn't fully occluded by another */
     for (auto v : views)
     {
+        if (!v->is_mapped())
+            continue;
+
         v->for_each_surface([] (wayfire_surface_t *surface, int, int)
         {
             struct timespec now;
             clock_gettime(CLOCK_MONOTONIC, &now);
-
-            if (surface->is_mapped())
-                wlr_surface_send_frame_done(surface->surface, &now);
+            wlr_surface_send_frame_done(surface->surface, &now);
         });
     }
 }
@@ -508,7 +509,7 @@ void render_manager::run_effects()
     for (auto effect : output_effects)
         active_effects.push_back(effect);
 
-    for (auto& effect : active_effects)
+    for (auto effect : active_effects)
         (*effect)();
 }
 

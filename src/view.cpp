@@ -548,6 +548,9 @@ void wayfire_view_t::resize(int w, int h, bool send_signal)
 
 wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx, int& sy)
 {
+    if (!is_mapped())
+        return nullptr;
+
     wayfire_surface_t *ret = NULL;
 
     auto wm = get_wm_geometry();
@@ -850,6 +853,7 @@ void wayfire_view_t::map(wlr_surface *surface)
 
 void wayfire_view_t::unmap()
 {
+    log_info("unmap %s %s %p", get_title().c_str(), get_app_id().c_str(), this);
     if (output)
     {
         unmap_view_signal data;
