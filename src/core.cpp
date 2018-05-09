@@ -813,19 +813,35 @@ void handle_keyboard_destroy_cb(wl_listener *listener, void*)
     core->input->handle_input_destroyed(keyboard->device);
 }
 
-/* TODO: repeat info, xkb options - language, model, etc */
-wf_keyboard::wf_keyboard(wlr_input_device *dev)
+wf_keyboard::wf_keyboard(wlr_input_device *dev, wayfire_config *config)
     : handle(dev->keyboard), device(dev)
 {
     auto ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    xkb_rule_names rules = {0, 0, 0, 0, 0};
-    auto keymap = xkb_map_new_from_names(ctx, &rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
+
+    auto section = config->get_section("input");
+
+    std::string model   = section->get_string("xkb_model", "");
+    std::string variant = section->get_string("xkb_variant", "");
+    std::string layout  = section->get_string("xkb_layout", "");
+    std::string options = section->get_string("xkb_option", "");
+    std::string rules   = section->get_string("xkb_rule", "");
+
+    xkb_rule_names names;
+    names.rules   = strdup(rules.c_str());
+    names.model   = strdup(model.c_str());
+    names.layout  = strdup(layout.c_str());
+    names.variant = strdup(variant.c_str());
+    names.options = strdup(options.c_str());
+
+    auto keymap = xkb_map_new_from_names(ctx, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
 
     wlr_keyboard_set_keymap(dev->keyboard, keymap);
     xkb_keymap_unref(keymap);
     xkb_context_unref(ctx);
 
-    wlr_keyboard_set_repeat_info(dev->keyboard, 40, 400);
+    int repeat_rate  = section->get_int("kb_repeat_rate", 40);
+    int repeat_delay = section->get_int("kb_repeat_delay", 400);
+    wlr_keyboard_set_repeat_info(dev->keyboard, repeat_rate, repeat_delay);
 
     key.notify      = handle_keyboard_key_cb;
     modifier.notify = handle_keyboard_mod_cb;
@@ -844,7 +860,7 @@ void input_manager::handle_new_input(wlr_input_device *dev)
         create_seat();
 
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
-        keyboards.push_back(std::unique_ptr<wf_keyboard> (new wf_keyboard(dev)));
+        keyboards.push_back(std::unique_ptr<wf_keyboard> (new wf_keyboard(dev, core->config)));
 
     if (dev->type == WLR_INPUT_DEVICE_POINTER)
     {
@@ -1196,26 +1212,6 @@ void wayfire_core::configure(wayfire_config *config)
     plugins     = section->get_string("plugins", "viewport_impl move resize animation switcher vswitch cube expo command grid");
     run_panel   = section->get_int("run_panel", 1);
 
-    section = config->get_section("input");
-
-    std::string model   = section->get_string("xkb_model", "pc100");
-    std::string variant = section->get_string("xkb_variant", "");
-    std::string layout  = section->get_string("xkb_layout", "us");
-    std::string options = section->get_string("xkb_option", "");
-    std::string rules   = section->get_string("xkb_rule", "evdev");
-
-    // TODO: set keyboard options
-    xkb_rule_names names;
-    names.rules   = strdup(rules.c_str());
-    names.model   = strdup(model.c_str());
-    names.layout  = strdup(layout.c_str());
-    names.variant = strdup(variant.c_str());
-    names.options = strdup(options.c_str());
-
-    //weston_compositor_set_xkb_rule_names(ec, &names);
-
-    //ec->kb_repeat_rate  = section->get_int("kb_repeat_rate", 40);
-    //ec->kb_repeat_delay = section->get_int("kb_repeat_delay", 400);
 }
 
 void finish_wf_shell_bind_cb(void *data)

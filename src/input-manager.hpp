@@ -26,7 +26,7 @@ struct wf_keyboard
     wlr_keyboard *handle;
     wlr_input_device *device;
     wl_listener key, modifier, destroy;
-    wf_keyboard(wlr_input_device *keyboard);
+    wf_keyboard(wlr_input_device *keyboard, wayfire_config *config);
 };
 
 class input_manager

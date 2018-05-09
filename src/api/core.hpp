@@ -36,8 +36,6 @@ class wayfire_core
         friend struct plugin_manager;
         friend class wayfire_output;
 
-        wayfire_config *config;
-
         wayfire_output *active_output;
 
         std::vector<wlr_output*> pending_outputs;
@@ -53,6 +51,8 @@ class wayfire_core
     public:
 
         std::vector<wl_resource*> shell_clients;
+        wayfire_config *config;
+
 
         desktop_apis_t *api;
         bool set_decorator(decorator_base_t *decor);
