@@ -584,7 +584,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     float scaling = std::max(current_resolution / target_resolution,
                              target_resolution / current_resolution);
 
-    if (scaling > 2)
+    /* TODO: investigate if this still works */
+    if (scaling > 2 && false)
     {
         int sw, sh;
         wlr_output_transformed_resolution(output->handle, &sw, &sh);
