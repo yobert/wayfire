@@ -829,7 +829,7 @@ void wayfire_view_t::map(wlr_surface *surface)
 {
     wayfire_surface_t::map(surface);
 
-    if (!is_special)
+    if (!is_special && !maximized && !fullscreen)
     {
         auto workarea = output->workspace->get_workarea();
         geometry.x += workarea.x;
