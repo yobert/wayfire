@@ -79,6 +79,11 @@ class input_manager
 
         std::vector<std::unique_ptr<wf_keyboard>> keyboards;
 
+        /* TODO: move this in a wf_keyboard struct,
+         * This might not work with multiple keyboards */
+        bool in_mod_binding = false;
+        std::vector<key_callback*> match_keys(uint32_t mods, uint32_t key);
+
     public:
 
         input_manager();

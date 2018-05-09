@@ -9,6 +9,9 @@
 struct wayfire_key {
     uint32_t mod;
     uint32_t keyval;
+
+    bool valid()
+    { return mod || keyval; }
 };
 
 struct wayfire_button {

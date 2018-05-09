@@ -59,7 +59,7 @@ wayfire_key wayfire_config_section::get_key(string name, wayfire_key df)
     wayfire_key ans;
 
     ans.mod = 0;
-    for (size_t i = 0; i < items.size() - 1; i++) {
+    for (size_t i = 0; i < items.size(); i++) {
         if (items[i] == "<alt>")
             ans.mod |= WLR_MODIFIER_ALT;
         if (items[i] == "<ctrl>")
@@ -71,6 +71,8 @@ wayfire_key wayfire_config_section::get_key(string name, wayfire_key df)
     }
 
     ans.keyval = libevdev_event_code_from_name(EV_KEY, items[items.size() - 1].c_str());
+    if (ans.keyval == (uint32_t)-1)
+        ans.keyval = 0;
     return ans;
 }
 

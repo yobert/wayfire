@@ -562,6 +562,21 @@ static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
     return true;
 }
 
+std::vector<key_callback*> input_manager::match_keys(uint32_t mod_state, uint32_t key)
+{
+    std::vector<key_callback*> callbacks;
+
+    for (auto& pair : key_bindings)
+    {
+        auto& binding = pair.second;
+        if (binding->output == core->get_active_output() &&
+            mod_state == binding->mod && key == binding->key)
+            callbacks.push_back(binding->call);
+    }
+
+    return callbacks;
+}
+
 bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
 {
     if (active_grab && active_grab->callbacks.keyboard.key)
@@ -572,25 +587,41 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
         handle_keyboard_mod(mod, state);
 
     std::vector<key_callback*> callbacks;
+    auto kbd = wlr_seat_get_keyboard(seat);
+
+    log_info("in modifier binding %d", in_mod_binding);
     if (state == WLR_KEY_PRESSED)
     {
         if (check_vt_switch(wlr_multi_get_session(core->backend), key, get_modifiers()))
             return true;
 
-        auto mod_state = get_modifiers();
-
-        for (auto& pair : key_bindings)
+        /* as long as we have pressed only modifiers, we should check for modifier bindings on release */
+        if (mod)
         {
-            auto& binding = pair.second;
-            if (binding->output == core->get_active_output() &&
-                mod_state == binding->mod && key == binding->key)
-                callbacks.push_back(binding->call);
+            bool modifiers_only = true;
+            for (size_t i = 0; i < kbd->num_keycodes; i++)
+                if (!mod_from_key(kbd->keycodes[i]))
+                    modifiers_only = false;
+
+            if (modifiers_only)
+                in_mod_binding = true;
+            else
+                in_mod_binding = false;
+        } else
+        {
+            in_mod_binding = false;
         }
 
-        for (auto call : callbacks)
-            (*call) (key);
+        callbacks = match_keys(get_modifiers(), key);
+    } else
+    {
+        if (in_mod_binding)
+            callbacks = match_keys(get_modifiers() | mod, 0);
+        in_mod_binding = false;
     }
 
+    for (auto call : callbacks)
+        (*call) (key);
 
     return active_grab || !callbacks.empty();
 }

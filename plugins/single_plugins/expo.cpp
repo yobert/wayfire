@@ -1,4 +1,5 @@
 #include <output.hpp>
+#include <debug.hpp>
 #include <opengl.hpp>
 #include <core.hpp>
 #include <render-manager.hpp>
@@ -50,7 +51,8 @@ class wayfire_expo : public wayfire_plugin_t
         auto section = config->get_section("expo");
         auto toggle_key = section->get_key("toggle", {WLR_MODIFIER_LOGO, KEY_E});
 
-        if (!toggle_key.keyval || !toggle_key.mod)
+        log_info("got toggle value %u %u", toggle_key.keyval, toggle_key.mod);
+        if (!toggle_key.valid())
             return;
 
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());

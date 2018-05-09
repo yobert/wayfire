@@ -4,8 +4,6 @@
 #include <linux/input.h>
 #include <linux/input-event-codes.h>
 
-#define NUMBER_COMMANDS 10
-
 #define TYPE_COMMAND 1
 #define TYPE_BINDING 2
 
@@ -42,7 +40,7 @@ class wayfire_command : public wayfire_plugin_t
             auto comvalue = section->get_string(command, "");
             auto key = section->get_key(binding, {0, 0});
 
-            if (key.keyval == 0 || command == "")
+            if (!key.valid() || command == "")
                 continue;
 
             cmds[i++] = [=] (uint32_t key) { core->run(comvalue.c_str()); };

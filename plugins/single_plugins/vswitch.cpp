@@ -58,22 +58,22 @@ class vswitch : public wayfire_plugin_t
         auto key_win_up    = section->get_key("binding_win_up",    {WLR_MODIFIER_LOGO | WLR_MODIFIER_SHIFT, KEY_UP});
         auto key_win_down  = section->get_key("binding_win_down",  {WLR_MODIFIER_LOGO | WLR_MODIFIER_SHIFT, KEY_DOWN});
 
-        if (key_left.keyval)
+        if (key_left.valid())
             output->add_key(key_left.mod,  key_left.keyval,  &callback_left);
-        if (key_right.keyval)
+        if (key_right.valid())
             output->add_key(key_right.mod, key_right.keyval, &callback_right);
-        if (key_up.keyval)
+        if (key_up.valid())
             output->add_key(key_up.mod,    key_up.keyval,    &callback_up);
-        if (key_down.keyval)
+        if (key_down.valid())
             output->add_key(key_down.mod,  key_down.keyval,  &callback_down);
 
-        if (key_win_left.keyval)
+        if (key_win_left.valid())
             output->add_key(key_win_left.mod,  key_win_left.keyval,  &callback_win_left);
-        if (key_win_right.keyval)
+        if (key_win_right.valid())
             output->add_key(key_win_right.mod, key_win_right.keyval, &callback_win_right);
-        if (key_win_up.keyval)
+        if (key_win_up.valid())
             output->add_key(key_win_up.mod,    key_win_up.keyval,    &callback_win_up);
-        if (key_win_down.keyval)
+        if (key_win_down.valid())
             output->add_key(key_win_down.mod,  key_win_down.keyval,  &callback_win_down);
 
         wayfire_touch_gesture activation_gesture;
