@@ -4,7 +4,8 @@
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
 
-#include <compositor.h>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <linux/input-event-codes.h>
 #include <config.hpp>
 #include <config.h>
@@ -94,29 +95,27 @@ class wayfire_cube : public wayfire_plugin_t {
         if (act_button.button == 0)
             return;
 
-        activate = [=] (weston_pointer *ptr, uint32_t) {
-            initiate(wl_fixed_to_int(ptr->x), wl_fixed_to_int(ptr->y));
+        activate = [=] (uint32_t, int32_t x, int32_t y) {
+            initiate(x, y);
         };
 
         output->add_button(act_button.mod, act_button.button, &activate);
 
-        grab_interface->callbacks.pointer.button = [=] (weston_pointer*,
-                uint32_t b, uint32_t s)
+        grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t s)
         {
             if (s == WL_POINTER_BUTTON_STATE_RELEASED)
                 input_released();
         };
 
-        grab_interface->callbacks.pointer.motion = [=] (weston_pointer* ptr,
-                weston_pointer_motion_event*)
+        grab_interface->callbacks.pointer.motion = [=] (int32_t x, int32_t y)
         {
-            pointer_moved(wl_fixed_to_int(ptr->x), wl_fixed_to_int(ptr->y));
+            pointer_moved(x, y);
         };
 
-        grab_interface->callbacks.pointer.axis = [=] (weston_pointer*,
-                weston_pointer_axis_event *ev) {
-            if (ev->axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
-                pointer_scrolled(ev->value);
+        grab_interface->callbacks.pointer.axis = [=] (
+                wlr_event_pointer_axis *ev) {
+            if (ev->orientation == WLR_AXIS_ORIENTATION_VERTICAL)
+                pointer_scrolled(ev->delta);
         };
 
 
@@ -130,6 +129,12 @@ class wayfire_cube : public wayfire_plugin_t {
         coeff = 0.5 / std::tan(angle / 2);
 
         renderer = [=] () {render();};
+    }
+
+    void schedule_next_frame()
+    {
+        output->render->schedule_redraw();
+        output->render->damage(NULL);
     }
 
     void load_program()
@@ -232,7 +237,7 @@ class wayfire_cube : public wayfire_plugin_t {
 #endif
 
         if (update_animation())
-            output->render->schedule_redraw();
+            schedule_next_frame();
 
         px = x;
         py = y;
@@ -374,7 +379,7 @@ class wayfire_cube : public wayfire_plugin_t {
 
         bool result = update_animation();
         if (result)
-            output->render->schedule_redraw();
+            schedule_next_frame();
 
         if (animation.in_exit && !result)
             terminate();
@@ -402,7 +407,7 @@ class wayfire_cube : public wayfire_plugin_t {
 #endif
 
         update_animation();
-        output->render->schedule_redraw();
+        schedule_next_frame();
     }
 
     void terminate()
@@ -429,7 +434,7 @@ class wayfire_cube : public wayfire_plugin_t {
         offsetVert += ydiff * YVelocity;
         px = x, py = y;
 
-        output->render->schedule_redraw();
+        schedule_next_frame();
     }
 
     void pointer_scrolled(double amount)
@@ -442,7 +447,7 @@ class wayfire_cube : public wayfire_plugin_t {
         if (zoomFactor <= 0.1)
             zoomFactor = 0.1;
 
-        output->render->schedule_redraw();
+        schedule_next_frame();
     }
 };
 

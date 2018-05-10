@@ -1,0 +1,10 @@
+animiate = shared_module('cube',
+                         'cube.cpp',
+                         include_directories: [wayfire_api_inc, wayfire_conf_inc],
+                         dependencies: [wlroots, pixman],
+                         install: true,
+                         install_dir: 'lib/wayfire/')
+
+#TODO: install only one of them?
+install_subdir('shaders_2.0', install_dir: 'share/wayfire/cube')
+install_subdir('shaders_3.2', install_dir: 'share/wayfire/cube')
