@@ -485,21 +485,31 @@ void render_manager::post_paint()
     if (constant_redraw)
         schedule_redraw();
 
-    auto views = output->workspace->get_views_on_workspace(
-        output->workspace->get_current_workspace(), WF_ALL_LAYERS);
+    auto send_frame_done =
+        [=] (wayfire_view v)
+        {
+            if (!v->is_mapped())
+                return;
+
+            v->for_each_surface([] (wayfire_surface_t *surface, int, int)
+                                {
+                                    struct timespec now;
+                                    clock_gettime(CLOCK_MONOTONIC, &now);
+                                    wlr_surface_send_frame_done(surface->surface, &now);
+                                });
+        };
 
     /* TODO: do this only if the view isn't fully occluded by another */
-    for (auto v : views)
+    if (renderer)
     {
-        if (!v->is_mapped())
-            continue;
+        output->workspace->for_each_view(send_frame_done, WF_ALL_LAYERS);
+    } else
+    {
+        auto views = output->workspace->get_views_on_workspace(
+            output->workspace->get_current_workspace(), WF_ALL_LAYERS);
 
-        v->for_each_surface([] (wayfire_surface_t *surface, int, int)
-        {
-            struct timespec now;
-            clock_gettime(CLOCK_MONOTONIC, &now);
-            wlr_surface_send_frame_done(surface->surface, &now);
-        });
+        for (auto v : views)
+            send_frame_done(v);
     }
 }
 
