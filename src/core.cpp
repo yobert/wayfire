@@ -536,9 +536,7 @@ static void handle_keyboard_mod_cb(wl_listener* listener, void* data)
 
     auto seat = core->get_current_seat();
     wlr_seat_set_keyboard(seat, keyboard->device);
-
-    if (!core->input->input_grabbed())
-        wlr_seat_keyboard_send_modifiers(core->input->seat, &kbd->modifiers);
+    wlr_seat_keyboard_send_modifiers(core->input->seat, &kbd->modifiers);
 }
 
 static void handle_request_set_cursor(wl_listener*, void *data)
@@ -617,6 +615,7 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
     {
         if (in_mod_binding)
             callbacks = match_keys(get_modifiers() | mod, 0);
+
         in_mod_binding = false;
     }
 
@@ -979,6 +978,11 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
     assert(!active_grab); // cannot have two active input grabs!
 
     active_grab = iface;
+
+    auto kbd = wlr_seat_get_keyboard(seat);
+    auto mods = kbd->modifiers;
+    mods.depressed = 0;
+    wlr_seat_keyboard_send_modifiers(seat, &mods);
 
     iface->output->set_keyboard_focus(NULL, seat);
     update_cursor_focus(nullptr, 0, 0);
