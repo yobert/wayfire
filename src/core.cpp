@@ -15,6 +15,7 @@ extern "C"
 #include <wlr/backend/libinput.h>
 #include <wlr/backend/session.h>
 #include <wlr/backend/multi.h>
+#include <wlr/types/wlr_screenshooter.h>
 }
 
 #include "core.hpp"
@@ -1275,6 +1276,8 @@ void wayfire_core::init(wayfire_config *conf)
     core->compositor = wlr_compositor_create(display, wlr_backend_get_renderer(backend));
     init_desktop_apis();
     input = new input_manager();
+
+    wlr_screenshooter_create(display);
 
 #ifdef BUILD_WITH_IMAGEIO
     image_io::init();
