@@ -72,7 +72,8 @@ class wayfire_expo : public wayfire_plugin_t
             if (!state.active) {
                 activate();
             } else {
-                deactivate();
+                if (!state.in_zoom || !state.zoom_in)
+                    deactivate();
             }
         };
 
@@ -303,8 +304,11 @@ class wayfire_expo : public wayfire_plugin_t
         target_vy = y / og.height;
     }
 
-    void handle_input_press(wl_fixed_t x, wl_fixed_t y, uint32_t state)
+    void handle_input_press(int32_t x, int32_t y, uint32_t state)
     {
+        if (this->state.in_zoom)
+            return;
+
         if (state == WLR_BUTTON_RELEASED && !this->state.moving) {
             deactivate();
         } else if (state == WLR_BUTTON_RELEASED) {

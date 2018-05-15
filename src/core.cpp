@@ -210,7 +210,6 @@ struct wf_gesture_recognizer {
         current[id].sx = sx;
         current[id].sy = sy;
 
-        log_info("update touch %d, is %d", id, in_gesture);
         if (in_gesture)
         {
             continue_gesture(id, sx, sy);
