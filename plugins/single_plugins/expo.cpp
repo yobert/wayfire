@@ -51,7 +51,6 @@ class wayfire_expo : public wayfire_plugin_t
         auto section = config->get_section("expo");
         auto toggle_key = section->get_key("toggle", {WLR_MODIFIER_LOGO, KEY_E});
 
-        log_info("got toggle value %u %u", toggle_key.keyval, toggle_key.mod);
         if (!toggle_key.valid())
             return;
 
@@ -105,30 +104,25 @@ class wayfire_expo : public wayfire_plugin_t
             handle_input_move(x, y);
         };
 
-        /* TODO: enable touch gestures again */
-        /*
-        grab_interface->callbacks.touch.down = [=] (weston_touch *touch,
-                int32_t id, wl_fixed_t sx, wl_fixed_t sy)
+        grab_interface->callbacks.touch.down = [=] (int32_t id, wl_fixed_t sx, wl_fixed_t sy)
         {
             if (id > 0) return;
-            handle_input_press(sx, sy, WLr_button_released);
+            handle_input_press(sx, sy, WLR_BUTTON_PRESSED);
         };
 
-        grab_interface->callbacks.touch.up = [=] (weston_touch *touch, int32_t id)
+        grab_interface->callbacks.touch.up = [=] (int32_t id)
         {
             if (id > 0) return;
-            handle_input_press(0, 0, wlr_button_released);
+            handle_input_press(0, 0, WLR_BUTTON_RELEASED);
         };
 
-        grab_interface->callbacks.touch.motion = [=] (weston_touch *touch,
-                int32_t id, wl_fixed_t sx, wl_fixed_t sy)
+        grab_interface->callbacks.touch.motion = [=] (int32_t id, int32_t sx, int32_t sy)
         {
             if (id > 0) // we handle just the first finger
                 return;
 
             handle_input_move(sx, sy);
         };
-    */
 
         renderer = std::bind(std::mem_fn(&wayfire_expo::render), this);
 

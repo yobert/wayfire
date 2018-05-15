@@ -23,7 +23,7 @@ using effect_hook_t = std::function<void()>;
 struct wayfire_touch_gesture;
 using key_callback = std::function<void(uint32_t)>;
 using button_callback = std::function<void(uint32_t, int32_t, int32_t)>; // button, x, y
-using touch_callback = std::function<void(wlr_touch*, wl_fixed_t, wl_fixed_t)>;
+using touch_callback = std::function<void(int32_t, int32_t)>; // x, y
 using touch_gesture_callback = std::function<void(wayfire_touch_gesture*)>;
 
 enum wayfire_gesture_type {
@@ -109,9 +109,9 @@ struct wayfire_grab_interface_t {
         } keyboard;
 
         struct {
-            std::function<void(wlr_touch*, int32_t, wl_fixed_t, wl_fixed_t)> down;
-            std::function<void(wlr_touch*, int32_t)> up;
-            std::function<void(wlr_touch*, int32_t, wl_fixed_t, wl_fixed_t)> motion;
+            std::function<void(int32_t, int32_t, int32_t)> down; // id, x, y
+            std::function<void(int32_t)> up; // id
+            std::function<void(int32_t, int32_t, int32_t)> motion; // id, x, y
         } touch;
 
         std::function<void()> cancel; // called when we must stop current grab

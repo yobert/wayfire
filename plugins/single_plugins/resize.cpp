@@ -4,7 +4,7 @@
 #include <workspace-manager.hpp>
 #include <linux/input.h>
 #include <signal-definitions.hpp>
-#include "../../shared/config.hpp"
+#include <config.hpp>
 
 
 class wayfire_resize : public wayfire_plugin_t {
@@ -31,17 +31,17 @@ class wayfire_resize : public wayfire_plugin_t {
 
         activate_binding = [=] (uint32_t, int x, int y)
         {
-            auto view = output->get_view_at_point(x, y);
-            if (view) initiate(view, x, y);
+            auto focus = core->get_cursor_focus();
+            auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+            initiate(view, x, y);
         };
 
-        /*
-        touch_activate_binding = [=] (weston_touch* touch,
-                wl_fixed_t sx, wl_fixed_t sy)
+        touch_activate_binding = [=] (int32_t sx, int32_t sy)
         {
-            initiate(core->find_view(touch->focus), sx, sy);
+            auto focus = core->get_touch_focus();
+            auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+            initiate(view, sx, sy);
         };
-        */
 
 
         output->add_button(button.mod, button.button, &activate_binding);
@@ -60,19 +60,17 @@ class wayfire_resize : public wayfire_plugin_t {
             input_motion(x, y);
         };
 
-        /*
-        grab_interface->callbacks.touch.up = [=] (weston_touch *, int32_t id)
+        grab_interface->callbacks.touch.up = [=] (int32_t id)
         {
             if (id == 0)
-                input_pressed(WL_POINTER_BUTTON_STATE_RELEASED);
+                input_pressed(WLR_BUTTON_RELEASED);
         };
 
-        grab_interface->callbacks.touch.motion = [=] (weston_touch*, int32_t id,
-                wl_fixed_t sx, wl_fixed_t sy)
+        grab_interface->callbacks.touch.motion = [=] (int32_t id, int32_t sx, int32_t sy)
         {
             if (id == 0)
                 input_motion(sx, sy);
-        }; */
+        };
 
         using namespace std::placeholders;
         resize_request = std::bind(std::mem_fn(&wayfire_resize::resize_requested),
@@ -84,7 +82,7 @@ class wayfire_resize : public wayfire_plugin_t {
             if (get_signaled_view(data) == view)
             {
                 view = nullptr;
-                input_pressed(WL_POINTER_BUTTON_STATE_RELEASED);
+                input_pressed(WLR_BUTTON_RELEASED);
 
             }
         };

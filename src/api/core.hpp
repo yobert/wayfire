@@ -82,6 +82,7 @@ class wayfire_core
         std::tuple<int, int> get_cursor_position();
 
         wayfire_surface_t *get_cursor_focus();
+        wayfire_surface_t *get_touch_focus();
 
         void add_view(wayfire_view view);
         wayfire_view find_view(wayfire_surface_t *);

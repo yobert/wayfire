@@ -20,6 +20,7 @@ struct wf_gesture_recognizer;
 struct key_callback_data;
 struct button_callback_data;
 struct wlr_seat;
+struct wf_touch;
 
 struct wf_keyboard
 {
@@ -45,8 +46,6 @@ class input_manager
                     touch_down, touch_up, touch_motion;
 
         wf_gesture_recognizer *gr;
-
-        void handle_gesture(wayfire_touch_gesture g);
 
         int gesture_id;
         struct wf_gesture_listener
@@ -77,7 +76,14 @@ class input_manager
         void update_cursor_focus(wayfire_surface_t *focus, int x, int y);
         void update_cursor_position(uint32_t time_msec, bool real_update = true);
 
+        void update_touch_focus(wayfire_surface_t *focus,
+                                uint32_t time, int id, int x, int y);
+        wayfire_surface_t* update_touch_position(uint32_t time, int id, int x, int y,
+                                                 int &sx, int &sy);
+
         std::vector<std::unique_ptr<wf_keyboard>> keyboards;
+
+        std::unique_ptr<wf_touch> our_touch;
 
         /* TODO: move this in a wf_keyboard struct,
          * This might not work with multiple keyboards */
@@ -92,7 +98,7 @@ class input_manager
         wlr_cursor *cursor = NULL;
         wlr_xcursor_manager *xcursor;
 
-        wayfire_surface_t* cursor_focus = nullptr;
+        wayfire_surface_t* cursor_focus = nullptr, *touch_focus = nullptr;
 
         int pointer_count = 0, touch_count = 0;
         void update_capabilities();
@@ -115,11 +121,13 @@ class input_manager
         bool handle_keyboard_key(uint32_t key, uint32_t state);
         void handle_keyboard_mod(uint32_t key, uint32_t state);
 
-        bool handle_touch_down  (wlr_touch*, int32_t, wl_fixed_t, wl_fixed_t);
-        bool handle_touch_up    (wlr_touch*, int32_t);
-        bool handle_touch_motion(wlr_touch*, int32_t, wl_fixed_t, wl_fixed_t);
+        void handle_touch_down  (uint32_t time, int32_t id, int32_t x, int32_t y);
+        void handle_touch_motion(uint32_t time, int32_t id, int32_t x, int32_t y);
+        void handle_touch_up    (uint32_t time, int32_t id);
 
-        void check_touch_bindings(wlr_touch*, wl_fixed_t sx, wl_fixed_t sy);
+        void handle_gesture(wayfire_touch_gesture g);
+
+        void check_touch_bindings(int32_t x, int32_t y);
 
         int  add_key(uint32_t mod, uint32_t key, key_callback *, wayfire_output *output);
         void rem_key(int);

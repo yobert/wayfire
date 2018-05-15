@@ -12,7 +12,7 @@
 #include <algorithm>
 #include "wayfire-shell-protocol.h"
 
-struct wf_default_workspace_implementation : wf_workspace_implementation
+struct wf_default_workspace_implementation : public wf_workspace_implementation
 {
     bool view_movable (wayfire_view view)  { return true; }
     bool view_resizable(wayfire_view view) { return true; }

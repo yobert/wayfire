@@ -37,24 +37,24 @@ class wayfire_move : public wayfire_plugin_t
             activate_binding = [=] (uint32_t, int x, int y)
             {
                 is_using_touch = false;
-                log_info("search at %d %d", x, y);
-                auto view = output->get_view_at_point(x, y);
-                if (!view || view->is_special)
-                    return;
-                this->initiate(view, x, y);
+                auto focus = core->get_cursor_focus();
+                auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+
+                if (view && !view->is_special)
+                    initiate(view, x, y);
             };
 
-            // TODO: Re-implement touch for move plugin. Depends on touch in core
-            /*
-            touch_activate_binding = [=] (weston_touch* touch,
-                    wl_fixed_t sx, wl_fixed_t sy)
+            touch_activate_binding = [=] (int32_t sx, int32_t sy)
             {
                 is_using_touch = true;
-                auto view = core->find_view(touch->focus);
-                if (!view || view->is_special)
-                    return;
-                initiate(view, sx, sy);
-            }; */
+                auto focus = core->get_touch_focus();
+                auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+
+                log_info("jaj %p %p", focus, view.get());
+
+                if (view && !view->is_special)
+                    initiate(view, sx, sy);
+            };
 
             output->add_button(button.mod, button.button, &activate_binding);
             output->add_touch(button.mod, &touch_activate_binding);
@@ -78,19 +78,17 @@ class wayfire_move : public wayfire_plugin_t
                 input_motion(x, y);
             };
 
-            /*
-            grab_interface->callbacks.touch.motion = [=] (weston_touch*,
-                    int32_t id, wl_fixed_t sx, wl_fixed_t sy)
+            grab_interface->callbacks.touch.motion = [=] (int32_t id, int32_t sx, int32_t sy)
             {
                 if (id > 0) return;
                 input_motion(sx, sy);
             };
 
-            grab_interface->callbacks.touch.up = [=] (weston_touch*, int32_t id)
+            grab_interface->callbacks.touch.up = [=] (int32_t id)
             {
                 if (id == 0)
-                    input_pressed(WL_POINTER_BUTTON_STATE_RELEASED);
-            }; */
+                    input_pressed(WLR_BUTTON_RELEASED);
+            };
 
             move_request = std::bind(std::mem_fn(&wayfire_move::move_requested), this, _1);
             output->connect_signal("move-request", &move_request);
@@ -121,7 +119,7 @@ class wayfire_move : public wayfire_plugin_t
 
         void initiate(wayfire_view view, int sx, int sy)
         {
-            if (view->destroyed)
+            if (!view || view->destroyed)
                 return;
 
             if (!output->workspace->

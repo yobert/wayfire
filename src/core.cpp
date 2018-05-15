@@ -42,8 +42,6 @@ namespace {
 bool grab_start_finalized;
 };
 
-/*
- TODO: probably should be made better, this is just basic gesture recognition 
 struct wf_gesture_recognizer {
 
     constexpr static int MIN_FINGERS = 3;
@@ -55,26 +53,12 @@ struct wf_gesture_recognizer {
         int id;
         int sx, sy;
         int ix, iy;
-        bool sent_to_client, sent_to_grab;
     };
 
     std::map<int, finger> current;
 
-    wlr_seat *seat;
-
     bool in_gesture = false, gesture_emitted = false;
-    bool in_grab = false;
-
     int start_sum_dist;
-
-    std::function<void(wayfire_touch_gesture)> handler;
-
-    wf_gesture_recognizer(wlr_seat *_seat,
-            std::function<void(wayfire_touch_gesture)> hnd)
-    {
-        seat = _seat;
-        handler = hnd;
-    }
 
     void reset_gesture()
     {
@@ -99,23 +83,14 @@ struct wf_gesture_recognizer {
         }
     }
 
-    void start_new_gesture(int reason_id)
+    void start_new_gesture(int reason_id, int time)
     {
         in_gesture = true;
         reset_gesture();
 
-        for (auto &f : current) {
-            if (f.first != reason_id) {
-                if (f.second.sent_to_client) {
-                    auto t = get_ctime();
-                    wlr_seat_touch_notify_up(seat, 0, f.first);
-                } else if (f.second.sent_to_grab) {
-                    core->input->grab_send_touch_up(touch, f.first);
-                }
-            }
-
-            f.second.sent_to_grab = f.second.sent_to_client = false;
-        }
+        for (auto &f : current)
+            if (f.first != reason_id)
+                    core->input->handle_touch_up(time, f.first);
     }
 
     void stop_gesture()
@@ -128,8 +103,8 @@ struct wf_gesture_recognizer {
         if (gesture_emitted)
             return;
 
-         first case - consider swipe, we go through each
-         * of the directions and check whether such swipe has occured 
+        /* first case - consider swipe, we go through each
+         * of the directions and check whether such swipe has occured */
 
         bool is_left_swipe = true, is_right_swipe = true,
              is_up_swipe = true, is_down_swipe = true;
@@ -191,13 +166,15 @@ struct wf_gesture_recognizer {
             if ((edge_swipe_dir & swipe_dir) == swipe_dir)
                 gesture.type = GESTURE_EDGE_SWIPE;
 
-            handler(gesture);
+            core->input->handle_gesture(gesture);
             gesture_emitted = true;
             return;
         }
 
-        second case - this has been a pinch 
-
+        /* second case - this has been a pinch.
+         * We calculate the central point of the fingers (cx, cy),
+         * then we measure the average distance to the center. If it
+         * is bigger/smaller above/below some threshold, then we emit the gesture */
         int cx = 0, cy = 0;
         for (auto f : current) {
             cx += f.second.sx;
@@ -223,18 +200,24 @@ struct wf_gesture_recognizer {
             gesture.direction =
                 (inward_pinch ? GESTURE_DIRECTION_IN : GESTURE_DIRECTION_OUT);
 
-            handler(gesture);
+            core->input->handle_gesture(gesture);
             gesture_emitted = true;
         }
     }
 
-    void update_touch(int id, int sx, int sy)
+    void update_touch(int32_t time, int id, int sx, int sy)
     {
         current[id].sx = sx;
         current[id].sy = sy;
 
+        log_info("update touch %d, is %d", id, in_gesture);
         if (in_gesture)
+        {
             continue_gesture(id, sx, sy);
+        } else
+        {
+            core->input->handle_touch_motion(time, id, sx, sy);
+        }
     }
 
     timespec get_ctime()
@@ -245,214 +228,212 @@ struct wf_gesture_recognizer {
         return ts;
     }
 
-    void register_touch(int id, int sx, int sy)
+    void register_touch(int time, int id, int sx, int sy)
     {
-        debug << "register touch " << id << std::endl;
-        auto& f = current[id] = {id, sx, sy, sx, sy, false, false};
+        log_info("touch_gesture: finger %d at %d@%d", id, sx, sy);
+        current[id] = {id, sx, sy, sx, sy};
         if (in_gesture)
             reset_gesture();
 
         if (current.size() >= MIN_FINGERS && !in_gesture)
-            start_new_gesture(id);
+            start_new_gesture(id, time);
 
-        bool send_to_client = !in_gesture && !in_grab;
-        bool send_to_grab = !in_gesture && in_grab;
-
-        if (send_to_client && id < 1)
-        {
-            core->input->check_touch_bindings(touch,
-                    wl_fixed_from_int(sx), wl_fixed_from_int(sy));
-        }
-
-        while checking for touch grabs, some plugin might have started the grab,
-         * so check again 
-        if (in_grab && send_to_client)
-        {
-            send_to_client = false;
-            send_to_grab = true;
-        }
-
-        f.sent_to_grab = send_to_grab;
-        f.sent_to_client = send_to_client;
-
-        assert(!send_to_grab || !send_to_client);
-
-        if (send_to_client)
-        {
-            timespec t = get_ctime();
-            weston_touch_send_down(touch, &t, id, wl_fixed_from_int(sx),
-                    wl_fixed_from_int(sy));
-        } else if (send_to_grab)
-        {
-            core->input->grab_send_touch_down(touch, id, wl_fixed_from_int(sx),
-                    wl_fixed_from_int(sy));
-        }
+        if (!in_gesture)
+            core->input->handle_touch_down(time, id, sx, sy);
     }
 
-    void unregister_touch(int id)
+    void unregister_touch(int32_t time, int32_t id)
     {
-        shouldn't happen, but just in case 
+        /* shouldn't happen, except possibly in nested(wayland/x11) backend */
         if (!current.count(id))
             return;
 
-        debug << "unregister touch\n";
-
-        finger f = current[id];
+        log_info("touch_gesture: finger %d up", id);
         current.erase(id);
-        if (in_gesture) {
-            if (current.size() < MIN_FINGERS) {
-                stop_gesture();
-            } else {
-                reset_gesture();
-            }
-        } else if (f.sent_to_client) {
-            timespec t = get_ctime();
-            weston_touch_send_up(touch, &t, id);
-        } else if (f.sent_to_grab) {
-            core->input->grab_send_touch_up(touch, id);
-        }
-    }
-
-    bool is_finger_sent_to_client(int id)
-    {
-        auto it = current.find(id);
-        if (it == current.end())
-            return false;
-        return it->second.sent_to_client;
-    }
-
-    bool is_finger_sent_to_grab(int id)
-    {
-        auto it = current.find(id);
-        if (it == current.end())
-            return false;
-        return it->second.sent_to_grab;
-    }
-
-    void start_grab()
-    {
-        in_grab = true;
-
-        for (auto &f : current)
+        if (in_gesture)
         {
-            if (f.second.sent_to_client)
-            {
-                timespec t = get_ctime();
-                weston_touch_send_up(touch, &t, f.first);
-            }
-
-            f.second.sent_to_client = false;
-
-            if (!in_gesture)
-            {
-                core->input->grab_send_touch_down(touch, f.first,
-                        wl_fixed_from_int(f.second.sx), wl_fixed_from_int(f.second.sy));
-                f.second.sent_to_grab = true;
-            }
+            if (current.size() < MIN_FINGERS)
+                stop_gesture();
+            else
+                reset_gesture();
+        }
+        else
+        {
+            core->input->handle_touch_up(time, id);
         }
     }
-
-    void end_grab()
-    {
-        in_grab = false;
-    }
-}; */
-
-/* these simply call the corresponding input_manager functions,
- * you can think of them as wrappers for use of libweston
-void touch_grab_down(weston_touch_grab *grab, const timespec* time, int id,
-        wl_fixed_t sx, wl_fixed_t sy)
-{
-    core->input->propagate_touch_down(grab->touch, time, id, sx, sy);
-}
-
-void touch_grab_up(weston_touch_grab *grab, const timespec* time, int id)
-{
-    core->input->propagate_touch_up(grab->touch, time, id);
-}
-
-void touch_grab_motion(weston_touch_grab *grab, const timespec* time, int id,
-        wl_fixed_t sx, wl_fixed_t sy)
-{
-    core->input->propagate_touch_motion(grab->touch, time, id, sx, sy);
-}
-
-void touch_grab_frame(weston_touch_grab*) {}
-void touch_grab_cancel(weston_touch_grab*) {}
-
-static const weston_touch_grab_interface touch_grab_interface = {
-    touch_grab_down,  touch_grab_up, touch_grab_motion,
-    touch_grab_frame, touch_grab_cancel
 };
 
- called upon the corresponding event, we actually just call the gesture
- * recognizer functions, they will send the touch event to the client
- * or to plugin callbacks, or emit a gesture 
-void input_manager::propagate_touch_down(weston_touch* touch, const timespec* time,
-        int32_t id, wl_fixed_t sx, wl_fixed_t sy)
+struct wf_touch
 {
-    gr->touch = touch;
-    gr->register_touch(id, wl_fixed_to_int(sx), wl_fixed_to_int(sy));
+    wl_listener down, up, motion;
+    wf_gesture_recognizer gesture_recognizer;
+    wlr_cursor *cursor;
+
+    wf_touch(wlr_cursor *cursor);
+    void add_device(wlr_input_device *device);
+};
+
+static void handle_touch_down(wl_listener* listener, void *data)
+{
+    auto ev = static_cast<wlr_event_touch_down*> (data);
+    auto touch = static_cast<wf_touch*> (ev->device->data);
+
+    double lx, ly;
+    wlr_cursor_absolute_to_layout_coords(core->input->cursor,
+                                         ev->device, ev->x, ev->y, &lx, &ly);
+    touch->gesture_recognizer.register_touch(ev->time_msec, ev->touch_id, lx, ly);
 }
 
-void input_manager::propagate_touch_up(weston_touch* touch, const timespec* time,
-        int32_t id)
+static void handle_touch_up(wl_listener* listener, void *data)
 {
-    gr->touch = touch;
-    gr->unregister_touch(id);
+    auto ev = static_cast<wlr_event_touch_up*> (data);
+    auto touch = static_cast<wf_touch*> (ev->device->data);
+
+    touch->gesture_recognizer.unregister_touch(ev->time_msec, ev->touch_id);
 }
 
-void input_manager::propagate_touch_motion(weston_touch* touch, const timespec* time,
-        int32_t id, wl_fixed_t sx, wl_fixed_t sy)
+static void handle_touch_motion(wl_listener* listener, void *data)
 {
-    gr->touch = touch;
-    gr->update_touch(id, wl_fixed_to_int(sx), wl_fixed_to_int(sy));
+    auto ev = static_cast<wlr_event_touch_motion*> (data);
+    auto touch = static_cast<wf_touch*> (ev->device->data);
 
-    if (gr->is_finger_sent_to_client(id)) {
-        weston_touch_send_motion(touch, time, id, sx, sy);
-    } else if(gr->is_finger_sent_to_grab(id)) {
-        grab_send_touch_motion(touch, id, sx, sy);
+    double lx, ly;
+    wlr_cursor_absolute_to_layout_coords(core->input->cursor,
+                                         ev->device, ev->x, ev->y, &lx, &ly);
+    touch->gesture_recognizer.update_touch(ev->time_msec, ev->touch_id, lx, ly);
+}
+
+wf_touch::wf_touch(wlr_cursor *cursor)
+{
+    down.notify   = handle_touch_down;
+    up.notify     = handle_touch_up;
+    motion.notify = handle_touch_motion;
+
+    wl_signal_add(&cursor->events.touch_up, &up);
+    wl_signal_add(&cursor->events.touch_down, &down);
+    wl_signal_add(&cursor->events.touch_motion, &motion);
+
+    this->cursor = cursor;
+}
+
+void wf_touch::add_device(wlr_input_device *device)
+{
+    device->data = this;
+    wlr_cursor_attach_input_device(cursor, device);
+}
+
+void input_manager::update_touch_focus(wayfire_surface_t *surface, uint32_t time, int id, int x, int y)
+{
+    if (surface)
+    {
+        wlr_seat_touch_point_focus(seat, surface->surface, time, id, x, y);
+    } else
+    {
+        wlr_seat_touch_point_clear_focus(seat, time, id);
     }
+
+    if (id == 0)
+        touch_focus = surface;
 }
 
-
- grab_send_touch_down/up/motion() are called from the gesture recognizer
- * in case they should be processed by plugin grabs 
-void input_manager::grab_send_touch_down(weston_touch* touch, int32_t id,
-        wl_fixed_t sx, wl_fixed_t sy)
+wayfire_surface_t* input_manager::update_touch_position(uint32_t time, int32_t id, int32_t x, int32_t y, int &sx, int &sy)
 {
-    if (active_grab && active_grab->callbacks.touch.down)
-        active_grab->callbacks.touch.down(touch, id, sx, sy);
+    /* we have got a touch event, so our_touch must have been initialized */
+    assert(our_touch);
+    auto wo = core->get_output_at(x, y);
+    auto og = wo->get_full_geometry();
+
+    x -= og.x;
+    y -= og.y;
+
+    wayfire_surface_t *new_focus = NULL;
+    wo->workspace->for_each_view(
+        [&] (wayfire_view view)
+        {
+            if (new_focus) return;
+            new_focus = view->map_input_coordinates(x, y, sx, sy);
+        }, WF_ALL_LAYERS);
+
+    update_touch_focus(new_focus, time, id, x, y);
+    return new_focus;
 }
 
-void input_manager::grab_send_touch_up(weston_touch* touch, int32_t id)
+void input_manager::handle_touch_down(uint32_t time, int32_t id, int32_t x, int32_t y)
 {
-    if (active_grab && active_grab->callbacks.touch.up)
-        active_grab->callbacks.touch.up(touch, id);
+    int ox = x, oy = y;
+    auto wo = core->get_output_at(x, y);
+    auto og = wo->get_full_geometry();
+
+    ox -= og.x; oy -= og.y;
+
+    if (!active_grab)
+    {
+        int sx, sy;
+        auto focused = update_touch_position(time, id, x, y, sx, sy);
+        if (focused)
+            wlr_seat_touch_notify_down(seat, focused->surface, time, id, sx, sy);
+    }
+
+    if (id < 1)
+        core->input->check_touch_bindings(ox, oy);
+
+    if (active_grab)
+    {
+        if (active_grab->callbacks.touch.down)
+            active_grab->callbacks.touch.down(id, ox, oy);
+
+        return;
+    }
+
 }
 
-void input_manager::grab_send_touch_motion(weston_touch* touch, int32_t id,
-        wl_fixed_t sx, wl_fixed_t sy)
+void input_manager::handle_touch_up(uint32_t time, int32_t id)
 {
-    if (active_grab && active_grab->callbacks.touch.motion)
-        active_grab->callbacks.touch.motion(touch, id, sx, sy);
+    if (active_grab)
+    {
+        if (active_grab->callbacks.touch.up)
+            active_grab->callbacks.touch.up(id);
+
+        return;
+    }
+
+    wlr_seat_touch_notify_up(seat, time, id);
 }
 
-void input_manager::check_touch_bindings(weston_touch* touch, wl_fixed_t sx, wl_fixed_t sy)
+void input_manager::handle_touch_motion(uint32_t time, int32_t id, int32_t x, int32_t y)
 {
-    uint32_t mods = tgrab.touch->seat->modifier_state;
+    if (active_grab)
+    {
+        auto wo = core->get_output_at(x, y);
+        auto og = wo->get_full_geometry();
+        if (active_grab->callbacks.touch.motion)
+            active_grab->callbacks.touch.motion(id, x - og.x, y - og.y);
+
+        return;
+    }
+
+    int sx, sy;
+    update_touch_position(time, id, x, y, sx, sy);
+    wlr_seat_touch_notify_motion(seat, time, id, sx, sy);
+}
+
+void input_manager::check_touch_bindings(int x, int y)
+{
+    uint32_t mods = get_modifiers();
     std::vector<touch_callback*> calls;
-    for (auto listener : touch_listeners) {
+    for (auto listener : touch_listeners)
+    {
         if (listener.second.mod == mods &&
-                listener.second.output == core->get_active_output()) {
+                listener.second.output == core->get_active_output())
+        {
             calls.push_back(listener.second.call);
         }
     }
 
     for (auto call : calls)
-        (*call)(touch, sx, sy);
+        (*call)(x, y);
 }
-*/
 
 /* TODO: reorganize input-manager code, perhaps move it to another file */
 struct wf_callback
@@ -876,7 +857,13 @@ void input_manager::handle_new_input(wlr_input_device *dev)
     }
 
     if (dev->type == WLR_INPUT_DEVICE_TOUCH)
+    {
         touch_count++;
+        if (!our_touch)
+            our_touch = std::unique_ptr<wf_touch> (new wf_touch(cursor));
+
+        our_touch->add_device(dev);
+    }
 
     if (wlr_input_device_is_libinput(dev))
         configure_input_device(wlr_libinput_get_device_handle(dev));
@@ -970,7 +957,6 @@ uint32_t input_manager::get_modifiers()
     return mods;
 }
 
-// TODO: set pointer, reset mods, grab gr */
 bool input_manager::grab_input(wayfire_grab_interface iface)
 {
     if (!iface || !iface->grabbed || !session_active)
@@ -986,16 +972,12 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
     wlr_seat_keyboard_send_modifiers(seat, &mods);
 
     iface->output->set_keyboard_focus(NULL, seat);
+
+    if (our_touch)
+        for (const auto& f : our_touch->gesture_recognizer.current)
+            update_touch_focus(nullptr, 0, f.first, 0, 0);
+
     update_cursor_focus(nullptr, 0, 0);
-
-    /*
-    grab_start_finalized = false;
-
-
-    if (is_touch_enabled())
-        gr->start_grab();
-        */
-
     return true;
 }
 
@@ -1355,6 +1337,11 @@ std::tuple<int, int> wayfire_core::get_cursor_position()
 wayfire_surface_t *wayfire_core::get_cursor_focus()
 {
     return input->cursor_focus;
+}
+
+wayfire_surface_t *wayfire_core::get_touch_focus()
+{
+    return input->touch_focus;
 }
 
 static int _last_output_id = 0;
