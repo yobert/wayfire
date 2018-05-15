@@ -45,8 +45,6 @@ class input_manager
                     request_set_cursor,
                     touch_down, touch_up, touch_motion;
 
-        wf_gesture_recognizer *gr;
-
         int gesture_id;
         struct wf_gesture_listener
         {
@@ -99,6 +97,7 @@ class input_manager
         wlr_xcursor_manager *xcursor;
 
         wayfire_surface_t* cursor_focus = nullptr, *touch_focus = nullptr;
+        signal_callback_t surface_destroyed;
 
         int pointer_count = 0, touch_count = 0;
         void update_capabilities();

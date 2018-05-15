@@ -62,5 +62,11 @@ struct reserved_workarea_signal : public signal_data
     uint32_t height;
 };
 
+// TODO: this is a private signal, maybe we should hide it? */
+struct _surface_unmapped_signal : public signal_data
+{
+    wayfire_surface_t *surface;
+};
+
 #endif
 

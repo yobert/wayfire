@@ -270,6 +270,13 @@ void wayfire_surface_t::unmap()
 
     this->surface = nullptr;
 
+    if (this->output)
+    {
+        _surface_unmapped_signal data;
+        data.surface = this;
+        output->emit_signal("_surface_unmapped", &data);
+    }
+
     wl_list_remove(&new_sub.link);
     wl_list_remove(&committed.link);
     if (destroy.notify)

@@ -659,7 +659,6 @@ void input_manager::update_cursor_focus(wayfire_surface_t *focus, int x, int y)
     } else
     {
         wlr_seat_pointer_clear_focus(seat);
-        core->set_default_cursor();
     }
 }
 
@@ -926,6 +925,17 @@ input_manager::input_manager()
     axis.notify               = handle_pointer_axis_cb;
     request_set_cursor.notify = handle_request_set_cursor;
 
+    surface_destroyed = [=] (signal_data *data)
+    {
+        auto conv = static_cast<_surface_unmapped_signal*> (data);
+        assert(conv);
+
+        if (conv->surface == cursor_focus)
+            update_cursor_focus(nullptr, 0, 0);
+        if (conv->surface == touch_focus)
+            update_touch_focus(nullptr, 0, 0, 0, 0);
+    };
+
     /*
     if (is_touch_enabled())
     {
@@ -977,6 +987,7 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
             update_touch_focus(nullptr, 0, f.first, 0, 0);
 
     update_cursor_focus(nullptr, 0, 0);
+    core->set_default_cursor();
     return true;
 }
 
@@ -1365,6 +1376,8 @@ void wayfire_core::add_output(wlr_output *output)
 
     wo->destroy_listener.notify = output_destroyed_callback;
     wl_signal_add(&wo->handle->events.destroy, &wo->destroy_listener);
+
+    wo->connect_signal("_surface_unmapped", &input->surface_destroyed);
 
     for (auto resource : shell_clients)
         wayfire_shell_send_output_created(resource, wo->id,
