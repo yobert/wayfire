@@ -776,6 +776,14 @@ void wayfire_view_t::take_snapshot()
         pixman_region32_init(&offscreen_buffer.cached_damage);
     }
 
+    GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, offscreen_buffer.fbo));
+    GL_CALL(glViewport(0, 0, offscreen_buffer.fb_width, offscreen_buffer.fb_height));
+    wlr_renderer_scissor(core->renderer, NULL);
+
+    GL_CALL(glClearColor(0, 0, 0, 0));
+    GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+
+
     for_each_surface([=] (wayfire_surface_t *surface, int x, int y) {
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, offscreen_buffer.fbo));
         GL_CALL(glViewport(0, 0, offscreen_buffer.fb_width, offscreen_buffer.fb_height));
