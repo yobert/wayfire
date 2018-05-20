@@ -250,7 +250,7 @@ namespace OpenGL
 
         GL_CALL(glUniformMatrix4fv(bound->mvpID, 1, GL_FALSE, &model[0][0]));
         GL_CALL(glUniform4fv(bound->colorID, 1, &color[0]));
-        GL_CALL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+        GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
 
         GL_CALL(glDrawArrays (GL_TRIANGLE_FAN, 0, 4));
 

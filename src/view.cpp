@@ -1016,9 +1016,9 @@ class wayfire_xdg6_popup : public wayfire_surface_t
 
         virtual void get_child_position(int &x, int &y)
         {
-            double sx, sy;
-            wlr_xdg_surface_v6_popup_get_position(popup->base, &sx, &sy);
-            x = sx; y = sy;
+            struct wlr_xdg_surface_v6 *parent = popup->parent;
+            x = parent->geometry.x + popup->geometry.x - popup->base->geometry.x;
+            y = parent->geometry.y + popup->geometry.y - popup->base->geometry.y;
         }
 
         virtual bool is_subsurface() { return true; }
@@ -1828,6 +1828,6 @@ void init_desktop_apis()
     wl_signal_add(&core->api->v6->events.new_surface, &core->api->v6_created);
 
     core->api->xwayland_created.notify = notify_xwayland_created;
-    core->api->xwayland = wlr_xwayland_create(core->display, core->compositor);
+    core->api->xwayland = wlr_xwayland_create(core->display, core->compositor, false);
     wl_signal_add(&core->api->xwayland->events.new_surface, &core->api->xwayland_created);
 }
