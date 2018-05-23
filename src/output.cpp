@@ -428,15 +428,6 @@ void render_manager::paint()
 
         if (pixman_region32_not_empty(&frame_damage))
         {
-            /*
-            log_info("region32_t is done");
-            int n;
-            auto rects = pixman_region32_rectangles(&frame_damage, &n);
-            for (int i = 0;i < n; i++)
-
-                log_info("got damage rect: %d@%d %d@%d", rects[i].x1, rects[i].y1, rects[i].x2, rects[i].y2);
-                */
-
             pixman_region32_copy(&swap_damage, &frame_damage);
             GetTuple(vx, vy, output->workspace->get_current_workspace());
             auto target_stream = &output_streams[vx][vy];
@@ -456,6 +447,7 @@ void render_manager::paint()
         }
     }
 
+    wlr_renderer_scissor(rr, NULL);
     wlr_renderer_end(rr);
 
 //    wlr_region_scale(&swap_damage, &swap_damage, output->handle->scale);
@@ -638,31 +630,11 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     };
 
     using damaged_surface = std::unique_ptr<damaged_surface_t>;
+
     std::vector<damaged_surface> to_render;
 
-    auto it = views.begin();
-
-    while (it != views.end() && pixman_region32_not_empty(&ws_damage))
-    {
-        auto view = *it;
-        int view_dx = 0, view_dy = 0;
-
-        if (!view->is_visible())
-            goto next;
-
-        if (!view->is_special)
-        {
-            view_dx = -dx;
-            view_dy = -dy;
-        }
-
-        /* We use the snapshot of a view if either condition is happening:
-         * 1. The view has a transform
-         * 2. The view is visible, but not mapped
-         *    => it is snapshotted and kept alive by some plugin */
-
-        /* Snapshotted views include all of their subsurfaces, so we handle them separately */
-        if (view->get_transformer() || !view->is_mapped())
+    const auto schedule_render_snapshotted_view =
+        [&] (wayfire_view view, int view_dx, int view_dy)
         {
             auto ds = damaged_surface(new damaged_surface_t);
 
@@ -684,12 +656,10 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
                 to_render.push_back(std::move(ds));
             }
+        };
 
-            goto next;
-        }
-
-        /* Iterate over all subsurfaces/menus of a "regular" view */
-        view->for_each_surface([&] (wayfire_surface_t *surface, int x, int y)
+    const auto schedule_render_surface =
+        [&] (wayfire_surface_t *surface, int x, int y, int view_dx, int view_dy)
         {
             if (!surface->is_mapped())
                 return;
@@ -734,7 +704,53 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
                 to_render.push_back(std::move(ds));
             }
-        });
+        };
+
+    /* we "move" all icons to the current output */
+    if (!renderer)
+    {
+        for (auto& icon : core->input->drag_icons)
+        {
+            log_info("render icon");
+            icon->set_output(output);
+            icon->for_each_surface([&] (wayfire_surface_t *surface, int x, int y)
+                                   {
+                                       log_info("set icon pos %d %d", x, y);
+                                       schedule_render_surface(surface, x, y, 0, 0);
+                                   });
+        }
+    }
+
+    auto it = views.begin();
+    while (it != views.end() && pixman_region32_not_empty(&ws_damage))
+    {
+        auto view = *it;
+        int view_dx = 0, view_dy = 0;
+
+        if (!view->is_visible())
+            goto next;
+
+        if (!view->is_special)
+        {
+            view_dx = -dx;
+            view_dy = -dy;
+        }
+
+        /* We use the snapshot of a view if either condition is happening:
+         * 1. The view has a transform
+         * 2. The view is visible, but not mapped
+         *    => it is snapshotted and kept alive by some plugin */
+
+        /* Snapshotted views include all of their subsurfaces, so we handle them separately */
+        if (view->get_transformer() || !view->is_mapped())
+        {
+            schedule_render_snapshotted_view(view, view_dx, view_dy);
+            goto next;
+        }
+
+        /* Iterate over all subsurfaces/menus of a "regular" view */
+        view->for_each_surface([&] (wayfire_surface_t *surface, int x, int y)
+        { schedule_render_surface(surface, x, y, view_dx, view_dy); });
 
         next: ++it;
     };
@@ -762,6 +778,12 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
     GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
     pixman_region32_fini(&ws_damage);
+
+    if (!renderer)
+    {
+        for (auto& icon : core->input->drag_icons)
+            icon->set_output(nullptr);
+    }
 }
 
 void render_manager::workspace_stream_stop(wf_workspace_stream *stream)

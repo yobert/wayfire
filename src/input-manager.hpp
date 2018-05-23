@@ -30,17 +30,28 @@ struct wf_keyboard
     wf_keyboard(wlr_input_device *keyboard, wayfire_config *config);
 };
 
+struct wf_drag_icon : public wayfire_surface_t
+{
+    wlr_drag_icon *icon;
+    wl_listener map_ev, destroy;
+
+    wf_drag_icon(wlr_drag_icon *icon);
+
+    bool is_subsurface() { return true ;}
+    wf_point get_output_position();
+    void damage(const wlr_box& rect);
+};
+
 class input_manager
 {
     friend void handle_new_input_cb       (wl_listener*, void*);
     friend void handle_keyboard_destroy_cb(wl_listener*, void*);
 
-
     private:
         wayfire_grab_interface active_grab = nullptr;
         bool session_active = true;
 
-        wl_listener input_device_created,
+        wl_listener input_device_created, new_drag_icon,
                     button, motion, motion_absolute, axis,
                     request_set_cursor,
                     touch_down, touch_up, touch_motion;
@@ -81,8 +92,6 @@ class input_manager
 
         std::vector<std::unique_ptr<wf_keyboard>> keyboards;
 
-        std::unique_ptr<wf_touch> our_touch;
-
         /* TODO: move this in a wf_keyboard struct,
          * This might not work with multiple keyboards */
         bool in_mod_binding = false;
@@ -98,6 +107,9 @@ class input_manager
 
         wayfire_surface_t* cursor_focus = nullptr, *touch_focus = nullptr;
         signal_callback_t surface_destroyed;
+
+        std::unique_ptr<wf_touch> our_touch;
+        std::vector<std::unique_ptr<wf_drag_icon>> drag_icons;
 
         int pointer_count = 0, touch_count = 0;
         void update_capabilities();

@@ -81,6 +81,9 @@ class wayfire_core
         /* in output-layout-local coordinates */
         std::tuple<int, int> get_cursor_position();
 
+        /* in output-layout-local coordinates */
+        std::tuple<int, int> get_touch_position(int id);
+
         wayfire_surface_t *get_cursor_focus();
         wayfire_surface_t *get_touch_focus();
 

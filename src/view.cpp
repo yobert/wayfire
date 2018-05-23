@@ -160,6 +160,8 @@ void handle_subsurface_destroyed(wl_listener*, void *data)
     auto wlr_surf = (wlr_surface*) data;
     auto surface = wf_surface_from_void(wlr_surf->data);
 
+    log_error ("subsurface destroyed");
+
     surface->unmap();
     surface->dec_keep_count();
 }
@@ -315,15 +317,9 @@ void wayfire_surface_t::damage()
     damage(geometry);
 }
 
-void wayfire_surface_t::commit()
+void wayfire_surface_t::update_output_position()
 {
     wf_geometry rect = get_output_geometry();
-
-    pixman_region32_t dmg;
-
-    pixman_region32_init(&dmg);
-    pixman_region32_copy(&dmg, &surface->current->surface_damage);
-    pixman_region32_translate(&dmg, rect.x, rect.y);
 
     /* TODO: recursively damage children? */
     if (is_subsurface() && rect != geometry)
@@ -333,6 +329,17 @@ void wayfire_surface_t::commit()
 
         geometry = rect;
     }
+}
+
+void wayfire_surface_t::commit()
+{
+    update_output_position();
+    auto rect = get_output_position();
+
+    pixman_region32_t dmg;
+    pixman_region32_init(&dmg);
+    pixman_region32_copy(&dmg, &surface->current->surface_damage);
+    pixman_region32_translate(&dmg, rect.x, rect.y);
 
     /* TODO: transform damage */
     damage(&dmg);

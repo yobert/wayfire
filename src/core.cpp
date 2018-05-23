@@ -355,6 +355,10 @@ wayfire_surface_t* input_manager::update_touch_position(uint32_t time, int32_t i
         }, WF_ALL_LAYERS);
 
     update_touch_focus(new_focus, time, id, x, y);
+
+    for (auto& icon : drag_icons)
+        icon->update_output_position();
+
     return new_focus;
 }
 
@@ -526,6 +530,90 @@ static void handle_request_set_cursor(wl_listener*, void *data)
     core->input->set_cursor(ev);
 }
 
+static void handle_drag_icon_map(wl_listener* listener, void *data)
+{
+    auto wlr_icon = (wlr_drag_icon*) data;
+    auto icon = (wf_drag_icon*) wlr_icon->surface->data;
+
+    icon->unmap();
+}
+
+static void handle_drag_icon_destroy(wl_listener* listener, void *data)
+{
+    auto wlr_icon = (wlr_drag_icon*) data;
+    auto icon = (wf_drag_icon*) wlr_icon->surface->data;
+
+    auto it = std::find_if(core->input->drag_icons.begin(),
+                           core->input->drag_icons.end(),
+                           [=] (const std::unique_ptr<wf_drag_icon>& ptr)
+                                {return ptr.get() == icon;});
+
+    /* we don't dec_keep_count() because the surface memory is
+     * managed by the unique_ptr */
+    assert(it != core->input->drag_icons.end());
+    core->input->drag_icons.erase(it);
+}
+
+wf_drag_icon::wf_drag_icon(wlr_drag_icon *ic)
+    : wayfire_surface_t(nullptr), icon(ic)
+{
+    map_ev.notify  = handle_drag_icon_map;
+    destroy.notify = handle_drag_icon_destroy;
+
+    wl_signal_add(&icon->events.map, &map_ev);
+    wl_signal_add(&icon->events.destroy, &destroy);
+
+    icon->surface->data = this;
+    map(icon->surface);
+}
+
+wf_point wf_drag_icon::get_output_position()
+{
+    auto pos = icon->is_pointer ?
+        core->get_cursor_position() : core->get_touch_position(icon->touch_id);
+
+    GetTuple(x, y, pos);
+
+    x += icon->sx;
+    y += icon->sy;
+
+    if (output)
+    {
+        auto og = output->get_full_geometry();
+        x -= og.x;
+        y -= og.y;
+    }
+
+    return {x, y};
+}
+
+void wf_drag_icon::damage(const wlr_box& box)
+{
+    if (!is_mapped())
+        return;
+
+    core->for_each_output([=] (wayfire_output *output)
+    {
+        auto output_geometry = output->get_full_geometry();
+        if (rect_intersect(output_geometry, box))
+        {
+            auto local = box;
+            local.x -= output_geometry.x;
+            local.y -= output_geometry.y;
+
+            output->render->damage(local);
+        }
+    });
+}
+
+static void handle_new_drag_icon_cb(wl_listener*, void *data)
+{
+    auto di = static_cast<wlr_drag_icon*> (data);
+
+    auto icon = std::unique_ptr<wf_drag_icon>(new wf_drag_icon(di));
+    core->input->drag_icons.push_back(std::move(icon));
+}
+
 static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
 {
     if (!session)
@@ -688,6 +776,9 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 
     update_cursor_focus(new_focus, sx, sy);
     wlr_seat_pointer_notify_motion(core->input->seat, time_msec, sx, sy);
+
+    for (auto& icon : drag_icons)
+        icon->update_output_position();
 }
 
 void input_manager::handle_pointer_motion(wlr_event_pointer_motion *ev)
@@ -718,10 +809,11 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
 
 void input_manager::set_cursor(wlr_seat_pointer_request_set_cursor_event *ev)
 {
-    if (ev->surface && ev->seat_client->seat->pointer_state.focused_client == ev->seat_client && !input_grabbed())
+    auto focused_surface = ev->seat_client->seat->pointer_state.focused_surface;
+    auto client = focused_surface ? wl_resource_get_client(focused_surface->resource) : NULL;
+
+    if (ev->surface && client == ev->seat_client->client && !input_grabbed())
         wlr_cursor_set_surface(cursor, ev->surface, ev->hotspot_x, ev->hotspot_y);
-    else
-        core->set_default_cursor();
 }
 
 bool input_manager::is_touch_enabled()
@@ -910,13 +1002,16 @@ void input_manager::create_seat()
     wl_signal_add(&cursor->events.motion, &motion);
     wl_signal_add(&cursor->events.motion_absolute, &motion_absolute);
     wl_signal_add(&cursor->events.axis, &axis);
+
     wl_signal_add(&seat->events.request_set_cursor, &request_set_cursor);
+    wl_signal_add(&seat->events.new_drag_icon, &new_drag_icon);
 }
 
 input_manager::input_manager()
 {
     input_device_created.notify = handle_new_input_cb;
     seat = wlr_seat_create(core->display, "default");
+
     wl_signal_add(&core->backend->events.new_input,
                   &input_device_created);
 
@@ -925,6 +1020,7 @@ input_manager::input_manager()
     motion_absolute.notify    = handle_pointer_motion_absolute_cb;
     axis.notify               = handle_pointer_axis_cb;
     request_set_cursor.notify = handle_request_set_cursor;
+    new_drag_icon.notify      = handle_new_drag_icon_cb;
 
     surface_destroyed = [=] (signal_data *data)
     {
@@ -1343,6 +1439,18 @@ std::tuple<int, int> wayfire_core::get_cursor_position()
         return std::tuple<int, int> (input->cursor->x, input->cursor->y);
     else
         return std::tuple<int, int> (0, 0);
+}
+
+std::tuple<int, int> wayfire_core::get_touch_position(int id)
+{
+    if (!input->our_touch)
+        return std::make_tuple(0, 0);
+
+    auto it = input->our_touch->gesture_recognizer.current.find(id);
+    if (it != input->our_touch->gesture_recognizer.current.end())
+        return std::make_tuple(it->second.sx, it->second.sy);
+
+    return std::make_tuple(0, 0);
 }
 
 wayfire_surface_t *wayfire_core::get_cursor_focus()

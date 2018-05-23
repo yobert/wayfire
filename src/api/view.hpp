@@ -64,7 +64,7 @@ class wayfire_surface_t
 
         wayfire_surface_t *parent_surface;
 
-        wayfire_output *output;
+        wayfire_output *output = nullptr;
 
         /* position relative to parent */
         virtual void get_child_position(int &x, int &y);
@@ -74,6 +74,7 @@ class wayfire_surface_t
         virtual bool is_subsurface();
         virtual void damage(const wlr_box& box);
         virtual void damage(pixman_region32_t *region);
+
 
     public:
 
@@ -102,6 +103,8 @@ class wayfire_surface_t
 
         /* returns top-left corner in output coordinates */
         virtual wf_point get_output_position();
+
+        virtual void update_output_position();
 
         /* return surface box in output coordinates */
         virtual wf_geometry get_output_geometry();
