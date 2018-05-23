@@ -349,6 +349,7 @@ class wayfire_cube : public wayfire_plugin_t {
         GL_CALL(glVertexAttribPointer(program.uvID, 2, GL_FLOAT, GL_FALSE, 0, coordData));
         GL_CALL(glEnableVertexAttribArray(program.uvID));
 
+        wlr_renderer_scissor(core->renderer, NULL);
         for(size_t i = 0; i < streams.size(); i++) {
             int index = (vx + i) % streams.size();
 

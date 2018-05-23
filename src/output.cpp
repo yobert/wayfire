@@ -419,9 +419,7 @@ void render_manager::paint()
     if (renderer)
     {
         renderer();
-
         /* TODO: let custom renderers specify what they want to repaint... */
-        pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0, w, h);
     } else
     {
         pixman_region32_intersect_rect(&frame_damage, &frame_damage, 0, 0, w, h);
@@ -450,8 +448,10 @@ void render_manager::paint()
     wlr_renderer_scissor(rr, NULL);
     wlr_renderer_end(rr);
 
-//    wlr_region_scale(&swap_damage, &swap_damage, output->handle->scale);
-    output_damage->swap_buffers(&repaint_started, &swap_damage);
+    if (renderer)
+        output_damage->swap_buffers(&repaint_started, &swap_damage);
+    else
+        output_damage->swap_buffers(&repaint_started, &swap_damage);
 
     pixman_region32_fini(&swap_damage);
     post_paint();
