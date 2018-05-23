@@ -1070,6 +1070,10 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
 
     assert(!active_grab); // cannot have two active input grabs!
 
+    if (our_touch)
+        for (const auto& f : our_touch->gesture_recognizer.current)
+            handle_touch_up(0, f.first);
+
     active_grab = iface;
 
     auto kbd = wlr_seat_get_keyboard(seat);
@@ -1078,11 +1082,6 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
     wlr_seat_keyboard_send_modifiers(seat, &mods);
 
     iface->output->set_keyboard_focus(NULL, seat);
-
-    if (our_touch)
-        for (const auto& f : our_touch->gesture_recognizer.current)
-            update_touch_focus(nullptr, 0, f.first, 0, 0);
-
     update_cursor_focus(nullptr, 0, 0);
     core->set_default_cursor();
     return true;
