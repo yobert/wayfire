@@ -101,6 +101,7 @@ class wayfire_core
 
         void add_output(wlr_output *output);
         wayfire_output *get_output(wlr_output *output);
+        wayfire_output *get_output(std::string name);
 
         void focus_output(wayfire_output *o);
         void remove_output(wayfire_output *o);

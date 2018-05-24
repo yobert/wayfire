@@ -959,11 +959,20 @@ void input_manager::handle_new_input(wlr_input_device *dev)
         if (!our_touch)
             our_touch = std::unique_ptr<wf_touch> (new wf_touch(cursor));
 
+        log_info("has touch devi with output %s", dev->output_name);
+
         our_touch->add_device(dev);
     }
 
     if (wlr_input_device_is_libinput(dev))
         configure_input_device(wlr_libinput_get_device_handle(dev));
+
+    auto section = core->config->get_section(nonull(dev->name));
+    auto mapped_output = section->get_string("output", nonull(dev->output_name));
+
+    auto wo = core->get_output(mapped_output);
+    if (wo)
+        wlr_cursor_map_input_to_output(cursor, dev, wo->handle);
 
     update_capabilities();
 }
@@ -1603,6 +1612,15 @@ wayfire_output* wayfire_core::get_output(wlr_output *handle)
     } else {
         return nullptr;
     }
+}
+
+wayfire_output* wayfire_core::get_output(std::string name)
+{
+    for (const auto& wo : outputs)
+        if (wo.first->name == name)
+            return wo.second;
+
+    return nullptr;
 }
 
 wayfire_output* wayfire_core::get_active_output()
