@@ -126,7 +126,7 @@ wf_3D_view::wf_3D_view(wayfire_output *output)
 glm::mat4 wf_3D_view::calculate_total_transform()
 {
     glm::mat4 depth_scale = glm::scale(glm::mat4(1.0), {1, 1, 2.0 / std::min(m_width, m_height)});
-    return view_proj * depth_scale * translation * rotation * scaling;
+    return translation * view_proj * depth_scale * rotation * scaling;
 }
 
 wf_point wf_3D_view::local_to_transformed_point(wf_point point)
