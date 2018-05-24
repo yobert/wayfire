@@ -40,7 +40,6 @@ bool operator != (const wf_geometry& a, const wf_geometry& b)
     return !(a == b);
 }
 
-/* TODO: implement rotation */
 wf_geometry get_output_box_from_box(const wf_geometry& g, float scale)
 {
     wf_geometry r;

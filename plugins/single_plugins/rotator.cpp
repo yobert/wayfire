@@ -1,8 +1,7 @@
 #include <output.hpp>
 #include <core.hpp>
-#include "../../shared/config.hpp"
+#include <config.hpp>
 #include <linux/input-event-codes.h>
-#include <compositor.h>
 
 class wayfire_rotator : public wayfire_plugin_t {
     key_callback up, down, left, right;
@@ -23,23 +22,23 @@ class wayfire_rotator : public wayfire_plugin_t {
         wayfire_key right_key = section->get_key("rotate_right",
                 {WLR_MODIFIER_ALT|WLR_MODIFIER_CTRL, KEY_RIGHT});
 
-        up = [=] (weston_keyboard*, uint32_t) {
+        up = [=] (uint32_t) {
             output->set_transform(WL_OUTPUT_TRANSFORM_NORMAL);
         };
-        down = [=] (weston_keyboard*, uint32_t) {
+        down = [=] (uint32_t) {
             output->set_transform(WL_OUTPUT_TRANSFORM_180);
         };
-        left = [=] (weston_keyboard*, uint32_t) {
+        left = [=] (uint32_t) {
             output->set_transform(WL_OUTPUT_TRANSFORM_270);
         };
-        right = [=] (weston_keyboard*, uint32_t) {
+        right = [=] (uint32_t) {
             output->set_transform(WL_OUTPUT_TRANSFORM_90);
         };
 
-        output->add_key((weston_keyboard_modifier)up_key.mod, up_key.keyval, &up);
-        output->add_key((weston_keyboard_modifier)down_key.mod, down_key.keyval, &down);
-        output->add_key((weston_keyboard_modifier)left_key.mod, left_key.keyval, &left);
-        output->add_key((weston_keyboard_modifier)right_key.mod, right_key.keyval, &right);
+        output->add_key(up_key.mod, up_key.keyval, &up);
+        output->add_key(down_key.mod, down_key.keyval, &down);
+        output->add_key(left_key.mod, left_key.keyval, &left);
+        output->add_key(right_key.mod, right_key.keyval, &right);
     }
 };
 

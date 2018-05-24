@@ -36,6 +36,8 @@ class render_manager
 
         wl_listener frame_listener;
 
+        signal_callback_t output_resized;
+
         bool dirty_context = true;
         void load_context();
         void release_context();
@@ -58,6 +60,8 @@ class render_manager
         void post_paint();
         void run_effects();
         void render_panels();
+
+        void init_default_streams();
 
     public:
         OpenGL::context_t *ctx;

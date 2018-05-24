@@ -9,3 +9,4 @@ wrot          = shared_module('wrot',          'wrot.cpp',          include_dire
 expo          = shared_module('expo',          'expo.cpp',          include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman], install: true, install_dir: 'lib/wayfire/')
 switcher      = shared_module('switcher',      'switcher.cpp',      include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman], install: true, install_dir: 'lib/wayfire/')
 oswitch       = shared_module('oswitch',       'oswitch.cpp',       include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman], install: true, install_dir: 'lib/wayfire/')
+oswitch       = shared_module('rotator',       'rotator.cpp',       include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman], install: true, install_dir: 'lib/wayfire/')

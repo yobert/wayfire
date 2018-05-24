@@ -237,6 +237,20 @@ render_manager::render_manager(wayfire_output *o)
     schedule_redraw();
 }
 
+void render_manager::init_default_streams()
+{
+    GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
+    output_streams.resize(vw);
+
+    for (int i = 0; i < vw; i++) {
+        for (int j = 0; j < vh; j++) {
+            output_streams[i].push_back(wf_workspace_stream{});
+            output_streams[i][j].tex = output_streams[i][j].fbuff = 0;
+            output_streams[i][j].ws = std::make_tuple(i, j);
+        }
+    }
+}
+
 void render_manager::load_context()
 {
     ctx = OpenGL::create_gles_context(output, core->shadersrc.c_str());
@@ -245,16 +259,7 @@ void render_manager::load_context()
     dirty_context = false;
     output->emit_signal("reload-gl", nullptr);
 
-    GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
-    output_streams.resize(vw);
-
-    for (int i = 0; i < vw; i++) {
-        for (int j = 0;j < vh; j++) {
-            output_streams[i].push_back(wf_workspace_stream{});
-            output_streams[i][j].tex = output_streams[i][j].fbuff = 0;
-            output_streams[i][j].ws = std::make_tuple(i, j);
-        }
-    }
+    init_default_streams();
 }
 
 void render_manager::release_context()
@@ -1092,44 +1097,39 @@ wf_geometry wayfire_output::get_full_geometry()
 
 void wayfire_output::set_transform(wl_output_transform new_tr)
 {
-    /*
-    int old_w = handle->width;
-    int old_h = handle->height;
-    weston_output_set_transform(handle, new_tr);
+    GetTuple(old_w, old_h, get_screen_size());
 
-    render->ctx->width = handle->width;
-    render->ctx->height = handle->height;
+    wlr_output_set_transform(handle, new_tr);
+    render->damage(NULL);
 
+    GetTuple(new_w, new_h, get_screen_size());
     for (auto resource : core->shell_clients)
-        wayfire_shell_send_output_resized(resource, handle->id,
-                                          handle->width, handle->height);
+        wayfire_shell_send_output_resized(resource, id, new_w, new_h);
     emit_signal("output-resized", nullptr);
 
-    //ensure_pointer();
+    workspace->for_each_view([=] (wayfire_view view)
+    {
+        auto wm = view->get_wm_geometry();
+        if (view->fullscreen) {
+            auto g = get_relative_geometry();
 
-    workspace->for_each_view([=] (wayfire_view view) {
-        if (view->fullscreen || view->maximized) {
-            auto g = get_full_geometry();
-            if (view->maximized)
-                g = workspace->get_workarea();
+            int vx = wm.x / old_w;
+            int vy = wm.y / old_h;
 
-            int vx = view->geometry.x / old_w;
-            int vy = view->geometry.y / old_h;
-
-            g.x += vx * handle->width;
-            g.y += vy * handle->height;
+            g.x = vx * new_w;
+            g.y = vy * new_h;
 
             view->set_geometry(g);
         } else {
-            float px = 1. * view->geometry.x / old_w;
-            float py = 1. * view->geometry.y / old_h;
-            float pw = 1. * view->geometry.width / old_w;
-            float ph = 1. * view->geometry.height / old_h;
+            float px = 1. * wm.x / old_w;
+            float py = 1. * wm.y / old_h;
+            float pw = 1. * wm.width / old_w;
+            float ph = 1. * wm.height / old_h;
 
-            view->set_geometry(px * handle->width, py * handle->height,
-			    pw * handle->width, ph * handle->height);
+            view->set_geometry({int(px * new_w), int(py * new_h),
+			    int(pw * new_w), int(ph * new_h)});
         }
-    }); */
+    }, WF_WM_LAYERS);
 }
 
 wl_output_transform wayfire_output::get_transform()
@@ -1144,6 +1144,7 @@ std::tuple<int, int> wayfire_output::get_screen_size()
     return std::make_tuple(w, h);
 }
 
+/* TODO: is this still relevant? */
 void wayfire_output::ensure_pointer()
 {
     /*

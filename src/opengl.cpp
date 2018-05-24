@@ -184,6 +184,7 @@ namespace OpenGL
 
     void release_context(context_t *ctx)
     {
+        GL_CALL(glDeleteProgram(ctx->program));
         delete ctx;
     }
 
