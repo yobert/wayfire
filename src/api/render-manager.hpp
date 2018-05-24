@@ -22,6 +22,14 @@ struct wf_workspace_stream
     float scale_x, scale_y;
 };
 
+enum wf_output_effect_type
+{
+    WF_OUTPUT_EFFECT_PRE = 0,
+    WF_OUTPUT_EFFECT_OVERLAY = 1,
+    WF_OUTPUT_EFFECT_POST = 2,
+    WF_OUTPUT_EFFECT_TOTAL = 3
+};
+
 struct wf_output_damage;
 class render_manager
 {
@@ -53,14 +61,17 @@ class render_manager
         void get_ws_damage(std::tuple<int, int> ws, pixman_region32_t *out_damage);
 
         using effect_container_t = std::vector<effect_hook_t*>;
-        effect_container_t output_effects, pre_effects;
+        effect_container_t effects[WF_OUTPUT_EFFECT_TOTAL];
 
         int constant_redraw = 0;
         render_hook_t renderer;
 
         void paint();
         void post_paint();
+
+
         void run_effects(effect_container_t&);
+
         void render_panels();
 
         void init_default_streams();
@@ -80,11 +91,8 @@ class render_manager
         void schedule_redraw();
         void set_hide_overlay_panels(bool set);
 
-        void add_output_effect(effect_hook_t*);
-        void rem_effect(const effect_hook_t*);
-
-        void add_pre_effect(effect_hook_t*);
-        void rem_pre_effect(const effect_hook_t*);
+        void add_effect(effect_hook_t*, wf_output_effect_type type);
+        void rem_effect(const effect_hook_t*, wf_output_effect_type type);
 
         void damage(const wlr_box& box);
         void damage(pixman_region32_t *region);

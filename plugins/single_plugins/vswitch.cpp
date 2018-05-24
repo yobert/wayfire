@@ -226,7 +226,7 @@ class vswitch : public wayfire_plugin_t
         }
 
         running = true;
-        output->render->add_output_effect(&hook);
+        output->render->add_effect(&hook, WF_OUTPUT_EFFECT_PRE);
         output->render->auto_redraw(true);
 
         return true;
@@ -237,7 +237,7 @@ class vswitch : public wayfire_plugin_t
         output->deactivate_plugin(grab_interface);
         dirs = std::queue<switch_direction> ();
         running = false;
-        output->render->rem_effect(&hook);
+        output->render->rem_effect(&hook, WF_OUTPUT_EFFECT_PRE);
         output->render->auto_redraw(false);
     }
 };

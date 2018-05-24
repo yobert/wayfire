@@ -64,7 +64,7 @@ struct animation_hook
                 finalize();
         };
 
-        output->render->add_output_effect(&hook);
+        output->render->add_effect(&hook, WF_OUTPUT_EFFECT_POST);
 
         view_removed = [=] (signal_data *data)
         {
@@ -78,7 +78,7 @@ struct animation_hook
 
     void finalize()
     {
-        output->render->rem_effect(&hook);
+        output->render->rem_effect(&hook, WF_OUTPUT_EFFECT_POST);
 
         output->disconnect_signal("detach-view", &view_removed);
         output->disconnect_signal("destroy-view", &view_removed);

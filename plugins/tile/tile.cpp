@@ -637,16 +637,16 @@ class wayfire_tile : public wayfire_plugin_t
 
         wf_tiling::unmaximize();
 
-        output->render->add_pre_effect(&damage_selected);
-        output->render->add_output_effect(&draw_selected);
+        output->render->add_effect(&damage_selected, WF_OUTPUT_EFFECT_PRE);
+        output->render->add_effect(&draw_selected, WF_OUTPUT_EFFECT_OVERLAY);
 
         grab_interface->grab();
     }
 
     void stop_select_mode()
     {
-        output->render->rem_pre_effect(&damage_selected);
-        output->render->rem_effect(&draw_selected);
+        output->render->rem_effect(&damage_selected, WF_OUTPUT_EFFECT_PRE);
+        output->render->rem_effect(&draw_selected, WF_OUTPUT_EFFECT_OVERLAY);
 
         damage_selected();
 

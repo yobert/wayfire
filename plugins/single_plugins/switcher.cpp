@@ -215,7 +215,7 @@ class view_switcher : public wayfire_plugin_t
 
         output->render->auto_redraw(true);
         output->render->damage(NULL);
-        output->render->add_output_effect(&hook);
+        output->render->add_effect(&hook, WF_OUTPUT_EFFECT_PRE);
 
         output->connect_signal("destroy-view", &destroyed);
         output->connect_signal("detach-view", &destroyed);
@@ -680,6 +680,7 @@ class view_switcher : public wayfire_plugin_t
     {
         output->render->auto_redraw(false);
         output->render->reset_renderer();
+        output->render->rem_effect(&hook, WF_OUTPUT_EFFECT_PRE);
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
 

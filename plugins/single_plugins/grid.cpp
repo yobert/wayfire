@@ -144,7 +144,7 @@ class wayfire_grid : public wayfire_plugin_t {
         view->set_geometry(view->get_wm_geometry());
 
         output->render->auto_redraw(true);
-        output->render->add_output_effect(&hook);
+        output->render->add_effect(&hook, WF_OUTPUT_EFFECT_PRE);
 
         return true;
     }
@@ -175,7 +175,7 @@ class wayfire_grid : public wayfire_plugin_t {
     void stop_animation()
     {
         output->render->auto_redraw(false);
-        output->render->rem_effect(&hook);
+        output->render->rem_effect(&hook, WF_OUTPUT_EFFECT_PRE);
 
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
