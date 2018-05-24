@@ -281,6 +281,7 @@ static void handle_touch_down(wl_listener* listener, void *data)
     double lx, ly;
     wlr_cursor_absolute_to_layout_coords(core->input->cursor,
                                          ev->device, ev->x, ev->y, &lx, &ly);
+
     touch->gesture_recognizer.register_touch(ev->time_msec, ev->touch_id, lx, ly);
 }
 
@@ -368,8 +369,9 @@ void input_manager::handle_touch_down(uint32_t time, int32_t id, int32_t x, int3
     auto wo = core->get_output_at(x, y);
     auto og = wo->get_full_geometry();
 
-    ox -= og.x; oy -= og.y;
+    core->focus_output(wo);
 
+    ox -= og.x; oy -= og.y;
     if (!active_grab)
     {
         int sx, sy;

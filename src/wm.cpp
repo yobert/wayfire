@@ -54,24 +54,23 @@ void wayfire_focus::init(wayfire_config *)
 
     output->add_button(0, BTN_LEFT, &callback);
 
-    /* TODO: touch focus
-    touch = [=] (weston_touch *touch, wl_fixed_t sx, wl_fixed_t sy)
+    touch = [=] (int x, int y)
     {
-        core->focus_output(core->get_output_at(
-                    wl_fixed_to_int(sx), wl_fixed_to_int(sy)));
+        wayfire_surface_t *focus = nullptr, *main_surface = nullptr;
+        wayfire_view view = nullptr;
 
-        wayfire_view view;
-        if (!touch->focus || !(view = core->find_view(weston_surface_get_main_surface(touch->focus->surface))))
+        if (!(focus = core->get_touch_focus()) || !(main_surface = focus->get_main_surface()))
             return;
-        if (view->is_special || view->destroyed || !output->activate_plugin(grab_interface, false))
+
+        view = core->find_view((wayfire_view_t*)main_surface);
+        if (!view || !view->is_mapped() || !output->activate_plugin(grab_interface))
             return;
 
         output->deactivate_plugin(grab_interface);
-        view->get_output()->focus_view(view, touch->seat);
+        view->get_output()->focus_view(view);
     };
 
     output->add_touch(0, &touch);
-    */
 }
 
 /* TODO: remove, it is no longer necessary */
