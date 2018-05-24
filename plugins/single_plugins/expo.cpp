@@ -355,7 +355,7 @@ class wayfire_expo : public wayfire_plugin_t
                 break;
         }
 
-        glm::mat4 matrix;
+        glm::mat4 matrix(1.0);
         auto rot       = glm::rotate(matrix, angle, glm::vec3(0, 0, 1));
         auto translate = glm::translate(matrix, glm::vec3(render_params.off_x, render_params.off_y, 0));
         auto scale     = glm::scale(matrix, glm::vec3(render_params.scale_x, render_params.scale_y, 1));
