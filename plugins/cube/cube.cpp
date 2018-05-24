@@ -388,7 +388,7 @@ class wayfire_cube : public wayfire_plugin_t {
 
     void input_released()
     {
-        auto size = streams.size();
+        int size = streams.size();
 
         float dx = -(offset) / angle;
         int dvx = std::floor(dx + 0.5);
