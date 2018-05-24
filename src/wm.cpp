@@ -38,10 +38,6 @@ void wayfire_focus::init(wayfire_config *)
 
     callback = [=] (uint32_t button, int x, int y)
     {
-        GetTuple(gx, gy, core->get_cursor_position());
-        auto output = core->get_output_at(gx, gy);
-        core->focus_output(output);
-
         wayfire_surface_t *focus = nullptr, *main_surface = nullptr;
         wayfire_view view = nullptr;
 
@@ -49,11 +45,8 @@ void wayfire_focus::init(wayfire_config *)
             return;
 
         view = core->find_view((wayfire_view_t*)main_surface);
-        if (!view || !view->is_mapped())
+        if (!view || !view->is_mapped() || !output->activate_plugin(grab_interface))
             return;
-
-//        if (!view || view->destroyed || !output->activate_plugin(grab_interface, false))
- //           return;
 
         output->deactivate_plugin(grab_interface);
         view->get_output()->focus_view(view);

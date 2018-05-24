@@ -715,6 +715,10 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
     {
         count_other_inputs++;
 
+        GetTuple(gx, gy, core->get_cursor_position());
+        auto output = core->get_output_at(gx, gy);
+        core->focus_output(output);
+
         std::vector<button_callback*> callbacks;
 
         auto mod_state = get_modifiers();

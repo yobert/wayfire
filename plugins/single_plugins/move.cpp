@@ -127,6 +127,9 @@ class wayfire_move : public wayfire_plugin_t
                         view_movable(view))
                 return;
 
+            if (view->get_output() != output)
+                return;
+
             if (!output->activate_plugin(grab_interface))
                 return;
 
