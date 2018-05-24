@@ -234,7 +234,6 @@ class view_switcher : public wayfire_plugin_t
             assert(tr);
 
             tr->color = {0.6, 0.6, 0.6, 1.0};
-            tr->translation = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, -9));
             tr->scaling = glm::scale(glm::mat4(1.0f), glm::vec3(1, 1, 1));
         }
     }
