@@ -1021,25 +1021,109 @@ static wl_output_transform get_transform_from_string(std::string transform)
     return WL_OUTPUT_TRANSFORM_NORMAL;
 }
 
+std::pair<wlr_output_mode, bool> parse_output_mode(std::string modeline)
+{
+    wlr_output_mode mode;
+    mode.refresh = 60;
+
+    int read = std::sscanf(modeline.c_str(), "%d x %d @ %d", &mode.width, &mode.height, &mode.refresh);
+
+    if (mode.refresh < 1000)
+        mode.refresh *= 1000;
+
+    if (read < 2 || mode.width <= 0 || mode.height <= 0 || mode.refresh <= 0)
+        return {mode, false};
+
+    return {mode, true};
+}
+
+std::pair<wf_point, bool> parse_output_layout(std::string layout)
+{
+    wf_point pos;
+    int read = std::sscanf(layout.c_str(), "%d @ %d", &pos.x, &pos.y);
+
+    return {pos, read == 2};
+}
+
+wlr_output_mode *find_matching_mode(wlr_output *output, wlr_output_mode target)
+{
+    wlr_output_mode *mode;
+    wl_list_for_each(mode, &output->modes, link)
+    {
+        if (mode->width == target.width && mode->height == target.height &&
+            mode->refresh == target.refresh)
+            return mode;
+    }
+
+    return NULL;
+}
+
 wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
 {
     this->handle = handle;
+    auto section = c->get_section(handle->name);
 
-    if (wl_list_length(&handle->modes) > 0)
+
+    bool has_mode_set = false;
+    const auto default_mode = "default";
+    auto mode = section->get_string("mode", default_mode);
+
+    /* check whether we can use the custom mode requested by the user */
+    if (mode != default_mode)
+    {
+        auto target = parse_output_mode(mode);
+        if (!target.second)
+        {
+            log_error ("Invalid mode string for output %s", handle->name);
+        } else
+        {
+            auto built_in = find_matching_mode(handle, target.first);
+            if (built_in)
+            {
+                wlr_output_set_mode(handle, built_in);
+                has_mode_set = true;
+            } else
+            {
+                log_info("Couldn't find matching mode %dx%d@%d for output %s."
+                         "Trying to use custom mode (might not work).",
+                         target.first.width, target.first.height, target.first.refresh / 1000,
+                         handle->name);
+
+                has_mode_set = wlr_output_set_custom_mode(handle, target.first.width, target.first.height,
+                                                          target.first.refresh);
+            }
+        }
+    }
+
+    /* if we haven't set a custom mode, try to use a default one */
+    if (!has_mode_set && wl_list_length(&handle->modes) > 0)
     {
         struct wlr_output_mode *mode =                                                                                                      
             wl_container_of((&handle->modes)->prev, mode, link);
         wlr_output_set_mode(handle, mode);
+
+        has_mode_set = true;
     }
+
+    if (!has_mode_set)
+        log_error ("Couldn't set mode for output %s", handle->name);
+
 
     render = new render_manager(this);
 
-    auto section = c->get_section(handle->name);
     wlr_output_set_scale(handle, section->get_double("scale", 1));
     wlr_output_set_transform(handle,
                              get_transform_from_string(section->get_string("transform", "normal")));
 
-    wlr_output_layout_add_auto(core->output_layout, handle);
+    auto requested_layout = section->get_string("layout", "");
+    auto pos = parse_output_layout(requested_layout);
+    if (pos.second)
+    {
+        wlr_output_layout_add(core->output_layout, handle, pos.first.x, pos.first.y);
+    } else
+    {
+        wlr_output_layout_add_auto(core->output_layout, handle);
+    }
 
     core->set_default_cursor();
     plugin = new plugin_manager(this, c);
