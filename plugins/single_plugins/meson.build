@@ -11,3 +11,4 @@ switcher      = shared_module('switcher',      'switcher.cpp',      include_dire
 oswitch       = shared_module('oswitch',       'oswitch.cpp',       include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman], install: true, install_dir: 'lib/wayfire/')
 rotator       = shared_module('rotator',       'rotator.cpp',       include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman], install: true, install_dir: 'lib/wayfire/')
 apps_logger   = shared_module('apps-logger',   'apps-logger.cpp',   include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman], install: true, install_dir: 'lib/wayfire/')
+window_rules  = shared_module('window-rules',  'window-rules.cpp',  include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman], install: true, install_dir: 'lib/wayfire/')

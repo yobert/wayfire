@@ -4,6 +4,9 @@
 #include <cwctype>
 #include <cstdio>
 #include <signal-definitions.hpp>
+#include <assert.h>
+
+using std::string;
 
 /*
 rules syntax:
@@ -63,33 +66,28 @@ class wayfire_window_rules : public wayfire_plugin_t
     {
         {  [] (wayfire_view view, std::string match) -> bool
             {
-                auto c_title = weston_desktop_surface_get_title (view->desktop_surface);
-                std::string title = c_title ? c_title : "(null)";
+                auto title = view->get_title();
                 return title.find(match) != std::string::npos;
             },
             "title contains"
         },
         { [] (wayfire_view view, std::string match) -> bool
             {
-                auto c_title = weston_desktop_surface_get_title (view->desktop_surface);
-                std::string title = c_title ? c_title : "(null)";
+                auto title = view->get_title();
                 return title == match;
             },
             "title"
         },
         {  [] (wayfire_view view, std::string match) -> bool
             {
-                auto c_app_id = weston_desktop_surface_get_app_id (view->desktop_surface);
-                std::string app_id = c_app_id ? c_app_id : "(null)";
-
+                auto app_id = view->get_app_id();
                 return app_id.find(match) != std::string::npos;
             },
             "app-id contains"
         },
         {  [] (wayfire_view view, std::string match) -> bool
             {
-                auto c_app_id = weston_desktop_surface_get_app_id (view->desktop_surface);
-                std::string app_id = c_app_id ? c_app_id : "(null)";
+                auto app_id = view->get_app_id();
                 return app_id == match;
             },
             "app-id"
@@ -97,7 +95,7 @@ class wayfire_window_rules : public wayfire_plugin_t
     };
 
     std::vector<std::string> events = {
-        "created", "destroyed", "maximized", "fullscreened"
+        "created", "maximized", "fullscreened"
     };
 
     using action_func = std::function<void(wayfire_view view)>;
@@ -174,7 +172,7 @@ class wayfire_window_rules : public wayfire_plugin_t
                 return result;
 
             exec.action = [x,y] (wayfire_view view) {
-                auto og = view->output->get_full_geometry();
+                auto og = view->get_output()->get_relative_geometry();
                 view->move(og.x + x, og.y + y);
             };
         } else if (starts_with(action, "resize"))
@@ -186,7 +184,7 @@ class wayfire_window_rules : public wayfire_plugin_t
                 return result;
 
             exec.action = [w,h] (wayfire_view view) mutable {
-                GetTuple(sw, sh, view->output->get_screen_size());
+                GetTuple(sw, sh, view->get_output()->get_screen_size());
                 if (w > 100000)
                     w = sw;
                 if (h > 100000)
@@ -200,7 +198,7 @@ class wayfire_window_rules : public wayfire_plugin_t
                 view_maximized_signal data;
                 data.view = view;
                 data.state = starts_with(action, "set");
-                view->output->emit_signal("view-maximized-request", &data);
+                view->get_output()->emit_signal("view-maximized-request", &data);
             };
         }
 
@@ -211,7 +209,7 @@ class wayfire_window_rules : public wayfire_plugin_t
                 view_fullscreen_signal data;
                 data.view = view;
                 data.state = starts_with(action, "set");
-                view->output->emit_signal("view-fullscreen-request", &data);
+                view->get_output()->emit_signal("view-fullscreen-request", &data);
             };
         }
 
@@ -229,7 +227,7 @@ class wayfire_window_rules : public wayfire_plugin_t
         return result;
     }
 
-    signal_callback_t created, destroyed, maximized, fullscreened;
+    signal_callback_t created, maximized, fullscreened;
 
     std::map<std::string, std::vector<rule_func>> rules_list;
 
@@ -245,23 +243,10 @@ class wayfire_window_rules : public wayfire_plugin_t
 
         created = [=] (signal_data *data)
         {
-            auto conv = static_cast<create_view_signal*> (data);
-            assert(data);
-
             for (const auto& rule : rules_list["created"])
-                rule(conv->created_view);
+                rule(get_signaled_view(data));
         };
-        output->connect_signal("create-view", &created);
-
-        destroyed = [=] (signal_data *data)
-        {
-            auto conv = static_cast<destroy_view_signal*> (data);
-            assert(data);
-
-            for (const auto& rule : rules_list["destroyed"])
-                rule(conv->destroyed_view);
-        };
-        output->connect_signal("destroy-view", &destroyed);
+        output->connect_signal("map-view", &created);
 
         maximized = [=] (signal_data *data)
         {
