@@ -82,6 +82,10 @@ class wf_3D_view : public wf_view_transformer_t
                                         wlr_box scissor_box);
 };
 
+/* create a matrix which corresponds to the inverse of the given transform */
 glm::mat4 get_output_matrix_from_transform(wl_output_transform transform);
+
+/* a matrix which can be used to render wf_geometry directly */
+glm::mat4 output_get_projection(wayfire_output *output);
 
 #endif /* end of include guard: VIEW_TRANSFORM_HPP */

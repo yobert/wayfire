@@ -403,6 +403,8 @@ void render_manager::paint()
     /* TODO: perhaps we don't need to copy frame damage */
     pixman_region32_clear(&frame_damage);
 
+    run_effects(pre_effects);
+
     bool needs_swap;
     if (!output_damage->make_current(&frame_damage, needs_swap) || !needs_swap)
         if (!constant_redraw && false)
@@ -450,6 +452,8 @@ void render_manager::paint()
         }
     }
 
+    run_effects(output_effects);
+
     wlr_renderer_scissor(rr, NULL);
     wlr_renderer_end(rr);
 
@@ -473,7 +477,6 @@ void render_manager::paint()
 
 void render_manager::post_paint()
 {
-    run_effects();
     /*
     if (!renderer || draw_overlay_panel)
         render_panels();
@@ -510,10 +513,10 @@ void render_manager::post_paint()
     }
 }
 
-void render_manager::run_effects()
+void render_manager::run_effects(effect_container_t& container)
 {
     std::vector<effect_hook_t*> active_effects;
-    for (auto effect : output_effects)
+    for (auto effect : container)
         active_effects.push_back(effect);
 
     for (auto effect : active_effects)
@@ -537,6 +540,25 @@ void render_manager::rem_effect(const effect_hook_t *hook)
                              });
 
     output_effects.erase(it, output_effects.end());
+}
+
+void render_manager::add_pre_effect(effect_hook_t* hook)
+{
+    pre_effects.push_back(hook);
+}
+
+void render_manager::rem_pre_effect(const effect_hook_t *hook)
+{
+
+    auto it = std::remove_if(pre_effects.begin(), pre_effects.end(),
+                             [hook] (const effect_hook_t *h)
+                             {
+                                 if (h == hook)
+                                     return true;
+                                 return false;
+                             });
+
+    pre_effects.erase(it, pre_effects.end());
 }
 
 void render_manager::workspace_stream_start(wf_workspace_stream *stream)

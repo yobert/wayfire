@@ -2,14 +2,16 @@
 #include <linux/input-event-codes.h>
 
 #include "tree-definition.hpp"
-#include "signal-definitions.hpp"
+#include <signal-definitions.hpp>
 #include <output.hpp>
 #include <core.hpp>
 #include <opengl.hpp>
 #include <view.hpp>
+#include <view-transform.hpp>
+
 #include <render-manager.hpp>
 
-#include "../../shared/config.hpp"
+#include <config.hpp>
 #include "../single_plugins/view-change-viewport-signal.hpp"
 
 inline wf_tree_node* tile_node_from_view(const wayfire_view& view)
@@ -48,7 +50,7 @@ namespace wf_tiling
                 view_fullscreen_signal data;
                 data.view = root->view;
                 data.state = false;
-                root->view->output->emit_signal("view-fullscreen-request", &data);
+                root->view->get_output()->emit_signal("view-fullscreen-request", &data);
             }
         }
 
@@ -68,9 +70,9 @@ namespace wf_tiling
 
         if (make_fs)
         {
-            box = view->output->get_full_geometry();
-            GetTuple(vx, vy, view->output->workspace->get_current_workspace());
-            GetTuple(sw, sh, view->output->get_screen_size());
+            box = view->get_output()->get_full_geometry();
+            GetTuple(vx, vy, view->get_output()->workspace->get_current_workspace());
+            GetTuple(sw, sh, view->get_output()->get_screen_size());
 
             box.x += sw * vx;
             box.y += sh * vy;
@@ -90,7 +92,6 @@ namespace wf_tiling
         /* special case: there are no views */
         if (parent_node == root && root->children.empty() && !root->view)
         {
-            debug << "our case" << std::endl;
             root->set_content(view);
         } else
         {
@@ -249,7 +250,7 @@ class wayfire_tile : public wayfire_plugin_t
                       view_set_parent, view_fs_request, workarea_changed;
     key_callback select_view, maximize_view;
     button_callback resize_container;
-    effect_hook_t draw_selected;
+    effect_hook_t draw_selected, damage_selected;
 
     std::vector<std::vector<wf_tree_node>> root;
 
@@ -347,13 +348,14 @@ class wayfire_tile : public wayfire_plugin_t
         setup_grab_handlers();
 
         draw_selected = [=] () { draw_selection(); };
+        damage_selected = [=] () { output->render->damage(NULL); };
     }
 
     void setup_signals()
     {
         view_added = [=] (signal_data *data)
         {
-            auto view = static_cast<create_view_signal*>(data)->created_view;
+            auto view = get_signaled_view(data);
             if (!wf_tiling::is_floating_view(view))
             {
                 change_workspace();
@@ -364,7 +366,7 @@ class wayfire_tile : public wayfire_plugin_t
 
         view_removed = [=] (signal_data *data)
         {
-            auto view = static_cast<destroy_view_signal*>(data)->destroyed_view;
+            auto view = get_signaled_view(data);
             /* we remove special views before they've been created. as such they haven't been
              * added to the tree, and we can(must) ignore them */
             if (!wf_tiling::is_floating_view(view))
@@ -381,15 +383,14 @@ class wayfire_tile : public wayfire_plugin_t
 
         view_attached = [=] (signal_data *data)
         {
-            auto conv = static_cast<create_view_signal*> (data);
-            assert(conv);
+            auto view = get_signaled_view(data);
 
             /* already mapped view is attached to the output =>
              * it has been moved to this output */
-            if (conv->created_view->is_mapped && !wf_tiling::is_floating_view(conv->created_view))
+            if (view->is_mapped() && !wf_tiling::is_floating_view(view))
             {
                 change_workspace();
-                wf_tiling::add_view(conv->created_view, nullptr, SPLIT_HORIZONTAL);
+                wf_tiling::add_view(view, nullptr, SPLIT_HORIZONTAL);
             }
         };
         output->connect_signal("attach-view", &view_attached);
@@ -412,12 +413,11 @@ class wayfire_tile : public wayfire_plugin_t
 
         view_focused = [=] (signal_data *data)
         {
-            auto conv = static_cast<focus_view_signal*> (data);
-            assert(conv);
+            auto view = get_signaled_view(data);
 
-            if (wf_tiling::root->view && wf_tiling::root->children.size() && conv->focus
-                    && !wf_tiling::is_floating_view(conv->focus))
-                wf_tiling::maximize_view(conv->focus);
+            if (wf_tiling::root->view && wf_tiling::root->children.size() && view
+                    && !wf_tiling::is_floating_view(view))
+                wf_tiling::maximize_view(view);
         };
         output->connect_signal("focus-view", &view_focused);
 
@@ -472,7 +472,7 @@ class wayfire_tile : public wayfire_plugin_t
 
     void setup_bindings()
     {
-        select_view = [=] (weston_keyboard *kbd, uint32_t key)
+        select_view = [=] (uint32_t key)
         {
             auto view = output->get_top_view();
             stop_select_when_resize_done = false;
@@ -488,7 +488,7 @@ class wayfire_tile : public wayfire_plugin_t
         if (select_key.keyval)
             output->add_key(select_key.mod, select_key.keyval, &select_view);
 
-        maximize_view = [=] (weston_keyboard *kbd, uint32_t key)
+        maximize_view = [=] (uint32_t key)
         {
             if (wf_tiling::root->view && wf_tiling::root->children.size())
             {
@@ -502,14 +502,14 @@ class wayfire_tile : public wayfire_plugin_t
         };
 
         auto maximize_key = config->get_section("tile")->get_key("maximize",
-                {WLR_MODIFIER_SUPER, KEY_M});
+                {WLR_MODIFIER_LOGO, KEY_M});
         if (maximize_key.keyval)
             output->add_key(maximize_key.mod, maximize_key.keyval, &maximize_view);
 
-        resize_container = [=] (weston_pointer *ptr, uint32_t)
+        resize_container = [=] (uint32_t, int32_t x, int32_t y)
         {
-            last_x = wl_fixed_to_int(ptr->x);
-            last_y = wl_fixed_to_int(ptr->y);
+            last_x = x;
+            last_y = y;
 
             stop_select_when_resize_done = true;
             auto view = output->get_view_at_point(last_x, last_y);
@@ -522,27 +522,26 @@ class wayfire_tile : public wayfire_plugin_t
         };
 
         auto resize_key = config->get_section("tile")->get_button("resize",
-                {WLR_MODIFIER_SUPER, BTN_LEFT});
+                {WLR_MODIFIER_LOGO, BTN_LEFT});
         if (resize_key.button)
             output->add_button(resize_key.mod, resize_key.button, &resize_container);
     }
 
     void setup_grab_handlers()
     {
-        grab_interface->callbacks.keyboard.key = [=] (weston_keyboard *,
-                uint32_t key, uint32_t state)
+        grab_interface->callbacks.keyboard.key = [=] (uint32_t key, uint32_t state)
         {
-            if (state == WL_KEYBOARD_KEY_STATE_PRESSED)
+            if (state == WLR_KEY_PRESSED)
                 handle_action(key);
         };
 
-        grab_interface->callbacks.pointer.button = [=] (weston_pointer *ptr,
-                uint32_t button, uint32_t state)
+        grab_interface->callbacks.pointer.button = [=] (uint32_t button, uint32_t state)
         {
-            last_x = wl_fixed_to_int(ptr->x);
-            last_y = wl_fixed_to_int(ptr->y);
+            GetTuple(x, y, output->get_cursor_position());
+            last_x = x;
+            last_y = y;
 
-            if (state == WL_POINTER_BUTTON_STATE_PRESSED)
+            if (state == WLR_BUTTON_PRESSED)
             {
                 in_click = true;
 
@@ -567,10 +566,9 @@ class wayfire_tile : public wayfire_plugin_t
             }
         };
 
-        grab_interface->callbacks.pointer.motion = [=] (weston_pointer *ptr,
-                weston_pointer_motion_event *ev)
+        grab_interface->callbacks.pointer.motion = [=] (int x, int y)
         {
-            handle_input_motion(wl_fixed_to_int(ptr->x), wl_fixed_to_int(ptr->y));
+            handle_input_motion(x, y);
         };
     }
 
@@ -581,6 +579,18 @@ class wayfire_tile : public wayfire_plugin_t
         if (x == -1) std::tie(x, y) = output->workspace->get_current_workspace();
 
         wf_tiling::set_root(&root[x][y]);
+    }
+
+    wf_geometry get_current_selector_box()
+    {
+        auto box = wf_tiling::selector::get_selected_box();
+        GetTuple(vx, vy, output->workspace->get_current_workspace());
+        auto og = output->get_full_geometry();
+
+        box.x -= og.width * vx;
+        box.y -= og.height * vy;
+
+        return box;
     }
 
     GLuint colored_texture = -1;
@@ -609,14 +619,15 @@ class wayfire_tile : public wayfire_plugin_t
                         1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data));
         }
 
-        auto box = wf_tiling::selector::get_selected_box();
-        GetTuple(vx, vy, output->workspace->get_current_workspace());
-        auto og = output->get_full_geometry();
+        auto box = get_current_selector_box();
 
-        box.x -= og.x + og.width * vx;
-        box.y -= og.y + og.height * vy;
+        gl_geometry render_geometry;
+        render_geometry.x1 = box.x;
+        render_geometry.y1 = box.y;
+        render_geometry.x2 = box.x + box.width;
+        render_geometry.y2 = box.y + box.height;
 
-        OpenGL::render_transformed_texture(colored_texture, box, {});
+        OpenGL::render_transformed_texture(colored_texture, render_geometry, {}, output_get_projection(output));
     }
 
     void start_select_mode()
@@ -626,8 +637,7 @@ class wayfire_tile : public wayfire_plugin_t
 
         wf_tiling::unmaximize();
 
-        output->render->auto_redraw(1);
-        output->render->set_renderer();
+        output->render->add_pre_effect(&damage_selected);
         output->render->add_output_effect(&draw_selected);
 
         grab_interface->grab();
@@ -635,9 +645,10 @@ class wayfire_tile : public wayfire_plugin_t
 
     void stop_select_mode()
     {
-        output->render->auto_redraw(0);
-        output->render->reset_renderer();
+        output->render->rem_pre_effect(&damage_selected);
         output->render->rem_effect(&draw_selected);
+
+        damage_selected();
 
         output->deactivate_plugin(grab_interface);
         grab_interface->ungrab();
@@ -745,7 +756,6 @@ class wayfire_tile : public wayfire_plugin_t
                         wf_tiling::selector::node, type);
 
                 wf_tiling::rem_node(node);
-                debug << "stopping select mode" << std::endl;
             }
             stop_select_mode();
         } else if (key == action_map[SELECTOR_ACTION_CHANGE_SPLIT_TYPE])

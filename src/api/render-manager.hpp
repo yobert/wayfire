@@ -51,14 +51,16 @@ class render_manager
         wf_workspace_stream *current_ws_stream = nullptr;
 
         void get_ws_damage(std::tuple<int, int> ws, pixman_region32_t *out_damage);
-        std::vector<effect_hook_t*> output_effects;
+
+        using effect_container_t = std::vector<effect_hook_t*>;
+        effect_container_t output_effects, pre_effects;
 
         int constant_redraw = 0;
         render_hook_t renderer;
 
         void paint();
         void post_paint();
-        void run_effects();
+        void run_effects(effect_container_t&);
         void render_panels();
 
         void init_default_streams();
@@ -80,6 +82,9 @@ class render_manager
 
         void add_output_effect(effect_hook_t*);
         void rem_effect(const effect_hook_t*);
+
+        void add_pre_effect(effect_hook_t*);
+        void rem_pre_effect(const effect_hook_t*);
 
         void damage(const wlr_box& box);
         void damage(pixman_region32_t *region);

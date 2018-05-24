@@ -7,10 +7,11 @@
 #include <output.hpp>
 #include <workspace-manager.hpp>
 #include <debug.hpp>
+#include <assert.h>
 
 #define tile_data "__tile_data"
 
-#define debug_call(msg) debug << __func__ << ": " << msg << " at address " << this << std::endl
+#define debug_call(msg) log_info("%s : %s at address %p", __func__, msg, this);
 #define debug_scall debug_call("start")
 
 enum wf_split_type
@@ -27,11 +28,12 @@ struct wf_tile_view_data : public wf_custom_view_data
 
 void view_fit_to_box(wayfire_view view, wf_geometry box)
 {
-    GetTuple(vx, vy, view->output->workspace->get_current_workspace());
-    GetTuple(sw, sh, view->output->get_screen_size());
+    GetTuple(vx, vy, view->get_output()->workspace->get_current_workspace());
+    GetTuple(sw, sh, view->get_output()->get_screen_size());
 
     box.x -= sw * vx;
     box.y -= sh * vy;
+    view->set_maximized(true);
     view->set_geometry(box);
 }
 
@@ -57,8 +59,6 @@ struct wf_tree_node
     void recalculate_children_boxes(uint32_t recalculate = RECALC_ALL)
     {
         debug_scall;
-        debug << box.x << " " << box.y << " " << box.width << " " << box.height << " " << 
-            (view ? view->desktop_surface : 0) << std::endl;
         size_t size = children.size();
         for (size_t i = 0; i < size; i++)
         {
