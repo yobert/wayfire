@@ -36,38 +36,34 @@ void wayfire_focus::init(wayfire_config *)
     grab_interface->name = "_wf_focus";
     grab_interface->abilities_mask = WF_ABILITY_GRAB_INPUT;
 
-    callback = [=] (uint32_t button, int x, int y)
+    const auto check_focus_view = [=] (wayfire_surface_t *focus)
     {
-        wayfire_surface_t *focus = nullptr, *main_surface = nullptr;
-        wayfire_view view = nullptr;
-
-        if (!(focus = core->get_cursor_focus()) || !(main_surface = focus->get_main_surface()))
+        if (!focus)
             return;
 
-        view = core->find_view((wayfire_view_t*)main_surface);
-        if (!view || !view->is_mapped() || !output->activate_plugin(grab_interface))
+        auto main_surface = focus->get_main_surface();
+        wayfire_view view = nullptr;
+
+        if (!main_surface || !(view = core->find_view(main_surface)))
+            return;
+
+        if (!view->is_mapped() || !output->activate_plugin(grab_interface))
             return;
 
         output->deactivate_plugin(grab_interface);
         view->get_output()->focus_view(view);
     };
 
+    callback = [=] (uint32_t button, int x, int y)
+    {
+        check_focus_view(core->get_cursor_focus());
+    };
+
     output->add_button(0, BTN_LEFT, &callback);
 
     touch = [=] (int x, int y)
     {
-        wayfire_surface_t *focus = nullptr, *main_surface = nullptr;
-        wayfire_view view = nullptr;
-
-        if (!(focus = core->get_touch_focus()) || !(main_surface = focus->get_main_surface()))
-            return;
-
-        view = core->find_view((wayfire_view_t*)main_surface);
-        if (!view || !view->is_mapped() || !output->activate_plugin(grab_interface))
-            return;
-
-        output->deactivate_plugin(grab_interface);
-        view->get_output()->focus_view(view);
+        check_focus_view(core->get_touch_focus());
     };
 
     output->add_touch(0, &touch);

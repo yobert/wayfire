@@ -1358,14 +1358,17 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
 
 void wayfire_output::focus_view(wayfire_view v, wlr_seat *seat)
 {
-    if (v && v->is_mapped() && v->get_keyboard_focus_surface())
+    if (v && v->is_mapped())
     {
-        set_active_view(v, seat);
-        bring_to_front(v);
+        if (v->get_keyboard_focus_surface())
+        {
+            set_active_view(v, seat);
+            bring_to_front(v);
 
-        focus_view_signal data;
-        data.view = v;
-        emit_signal("focus-view", &data);
+            focus_view_signal data;
+            data.view = v;
+            emit_signal("focus-view", &data);
+        }
     }
     else
     {
