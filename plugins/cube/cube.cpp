@@ -198,7 +198,7 @@ class wayfire_cube : public wayfire_plugin_t {
 #endif
 
             GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
-            vh = 0; /* silence compiler warning */
+            (void) vh;
 
             streams.resize(vw);
 

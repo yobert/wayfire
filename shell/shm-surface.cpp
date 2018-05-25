@@ -225,7 +225,7 @@ cairo_surface_t * create_shm_surface_from_pool(void *none, rectangle *rectangle,
     void *map = shm_pool_allocate(pool, length, &offset);
 
     if (!map) {
-        free(data);
+        delete data;
         return NULL;
     }
 

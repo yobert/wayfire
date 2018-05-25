@@ -201,7 +201,7 @@ wayfire_config::wayfire_config(string name, int rr)
 #endif
 
     refresh_rate = rr;
-    wayfire_config_section *current_section;
+    wayfire_config_section *current_section = NULL;
 
     lines_t lines;
     while(std::getline(file, line))
@@ -221,6 +221,15 @@ wayfire_config::wayfire_config(string name, int rr)
             current_section->refresh_rate = rr;
             current_section->name = line.substr(1, line.size() - 2);
             sections.push_back(current_section);
+            continue;
+        }
+
+        if (!current_section)
+        {
+
+#ifdef WAYFIRE_DEBUG_ENABLED
+            out << "config option outside of a config section!" << std::endl;
+#endif
             continue;
         }
 
