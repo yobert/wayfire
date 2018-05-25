@@ -1378,7 +1378,7 @@ void wayfire_core::init(wayfire_config *conf)
     device_config::load(conf);
 
     protocols.data_device = wlr_data_device_manager_create(display);
-    wlr_renderer_init_wl_shm(renderer, display);
+    wlr_renderer_init_wl_display(renderer, display);
 
     output_layout = wlr_output_layout_create();
     core->compositor = wlr_compositor_create(display, wlr_backend_get_renderer(backend));
