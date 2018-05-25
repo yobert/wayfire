@@ -16,6 +16,11 @@ extern "C"
 #include <wlr/backend/session.h>
 #include <wlr/backend/multi.h>
 #include <wlr/types/wlr_screenshooter.h>
+#include <wlr/types/wlr_data_device.h>
+#include <wlr/types/wlr_linux_dmabuf.h>
+#include <wlr/types/wlr_gamma_control.h>
+#include <wlr/types/wlr_xdg_output.h>
+#include <wlr/types/wlr_seat.h>
 }
 
 #include "core.hpp"
@@ -1372,7 +1377,7 @@ void wayfire_core::init(wayfire_config *conf)
     configure(conf);
     device_config::load(conf);
 
-    data_device_manager = wlr_data_device_manager_create(display);
+    protocols.data_device = wlr_data_device_manager_create(display);
     wlr_renderer_init_wl_shm(renderer, display);
 
     output_layout = wlr_output_layout_create();
@@ -1380,7 +1385,10 @@ void wayfire_core::init(wayfire_config *conf)
     init_desktop_apis();
     input = new input_manager();
 
-    wlr_screenshooter_create(display);
+    protocols.screenshooter = wlr_screenshooter_create(display);
+    protocols.gamma = wlr_gamma_control_manager_create(display);
+    protocols.linux_dmabuf = wlr_linux_dmabuf_create(display, renderer);
+    protocols.output_manager = wlr_xdg_output_manager_create(display, output_layout);
 
 #ifdef BUILD_WITH_IMAGEIO
     image_io::init();

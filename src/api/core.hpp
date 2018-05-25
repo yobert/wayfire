@@ -16,7 +16,12 @@ extern "C"
 #include <wlr/types/wlr_compositor.h>
 #undef static
 
-#include <wlr/types/wlr_data_device.h>
+struct wlr_data_device_manager;
+struct wlr_linux_dmabuf;
+struct wlr_gamma_control_manager;
+struct wlr_screenshooter;
+struct wlr_xdg_output_manager;
+
 #include <wayland-server.h>
 }
 
@@ -63,7 +68,15 @@ class wayfire_core
         wlr_renderer *renderer;
         wlr_output_layout *output_layout;
         wlr_compositor *compositor;
-        wlr_data_device_manager *data_device_manager;
+
+        struct
+        {
+            wlr_data_device_manager *data_device;
+            wlr_gamma_control_manager *gamma;
+            wlr_screenshooter *screenshooter;
+            wlr_linux_dmabuf *linux_dmabuf;
+            wlr_xdg_output_manager *output_manager;
+        } protocols;
 
 
         std::string wayland_display, xwayland_display;

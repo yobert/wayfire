@@ -13,6 +13,8 @@ extern "C"
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xcursor_manager.h>
+
+struct wlr_drag_icon;
 }
 
 
