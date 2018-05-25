@@ -237,6 +237,9 @@ class wayfire_expo : public wayfire_plugin_t
         output->bring_to_front(moving_view);
 
         moving_view->set_moving(true);
+
+        if (moving_view->fullscreen)
+            moving_view->fullscreen_request(moving_view->get_output(), false);
     }
 
     void end_move()

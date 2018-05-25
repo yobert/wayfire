@@ -1,11 +1,10 @@
 #ifndef VIEW_CHANGE_VIEWPORT_CPP
 #define VIEW_CHANGE_VIEWPORT_CPP
 
-#include <view.hpp>
+#include <signal-definitions.hpp>
 
-struct view_change_viewport_signal : public signal_data
+struct view_change_viewport_signal : public _view_signal
 {
-    wayfire_view view;
     std::tuple<int, int> from, to;
 };
 

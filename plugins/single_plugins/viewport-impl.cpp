@@ -58,7 +58,8 @@ class viewport_manager : public workspace_manager
         inline int layer_index_from_mask(uint32_t layer_mask) const
         { return __builtin_ctz(layer_mask); }
 
-        signal_callback_t adjust_fullscreen_layer, view_detached;
+        signal_callback_t adjust_fullscreen_layer, view_detached,
+                          view_changed_viewport;
 
         struct {
             int top_padding;
@@ -133,9 +134,15 @@ void viewport_manager::init(wayfire_output *o)
         check_lower_panel_layer(0);
     };
 
+    view_changed_viewport = [=] (signal_data *data)
+    {
+        check_lower_panel_layer(0);
+    };
+
     o->connect_signal("view-fullscreen-request", &adjust_fullscreen_layer);
     o->connect_signal("attach-view", &view_detached);
     o->connect_signal("detach-view", &view_detached);
+    o->connect_signal("view-change-viewport", &view_changed_viewport);
 }
 
 viewport_manager::~viewport_manager()
