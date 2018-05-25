@@ -846,6 +846,14 @@ void wayfire_view_t::set_transformer(std::unique_ptr<wf_view_transformer_t> tran
     transform = std::move(transformer);
 }
 
+static void emit_view_map(wayfire_view view)
+{
+    /* TODO: consider not emitting a create-view for special surfaces */
+    map_view_signal data;
+    data.view = view;
+    view->get_output()->emit_signal("map-view", &data);
+}
+
 void wayfire_view_t::map(wlr_surface *surface)
 {
     wayfire_surface_t::map(surface);
@@ -866,21 +874,21 @@ void wayfire_view_t::map(wlr_surface *surface)
         output->focus_view(self());
     }
 
-    /* TODO: consider not emitting a create-view for special surfaces */
-    map_view_signal data;
-    data.view = self();
-    output->emit_signal("map-view", &data);
+    emit_view_map(self());
+}
+
+static void emit_view_unmap(wayfire_view view)
+{
+    unmap_view_signal data;
+    data.view = view;
+    view->get_output()->emit_signal("unmap-view", &data);
 }
 
 void wayfire_view_t::unmap()
 {
     log_info("unmap %s %s %p", get_title().c_str(), get_app_id().c_str(), this);
     if (output)
-    {
-        unmap_view_signal data;
-        data.view = self();
-        output->emit_signal("unmap-view", &data);
-    }
+        emit_view_unmap(self());
 
     wayfire_surface_t::unmap();
     if (decoration)
@@ -1600,6 +1608,9 @@ class wayfire_xwayland_view : public wayfire_view_t
 
         if (xw->fullscreen)
             fullscreen_request(output, true);
+
+        if (xw->override_redirect)
+            output->workspace->add_view_to_layer(self(), WF_LAYER_XWAYLAND);
     }
 
     bool is_subsurface() { return false; }
@@ -1723,12 +1734,20 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
         damage();
 
         output->workspace->add_view_to_layer(self(), WF_LAYER_XWAYLAND);
+
+        if (!wlr_xwayland_surface_is_unmanaged(xw))
+        {
+            emit_view_map(self());
+            output->focus_view(self());
+        }
     }
 
     void unmap()
     {
+        if (!wlr_xwayland_surface_is_unmanaged(xw))
+            emit_view_unmap(self());
+
         wayfire_surface_t::unmap();
-        output->workspace->add_view_to_layer(self(), 0);
     }
 
     void activate(bool active)
