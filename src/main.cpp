@@ -7,6 +7,7 @@
 
 extern "C"
 {
+#include <wlr/render/gles2.h>
 #include <wlr/backend/multi.h>
 #include <wlr/backend/wayland.h>
 #include <wlr/util/log.h>
@@ -29,6 +30,46 @@ void compositor_wake_cb (wl_listener*, void*)
 
 void compositor_sleep_cb (wl_listener*, void*)
 {
+}
+
+static const EGLint default_attribs[] =
+{
+    EGL_RED_SIZE, 1,
+    EGL_GREEN_SIZE, 1,
+    EGL_BLUE_SIZE, 1,
+    EGL_ALPHA_SIZE, 1,
+    EGL_DEPTH_SIZE, 1,
+    EGL_NONE
+};
+
+wlr_renderer *add_egl_depth_renderer(wlr_egl *egl, EGLenum platform,
+                                     void *remote, EGLint *attr, EGLint visual)
+{
+    bool r;
+    if (!attr)
+    {
+        r = wlr_egl_init(egl, platform,
+                          remote, (EGLint*) default_attribs, visual);
+    } else
+    {
+        r = wlr_egl_init(egl, platform, remote, attr, visual);
+    }
+
+    if (!r)
+    {
+        log_error ("Failed to initialize EGL");
+        return NULL;
+    }
+
+    auto renderer = wlr_gles2_renderer_create(egl);
+    if (!renderer)
+    {
+        log_error ("Failed to create GLES2 renderer");
+        wlr_egl_finish(egl);
+        return NULL;
+    }
+
+    return renderer;
 }
 
 int main(int argc, char *argv[])
@@ -73,7 +114,7 @@ int main(int argc, char *argv[])
     core = new wayfire_core();
     core->display  = wl_display_create();
     core->ev_loop  = wl_display_get_event_loop(core->display);
-    core->backend  = wlr_backend_autocreate(core->display);
+    core->backend  = wlr_backend_autocreate(core->display, add_egl_depth_renderer);
     core->renderer = wlr_backend_get_renderer(core->backend);
 
     /*
