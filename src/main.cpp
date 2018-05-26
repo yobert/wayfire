@@ -17,7 +17,7 @@ extern "C"
 }
 
 #include <wayland-server.h>
-#include "desktop-api.hpp"
+#include "view/priv-view.hpp"
 
 #include "api/core.hpp"
 
@@ -141,15 +141,6 @@ int main(int argc, char *argv[])
     core->backend  = wlr_backend_autocreate(core->display, add_egl_depth_renderer);
     core->renderer = wlr_backend_get_renderer(core->backend);
 
-    /*
-    auto ec = weston_compositor_create(display, NULL);
-
-    crash_compositor = ec;
-    ec->default_pointer_grab = NULL;
-    ec->vt_switching = true;
-    */
-
-
     log_info("using config file: %s", config_file.c_str());
     core->config = new wayfire_config(config_file);
 
@@ -159,7 +150,6 @@ int main(int argc, char *argv[])
     wl_event_loop_add_fd(core->ev_loop, inotify_fd, WL_EVENT_READABLE, handle_config_updated, NULL);
 
     /*
-    ec->repaint_msec = config->get_section("core")->get_int("repaint_msec", 16);
     ec->idle_time = config->get_section("core")->get_int("idle_time", 300);
     */
     core->init(core->config);
@@ -187,24 +177,11 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    log_info ("runnign at server %s", server_name);
+    log_info ("running at server %s", server_name);
     setenv("WAYLAND_DISPLAY", server_name, 1);
 
-    wlr_xwayland_set_seat(core->api->xwayland, core->get_current_seat());
-
-//    load_xwayland(ec);
-
-    /*
-    auto desktop = weston_desktop_create(ec, &desktop_api, NULL);
-    if (!desktop)
-    {
-        errio << "Failed to create weston_desktop" << std::endl;
-        return -1;
-    } */
-
+    xwayland_set_seat(core->get_current_seat());
     core->wake();
-
-    //weston_compositor_wake(ec);
 
     wl_display_run(core->display);
     wl_display_destroy(core->display);
