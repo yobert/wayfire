@@ -457,34 +457,28 @@ class wayfire_expo : public wayfire_plugin_t
 
         zoom_target.off_x   = {-mf_x, ((target_vx - center_w) * 2.f + 1.f) / vw + diff_w};
         zoom_target.off_y   = { mf_y, ((center_h - target_vy) * 2.f - 1.f) / vh - diff_h};
+
+        if (!zoom_in)
+        {
+            std::swap(zoom_target.scale_x.begin, zoom_target.scale_x.end);
+            std::swap(zoom_target.scale_y.begin, zoom_target.scale_y.end);
+            std::swap(zoom_target.off_x.begin, zoom_target.off_x.end);
+            std::swap(zoom_target.off_y.begin, zoom_target.off_y.end);
+        }
     }
 
     void update_zoom()
     {
-        if (state.zoom_in)
-        {
-            render_params.scale_x = GetProgress(zoom_target.scale_x.end,
-                    zoom_target.scale_x.begin, zoom_target.steps, max_steps);
-            render_params.scale_y = GetProgress(zoom_target.scale_y.end,
-                    zoom_target.scale_y.begin, zoom_target.steps, max_steps);
-            render_params.off_x = GetProgress(zoom_target.off_x.end,
-                    zoom_target.off_x.begin, zoom_target.steps, max_steps);
-            render_params.off_y = GetProgress(zoom_target.off_y.end,
-                    zoom_target.off_y.begin, zoom_target.steps, max_steps);
-        } else
-        {
-            render_params.scale_x = GetProgress(zoom_target.scale_x.begin,
-                    zoom_target.scale_x.end, zoom_target.steps, max_steps);
-            render_params.scale_y = GetProgress(zoom_target.scale_y.begin,
-                    zoom_target.scale_y.end, zoom_target.steps, max_steps);
-            render_params.off_x = GetProgress(zoom_target.off_x.begin,
-                    zoom_target.off_x.end, zoom_target.steps, max_steps);
-            render_params.off_y = GetProgress(zoom_target.off_y.begin,
-                    zoom_target.off_y.end, zoom_target.steps, max_steps);
-        }
+        render_params.scale_x = GetProgress(zoom_target.scale_x.begin,
+                zoom_target.scale_x.end, zoom_target.steps, max_steps);
+        render_params.scale_y = GetProgress(zoom_target.scale_y.begin,
+                zoom_target.scale_y.end, zoom_target.steps, max_steps);
+        render_params.off_x = GetProgress(zoom_target.off_x.begin,
+                zoom_target.off_x.end, zoom_target.steps, max_steps);
+        render_params.off_y = GetProgress(zoom_target.off_y.begin,
+                zoom_target.off_y.end, zoom_target.steps, max_steps);
 
         zoom_target.steps++;
-
         if (zoom_target.steps == max_steps + 1)
         {
             state.in_zoom = false;
