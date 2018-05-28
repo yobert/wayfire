@@ -357,11 +357,11 @@ wf_geometry viewport_manager::calculate_anchored_geometry(const anchored_area& a
     if (area.edge <= WORKSPACE_ANCHORED_EDGE_BOTTOM)
     {
         target.width = wa.width;
-        target.height = area.size;
+        target.height = area.real_size;
     } else
     {
         target.height = wa.height;
-        target.width = area.size;
+        target.width = area.real_size;
     }
 
     target.x = wa.x;
@@ -395,7 +395,6 @@ void viewport_manager::reflow_reserved_areas()
     auto old_workarea = current_workarea;
 
     current_workarea = output->get_relative_geometry();
-
     for (auto a : anchors)
     {
         auto anchor_area = calculate_anchored_geometry(*a);
@@ -406,16 +405,14 @@ void viewport_manager::reflow_reserved_areas()
         switch(a->edge)
         {
             case WORKSPACE_ANCHORED_EDGE_TOP:
-                current_workarea.y += a->size;
+                current_workarea.y += a->reserved_size;
+            case WORKSPACE_ANCHORED_EDGE_BOTTOM: // fallthrough
+                current_workarea.height -= a->reserved_size;
                 break;
-            case WORKSPACE_ANCHORED_EDGE_BOTTOM:
-                current_workarea.height -= a->size;
-                break;
-            case WORKSPACE_ANCHORED_EDGE_LEFT:
-                current_workarea.x += a->size;
-                break;
+            case WORKSPACE_ANCHORED_EDGE_LEFT: // fallthrough
+                current_workarea.x += a->reserved_size;
             case WORKSPACE_ANCHORED_EDGE_RIGHT:
-                current_workarea.width -= a->size;
+                current_workarea.width -= a->reserved_size;
                 break;
         }
     }
