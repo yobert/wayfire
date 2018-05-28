@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 #include <cstring>
 #include <cassert>
 #include <time.h>
@@ -1742,6 +1743,10 @@ void wayfire_core::run(const char *command)
             setenv("WAYLAND_DISPLAY", wayland_display.c_str(), 1);
             auto xdisp = ":" + std::to_string(api->xwayland->display);
             setenv("DISPLAY", xdisp.c_str(), 1);
+
+            int dev_null = open("/dev/null", O_WRONLY);
+            dup2(dev_null, 1);
+            dup2(dev_null, 2);
 
             exit(execl("/bin/sh", "/bin/bash", "-c", command, NULL));
         } else {
