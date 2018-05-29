@@ -1,4 +1,3 @@
-#include <config.hpp>
 #include <view.hpp>
 #include <debug.hpp>
 #include <output.hpp>

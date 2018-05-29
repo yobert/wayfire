@@ -3,7 +3,7 @@
 #include <getopt.h>
 
 #include "debug-func.hpp"
-#include "config.hpp"
+#include <wayfire/config.hpp>
 
 extern "C"
 {
@@ -127,13 +127,12 @@ int main(int argc, char *argv[])
 
 
     log_info("using config file: %s", config_file.c_str());
-    wayfire_config *config = new wayfire_config(config_file, -1);
+    wayfire_config *config = new wayfire_config(config_file);
 
     /*
     ec->repaint_msec = config->get_section("core")->get_int("repaint_msec", 16);
     ec->idle_time = config->get_section("core")->get_int("idle_time", 300);
     */
-    config->set_refresh_rate(60);
     core->init(config);
 
     auto server_name = wl_display_add_socket_auto(core->display);

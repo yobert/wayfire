@@ -7,7 +7,7 @@
 #include <queue>
 #include <linux/input.h>
 #include <utility>
-#include "config.hpp"
+#include <wayfire/animation.hpp>
 #include "view-change-viewport-signal.hpp"
 
 
@@ -28,9 +28,13 @@ class vswitch : public wayfire_plugin_t
         touch_gesture_callback gesture_cb;
 
         std::queue<switch_direction> dirs; // series of moves we have to do
-        int current_step = 0, max_step;
+
+        wf_duration duration;
+        wf_option animation_duration;
+
         bool running = false;
         effect_hook_t hook;
+
     public:
 
     void init(wayfire_config *config) {
@@ -48,33 +52,33 @@ class vswitch : public wayfire_plugin_t
         callback_win_down = [=] (uint32_t) { add_direction(0, 1, output->get_top_view()); };
 
         auto section   = config->get_section("vswitch");
-        auto key_left  = section->get_key("binding_left",  {WLR_MODIFIER_LOGO, KEY_LEFT});
-        auto key_right = section->get_key("binding_right", {WLR_MODIFIER_LOGO, KEY_RIGHT});
-        auto key_up    = section->get_key("binding_up",    {WLR_MODIFIER_LOGO, KEY_UP});
-        auto key_down  = section->get_key("binding_down",  {WLR_MODIFIER_LOGO, KEY_DOWN});
+        auto key_left  = section->get_option("binding_left",  "<super> KEY_LEFT");
+        auto key_right = section->get_option("binding_right", "<super> KEY_RIGHT");
+        auto key_up    = section->get_option("binding_up",    "<super> KEY_UP");
+        auto key_down  = section->get_option("binding_down",  "<super> KEY_DOWN");
 
-        auto key_win_left  = section->get_key("binding_win_left",  {WLR_MODIFIER_LOGO | WLR_MODIFIER_SHIFT, KEY_LEFT});
-        auto key_win_right = section->get_key("binding_win_right", {WLR_MODIFIER_LOGO | WLR_MODIFIER_SHIFT, KEY_RIGHT});
-        auto key_win_up    = section->get_key("binding_win_up",    {WLR_MODIFIER_LOGO | WLR_MODIFIER_SHIFT, KEY_UP});
-        auto key_win_down  = section->get_key("binding_win_down",  {WLR_MODIFIER_LOGO | WLR_MODIFIER_SHIFT, KEY_DOWN});
+        auto key_win_left  = section->get_option("binding_win_left",  "<super> <shift> KEY_LEFT");
+        auto key_win_right = section->get_option("binding_win_right", "<super> <shift> KEY_RIGHT");
+        auto key_win_up    = section->get_option("binding_win_up",    "<super> <shift> KEY_UP");
+        auto key_win_down  = section->get_option("binding_win_down",  "<super> <shift> KEY_DOWN");
 
-        if (key_left.valid())
-            output->add_key(key_left.mod,  key_left.keyval,  &callback_left);
-        if (key_right.valid())
-            output->add_key(key_right.mod, key_right.keyval, &callback_right);
-        if (key_up.valid())
-            output->add_key(key_up.mod,    key_up.keyval,    &callback_up);
-        if (key_down.valid())
-            output->add_key(key_down.mod,  key_down.keyval,  &callback_down);
+        if (key_left->as_key().valid())
+            output->add_key(key_left,  &callback_left);
+        if (key_right->as_key().valid())
+            output->add_key(key_right, &callback_right);
+        if (key_up->as_key().valid())
+            output->add_key(key_up, &callback_up);
+        if (key_down->as_key().valid())
+            output->add_key(key_down, &callback_down);
 
-        if (key_win_left.valid())
-            output->add_key(key_win_left.mod,  key_win_left.keyval,  &callback_win_left);
-        if (key_win_right.valid())
-            output->add_key(key_win_right.mod, key_win_right.keyval, &callback_win_right);
-        if (key_win_up.valid())
-            output->add_key(key_win_up.mod,    key_win_up.keyval,    &callback_win_up);
-        if (key_win_down.valid())
-            output->add_key(key_win_down.mod,  key_win_down.keyval,  &callback_win_down);
+        if (key_win_left->as_key().valid())
+            output->add_key(key_win_left, &callback_win_left);
+        if (key_win_right->as_key().valid())
+            output->add_key(key_win_right, &callback_win_right);
+        if (key_win_up->as_key().valid())
+            output->add_key(key_win_up, &callback_win_up);
+        if (key_win_down->as_key().valid())
+            output->add_key(key_win_down, &callback_win_down);
 
         wayfire_touch_gesture activation_gesture;
         activation_gesture.finger_count = 4;
@@ -92,7 +96,8 @@ class vswitch : public wayfire_plugin_t
         };
         output->add_gesture(activation_gesture, &gesture_cb);
 
-        max_step = section->get_duration("duration", 15);
+        animation_duration = section->get_option("duration", "180");
+        duration = wf_duration(animation_duration);
         hook = std::bind(std::mem_fn(&vswitch::slide_update), this);
     }
 
@@ -119,17 +124,12 @@ class vswitch : public wayfire_plugin_t
 
     void slide_update()
     {
-        ++current_step;
-        float dx = GetProgress(sx, tx, current_step, max_step);
-        float dy = GetProgress(sy, ty, current_step, max_step);
-
+        float dx = duration.progress(sx, tx);
+        float dy = duration.progress(sy, ty);
         for (auto v : views)
-        {
-            log_info("move view %f %f", v.ox + dx, v.oy + dy);
             v.v->move(v.ox + dx, v.oy + dy);
-        }
 
-        if (current_step == max_step)
+        if (!duration.running())
             slide_done();
     }
 
@@ -175,7 +175,7 @@ class vswitch : public wayfire_plugin_t
             return;
         }
 
-        current_step = 0;
+        duration.start();
         dx = dirs.front().dx, dy = dirs.front().dy;
         wayfire_view static_view = front.view;
 
@@ -206,8 +206,6 @@ class vswitch : public wayfire_plugin_t
         for (auto view : views_to_move) {
             if (view->is_mapped() && !view->destroyed && view != static_view)
             {
-                log_info("found move view");
-
                 view->set_moving(true);
                 views.push_back({view, view->get_wm_geometry().x, view->get_wm_geometry().y});
             }

@@ -142,12 +142,11 @@ class input_manager
 
         void check_touch_bindings(int32_t x, int32_t y);
 
-        int  add_key(uint32_t mod, uint32_t key, key_callback *, wayfire_output *output);
+        int  add_key(wf_option, key_callback *, wayfire_output *output);
         void rem_key(int);
         void rem_key(key_callback *callback);
 
-        int  add_button(uint32_t mod, uint32_t button,
-                        button_callback *, wayfire_output *output);
+        int  add_button(wf_option, button_callback *, wayfire_output *output);
         void rem_button(int);
         void rem_button(button_callback *callback);
 

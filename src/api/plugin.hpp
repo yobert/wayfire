@@ -11,7 +11,7 @@ extern "C"
 
 #include <functional>
 #include <memory>
-#include "config.hpp"
+#include <wayfire/config.hpp>
 
 /* when creating a signal there should be the definition of the derived class */
 struct signal_data { };
@@ -152,6 +152,4 @@ using render_hook_t = std::function<void()>;
 
 #define GetTuple(x,y,t) auto x = std::get<0>(t); \
                         auto y = std::get<1>(t)
-
-float GetProgress(float start, float end, float current_step, float max_steps);
 #endif

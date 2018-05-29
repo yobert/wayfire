@@ -38,7 +38,6 @@ extern "C"
 #endif
 
 #include "signal-definitions.hpp"
-#include "../shared/config.hpp"
 #include "wayfire-shell-protocol.h"
 
 
@@ -451,19 +450,18 @@ struct wf_callback
 {
     int id;
     wayfire_output *output;
-    uint32_t mod;
 };
 
 struct key_callback_data : wf_callback
 {
     key_callback *call;
-    uint32_t key;
+    wf_option key;
 };
 
 struct button_callback_data : wf_callback
 {
     button_callback *call;
-    uint32_t button;
+    wf_option button;
 };
 
 /* TODO: inhibit idle */
@@ -644,8 +642,9 @@ std::vector<key_callback*> input_manager::match_keys(uint32_t mod_state, uint32_
     for (auto& pair : key_bindings)
     {
         auto& binding = pair.second;
+        const auto keyb = binding->key->as_cached_key();
         if (binding->output == core->get_active_output() &&
-            mod_state == binding->mod && key == binding->key)
+            mod_state == keyb.mod && key == keyb.keyval)
             callbacks.push_back(binding->call);
     }
 
@@ -733,8 +732,9 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         for (auto& pair : button_bindings)
         {
             auto& binding = pair.second;
+            const auto button = binding->button->as_cached_button();
             if (binding->output == core->get_active_output() &&
-                mod_state == binding->mod && ev->button == binding->button)
+                mod_state == button.mod && ev->button == button.button)
                 callbacks.push_back(binding->call);
         }
 
@@ -836,9 +836,9 @@ bool input_manager::is_touch_enabled()
 /* TODO: possibly add more input options which aren't available right now */
 namespace device_config
 {
-    bool touchpad_tap_enabled;
-    bool touchpad_dwl_enabled;
-    bool touchpad_natural_scroll_enabled;
+    int touchpad_tap_enabled;
+    int touchpad_dwl_enabled;
+    int touchpad_natural_scroll_enabled;
 
     std::string drm_device;
 
@@ -848,12 +848,12 @@ namespace device_config
     {
         config = conf;
 
-        auto section = config->get_section("input");
-        touchpad_tap_enabled = section->get_int("tap_to_click", 1);
-        touchpad_dwl_enabled = section->get_int("disable_while_typing", 1);
-        touchpad_natural_scroll_enabled = section->get_int("natural_scroll", 0);
+        auto section = (*config)["input"];
+        touchpad_tap_enabled            = *section->get_option("tap_to_click", "1");
+        touchpad_dwl_enabled            = *section->get_option("disable_while_typing", "0");
+        touchpad_natural_scroll_enabled = *section->get_option("naturall_scroll", "0");
 
-        drm_device = config->get_section("core")->get_string("drm_device", "default");
+        drm_device = (*config)["core"]->get_option("drm_device", "default")->raw_value;
     }
 }
 
@@ -911,11 +911,11 @@ wf_keyboard::wf_keyboard(wlr_input_device *dev, wayfire_config *config)
 
     auto section = config->get_section("input");
 
-    std::string model   = section->get_string("xkb_model", "");
-    std::string variant = section->get_string("xkb_variant", "");
-    std::string layout  = section->get_string("xkb_layout", "");
-    std::string options = section->get_string("xkb_option", "");
-    std::string rules   = section->get_string("xkb_rule", "");
+    std::string model   = *section->get_option("xkb_model", "");
+    std::string variant = *section->get_option("xkb_variant", "");
+    std::string layout  = *section->get_option("xkb_layout", "");
+    std::string options = *section->get_option("xkb_option", "");
+    std::string rules   = *section->get_option("xkb_rule", "");
 
     xkb_rule_names names;
     names.rules   = strdup(rules.c_str());
@@ -930,8 +930,8 @@ wf_keyboard::wf_keyboard(wlr_input_device *dev, wayfire_config *config)
     xkb_keymap_unref(keymap);
     xkb_context_unref(ctx);
 
-    int repeat_rate  = section->get_int("kb_repeat_rate", 40);
-    int repeat_delay = section->get_int("kb_repeat_delay", 400);
+    int repeat_rate  = *section->get_option("kb_repeat_rate", "40");
+    int repeat_delay = *section->get_option("kb_repeat_delay", "400");
     wlr_keyboard_set_repeat_info(dev->keyboard, repeat_rate, repeat_delay);
 
     key.notify      = handle_keyboard_key_cb;
@@ -974,7 +974,7 @@ void input_manager::handle_new_input(wlr_input_device *dev)
         configure_input_device(wlr_libinput_get_device_handle(dev));
 
     auto section = core->config->get_section(nonull(dev->name));
-    auto mapped_output = section->get_string("output", nonull(dev->output_name));
+    auto mapped_output = section->get_option("output", nonull(dev->output_name))->raw_value;
 
     auto wo = core->get_output(mapped_output);
     if (wo)
@@ -1150,14 +1150,12 @@ void input_manager::toggle_session()
 }
 static int _last_id = 0;
 
-int input_manager::add_key(uint32_t mod, uint32_t key,
-                                key_callback *call, wayfire_output *output)
+int input_manager::add_key(wf_option option, key_callback *call, wayfire_output *output)
 {
     auto kcd = new key_callback_data;
     kcd->call = call;
     kcd->output = output;
-    kcd->mod = mod;
-    kcd->key = key;
+    kcd->key = option;
     kcd->id = ++_last_id;
 
     key_bindings[_last_id] = kcd;
@@ -1189,14 +1187,12 @@ void input_manager::rem_key(key_callback *cb)
     }
 }
 
-int input_manager::add_button(uint32_t mod, uint32_t button,
-                                button_callback *call, wayfire_output *output)
+int input_manager::add_button(wf_option option, button_callback *call, wayfire_output *output)
 {
     auto bcd = new button_callback_data;
     bcd->call = call;
     bcd->output = output;
-    bcd->mod = mod;
-    bcd->button = button;
+    bcd->button = option;
     bcd->id = ++_last_id;
 
     button_bindings[_last_id] = bcd;
@@ -1330,14 +1326,13 @@ void wayfire_core::configure(wayfire_config *config)
     this->config = config;
     auto section = config->get_section("core");
 
-    vwidth  = section->get_int("vwidth", 3);
-    vheight = section->get_int("vheight", 3);
+    vwidth  = *section->get_option("vwidth", "3");
+    vheight = *section->get_option("vheight", "3");
 
-    shadersrc   = section->get_string("shadersrc", INSTALL_PREFIX "/share/wayfire/shaders");
-    plugin_path = section->get_string("plugin_path_prefix", INSTALL_PREFIX "/lib/");
-    plugins     = section->get_string("plugins", "viewport_impl move resize animation switcher vswitch cube expo command grid");
-    run_panel   = section->get_int("run_panel", 1);
-
+    shadersrc   = section->get_option("shadersrc", INSTALL_PREFIX "/share/wayfire/shaders")->as_string();
+    plugin_path = section->get_option("plugin_path_prefix", INSTALL_PREFIX "/lib/")->as_string();
+    plugins     = section->get_option("plugins", "viewport_impl move resize animation switcher vswitch cube expo command grid")->as_string();
+    run_panel   = section->get_option("run_panel", "1")->as_int();
 }
 
 void finish_wf_shell_bind_cb(void *data)

@@ -32,6 +32,7 @@ pixman         = dependency('pixman-1')
 threads        = dependency('threads')
 xkbcommon      = dependency('xkbcommon')
 wlroots        = dependency('wlroots', fallback: ['wlroots', 'wlroots'])
+wfconfig       = dependency('wf-config', fallback: ['wf-config', 'wfconfig'])
 
 alsa   = dependency('alsa',           required: false)
 gdk    = dependency('gdk-2.0',        required: false)
@@ -70,15 +71,14 @@ endif
 configure_file(input: 'config.h.in',
                output: 'config.h',
                configuration: conf_data)
-wayfire_conf_inc = include_directories(['.', 'shared'])
+wayfire_conf_inc = include_directories(['.'])
 
 add_project_arguments(['-Wno-pedantic', '-Wno-unused-parameter'], language: 'cpp')
 
 subdir('proto')
-subdir('shared')
 subdir('src')
 subdir('plugins')
-subdir('shell')
+#subdir('shell')
 
 install_subdir('shaders', install_dir: 'share/wayfire')
 

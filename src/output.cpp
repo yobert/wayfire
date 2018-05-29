@@ -29,7 +29,6 @@ extern "C"
 #include <algorithm>
 
 #include <cstring>
-#include <config.hpp>
 
 namespace
 {
@@ -75,8 +74,6 @@ struct plugin_manager
             p.reset();
         }
     }
-
-
 
     wayfire_plugin load_plugin_from_file(std::string path, void **h)
     {
@@ -1066,7 +1063,8 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
 
     bool has_mode_set = false;
     const auto default_mode = "default";
-    auto mode = section->get_string("mode", default_mode);
+
+    auto mode = section->get_option("mode", default_mode)->as_string();
 
     /* check whether we can use the custom mode requested by the user */
     if (mode != default_mode)
@@ -1111,11 +1109,11 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
 
     render = new render_manager(this);
 
-    wlr_output_set_scale(handle, section->get_double("scale", 1));
+    wlr_output_set_scale(handle, section->get_option("scale", "1")->as_double());
     wlr_output_set_transform(handle,
-                             get_transform_from_string(section->get_string("transform", "normal")));
+                             get_transform_from_string(*section->get_option("transform", "normal")));
 
-    auto requested_layout = section->get_string("layout", "");
+    auto requested_layout = section->get_option("layout", "")->as_string();
     auto pos = parse_output_layout(requested_layout);
     if (pos.second)
     {
@@ -1480,14 +1478,14 @@ wayfire_grab_interface wayfire_output::get_input_grab_interface()
 
 /* simple wrappers for core->input, as it isn't exposed to plugins */
 
-int wayfire_output::add_key(uint32_t mod, uint32_t key, key_callback* callback)
+int wayfire_output::add_key(wf_option key, key_callback* callback)
 {
-    return core->input->add_key(mod, key, callback, this);
+    return core->input->add_key(key, callback, this);
 }
 
-int wayfire_output::add_button(uint32_t mod, uint32_t button, button_callback* callback)
+int wayfire_output::add_button(wf_option button, button_callback* callback)
 {
-    return core->input->add_button(mod, button, callback, this);
+    return core->input->add_button(button, callback, this);
 }
 
 int wayfire_output::add_touch(uint32_t mod, touch_callback* callback)

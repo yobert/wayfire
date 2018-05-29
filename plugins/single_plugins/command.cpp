@@ -1,5 +1,4 @@
 #include <output.hpp>
-#include "../../shared/config.hpp"
 #include <core.hpp>
 #include <linux/input.h>
 #include <linux/input-event-codes.h>
@@ -37,21 +36,14 @@ class wayfire_command : public wayfire_plugin_t
             auto command = "command_" + num;
             auto binding = "binding_" + num;
 
-            auto comvalue = section->get_string(command, "");
-            auto key = section->get_key(binding, {0, 0});
+            auto comvalue = section->get_option(command, "")->as_string();
+            auto key = section->get_option(binding, "none");
 
-            if (!key.valid() || command == "")
+            if (!key->as_key().valid() || command == "")
                 continue;
 
             cmds[i++] = [=] (uint32_t key) { core->run(comvalue.c_str()); };
-            output->add_key(key.mod, key.keyval, &cmds[i - 1]);
-        }
-
-        if (commands.empty())
-        {
-            cmds.resize(1);
-            cmds[0] = [] (uint32_t) { core->run("weston-terminal"); };
-            output->add_key(WLR_MODIFIER_ALT, KEY_ENTER, &cmds.back());
+            output->add_key(key, &cmds[i - 1]);
         }
     }
 };

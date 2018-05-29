@@ -4,7 +4,6 @@
 #include "debug.hpp"
 #include "core.hpp"
 #include "workspace-manager.hpp"
-#include "../shared/config.hpp"
 #include <linux/input.h>
 #include "signal-definitions.hpp"
 
@@ -15,20 +14,19 @@ void wayfire_exit::init(wayfire_config*)
         wl_display_terminate(core->display);
     };
 
-    output->add_key(WLR_MODIFIER_LOGO, KEY_Z,       &key);
-    output->add_key(WLR_MODIFIER_ALT   | WLR_MODIFIER_CTRL,  KEY_BACKSPACE, &key);
+    output->add_key(new_static_option("<ctrl> <alt> KEY_BACKSPACE"), &key);
 }
 
 void wayfire_close::init(wayfire_config *config)
 {
-    auto key = config->get_section("core")->get_key("view_close", {WLR_MODIFIER_LOGO, KEY_Q});
+    auto key = config->get_section("core")->get_option("view_close", "<super> KEY_Q");
     callback = [=] (uint32_t key)
     {
         auto view = output->get_active_view();
         if (view) view->close();
     };
 
-    output->add_key(key.mod, key.keyval, &callback);
+    output->add_key(key, &callback);
 }
 
 void wayfire_focus::init(wayfire_config *)
@@ -59,8 +57,7 @@ void wayfire_focus::init(wayfire_config *)
         check_focus_view(core->get_cursor_focus());
     };
 
-    output->add_button(0, BTN_LEFT, &callback);
-
+    output->add_button(new_static_option("left"), &callback);
     touch = [=] (int x, int y)
     {
         check_focus_view(core->get_touch_focus());

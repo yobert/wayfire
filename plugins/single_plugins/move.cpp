@@ -7,7 +7,6 @@
 #include <linux/input.h>
 #include <signal-definitions.hpp>
 #include "snap_signal.hpp"
-#include "../../shared/config.hpp"
 
 class wayfire_move : public wayfire_plugin_t
 {
@@ -30,8 +29,8 @@ class wayfire_move : public wayfire_plugin_t
             grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY;
 
             auto section = config->get_section("move");
-            wayfire_button button = section->get_button("activate", {WLR_MODIFIER_ALT, BTN_LEFT});
-            if (button.button == 0)
+            wf_option button = section->get_option("activate", "<alt> left");
+            if (!button->as_button().valid())
                 return;
 
             activate_binding = [=] (uint32_t, int x, int y)
@@ -56,17 +55,17 @@ class wayfire_move : public wayfire_plugin_t
                     initiate(view, sx, sy);
             };
 
-            output->add_button(button.mod, button.button, &activate_binding);
-            output->add_touch(button.mod, &touch_activate_binding);
+            output->add_button(button, &activate_binding);
+            output->add_touch(button->as_button().mod, &touch_activate_binding);
 
-            enable_snap = section->get_int("enable_snap", 1);
-            snap_pixels = section->get_int("snap_threshold", 2);
+            enable_snap = int(*section->get_option("enable_snap", "1"));
+            snap_pixels = *section->get_option("snap_threshold", "2");
 
             using namespace std::placeholders;
             grab_interface->callbacks.pointer.button =
                 [=] (uint32_t b, uint32_t state)
                 {
-                    if (b != button.button)
+                    if (b != button->as_button().button)
                         return;
 
                     is_using_touch = false;

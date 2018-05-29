@@ -1,0 +1,3 @@
+[submodule "subprojects/wf-config"]
+	path = subprojects/wf-config
+	url = https://github.com/ammen99/wf-config

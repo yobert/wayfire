@@ -6,19 +6,13 @@
 #include <view-transform.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
+#include <wayfire/animation.hpp>
 
 #include <queue>
 #include <linux/input-event-codes.h>
 #include <algorithm>
-#include "../../shared/config.hpp"
 
 /* TODO: possibly decouple fast-switch and regular switching, they don't have much in common these days */
-
-struct duple
-{
-    float start, end;
-};
-
 enum paint_attribs
 {
     UPDATE_SCALE = 1,
@@ -29,8 +23,8 @@ enum paint_attribs
 struct view_paint_attribs
 {
     wayfire_view view;
-    duple scale_x, scale_y, off_x, off_y, off_z;
-    duple rot;
+    wf_transition scale_x, scale_y, off_x, off_y, off_z;
+    wf_transition rot;
 
     uint32_t updates;
 };
@@ -69,10 +63,12 @@ float get_scale_factor(float w, float h, float sw, float sh, float c)
 class view_switcher : public wayfire_plugin_t
 {
     key_callback init_binding, fast_switch_binding;
-    wayfire_key next_view, prev_view, terminate;
-    wayfire_key activate_key, fast_switch_key;
+    wf_option next_view, prev_view, terminate;
+    wf_option activate_key, fast_switch_key;
 
     signal_callback_t destroyed;
+
+    wf_duration initial_animation, regular_animation;
 
 #define MAX_ACTIONS 4
     std::queue<int> next_actions;
@@ -98,8 +94,6 @@ class view_switcher : public wayfire_plugin_t
 
     size_t current_view_index;
 
-    int max_steps, current_step, initial_animation_steps;
-
     struct
     {
         float offset = 0.6f;
@@ -112,7 +106,7 @@ class view_switcher : public wayfire_plugin_t
     std::vector<wayfire_view> views; // all views on current viewport
     std::vector<view_paint_attribs> active_views; // views that are rendered
 
-    float view_scale_config;
+    wf_option view_scale_config;
 
     public:
 
@@ -123,7 +117,7 @@ class view_switcher : public wayfire_plugin_t
 
         auto section = config->get_section("switcher");
 
-        fast_switch_key = section->get_key("fast_switch", {WLR_MODIFIER_ALT, KEY_ESC});
+        fast_switch_key = section->get_option("fast_switch", "<alt> KEY_ESC");
         fast_switch_binding = [=] (uint32_t key)
         {
             if (state.active && !state.in_fast_switch)
@@ -132,14 +126,14 @@ class view_switcher : public wayfire_plugin_t
             fast_switch();
         };
 
-        if (fast_switch_key.keyval)
-            output->add_key(fast_switch_key.mod, fast_switch_key.keyval, &fast_switch_binding);
+        output->add_key(fast_switch_key, &fast_switch_binding);
 
-        max_steps = section->get_duration("duration", 30);
-        initial_animation_steps = section->get_duration("initial_animation", 5);;
-        view_scale_config = section->get_double("view_thumbnail_size", 0.4);
+        regular_animation = section->get_option("duration", "250");
+        initial_animation = section->get_option("initial_animation", "150");
 
-        activate_key = section->get_key("activate", {WLR_MODIFIER_ALT, KEY_TAB});
+        view_scale_config = section->get_option("view_thumbnail_size", "0.4");
+
+        activate_key = section->get_option("activate", "<alt> KEY_TAB");
 
         init_binding = [=] (uint32_t)
         {
@@ -155,8 +149,7 @@ class view_switcher : public wayfire_plugin_t
             }
         };
 
-        if (activate_key.keyval)
-            output->add_key(activate_key.mod, activate_key.keyval, &init_binding);
+        output->add_key(activate_key, &init_binding);
 
         using namespace std::placeholders;
         grab_interface->callbacks.keyboard.key = std::bind(std::mem_fn(&view_switcher::handle_key),
@@ -165,9 +158,9 @@ class view_switcher : public wayfire_plugin_t
         grab_interface->callbacks.keyboard.mod = std::bind(std::mem_fn(&view_switcher::handle_mod),
                 this, _1, _2);
 
-        next_view = section->get_key("next", {0, KEY_RIGHT});
-        prev_view = section->get_key("prev", {0, KEY_LEFT});
-        terminate = section->get_key("exit", {0, KEY_ENTER});
+        next_view = section->get_option("next", "KEY_RIGHT");
+        prev_view = section->get_option("prev", "KEY_LEFT");
+        terminate = section->get_option("exit", "KEY_ENTER");
 
         hook = [=] () { update_animation(); };
         destroyed = [=] (signal_data *data)
@@ -277,8 +270,8 @@ class view_switcher : public wayfire_plugin_t
 
     void handle_mod(uint32_t mod, uint32_t st)
     {
-        bool mod_released = (mod == activate_key.mod && st == WLR_KEY_RELEASED);
-        bool fast_mod_released = (mod == fast_switch_key.mod && st == WLR_KEY_RELEASED);
+        bool mod_released = (mod == activate_key->as_cached_key().mod && st == WLR_KEY_RELEASED);
+        bool fast_mod_released = (mod == fast_switch_key->as_cached_key().mod && st == WLR_KEY_RELEASED);
 
         if ((mod_released && state.in_continuous_switch) ||
             (fast_mod_released && state.in_fast_switch))
@@ -298,15 +291,15 @@ class view_switcher : public wayfire_plugin_t
 
         log_info("good state");
 
-#define fast_switch_on (state.in_fast_switch && key == fast_switch_key.keyval)
+#define fast_switch_on (state.in_fast_switch && key == fast_switch_key->as_cached_key().keyval)
 
-        if (!state.mod_released && (key == activate_key.keyval || fast_switch_on))
+        if (!state.mod_released && (key == activate_key->as_cached_key().keyval || fast_switch_on))
         {
             log_info("continuous");
             state.in_continuous_switch = true;
         }
 
-        if (key == activate_key.keyval && state.in_continuous_switch && !state.in_fast_switch)
+        if (key == activate_key->as_cached_key().keyval && state.in_continuous_switch && !state.in_fast_switch)
         {
             log_info("nowadays");
             push_next_view(1);
@@ -319,12 +312,16 @@ class view_switcher : public wayfire_plugin_t
             return;
         }
 
-        if (state.active && (key == terminate.keyval || key == activate_key.keyval) && !state.in_fast_switch)
-            push_exit();
-
-        if ((key == prev_view.keyval || key == next_view.keyval) && !state.in_fast_switch)
+        if (state.active &&
+            (key == terminate->as_cached_key().keyval || key == activate_key->as_cached_key().keyval)
+            && !state.in_fast_switch)
         {
-            int dx = (key == prev_view.keyval ? -1 : 1);
+            push_exit();
+        }
+
+        if ((key == prev_view->as_cached_key().keyval || key == next_view->as_cached_key().keyval) && !state.in_fast_switch)
+        {
+            int dx = (key == prev_view->as_cached_key().keyval ? -1 : 1);
             push_next_view(dx);
         }
     }
@@ -395,8 +392,9 @@ class view_switcher : public wayfire_plugin_t
     {
         GetTuple(sw, sh, output->get_screen_size());
         active_views.clear();
+
+        initial_animation.start();
         state.in_fold = true;
-        current_step = 0;
 
         update_views();
         for (size_t i = current_view_index, cnt = 0; cnt < views.size(); ++cnt, i = (i + 1) % views.size())
@@ -407,9 +405,9 @@ class view_switcher : public wayfire_plugin_t
             float cx = (sw / 2.0 - wm_geometry.width / 2.0f) - wm_geometry.x;
             float cy = wm_geometry.y - (sh / 2.0 - wm_geometry.height / 2.0f);
 
-            log_info("go to %f@%f", cx, cy);
-
-            float scale_factor = get_scale_factor(wm_geometry.width, wm_geometry.height, sw, sh, view_scale_config);
+            log_info("factor is %lf", view_scale_config->as_cached_double());
+            float scale_factor = get_scale_factor(wm_geometry.width, wm_geometry.height,
+                                                  sw, sh, view_scale_config->as_cached_double());
 
             view_paint_attribs elem;
             elem.view = v;
@@ -434,8 +432,11 @@ class view_switcher : public wayfire_plugin_t
         }
     }
 
-    void update_view_transforms(int step, int maxstep)
+    void update_view_transforms()
     {
+        auto &duration = initial_animation.running() ?
+            initial_animation : regular_animation;
+
         for (auto v : active_views)
         {
             auto tr = dynamic_cast<wf_3D_view*> (v.view->get_transformer());
@@ -445,22 +446,20 @@ class view_switcher : public wayfire_plugin_t
             if (v.updates & UPDATE_OFFSET)
             {
                 tr->translation = glm::translate(glm::mat4(), glm::vec3(
-                            GetProgress(v.off_x.start, v.off_x.end, step, maxstep),
-                            GetProgress(v.off_y.start, v.off_y.end, step, maxstep),
-                            GetProgress(v.off_z.start, v.off_z.end, step, maxstep)));
+                            duration.progress(v.off_x),
+                            duration.progress(v.off_y),
+                            duration.progress(v.off_z)));
             }
             if (v.updates & UPDATE_SCALE)
             {
                 tr->scaling = glm::scale(glm::mat4(), glm::vec3(
-                            GetProgress(v.scale_x.start, v.scale_x.end, step, maxstep),
-                            GetProgress(v.scale_y.start, v.scale_y.end, step, maxstep),
-                            1));
+                        duration.progress(v.scale_x), duration.progress(v.scale_y), 1));
             }
             if (v.updates & UPDATE_ROTATION)
             {
                 tr->rotation = glm::rotate(glm::mat4(),
-                        GetProgress(v.rot.start, v.rot.end, step, maxstep),
-                        glm::vec3(0, 1, 0));
+                                           (float)duration.progress(v.rot),
+                                           glm::vec3(0, 1, 0));
             }
 
             v.view->damage();
@@ -487,10 +486,9 @@ class view_switcher : public wayfire_plugin_t
 
     void update_fold()
     {
-        ++current_step;
-        update_view_transforms(current_step, initial_animation_steps);
+        update_view_transforms();
 
-        if(current_step == initial_animation_steps)
+        if(!initial_animation.running())
         {
             state.in_fold = false;
             if (!state.reversed_folds)
@@ -506,7 +504,8 @@ class view_switcher : public wayfire_plugin_t
     }
 
     void push_unfolded_transformed_view(wayfire_view v,
-                               duple off_x, duple off_z, duple rot)
+                               wf_transition off_x, wf_transition off_z,
+                               wf_transition rot)
     {
         GetTuple(sw, sh, output->get_screen_size());
         auto wm_geometry = v->get_wm_geometry();
@@ -517,9 +516,7 @@ class view_switcher : public wayfire_plugin_t
         view_paint_attribs elem;
         elem.view = v;
         elem.off_x = {cx + off_x.start * sw / 2.0f, cx + off_x.end * sw / 2.0f};
-        log_info("moved to %f@%f %fx%f", elem.off_x.start, elem.off_x.end, off_x.start, off_x.end);
         elem.off_y = {cy, cy};
-        log_info("%f@%f", elem.off_y.start, elem.off_y.end);
         elem.off_z = off_z;
         elem.rot = rot;
 
@@ -531,7 +528,7 @@ class view_switcher : public wayfire_plugin_t
     void start_unfold()
     {
         state.in_unfold = true;
-        current_step = 0;
+        regular_animation.start();
 
         active_views.clear();
 
@@ -582,10 +579,9 @@ class view_switcher : public wayfire_plugin_t
 
     void update_unfold()
     {
-        ++current_step;
-        update_view_transforms(current_step, max_steps);
+        update_view_transforms();
 
-        if (current_step == max_steps)
+        if (!regular_animation.running())
         {
             state.in_unfold = false;
             if (!state.reversed_folds)
@@ -605,7 +601,7 @@ class view_switcher : public wayfire_plugin_t
             return;
 
         state.in_rotate = true;
-        current_step = 0;
+        regular_animation.start();
 
         current_view_index    = (current_view_index + dir + sz) % sz;
         output->bring_to_front(views[current_view_index]);
@@ -659,16 +655,13 @@ class view_switcher : public wayfire_plugin_t
 
         for (auto& elem : active_views)
             elem.updates = UPDATE_ROTATION | UPDATE_OFFSET;
-
-        current_step = 0;
     }
 
     void update_rotate()
     {
-        ++current_step;
-        update_view_transforms(current_step, max_steps);
+        update_view_transforms();
 
-        if (current_step == max_steps)
+        if (!regular_animation.running())
         {
             state.in_rotate = false;
             dequeue_next_action();

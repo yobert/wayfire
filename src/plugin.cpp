@@ -14,20 +14,6 @@ bool wayfire_grab_interface_t::grab()
         return false;
 
     grabbed = true;
-
-    /* unset modifiers, otherwise clients may not receive
-     * the release event for them, as the release usually happens in a grab */
-//    auto kbd = weston_seat_get_keyboard(core->get_current_seat());
- //   if (kbd)
-    {
-        // TODO: check how wlr handles grabs
-        /*
-        weston_keyboard_send_modifiers(kbd,
-                                       wl_display_get_serial(core->ec->wl_display),
-                                       0, 0, 0, 0);
-                                       */
-    }
-
     return core->input->grab_input(this);
 }
 
@@ -71,18 +57,4 @@ bool get_signaled_state(signal_data *data)
     }
 
     return conv->state;
-}
-
-
-
-const float MPI = 3.1415926535;
-
-float GetProgress(float start, float end, float current_step, float max_steps)
-{
-    if (max_steps <= 1e-4)
-        return end;
-
-    float c = current_step / max_steps;
-    float prog = std::sqrt(2 * c - c * c);
-    return prog * end + (1 - prog) * start;
 }

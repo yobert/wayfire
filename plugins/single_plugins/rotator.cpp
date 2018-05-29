@@ -1,6 +1,5 @@
 #include <output.hpp>
 #include <core.hpp>
-#include <config.hpp>
 #include <linux/input-event-codes.h>
 
 class wayfire_rotator : public wayfire_plugin_t {
@@ -13,14 +12,10 @@ class wayfire_rotator : public wayfire_plugin_t {
 
         auto section = config->get_section("rotator");
 
-        wayfire_key up_key    = section->get_key("rotate_up",
-                {WLR_MODIFIER_ALT|WLR_MODIFIER_CTRL, KEY_UP});
-        wayfire_key down_key  = section->get_key("rotate_down",
-                {WLR_MODIFIER_ALT|WLR_MODIFIER_CTRL, KEY_DOWN});
-        wayfire_key left_key  = section->get_key("rotate_left",
-                {WLR_MODIFIER_ALT|WLR_MODIFIER_CTRL, KEY_LEFT});
-        wayfire_key right_key = section->get_key("rotate_right",
-                {WLR_MODIFIER_ALT|WLR_MODIFIER_CTRL, KEY_RIGHT});
+        auto up_key    = section->get_option("rotate_up",   "<alt> <ctrl> KEY_UP");
+        auto down_key  = section->get_option("rotate_down", "<alt> <ctrl> KEY_DOWN");
+        auto left_key  = section->get_option("rotate_left", "<alt> <ctrl> KEY_LEFT");
+        auto right_key = section->get_option("rotate_right","<alt> <ctrl> KEY_RIGHT");
 
         up = [=] (uint32_t) {
             output->set_transform(WL_OUTPUT_TRANSFORM_NORMAL);
@@ -35,10 +30,10 @@ class wayfire_rotator : public wayfire_plugin_t {
             output->set_transform(WL_OUTPUT_TRANSFORM_90);
         };
 
-        output->add_key(up_key.mod, up_key.keyval, &up);
-        output->add_key(down_key.mod, down_key.keyval, &down);
-        output->add_key(left_key.mod, left_key.keyval, &left);
-        output->add_key(right_key.mod, right_key.keyval, &right);
+        output->add_key(up_key,    &up);
+        output->add_key(down_key,  &down);
+        output->add_key(left_key,  &left);
+        output->add_key(right_key, &right);
     }
 };
 

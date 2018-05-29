@@ -10,8 +10,6 @@
 #include <view-transform.hpp>
 
 #include <render-manager.hpp>
-
-#include <config.hpp>
 #include "../single_plugins/view-change-viewport-signal.hpp"
 
 inline wf_tree_node* tile_node_from_view(const wayfire_view& view)
@@ -302,17 +300,17 @@ class wayfire_tile : public wayfire_plugin_t
     {
         auto section = config->get_section("tile");
 
-        action_map[SELECTOR_ACTION_GO_LEFT          ] = section->get_key("action_left",        {0,  KEY_H}).keyval;
-        action_map[SELECTOR_ACTION_GO_RIGHT         ] = section->get_key("action_right",       {0,  KEY_L}).keyval;
-        action_map[SELECTOR_ACTION_GO_UP            ] = section->get_key("action_up",          {0,  KEY_K}).keyval;
-        action_map[SELECTOR_ACTION_GO_DOWN          ] = section->get_key("action_down",        {0,  KEY_J}).keyval;
-        action_map[SELECTOR_ACTION_SEL_CHILD        ] = section->get_key("action_child",       {0,  KEY_C}).keyval;
-        action_map[SELECTOR_ACTION_SEL_PARENT       ] = section->get_key("action_parent",      {0,  KEY_P}).keyval;
-        action_map[SELECTOR_ACTION_ROTATE_CHILDREN  ] = section->get_key("action_rotate",      {0,  KEY_R}).keyval;
-        action_map[SELECTOR_ACTION_EXIT             ] = section->get_key("action_exit",        {0,  KEY_ENTER}).keyval;
-        action_map[SELECTOR_ACTION_SPLIT_HORIZONTAL ] = section->get_key("action_split_horiz", {0,  KEY_O}).keyval;
-        action_map[SELECTOR_ACTION_SPLIT_VERTICAL   ] = section->get_key("action_split_vert",  {0,  KEY_E}).keyval;
-        action_map[SELECTOR_ACTION_CHANGE_SPLIT_TYPE] = section->get_key("action_split_type",  {0,  KEY_T}).keyval;
+        action_map[SELECTOR_ACTION_GO_LEFT          ] = section->get_option("action_left",        "KEY_H")->as_key().keyval;
+        action_map[SELECTOR_ACTION_GO_RIGHT         ] = section->get_option("action_right",       "KEY_L")->as_key().keyval;
+        action_map[SELECTOR_ACTION_GO_UP            ] = section->get_option("action_up",          "KEY_K")->as_key().keyval;
+        action_map[SELECTOR_ACTION_GO_DOWN          ] = section->get_option("action_down",        "KEY_J")->as_key().keyval;
+        action_map[SELECTOR_ACTION_SEL_CHILD        ] = section->get_option("action_child",       "KEY_C")->as_key().keyval;
+        action_map[SELECTOR_ACTION_SEL_PARENT       ] = section->get_option("action_parent",      "KEY_P")->as_key().keyval;
+        action_map[SELECTOR_ACTION_ROTATE_CHILDREN  ] = section->get_option("action_rotate",      "KEY_R")->as_key().keyval;
+        action_map[SELECTOR_ACTION_EXIT             ] = section->get_option("action_exit",        "KEY_ENTER")->as_key().keyval;
+        action_map[SELECTOR_ACTION_SPLIT_HORIZONTAL ] = section->get_option("action_split_horiz", "KEY_O")->as_key().keyval;
+        action_map[SELECTOR_ACTION_SPLIT_VERTICAL   ] = section->get_option("action_split_vert",  "KEY_E")->as_key().keyval;
+        action_map[SELECTOR_ACTION_CHANGE_SPLIT_TYPE] = section->get_option("action_split_type",  "KEY_T")->as_key().keyval;
     }
 
     void init_roots()
@@ -483,10 +481,9 @@ class wayfire_tile : public wayfire_plugin_t
                 start_place_view(view);
         };
 
-        auto select_key = config->get_section("tile")->get_key("select-mode",
-                {WLR_MODIFIER_ALT, KEY_S});
-        if (select_key.keyval)
-            output->add_key(select_key.mod, select_key.keyval, &select_view);
+        auto select_key = config->get_section("tile")->get_option("select-mode", "<alt> KEY_S");
+        if (select_key->as_key().valid())
+            output->add_key(select_key, &select_view);
 
         maximize_view = [=] (uint32_t key)
         {
@@ -501,10 +498,8 @@ class wayfire_tile : public wayfire_plugin_t
             }
         };
 
-        auto maximize_key = config->get_section("tile")->get_key("maximize",
-                {WLR_MODIFIER_LOGO, KEY_M});
-        if (maximize_key.keyval)
-            output->add_key(maximize_key.mod, maximize_key.keyval, &maximize_view);
+        auto maximize_key = config->get_section("tile")->get_option("maximize", "<super> KEY_M");
+        output->add_key(maximize_key, &maximize_view);
 
         resize_container = [=] (uint32_t, int32_t x, int32_t y)
         {
@@ -521,10 +516,8 @@ class wayfire_tile : public wayfire_plugin_t
             }
         };
 
-        auto resize_key = config->get_section("tile")->get_button("resize",
-                {WLR_MODIFIER_LOGO, BTN_LEFT});
-        if (resize_key.button)
-            output->add_button(resize_key.mod, resize_key.button, &resize_container);
+        auto resize_key = config->get_section("tile")->get_option("resize", "<super> left");
+        output->add_button(resize_key, &resize_container);
     }
 
     void setup_grab_handlers()
@@ -599,7 +592,7 @@ class wayfire_tile : public wayfire_plugin_t
         if (colored_texture == (uint)-1)
         {
             GLubyte data[4];
-            auto color = config->get_section("tile")->get_color("selection-color", {0.5, 0.5, 1, 0.5});
+            auto color = config->get_section("tile")->get_option("selection-color", "0.5 0.5 1 0.5")->as_color();
             data[0] = color.r * 255; data[1] = color.g * 255;
             data[2] = color.b * 255; data[3] = color.a * 255;
 

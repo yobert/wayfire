@@ -2,7 +2,6 @@
 #include <signal-definitions.hpp>
 #include <render-manager.hpp>
 #include <debug.hpp>
-#include <config.hpp>
 #include <type_traits>
 #include <core.hpp>
 //#include "system_fade.hpp"
@@ -12,7 +11,7 @@
 #include "fire.hpp"
 #endif
 
-void animation_base::init(wayfire_view, int, bool) {}
+void animation_base::init(wayfire_view, wf_duration, bool) {}
 bool animation_base::step() {return false;}
 animation_base::~animation_base() {}
 
@@ -39,7 +38,7 @@ struct animation_hook
     effect_hook_t hook;
     signal_callback_t view_removed;
 
-    animation_hook(wayfire_view view, int frame_count)
+    animation_hook(wayfire_view view, wf_duration duration)
     {
         log_info("create animation");
         this->view = view;
@@ -50,7 +49,7 @@ struct animation_hook
 
         view->damage();
         base = dynamic_cast<animation_base*> (new animation_type());
-        base->init(view, frame_count, close_animation);
+        base->init(view, duration, close_animation);
         base->step();
         view->damage();
 
@@ -100,9 +99,8 @@ struct animation_hook
 class wayfire_animation : public wayfire_plugin_t {
     signal_callback_t map_cb, unmap_cb, wake_cb;
 
-    std::string open_animation, close_animation;
-    int frame_count;
-    int startup_duration;
+    wf_option open_animation, close_animation;
+    wf_option duration, startup_duration;
 
     public:
     void init(wayfire_config *config)
@@ -110,17 +108,17 @@ class wayfire_animation : public wayfire_plugin_t {
         grab_interface->name = "animate";
         grab_interface->abilities_mask = WF_ABILITY_CUSTOM_RENDERING;
 
-        auto section = config->get_section("animate");
-        open_animation = section->get_string("open_animation", "fade");
-        close_animation = section->get_string("close_animation", "fade");
-        frame_count = section->get_duration("duration", 16);
-        startup_duration = section->get_duration("startup_duration", 36);
+        auto section     = config->get_section("animate");
+        open_animation   = section->get_option("open_animation", "fade");
+        close_animation  = section->get_option("close_animation", "fade");
+        duration         = section->get_option("duration", "300");
+        startup_duration = section->get_option("startup_duration", "600");
 
 #if not USE_GLES32
-        if(open_animation == "fire" || close_animation == "fire")
+        if(open_animation->as_string() == "fire" || close_animation->as_string() == "fire")
         {
             log_error("fire animation not supported (OpenGL ES version < 3.2)");
-            open_animation = close_animation = "fade";
+            open_animation = close_animation = new_static_option("fade");
         }
 #endif
 
@@ -138,8 +136,10 @@ class wayfire_animation : public wayfire_plugin_t {
         output->connect_signal("map-view", &map_cb);
         output->connect_signal("unmap-view", &unmap_cb);
 
+        /* TODO: the best way to do this?
         if (config->get_section("backlight")->get_int("min_brightness", 1) > -1)
             output->connect_signal("wake", &wake_cb);
+            */
         output->connect_signal("output-fade-in-request", &wake_cb);
     }
 
@@ -153,16 +153,16 @@ class wayfire_animation : public wayfire_plugin_t {
         if (view->is_special)
             return;
 
-        if (close_animation != "none")
+        if (close_animation->as_string() != "none")
             view->inc_keep_count();
 
-        if (open_animation == "fade")
-            new animation_hook<fade_animation, false>(view, frame_count);
-        else if (open_animation == "zoom")
-            new animation_hook<zoom_animation, false>(view, frame_count);
+        if (open_animation->as_string() == "fade")
+            new animation_hook<fade_animation, false>(view, duration);
+        else if (open_animation->as_string() == "zoom")
+            new animation_hook<zoom_animation, false>(view, duration);
 #if USE_GLES32
-        else if (open_animation == "fire")
-            new animation_hook<wf_fire_effect, false>(view, frame_count);
+        else if (open_animation->as_string() == "fire")
+            new animation_hook<wf_fire_effect, false>(view, duration);
 #endif
     }
 
@@ -173,13 +173,13 @@ class wayfire_animation : public wayfire_plugin_t {
         if (view->is_special)
             return;
 
-        if (close_animation == "fade")
-            new animation_hook<fade_animation, true> (view, frame_count);
-        else if (close_animation == "zoom")
-            new animation_hook<zoom_animation, true> (view, frame_count);
+        if (close_animation->as_string() == "fade")
+            new animation_hook<fade_animation, true> (view, duration);
+        else if (close_animation->as_string() == "zoom")
+            new animation_hook<zoom_animation, true> (view, duration);
 #if USE_GLES32
-        else if (close_animation == "fire")
-            new animation_hook<wf_fire_effect, true> (view, frame_count);
+        else if (close_animation->as_string() == "fire")
+            new animation_hook<wf_fire_effect, true> (view, duration);
 #endif
     }
 
