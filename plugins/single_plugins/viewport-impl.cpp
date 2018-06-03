@@ -51,6 +51,7 @@ class viewport_manager : public workspace_manager
     private:
         int vwidth, vheight, vx, vy;
         wayfire_output *output;
+        wf_geometry output_geometry;
 
         wf_layer_container layers[TOTAL_WF_LAYERS];
 
@@ -58,7 +59,7 @@ class viewport_manager : public workspace_manager
         { return __builtin_ctz(layer_mask); }
 
         signal_callback_t adjust_fullscreen_layer, view_detached,
-                          view_changed_viewport;
+                          view_changed_viewport, output_geometry_changed;
 
         wf_geometry current_workarea;
         std::vector<anchored_area*> anchors;
@@ -96,6 +97,8 @@ class viewport_manager : public workspace_manager
 
         wf_geometry calculate_anchored_geometry(const anchored_area& area);
 
+        void update_output_geometry();
+
         void add_reserved_area(anchored_area *area);
         void reflow_reserved_areas();
         void remove_reserved_area(anchored_area *area);
@@ -112,6 +115,7 @@ void viewport_manager::init(wayfire_output *o)
     vx = vy = 0;
 
     current_workarea = output->get_relative_geometry();
+    output_geometry = output->get_relative_geometry();
 
     vwidth = core->vwidth;
     vheight = core->vheight;
@@ -139,10 +143,17 @@ void viewport_manager::init(wayfire_output *o)
         check_lower_panel_layer(0);
     };
 
+    output_geometry_changed = [=] (signal_data *data)
+    {
+        update_output_geometry();
+        reflow_reserved_areas();
+    };
+
     o->connect_signal("view-fullscreen-request", &adjust_fullscreen_layer);
     o->connect_signal("attach-view", &view_detached);
     o->connect_signal("detach-view", &view_detached);
     o->connect_signal("view-change-viewport", &view_changed_viewport);
+    o->connect_signal("output-resized", &output_geometry_changed);
 }
 
 viewport_manager::~viewport_manager()
@@ -390,6 +401,14 @@ void viewport_manager::remove_reserved_area(anchored_area *area)
     reflow_reserved_areas();
 }
 
+static int divide_round_down(int a, int b)
+{
+    if (a >= 0)
+        return a / b;
+    else
+        return (a - b + 1) / b;
+}
+
 void viewport_manager::reflow_reserved_areas()
 {
     auto old_workarea = current_workarea;
@@ -422,6 +441,41 @@ void viewport_manager::reflow_reserved_areas()
     data.new_workarea = current_workarea;
 
     output->emit_signal("reserved-workarea", &data);
+
+    for_each_view([=] (wayfire_view view)
+    {
+        if (view->maximized)
+        {
+            auto wm = view->get_wm_geometry();
+            int vx = divide_round_down(wm.x, output_geometry.width);
+            int vy = divide_round_down(wm.y, output_geometry.height);
+
+            auto new_geometry = current_workarea;
+            current_workarea.x += vx * output_geometry.width;
+            current_workarea.y += vy * output_geometry.height;
+
+            view->set_geometry(new_geometry);
+        }
+    }, WF_WM_LAYERS);
+}
+
+void viewport_manager::update_output_geometry()
+{
+    auto old_w = output_geometry.width, old_h = output_geometry.height;
+    GetTuple(new_w, new_h, output->get_screen_size());
+
+    for_each_view([=] (wayfire_view view)
+    {
+        auto wm = view->get_wm_geometry();
+            float px = 1. * wm.x / old_w;
+            float py = 1. * wm.y / old_h;
+            float pw = 1. * wm.width / old_w;
+            float ph = 1. * wm.height / old_h;
+
+            view->set_geometry({int(px * new_w), int(py * new_h),
+			    int(pw * new_w), int(ph * new_h)});
+    }, WF_WM_LAYERS);
+    output_geometry = output->get_relative_geometry();
 }
 
 void viewport_manager::check_lower_panel_layer(int base)
