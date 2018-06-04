@@ -39,6 +39,11 @@ class wayfire_output
        wl_listener destroy_listener;
        signal_callback_t unmap_view_cb;
 
+       wf_option_callback config_mode_changed,
+                          config_transform_changed,
+                          config_layout_changed,
+                          config_scale_changed;
+
     public:
        int id;
        wlr_output* handle;

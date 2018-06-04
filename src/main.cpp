@@ -2,6 +2,9 @@
 #include <cstring>
 #include <getopt.h>
 
+#include <sys/inotify.h>
+#include <unistd.h>
+
 #include "debug-func.hpp"
 #include <wayfire/config.hpp>
 
@@ -31,6 +34,27 @@ void compositor_wake_cb (wl_listener*, void*)
 void compositor_sleep_cb (wl_listener*, void*)
 {
 }
+
+#define INOT_BUF_SIZE (1024 * sizeof(inotify_event))
+char buf[INOT_BUF_SIZE];
+
+static std::string config_file;
+static void reload_config(int fd)
+{
+    core->config->reload_config();
+    inotify_add_watch(fd, config_file.c_str(), IN_MODIFY);
+}
+
+static int handle_config_updated(int fd, uint32_t mask, void *data)
+{
+    log_info("got a reload");
+
+    /* read, but don't use */
+    read(fd, buf, INOT_BUF_SIZE);
+    reload_config(fd);
+    return 1;
+}
+
 
 static const EGLint default_attribs[] =
 {
@@ -89,7 +113,7 @@ int main(int argc, char *argv[])
 #endif
 
     std::string home_dir = secure_getenv("HOME");
-    std::string config_file = home_dir + "/.config/wayfire.ini";
+    config_file = home_dir + "/.config/wayfire.ini";
 
     struct option opts[] = {
         { "config",   required_argument, NULL, 'c' },
@@ -127,13 +151,18 @@ int main(int argc, char *argv[])
 
 
     log_info("using config file: %s", config_file.c_str());
-    wayfire_config *config = new wayfire_config(config_file);
+    core->config = new wayfire_config(config_file);
+
+    int inotify_fd = inotify_init();
+    reload_config(inotify_fd);
+
+    wl_event_loop_add_fd(core->ev_loop, inotify_fd, WL_EVENT_READABLE, handle_config_updated, NULL);
 
     /*
     ec->repaint_msec = config->get_section("core")->get_int("repaint_msec", 16);
     ec->idle_time = config->get_section("core")->get_int("idle_time", 300);
     */
-    core->init(config);
+    core->init(core->config);
 
     auto server_name = wl_display_add_socket_auto(core->display);
     if (!server_name)
