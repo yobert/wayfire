@@ -11,7 +11,7 @@ extern "C"
 
 #include <functional>
 #include <memory>
-#include <wayfire/config.hpp>
+#include "config.hpp"
 
 /* when creating a signal there should be the definition of the derived class */
 struct signal_data { };

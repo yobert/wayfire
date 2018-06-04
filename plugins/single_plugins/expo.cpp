@@ -6,7 +6,7 @@
 #include <workspace-manager.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <wayfire/animation.hpp>
+#include <animation.hpp>
 
 /* TODO: this file should be included in some header maybe(plugin.hpp) */
 #include <linux/input-event-codes.h>

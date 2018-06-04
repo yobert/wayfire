@@ -71,6 +71,7 @@ endif
 configure_file(input: 'config.h.in',
                output: 'config.h',
                configuration: conf_data)
+
 wayfire_conf_inc = include_directories(['.'])
 
 add_project_arguments(['-Wno-pedantic', '-Wno-unused-parameter'], language: 'cpp')

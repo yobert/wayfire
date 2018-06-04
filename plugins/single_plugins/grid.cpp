@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <linux/input-event-codes.h>
 #include "signal-definitions.hpp"
-#include <wayfire/animation.hpp>
+#include <animation.hpp>
 
 #include "snap_signal.hpp"
 

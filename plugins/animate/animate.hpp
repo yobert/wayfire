@@ -2,7 +2,7 @@
 #define ANIMATE_H_
 
 #include <view.hpp>
-#include <wayfire/animation.hpp>
+#include <animation.hpp>
 
 class animation_base
 {

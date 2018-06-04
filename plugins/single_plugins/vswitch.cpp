@@ -7,7 +7,7 @@
 #include <queue>
 #include <linux/input.h>
 #include <utility>
-#include <wayfire/animation.hpp>
+#include <animation.hpp>
 #include "view-change-viewport-signal.hpp"
 
 

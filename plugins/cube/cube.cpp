@@ -3,7 +3,7 @@
 #include <core.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
-#include <wayfire/animation.hpp>
+#include <animation.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
 

@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 #include "debug-func.hpp"
-#include <wayfire/config.hpp>
+#include <config.hpp>
 
 extern "C"
 {

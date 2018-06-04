@@ -6,7 +6,7 @@
 #include <view-transform.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
-#include <wayfire/animation.hpp>
+#include <animation.hpp>
 
 #include <queue>
 #include <linux/input-event-codes.h>
