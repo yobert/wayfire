@@ -117,6 +117,7 @@ gamma_adjust::gamma_adjust(uint32_t out, uint32_t sz, wayfire_config *config)
     auto section = config->get_section("shell");
     int h, m;
 
+    /*
     std::string s = section->get_string("day_start", "08:00");
     sscanf(s.c_str(), "%d:%d", &h, &m);
     day_start = h * 60 + m;
@@ -132,6 +133,7 @@ gamma_adjust::gamma_adjust(uint32_t out, uint32_t sz, wayfire_config *config)
         wl_array_init(&gamma_value[i]);
         wl_array_add(&gamma_value[i], gamma_size * sizeof(uint16_t));
     }
+    */
 
     auto fn = std::bind(std::mem_fn(&gamma_adjust::adjustment_loop), this);
     auto th = std::thread(fn);

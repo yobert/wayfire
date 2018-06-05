@@ -1,6 +1,6 @@
 #include "panel.hpp"
 #include "gamma.hpp"
-#include "../shared/config.hpp"
+#include "config.hpp"
 #include <vector>
 #include <map>
 #include <getopt.h>
@@ -14,8 +14,6 @@ struct wayfire_shell_output {
 wayfire_config *config;
 
 std::map<uint32_t, wayfire_shell_output> outputs;
-
-std::string bg_path;
 
 void output_created_cb(void *data, wayfire_shell *wayfire_shell,
         uint32_t output, uint32_t width, uint32_t height)
@@ -100,11 +98,10 @@ int main(int argc, char *argv[])
     }
 
     config = new wayfire_config(config_file);
-    auto section = config->get_section("shell");
+ //   auto section = config->get_section("shell");
 
-    bg_path = section->get_string("background", "none");
+//    gamma_adjust_enabled = section->get_int("color_temp_enabled", 0);
 
-    gamma_adjust_enabled = section->get_int("color_temp_enabled", 0);
     if (!setup_wayland_connection())
         return -1;
 

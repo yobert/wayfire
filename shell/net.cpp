@@ -345,9 +345,9 @@ bool network_widget::update(bool reset)
     return result;
 }
 
-inline wayfire_color interpolate_color(wayfire_color start, wayfire_color end, float a)
+inline wf_color interpolate_color(wf_color start, wf_color end, float a)
 {
-    wayfire_color r;
+    wf_color r;
     r.r = start.r * a + end.r * (1. - a);
     r.g = start.g * a + end.g * (1. - a);
     r.b = start.b * a + end.b * (1. - a);
@@ -361,14 +361,14 @@ void network_widget::repaint()
     if (!backend)
         return;
 
-    constexpr wayfire_color color_good = {0, 1, 0, 1},
+    constexpr wf_color color_good = {0, 1, 0, 1},
                             color_avg  = {1, 1, 0.3, 1},
                             color_bad  = {1, 0, 0, 1};
 
     cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 
     std::string text;
-    wayfire_color color;
+    wf_color color;
 
     connection->mutex.lock();
 

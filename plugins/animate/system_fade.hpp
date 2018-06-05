@@ -3,7 +3,6 @@
 
 #include <core.hpp>
 #include <output.hpp>
-#include <debug.hpp>
 #include <render-manager.hpp>
 
 #include "animate.hpp"
@@ -57,9 +56,8 @@ class wf_system_fade
                                    WL_OUTPUT_TRANSFORM_NORMAL,
                                    0, output->handle->transform_matrix);
 
+            wlr_renderer_scissor(core->renderer, NULL);
             wlr_render_quad_with_matrix(core->renderer, color, matrix);
-
-            log_info("start it %f", duration.progress_percentage());
 
             if (!duration.running())
                 finish();

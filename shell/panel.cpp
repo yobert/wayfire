@@ -5,7 +5,6 @@
 #include "panel.hpp"
 #include "widgets.hpp"
 #include "net.hpp"
-#include "config.hpp"
 
 void panel_redraw(void *data, wl_callback*, uint32_t)
 {
@@ -21,16 +20,16 @@ static void load_misc_config(wayfire_config *config)
 {
     auto section = config->get_section("shell_panel");
 
-    widget::background_color = section->get_color("background_color",
-            {0.033, 0.041, 0.047, 0.9});
-    widget::font_size = section->get_int("font_size", 25);
-    widget::font_face = section->get_string("font_face",
-            "/usr/share/fonts/gnu-free/FreeSerif.ttf");
+    widget::background_color = *section->get_option("background_color",
+            "0.033 0.041 0.047 0.9");
+    widget::font_size = *section->get_option("font_size", "25");
+    widget::font_face = section->get_option("font_face",
+            "/usr/share/fonts/gnu-free/FreeSerif.ttf")->as_string();
 
-    battery_options::icon_path_prefix = section->get_string("battery_icon_path_prefix",
-            "/usr/share/icons/Adwaita/64x64/status");
-    battery_options::invert_icons = section->get_int("battery_invert_icons", 1);
-    battery_options::text_scale = section->get_double("battery_text_scale", 0.6);
+    battery_options::icon_path_prefix = section->get_option("battery_icon_path_prefix",
+            "/usr/share/icons/Adwaita/64x64/status")->as_string();
+    battery_options::invert_icons = int(*section->get_option("battery_invert_icons", "1"));
+    battery_options::text_scale = double(*section->get_option("battery_text_scale", "0.6"));
 }
 
 wayfire_panel::wayfire_panel(wayfire_config *config, uint32_t output, uint32_t w, uint32_t h)
@@ -47,7 +46,9 @@ wayfire_panel::wayfire_panel(wayfire_config *config, uint32_t output, uint32_t w
     std::cout << "configured: " << width << " " << height << std::endl;
 
     this->output = output;
-    autohide = (bool) config->get_section("shell_panel")->get_int("autohide", 1);
+
+    autohide_opt = (*config)["shell_panel"]->get_option("autohide", "1");
+    autohide = (bool)autohide_opt->as_int();
 
     window = create_window(width, height, [=] () {create_panel();});
     wayfire_shell_add_panel(display.wfshell, output, window->surface);
@@ -351,9 +352,9 @@ void wayfire_panel::init_widgets()
     cr = cairo_create(window->cairo_surface);
 
     auto section = config->get_section("shell_panel");
-    std::string left = section->get_string("widgets_left", "");
-    std::string center = section->get_string("widgets_center", "clock");
-    std::string right = section->get_string("widgets_right", "");
+    std::string left   = *section->get_option("widgets_left", "");
+    std::string center = *section->get_option("widgets_center", "clock");
+    std::string right  = *section->get_option("widgets_right", "");
 
     init_widgets(left, PART_LEFT);
     init_widgets(center, PART_SYMMETRIC);

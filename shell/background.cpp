@@ -68,6 +68,7 @@ static cairo_surface_t *create_cairo_surface_from_file(std::string name, int w, 
 class wayfire_background
 {
     uint32_t output;
+    bool sent_fade = false;
     std::string image;
 
     cairo_surface_t *img_surface = NULL;
@@ -112,6 +113,12 @@ class wayfire_background
         cairo_fill(cr);
 
         damage_commit_window(window);
+
+        if (!sent_fade)
+        {
+            wayfire_shell_output_fade_in_start(display.wfshell, output);
+            sent_fade = 1;
+        }
     }
 
     void resize(uint32_t w, uint32_t h)
@@ -148,7 +155,6 @@ void output_created_cb(void *data, wayfire_shell *wayfire_shell,
 {
 
     outputs[output] = std::unique_ptr<wayfire_background> (new wayfire_background(bg_path, output, width, height));
-    wayfire_shell_output_fade_in_start(wayfire_shell, output);
 }
 
 void output_resized_cb(void *data, wayfire_shell *wayfire_shell,
@@ -211,7 +217,7 @@ int main(int argc, char *argv[])
     config = new wayfire_config(config_file);
     auto section = config->get_section("shell");
 
-    bg_path = section->get_string("background", "none");
+    bg_path = section->get_option("background", "none")->as_string();
 
     if (!setup_wayland_connection())
         return -1;

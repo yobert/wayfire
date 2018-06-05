@@ -20,7 +20,7 @@
 #include <freetype2/ft2build.h>
 #include <pthread.h>
 
-wayfire_color widget::background_color;
+wf_color widget::background_color;
 int32_t widget::font_size;
 std::string widget::font_face;
 
@@ -579,10 +579,10 @@ void launchers_widget::init_launchers(wayfire_config *config)
 {
     auto section = config->get_section("shell_panel");
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 20; i++)
     {
-        std::string icon = section->get_string("launcher" + std::to_string(i) + "_icon", "");
-        std::string cmd =  section->get_string("launcher" + std::to_string(i) + "_cmd", "");
+        std::string icon = *section->get_option("launcher" + std::to_string(i) + "_icon", "");
+        std::string cmd =  *section->get_option("launcher" + std::to_string(i) + "_cmd", "");
 
         if (icon == "" || cmd == "")
             continue;

@@ -2,6 +2,7 @@
 #define PANEL_HPP
 
 #include "window.hpp"
+#include <config.hpp>
 #include <vector>
 
 struct widget;
@@ -15,7 +16,10 @@ class wayfire_panel {
     uint32_t width, height;
 
     int hidden_height = 1;
+
+    wf_option autohide_opt;
     int autohide = 0;
+
     bool need_fullredraw = false;
 
     struct {

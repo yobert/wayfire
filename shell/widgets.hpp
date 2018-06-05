@@ -5,14 +5,14 @@
 #include <cairo-ft.h>
 #include <functional>
 #include <thread>
-#include "../shared/config.hpp"
+#include <config.hpp>
 
 extern cairo_font_face_t *cairo_font_face;
 void load_default_font();
 
 struct widget
 {
-    static wayfire_color background_color;
+    static wf_color background_color;
     static int32_t font_size;
     static std::string font_face;
 
