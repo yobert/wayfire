@@ -597,9 +597,29 @@ int wayfire_output::add_key(wf_option key, key_callback* callback)
     return core->input->add_key(key, callback, this);
 }
 
+void wayfire_output::rem_key(key_callback* callback)
+{
+    core->input->rem_key(callback);
+}
+
+void wayfire_output::rem_key(int callback)
+{
+    core->input->rem_key(callback);
+}
+
 int wayfire_output::add_button(wf_option button, button_callback* callback)
 {
     return core->input->add_button(button, callback, this);
+}
+
+void wayfire_output::rem_button(button_callback* callback)
+{
+    core->input->rem_button(callback);
+}
+
+void wayfire_output::rem_button(int callback)
+{
+    core->input->rem_button(callback);
 }
 
 int wayfire_output::add_touch(uint32_t mod, touch_callback* callback)

@@ -117,7 +117,12 @@ class wayfire_output
        void bring_to_front(wayfire_view v);
 
        int add_key(wf_option key, key_callback *);
+       void rem_key(key_callback *);
+       void rem_key(int);
+
        int add_button(wf_option button, button_callback *);
+       void rem_button(button_callback*);
+       void rem_button(int);
 
        int  add_touch(uint32_t mod, touch_callback*);
        void rem_touch(int32_t id);

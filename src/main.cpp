@@ -19,7 +19,8 @@ extern "C"
 #include <wayland-server.h>
 #include "view/priv-view.hpp"
 
-#include "api/core.hpp"
+#include "core.hpp"
+#include "output.hpp"
 
 static wl_listener output_created;
 void output_created_cb (wl_listener*, void *data)
@@ -52,6 +53,9 @@ static int handle_config_updated(int fd, uint32_t mask, void *data)
     /* read, but don't use */
     read(fd, buf, INOT_BUF_SIZE);
     reload_config(fd);
+
+    core->for_each_output([] (wayfire_output *wo)
+                          { wo->emit_signal("reload-config", nullptr); });
     return 1;
 }
 
