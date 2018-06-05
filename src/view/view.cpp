@@ -388,6 +388,7 @@ void wayfire_view_t::set_transformer(std::unique_ptr<wf_view_transformer_t> tran
 {
     /* TODO: damage all */
     transform = std::move(transformer);
+    damage();
 }
 
 void emit_view_map(wayfire_view view)
