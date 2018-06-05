@@ -148,6 +148,9 @@ void wayfire_surface_t::map(wlr_surface *surface)
     assert(!this->surface && surface);
     this->surface = surface;
 
+    /* force surface_send_enter() */
+    set_output(output);
+
     wl_signal_add(&surface->events.new_subsurface, &new_sub);
     wl_signal_add(&surface->events.commit,         &committed);
 
@@ -248,6 +251,12 @@ void wayfire_surface_t::commit()
 
 void wayfire_surface_t::set_output(wayfire_output *out)
 {
+    if (output && surface)
+        wlr_surface_send_leave(surface, output->handle);
+
+    if (out && surface)
+        wlr_surface_send_enter(surface, out->handle);
+
     output = out;
     for (auto c : surface_children)
         c->set_output(out);
