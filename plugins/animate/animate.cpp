@@ -4,7 +4,7 @@
 #include <debug.hpp>
 #include <type_traits>
 #include <core.hpp>
-//#include "system_fade.hpp"
+#include "system_fade.hpp"
 #include "basic_animations.hpp"
 
 #if USE_GLES32
@@ -130,7 +130,7 @@ class wayfire_animation : public wayfire_plugin_t {
 
         wake_cb = [=] (signal_data *data)
         {
-//            new wf_system_fade(output, startup_duration);
+            new wf_system_fade(output, startup_duration);
         };
 
         output->connect_signal("map-view", &map_cb);
