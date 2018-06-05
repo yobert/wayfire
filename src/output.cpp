@@ -1034,25 +1034,99 @@ std::pair<wlr_output_mode, bool> parse_output_mode(std::string modeline)
     return {mode, true};
 }
 
-std::pair<wf_point, bool> parse_output_layout(std::string layout)
+wf_point parse_output_layout(std::string layout)
 {
     wf_point pos;
     int read = std::sscanf(layout.c_str(), "%d @ %d", &pos.x, &pos.y);
 
-    return {pos, read == 2};
+    if (read < 2)
+        pos.x = pos.y = 0;
+
+    return pos;
 }
 
-wlr_output_mode *find_matching_mode(wlr_output *output, wlr_output_mode target)
+wlr_output_mode *find_matching_mode(wlr_output *output, int32_t w, int32_t h, int32_t rr)
 {
     wlr_output_mode *mode;
     wl_list_for_each(mode, &output->modes, link)
     {
-        if (mode->width == target.width && mode->height == target.height &&
-            mode->refresh == target.refresh)
+        if (mode->width == w && mode->height == h && mode->refresh == rr)
             return mode;
     }
 
     return NULL;
+}
+
+bool wayfire_output::set_mode(uint32_t width, uint32_t height, uint32_t refresh_mHz)
+{
+    auto built_in = find_matching_mode(handle, width, height, refresh_mHz);
+    if (built_in)
+    {
+        wlr_output_set_mode(handle, built_in);
+        return true;
+    } else
+    {
+        log_info("Couldn't find matching mode %dx%d@%f for output %s."
+                 "Trying to use custom mode (might not work).",
+                 width, height, refresh_mHz / 1000.0,
+                 handle->name);
+
+        return wlr_output_set_custom_mode(handle, width, height, refresh_mHz);
+    }
+
+    emit_signal("mode-changed", nullptr);
+    emit_signal("output-resized", nullptr);
+}
+
+bool wayfire_output::set_mode(std::string mode)
+{
+    if (mode == "default")
+    {
+        if (wl_list_length(&handle->modes) > 0)
+        {
+            struct wlr_output_mode *mode =
+                wl_container_of((&handle->modes)->prev, mode, link);
+
+            set_mode(mode->width, mode->height, mode->refresh);
+            return true;
+        }
+
+        return false;
+    }
+
+    auto target = parse_output_mode(mode);
+    if (!target.second)
+    {
+        log_error ("Invalid mode config for output %s", handle->name);
+        return false;
+    } else
+    {
+        return set_mode(target.first.width, target.first.height,
+                        target.first.refresh);
+    }
+}
+
+void wayfire_output::set_initial_mode()
+{
+    auto section = core->config->get_section(handle->name);
+    const auto default_mode = "default";
+
+    mode_opt = section->get_option("mode", default_mode);
+
+    /* we capture the shared_ptr, but as config will outlive us anyway,
+     * and the lambda will be destroyed as soon as the wayfire_output is
+     * destroyed, the circular dependency will be broken */
+    config_mode_changed = [this] ()
+    { set_mode(mode_opt->as_string()); };
+
+    mode_opt->updated.push_back(&config_mode_changed);
+
+    if (!set_mode(mode_opt->as_string()))
+    {
+        log_error ("Couldn't set the requested in config mode for output %s", handle->name);
+        if (!set_mode(default_mode))
+            log_error ("Couldn't set any mode for output %s", handle->name);
+    }
 }
 
 wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
@@ -1060,68 +1134,16 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
     this->handle = handle;
     auto section = c->get_section(handle->name);
 
-
-    bool has_mode_set = false;
     const auto default_mode = "default";
 
     auto mode = section->get_option("mode", default_mode)->as_string();
 
-    /* check whether we can use the custom mode requested by the user */
-    if (mode != default_mode)
-    {
-        auto target = parse_output_mode(mode);
-        if (!target.second)
-        {
-            log_error ("Invalid mode string for output %s", handle->name);
-        } else
-        {
-            auto built_in = find_matching_mode(handle, target.first);
-            if (built_in)
-            {
-                wlr_output_set_mode(handle, built_in);
-                has_mode_set = true;
-            } else
-            {
-                log_info("Couldn't find matching mode %dx%d@%d for output %s."
-                         "Trying to use custom mode (might not work).",
-                         target.first.width, target.first.height, target.first.refresh / 1000,
-                         handle->name);
-
-                has_mode_set = wlr_output_set_custom_mode(handle, target.first.width, target.first.height,
-                                                          target.first.refresh);
-            }
-        }
-    }
-
-    /* if we haven't set a custom mode, try to use a default one */
-    if (!has_mode_set && wl_list_length(&handle->modes) > 0)
-    {
-        struct wlr_output_mode *mode =                                                                                                      
-            wl_container_of((&handle->modes)->prev, mode, link);
-        wlr_output_set_mode(handle, mode);
-
-        has_mode_set = true;
-    }
-
-    if (!has_mode_set)
-        log_error ("Couldn't set mode for output %s", handle->name);
-
+    set_initial_mode();
+    set_initial_scale();
+    set_initial_transform();
+    set_initial_position();
 
     render = new render_manager(this);
-
-    wlr_output_set_scale(handle, section->get_option("scale", "1")->as_double());
-    wlr_output_set_transform(handle,
-                             get_transform_from_string(*section->get_option("transform", "normal")));
-
-    auto requested_layout = section->get_option("layout", "")->as_string();
-    auto pos = parse_output_layout(requested_layout);
-    if (pos.second)
-    {
-        wlr_output_layout_add(core->output_layout, handle, pos.first.x, pos.first.y);
-    } else
-    {
-        wlr_output_layout_add_auto(core->output_layout, handle);
-    }
 
     core->set_default_cursor();
     plugin = new plugin_manager(this, c);
@@ -1187,12 +1209,15 @@ void wayfire_output::set_transform(wl_output_transform new_tr)
     GetTuple(old_w, old_h, get_screen_size());
 
     wlr_output_set_transform(handle, new_tr);
+
     render->damage(NULL);
 
     GetTuple(new_w, new_h, get_screen_size());
     for (auto resource : core->shell_clients)
         wayfire_shell_send_output_resized(resource, id, new_w, new_h);
+
     emit_signal("output-resized", nullptr);
+    emit_signal("transform-changed", nullptr);
 
     workspace->for_each_view([=] (wayfire_view view)
     {
@@ -1213,6 +1238,8 @@ void wayfire_output::set_transform(wl_output_transform new_tr)
             float pw = 1. * wm.width / old_w;
             float ph = 1. * wm.height / old_h;
 
+            log_info("new size becomes %f %f %f %f of %d %d", px, py, pw, ph, new_w, new_h);
+
             view->set_geometry({int(px * new_w), int(py * new_h),
 			    int(pw * new_w), int(ph * new_h)});
         }
@@ -1222,6 +1249,74 @@ void wayfire_output::set_transform(wl_output_transform new_tr)
 wl_output_transform wayfire_output::get_transform()
 {
     return (wl_output_transform)handle->transform;
+}
+
+void wayfire_output::set_initial_transform()
+{
+    transform_opt = (*core->config)[handle->name]->get_option("transform", "normal");
+
+    config_transform_changed = [this] ()
+    { set_transform(get_transform_from_string(transform_opt->as_string())); };
+
+    transform_opt->updated.push_back(&config_transform_changed);
+    wlr_output_set_transform(handle, get_transform_from_string(transform_opt->as_string()));
+}
+
+void wayfire_output::set_scale(double scale)
+{
+    emit_signal("output-resized", nullptr);
+    emit_signal("scale-changed", nullptr);
+
+    wlr_output_set_scale(handle, scale);
+}
+
+void wayfire_output::set_initial_scale()
+{
+    scale_opt = (*core->config)[handle->name]->get_option("scale", "1");
+
+    config_scale_changed = [this] ()
+    { set_scale(scale_opt->as_double()); };
+
+    scale_opt->updated.push_back(&config_scale_changed);
+
+    set_scale(scale_opt->as_double());
+}
+
+void wayfire_output::set_position(wf_point p)
+{
+    wlr_output_layout_remove(core->output_layout, handle);
+    wlr_output_layout_add(core->output_layout, handle, p.x, p.y);
+
+    emit_signal("output-position-changed", nullptr);
+    emit_signal("output-resized", nullptr);
+}
+
+void wayfire_output::set_position(std::string p)
+{
+    wlr_output_layout_remove(core->output_layout, handle);
+
+    if (p == "default")
+    {
+        wlr_output_layout_add_auto(core->output_layout, handle);
+    } else
+    {
+        auto pos = parse_output_layout(p);
+        wlr_output_layout_add(core->output_layout, handle, pos.x, pos.y);
+    }
+
+    emit_signal("output-position-changed", nullptr);
+    emit_signal("output-resized", nullptr);
+}
+
+void wayfire_output::set_initial_position()
+{
+    position_opt = (*core->config)[handle->name]->get_option("layout", "");
+
+    config_position_changed = [this] ()
+    { set_position(position_opt->as_string()); };
+
+    position_opt->updated.push_back(&config_position_changed);
+    set_position(position_opt->as_string());
 }
 
 std::tuple<int, int> wayfire_output::get_screen_size()

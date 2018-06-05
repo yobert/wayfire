@@ -41,8 +41,17 @@ class wayfire_output
 
        wf_option_callback config_mode_changed,
                           config_transform_changed,
-                          config_layout_changed,
+                          config_position_changed,
                           config_scale_changed;
+
+       wf_option mode_opt, scale_opt, transform_opt, position_opt;
+
+       void set_initial_mode();
+       void set_initial_scale();
+       void set_initial_transform();
+       void set_initial_position();
+
+       void set_position(std::string pos);
 
     public:
        int id;
@@ -63,6 +72,13 @@ class wayfire_output
 
        void set_transform(wl_output_transform new_transform);
        wl_output_transform get_transform();
+
+       /* return true if mode switch has succeeded */
+       bool set_mode(std::string mode);
+       bool set_mode(uint32_t width, uint32_t height, uint32_t refresh_mHz);
+
+       void set_scale(double scale);
+       void set_position(wf_point p);
 
        /* makes sure that the pointer is inside the output's geometry */
        void ensure_pointer();
