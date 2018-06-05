@@ -31,6 +31,7 @@ static void handle_xwayland_request_configure(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_xwayland_surface_configure_event*> (data);
     auto view = wf_view_from_void(ev->surface->data);
+
      view->set_geometry({ev->x, ev->y, ev->width, ev->height});
 }
 
@@ -127,28 +128,22 @@ class wayfire_xwayland_view : public wayfire_view_t
 
     void map(wlr_surface *surface)
     {
-        geometry.x = xw->x;
-        geometry.y = xw->y;
-        wayfire_view_t::map(surface);
-
         if (xw->maximized_horz && xw->maximized_vert)
             maximize_request(true);
 
         if (xw->fullscreen)
             fullscreen_request(output, true);
 
-        if (xw->override_redirect)
-            output->workspace->add_view_to_layer(self(), WF_LAYER_XWAYLAND);
+        if (!maximized && !fullscreen)
+        {
+            auto wa = output->workspace->get_workarea();
+            move(xw->x + wa.x, xw->y + wa.y, false);
+        }
+
+        wayfire_view_t::map(surface);
     }
 
     bool is_subsurface() { return false; }
-
-    virtual void commit()
-    {
-        wayfire_view_t::commit();
-        if (xw->x != geometry.x || xw->y != geometry.y)
-            wayfire_view_t::move(xw->x, xw->y, false);
-    }
 
     void activate(bool active)
     {
@@ -179,11 +174,10 @@ class wayfire_xwayland_view : public wayfire_view_t
     void set_geometry(wf_geometry g)
     {
         damage();
-        geometry = g;
 
+        wayfire_view_t::move(g.x, g.y, false);
         /* send the geometry-changed signal */
         resize(g.width, g.height, true);
-        send_configure();
     }
 
     void close()
@@ -236,7 +230,6 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
 
     void commit()
     {
-        log_info("commit at %dx%d", xw->x, xw->y);
         if (geometry.x != xw->x || geometry.y != xw->y)
             wayfire_view_t::move(xw->x, xw->y, false);
 
@@ -248,16 +241,12 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
             damage(old_geometry);
             damage();
         }
-
-        log_info("geometry is %d@%d %dx%d", geometry.x, geometry.y, geometry.width, geometry.height);
-        auto og = get_output_geometry();
-        log_info("ogeometry is %d@%d %dx%d", og.x, og.y, og.width, og.height);
     }
 
     void map(wlr_surface *surface)
     {
-        log_info("map unmanaged %p", surface);
         wayfire_surface_t::map(surface);
+
         wayfire_view_t::move(xw->x, xw->y, false);
         damage();
 
@@ -265,6 +254,9 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
 
         if (!wlr_xwayland_surface_is_unmanaged(xw))
         {
+            auto wa = output->workspace->get_workarea();
+            move(xw->x + wa.x, xw->y + wa.y, false);
+
             emit_view_map(self());
             output->focus_view(self());
         }
@@ -324,12 +316,10 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
     void dec_keep_count()
     {
         wayfire_surface_t::dec_keep_count();
-        log_info("dec keep count");
     }
 
     virtual void render_fb(int x, int y, pixman_region32_t* damage, int target_fb)
     {
-        log_info("render fb unmanaged");
         wayfire_view_t::render_fb(x, y, damage, target_fb);
     }
 
