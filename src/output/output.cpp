@@ -315,7 +315,7 @@ void wayfire_output::set_position(std::string p)
 {
     wlr_output_layout_remove(core->output_layout, handle);
 
-    if (p == "default")
+    if (p == "default" || p.empty())
     {
         wlr_output_layout_add_auto(core->output_layout, handle);
     } else
@@ -330,7 +330,7 @@ void wayfire_output::set_position(std::string p)
 
 void wayfire_output::set_initial_position()
 {
-    position_opt = (*core->config)[handle->name]->get_option("layout", "");
+    position_opt = (*core->config)[handle->name]->get_option("layout", "default");
 
     config_position_changed = [this] ()
     { set_position(position_opt->as_string()); };
