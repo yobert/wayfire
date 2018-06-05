@@ -454,14 +454,18 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
     if (seat == nullptr)
         seat = core->get_current_seat();
 
-    if (active_view && active_view->is_mapped())
+    bool refocus = (active_view == v);
+
+    if (active_view && active_view->is_mapped() && !refocus)
         active_view->activate(false);
 
     active_view = v;
     if (active_view)
     {
         set_keyboard_focus(active_view->get_keyboard_focus_surface(), seat);
-        active_view->activate(true);
+
+        if (!refocus)
+            active_view->activate(true);
     } else
     {
         set_keyboard_focus(NULL, seat);
