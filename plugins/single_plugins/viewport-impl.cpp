@@ -223,7 +223,7 @@ bool viewport_manager::view_visible_on(wayfire_view view, std::tuple<int, int> v
     }
 
     if (view->get_transformer())
-        return rect_intersect(g, view->get_bounding_box());
+        return view->intersects_region(g);
     else
         return rect_intersect(g, view->get_wm_geometry());
 }

@@ -169,6 +169,7 @@ class wayfire_view_t : public wayfire_surface_t
 
         std::unique_ptr<wf_view_transformer_t> transform;
 
+        virtual wf_geometry get_untransformed_bounding_box();
     public:
 
         /* these represent toplevel relations, children here are transient windows,
@@ -195,10 +196,19 @@ class wayfire_view_t : public wayfire_surface_t
 
         /* return geometry as should be used for all WM purposes */
         virtual wf_geometry get_wm_geometry() { return decoration ? decoration->get_wm_geometry() : geometry; }
-        virtual wf_geometry get_output_geometry();
 
-        virtual wlr_box get_bounding_box();
         virtual wf_point get_output_position();
+
+        /* return the output-local transformed coordinates of the view
+         * and all its subsurfaces */
+        virtual wlr_box get_bounding_box();
+
+        /* transform the given region using the view's transform */
+        virtual wlr_box transform_region(const wlr_box &box);
+
+        /* check whether the given region intersects any of the surfaces
+         * in the view's surface tree. */
+        virtual bool intersects_region(const wlr_box& region);
 
         /* map from global to surface local coordinates
          * returns the (sub)surface under the cursor or NULL iff the cursor is outside of the view

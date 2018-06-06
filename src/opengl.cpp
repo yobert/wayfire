@@ -222,10 +222,10 @@ namespace OpenGL
         };
 
         GLfloat coordData[] = {
-            0.0f, 1.0f,
-            1.0f, 1.0f,
-            1.0f, 0.0f,
             0.0f, 0.0f,
+            1.0f, 0.0f,
+            1.0f, 1.0f,
+            0.0f, 1.0f,
         };
 
         if (bits & TEXTURE_USE_TEX_GEOMETRY) {

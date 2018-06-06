@@ -149,13 +149,13 @@ void wayfire_view_t::set_geometry(wf_geometry g)
     resize(g.width, g.height);
 }
 
-wf_geometry wayfire_view_t::get_bounding_box()
+wlr_box wayfire_view_t::transform_region(const wlr_box& region)
 {
     if (!transform)
-        return get_output_geometry();
+        return region;
 
     wlr_box wm = get_wm_geometry();
-    wlr_box box = get_output_geometry();
+    wlr_box box = region;
 
     box.x = (box.x - wm.x) - wm.width / 2;
     box.y = wm.height / 2 - (box.y - wm.y);
@@ -164,6 +164,68 @@ wf_geometry wayfire_view_t::get_bounding_box()
 
     box.x = box.x + wm.x + wm.width / 2;
     box.y = (wm.height / 2 - box.y) + wm.y;
+
+    return box;
+}
+
+
+bool wayfire_view_t::intersects_region(const wlr_box& region)
+{
+    /* fallback to the whole transformed boundingbox, if it exists */
+    if (!is_mapped())
+        return rect_intersect(region, get_bounding_box());
+
+    bool result = false;
+    for_each_surface([=, &result] (wayfire_surface_t* surface, int, int)
+    {
+        auto box = transform_region(surface->get_output_geometry());
+        result = result || rect_intersect(region, box);
+    });
+
+    return result;
+}
+
+wf_geometry wayfire_view_t::get_untransformed_bounding_box()
+{
+    if (is_mapped() || !offscreen_buffer.valid())
+    {
+        auto bbox = get_output_geometry();
+        int x1 = bbox.x, x2 = bbox.x + bbox.width;
+        int y1 = bbox.y, y2 = bbox.y + bbox.height;
+
+        for_each_surface([&x1, &x2, &y1, &y2] (wayfire_surface_t* surface, int, int)
+                         {
+                             auto sbox = surface->get_output_geometry();
+                             int sx1 = sbox.x, sx2 = sbox.x + sbox.width;
+                             int sy1 = sbox.y, sy2 = sbox.y + sbox.height;
+
+                             x1 = std::min(x1, sx1);
+                             y1 = std::min(y1, sy1);
+                             x2 = std::max(x2, sx2);
+                             y2 = std::max(y2, sy2);
+                         });
+
+        bbox.x = x1;
+        bbox.y = y1;
+        bbox.width = x2 - x1;
+        bbox.height = y2 - y1;
+
+        return bbox;
+    }
+
+    return {
+        offscreen_buffer.output_x,
+        offscreen_buffer.output_y,
+        (int32_t)(offscreen_buffer.fb_width / output->handle->scale),
+        (int32_t)(offscreen_buffer.fb_height / output->handle->scale)
+    };
+}
+
+wf_geometry wayfire_view_t::get_bounding_box()
+{
+    auto box = get_untransformed_bounding_box();
+    if (transform)
+        box = transform_region(box);
 
     return box;
 }
@@ -220,19 +282,6 @@ wf_point wayfire_view_t::get_output_position()
     return wf_point{geometry.x, geometry.y};
 }
 
-wf_geometry wayfire_view_t::get_output_geometry()
-{
-    if (is_mapped() || !offscreen_buffer.valid())
-        return wayfire_surface_t::get_output_geometry();
-
-    return {
-        offscreen_buffer.output_x,
-        offscreen_buffer.output_y,
-        (int32_t)(offscreen_buffer.fb_width / output->handle->scale),
-        (int32_t)(offscreen_buffer.fb_height / output->handle->scale)
-    };
-}
-
 void wayfire_view_t::damage(const wlr_box& box)
 {
     if (decoration)
@@ -261,14 +310,6 @@ void wayfire_view_t::damage(const wlr_box& box)
         output->render->damage(get_output_box_from_box(box,
                                                        output->handle->scale));
     }
-}
-
-static wf_geometry get_output_centric_geometry(int32_t screen_w, int32_t screen_h, wf_geometry view)
-{
-    view.x = view.x - screen_w / 2;
-    view.y = screen_h /2 - view.y;
-
-    return view;
 }
 
 void wayfire_view_t::offscreen_buffer_t::init(int w, int h)
@@ -309,21 +350,21 @@ void wayfire_view_t::take_snapshot()
         return;
 
     wlr_renderer_begin(core->renderer, output->handle->width, output->handle->height);
-    auto output_geometry = get_output_geometry();
+    auto buffer_geometry = get_untransformed_bounding_box();
 
-    offscreen_buffer.output_x = output_geometry.x;
-    offscreen_buffer.output_y = output_geometry.y;
+    offscreen_buffer.output_x = buffer_geometry.x;
+    offscreen_buffer.output_y = buffer_geometry.y;
 
     int scale = surface->current->scale;
-    if (output_geometry.width * scale != offscreen_buffer.fb_width
-        || output_geometry.height * scale != offscreen_buffer.fb_height)
+    if (buffer_geometry.width * scale != offscreen_buffer.fb_width
+        || buffer_geometry.height * scale != offscreen_buffer.fb_height)
     {
         offscreen_buffer.fini();
     }
 
     if (!offscreen_buffer.valid())
     {
-        offscreen_buffer.init(output_geometry.width * scale, output_geometry.height * scale);
+        offscreen_buffer.init(buffer_geometry.width * scale, buffer_geometry.height * scale);
         pixman_region32_init(&offscreen_buffer.cached_damage);
     }
 
@@ -337,7 +378,7 @@ void wayfire_view_t::take_snapshot()
     for_each_surface([=] (wayfire_surface_t *surface, int x, int y) {
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, offscreen_buffer.fbo));
         GL_CALL(glViewport(0, 0, offscreen_buffer.fb_width, offscreen_buffer.fb_height));
-        surface->render_fbo((x - output_geometry.x) * scale, (y - output_geometry.y) * scale,
+        surface->render_fbo((x - buffer_geometry.x) * scale, (y - buffer_geometry.y) * scale,
                             offscreen_buffer.fb_width, offscreen_buffer.fb_height,
                             NULL);
     }, true);
@@ -355,15 +396,22 @@ void wayfire_view_t::render_fb(int x, int y, pixman_region32_t* damage, int fb)
     if (transform && !decoration)
     {
         take_snapshot();
+
+        auto vbox = get_untransformed_bounding_box();
+        auto wm = get_wm_geometry();
         auto output_geometry = get_output_geometry();
-        auto obox = output_geometry;
 
-        obox.x = x;
-        obox.y = y;
 
-        int w, h;
-        wlr_output_effective_resolution(output->handle, &w, &h);
-        obox = get_output_centric_geometry(w, h, obox);
+        wf_geometry obox;
+        obox.x = x + (vbox.x - output_geometry.x);
+        obox.y = y + (vbox.y - output_geometry.y);
+
+        obox.width = offscreen_buffer.fb_width / output->handle->scale;
+        obox.height = offscreen_buffer.fb_height / output->handle->scale;
+
+        wf_point center;
+        center.x = (wm.x - output_geometry.x) + x + wm.width / 2.0;
+        center.y = (wm.y - output_geometry.y) + y + wm.height / 2.0;
 
         int n_rect;
         auto rects = pixman_region32_rectangles(damage, &n_rect);
@@ -375,7 +423,7 @@ void wayfire_view_t::render_fb(int x, int y, pixman_region32_t* damage, int fb)
                 rects[i].x2 - rects[i].x1, rects[i].y2 - rects[i].y1};
 
             auto sbox = get_scissor_box(output, &box);
-            transform->render_with_damage(offscreen_buffer.tex, fb, obox, output_matrix, sbox);
+            transform->render_with_damage(offscreen_buffer.tex, fb, obox, center, output_matrix, sbox);
         }
 
     } else

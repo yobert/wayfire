@@ -54,7 +54,7 @@ class wf_wrot : public wayfire_plugin_t
                 double x2 = x - cx, y2 = y - cy;
 
                 /* cross(a, b) = |a| * |b| * sin(a, b) */
-                tr->angle += std::asin(cross(x1, y1, x2, y2) / vlen(x1, y1) / vlen(x2, y2));
+                tr->angle -= std::asin(cross(x1, y1, x2, y2) / vlen(x1, y1) / vlen(x2, y2));
 
                 view->damage();
 

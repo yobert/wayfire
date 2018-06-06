@@ -22,19 +22,23 @@ class wf_view_transformer_t
 
         /* src_tex        the internal FBO texture,
          * target_fbo     the fbo to render to
-         * src_box        the geometry of src_tex in screen-centric coordinates
+         * src_box        the geometry of src_tex in output-local coordinates
+         * src_center     the center of transformation for src_tex in output-local coordinates
          * output_matrix  the transformation which maps framebuffer coordinates to output coordinates
          * scissor_box    the area in which the transform renderer must update,
          *                drawing outside of it will cause artifacts */
         virtual void render_with_damage(uint32_t src_tex,
                                         uint32_t target_fbo,
                                         wlr_box src_box,
+                                        wf_point src_center,
                                         glm::mat4 output_matrix,
                                         wlr_box scissor_box) = 0;
 };
 
 class wf_2D_view : public wf_view_transformer_t
 {
+    protected:
+        wayfire_output *output;
     public:
         float angle = 0.0f;
         float scale_x = 1.0f, scale_y = 1.0f;
@@ -54,12 +58,16 @@ class wf_2D_view : public wf_view_transformer_t
         virtual void render_with_damage(uint32_t src_tex,
                                         uint32_t target_fbo,
                                         wlr_box src_box,
+                                        wf_point src_center,
                                         glm::mat4 output_matrix,
                                         wlr_box scissor_box);
 };
 
 class wf_3D_view : public wf_view_transformer_t
 {
+    protected:
+        wayfire_output *output;
+
     public:
         glm::mat4 view_proj{1.0}, translation{1.0}, rotation{1.0}, scaling{1.0};
         glm::vec4 color{1, 1, 1, 1};
@@ -78,6 +86,7 @@ class wf_3D_view : public wf_view_transformer_t
         virtual void render_with_damage(uint32_t src_tex,
                                         uint32_t target_fbo,
                                         wlr_box src_box,
+                                        wf_point src_center,
                                         glm::mat4 output_matrix,
                                         wlr_box scissor_box);
 };

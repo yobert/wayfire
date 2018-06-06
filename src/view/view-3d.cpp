@@ -23,15 +23,43 @@ wlr_box wf_view_transformer_t::get_bounding_box(wlr_box region)
     return {x1, y1, x2 - x1, y1 - y2};
 }
 
+struct transformable_quad
+{
+    gl_geometry geometry;
+    float off_x, off_y;
+};
+
+static transformable_quad center_geometry(wayfire_output *output,
+                                          wf_geometry geometry,
+                                          wf_point target_center)
+{
+    transformable_quad quad;
+
+    quad.geometry.x1 = -(target_center.x - geometry.x);
+    quad.geometry.y1 =  (target_center.y - geometry.y);
+
+    quad.geometry.x2 = quad.geometry.x1 + geometry.width;
+    quad.geometry.y2 = quad.geometry.y1 - geometry.height;
+
+    auto og = output->get_relative_geometry();
+
+    quad.off_x = (geometry.x - og.width / 2.0)  - quad.geometry.x1;
+    quad.off_y = (og.height / 2.0 - geometry.y) - quad.geometry.y1;
+
+    return quad;
+}
+
 wf_2D_view::wf_2D_view(wayfire_output *output)
 {
+    this->output = output;
+
     int sw, sh;
     wlr_output_effective_resolution(output->handle, &sw, &sh);
 
     float w = sw;
     float h = sh;
 
-    ortho = glm::ortho(-w/2, w/2, h/2, -h/2);
+    ortho = glm::ortho(-w/2, w/2, -h/2, h/2);
     m_aspect = w / h;
 }
 
@@ -49,9 +77,9 @@ wf_point wf_2D_view::local_to_transformed_point(wf_point point)
     float x = point.x, y = point.y;
 
     x *= scale_x; y *= scale_y;
-    rotate_xy(x, y, -angle);
+    rotate_xy(x, y, angle);
     x += translation_x;
-    y += translation_y;
+    y -= translation_y;
 
     return {(int32_t) x, (int32_t) y};
 }
@@ -61,9 +89,9 @@ wf_point wf_2D_view::transformed_to_local_point(wf_point point)
     float x = point.x, y = point.y;
 
     x /= scale_x; y /= scale_y;
-    rotate_xy(x, y, angle);
+    rotate_xy(x, y, -angle);
     x -= translation_x;
-    y -= translation_y;
+    y += translation_y;
 
     return {(int32_t) x, (int32_t) y};
 }
@@ -71,40 +99,35 @@ wf_point wf_2D_view::transformed_to_local_point(wf_point point)
 void wf_2D_view::render_with_damage(uint32_t src_tex,
                                     uint32_t target_fbo,
                                     wlr_box src_box,
+                                    wf_point src_center,
                                     glm::mat4 output_matrix,
                                     wlr_box scissor_box)
 {
-    const float w = src_box.width * scale_x;
-    const float h = src_box.height * scale_y;
+    auto quad = center_geometry(output, src_box, src_center);
 
-    const float render_tlx = -src_box.width;
-    const float render_tly =  src_box.height;
+    quad.geometry.x1 *= scale_x;
+    quad.geometry.x2 *= scale_x;
+    quad.geometry.y1 *= scale_y;
+    quad.geometry.y2 *= scale_y;
 
-    const float tlx = -w;
-    const float tly =  h;
+    auto rotate = glm::rotate(glm::mat4(1.0), angle, {0, 0, 1});
+    auto translate = glm::translate(glm::mat4(1.0),
+                                    {quad.off_x,
+                                     quad.off_y, 0});
 
-    const float brx = tlx + w * 2;
-    const float bry = tly - h * 2;
-
-    glm::mat4 transform{1.0};
-    float off_x = translation_x + src_box.x - render_tlx / 2.0;
-    float off_y = translation_y + render_tly / 2.0 - src_box.y;
-
-    auto rotate = glm::rotate(transform, angle, {0, 0, 1});
-    auto scale = glm::scale(glm::mat4(1.0), {0.5, 0.5, 1});
-    auto translate = glm::translate(transform, {off_x, off_y, 0});
-
-    transform = output_matrix * ortho * translate * scale * rotate;
+    auto transform = output_matrix * ortho * translate * rotate;
 
     wlr_renderer_scissor(core->renderer, &scissor_box);
     GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, target_fbo));
     OpenGL::use_device_viewport();
 
-    OpenGL::render_transformed_texture(src_tex, {tlx, tly, brx, bry},{}, transform, {1.0f, 1.0f, 1.0f, alpha});
+    OpenGL::render_transformed_texture(src_tex, quad.geometry, {},
+                                       transform, {1.0f, 1.0f, 1.0f, alpha});
 }
 
 wf_3D_view::wf_3D_view(wayfire_output *output)
 {
+    this->output = output;
     int sw, sh;
     wlr_output_effective_resolution(output->handle, &sw, &sh);
 
@@ -150,6 +173,7 @@ wf_point wf_3D_view::transformed_to_local_point(wf_point point)
 void wf_3D_view::render_with_damage(uint32_t src_tex,
                                 uint32_t target_fbo,
                                 wlr_box src_box,
+                                wf_point src_center,
                                 glm::mat4 output_matrix,
                                 wlr_box scissor_box)
 {
@@ -157,29 +181,19 @@ void wf_3D_view::render_with_damage(uint32_t src_tex,
     GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, target_fbo));
     OpenGL::use_device_viewport();
 
-    const float tlx = -src_box.width / 2.0;
-    const float tly =  src_box.height / 2.0;
-
-    const float brx = tlx + src_box.width;
-    const float bry = tly - src_box.height;
-
-    float off_x = src_box.x - tlx;
-    float off_y = src_box.y - tly;
+    auto quad = center_geometry(output, src_box, src_center);
 
     auto transform = calculate_total_transform();
-    auto translate = glm::translate(glm::mat4(1.0), {off_x, off_y, 0});
+    auto translate = glm::translate(glm::mat4(1.0), {quad.off_x, quad.off_y, 0});
     auto scale = glm::scale(glm::mat4(1.0), {
                                 2.0 / m_width,
                                 2.0 / m_height,
                                 1.0
                             });
 
-  //  log_info("render@ %f@%f %f@%f, scale %f@%f", tlx, tly, brx, bry, m_width / 2.0, m_height / 2.0);
-  //
-
     transform = output_matrix * scale * translate * transform;
-    OpenGL::render_transformed_texture(src_tex, {tlx, tly, brx, bry}, {},
-                                       transform, color, TEXTURE_TRANSFORM_INVERT_Y);
+    OpenGL::render_transformed_texture(src_tex, quad.geometry, {},
+                                       transform, color);
 }
 
 #define WF_PI 3.141592f
