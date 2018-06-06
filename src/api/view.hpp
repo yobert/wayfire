@@ -146,7 +146,6 @@ class wayfire_view_t : public wayfire_surface_t
 
         bool wait_decoration = false;
 
-        inline wayfire_view self();
         virtual bool update_size();
 
         uint32_t id;
@@ -170,12 +169,14 @@ class wayfire_view_t : public wayfire_surface_t
         std::unique_ptr<wf_view_transformer_t> transform;
 
         virtual wf_geometry get_untransformed_bounding_box();
+        void reposition_relative_to_parent();
     public:
 
         /* these represent toplevel relations, children here are transient windows,
          * such as the close file dialogue */
         wayfire_view parent = nullptr;
         std::vector<wayfire_view> children;
+        virtual void set_toplevel_parent(wayfire_view parent);
 
         /* plugins can subclass wf_custom_view_data and use it to store view-specific information
          * it must provide a virtual destructor to free its data. Custom data is deleted when the view
@@ -185,6 +186,7 @@ class wayfire_view_t : public wayfire_surface_t
         wayfire_view_t();
         virtual ~wayfire_view_t();
         uint32_t get_id() { return id; }
+        inline wayfire_view self();
 
         virtual void move(int x, int y, bool send_signal = true);
         virtual void resize(int w, int h, bool send_signal = true);

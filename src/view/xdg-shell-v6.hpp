@@ -29,25 +29,25 @@ class wayfire_xdg6_view : public wayfire_view_t
         wl_listener destroy, map_ev, unmap, new_popup,
                 request_move, request_resize,
                 request_maximize, request_fullscreen;
-
     public:
+        wl_listener    set_parent_ev;
         wlr_xdg_surface_v6 *v6_surface;
 
-    wayfire_xdg6_view(wlr_xdg_surface_v6 *s);
-    virtual void map(wlr_surface *surface);
-    virtual wf_point get_output_position();
-    virtual void get_child_position(int &x, int &y);
-    virtual bool update_size();
-    virtual void activate(bool act);
-    virtual void set_maximized(bool max);
-    virtual void set_fullscreen(bool full);
-    virtual void move(int w, int h, bool send);
-    virtual void resize(int w, int h, bool send);
+        wayfire_xdg6_view(wlr_xdg_surface_v6 *s);
+        virtual void map(wlr_surface *surface);
+        virtual wf_point get_output_position();
+        virtual void get_child_position(int &x, int &y);
+        virtual bool update_size();
+        virtual void activate(bool act);
+        virtual void set_maximized(bool max);
+        virtual void set_fullscreen(bool full);
+        virtual void move(int w, int h, bool send);
+        virtual void resize(int w, int h, bool send);
 
-    std::string get_app_id();
-    std::string get_title();
-    virtual void close();
-    ~wayfire_xdg6_view();
+        std::string get_app_id();
+        std::string get_title();
+        virtual void close();
+        ~wayfire_xdg6_view();
 };
 
 class wayfire_xdg6_decoration_view : public wayfire_xdg6_view

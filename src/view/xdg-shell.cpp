@@ -114,6 +114,17 @@ static void handle_xdg_request_fullscreen(wl_listener*, void *data)
     view->fullscreen_request(wo, ev->fullscreen);
 }
 
+void handle_xdg_set_parent(wl_listener* listener, void *data)
+{
+    auto surface = static_cast<wlr_xdg_surface*> (data);
+    auto view = wf_view_from_void(surface->data);
+    auto parent = surface->toplevel->parent ?
+        wf_view_from_void(surface->toplevel->parent->data)->self() : nullptr;
+
+    assert(view);
+    view->set_toplevel_parent(parent);
+}
+
 wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_surface *s)
     : wayfire_view_t(), xdg_surface(s)
 {
@@ -125,6 +136,7 @@ wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_surface *s)
     new_popup.notify          = handle_xdg_new_popup;
     map_ev.notify             = handle_xdg_map;
     unmap.notify              = handle_xdg_unmap;
+    set_parent_ev.notify      = handle_xdg_set_parent;
     request_move.notify       = handle_xdg_request_move;
     request_resize.notify     = handle_xdg_request_resize;
     request_maximize.notify   = handle_xdg_request_maximized;
@@ -136,6 +148,7 @@ wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_surface *s)
     wl_signal_add(&s->events.new_popup,        &new_popup);
     wl_signal_add(&xdg_surface->events.map,     &map_ev);
     wl_signal_add(&xdg_surface->events.unmap,   &unmap);
+    wl_signal_add(&xdg_surface->toplevel->events.set_parent,         &set_parent_ev);
     wl_signal_add(&xdg_surface->toplevel->events.request_move,       &request_move);
     wl_signal_add(&xdg_surface->toplevel->events.request_resize,     &request_resize);
     wl_signal_add(&xdg_surface->toplevel->events.request_maximize,   &request_maximize);
@@ -152,7 +165,14 @@ void wayfire_xdg_view::map(wlr_surface *surface)
     if (xdg_surface->toplevel->client_pending.fullscreen)
         fullscreen_request(output, true);
 
+    if (xdg_surface->toplevel->parent)
+    {
+        auto parent = wf_view_from_void(xdg_surface->toplevel->parent->data)->self();
+        set_toplevel_parent(parent);
+    }
+
     wayfire_view_t::map(surface);
+
 }
 
 wf_point wayfire_xdg_view::get_output_position()
@@ -248,6 +268,7 @@ wayfire_xdg_view::~wayfire_xdg_view()
     wl_list_remove(&request_resize.link);
     wl_list_remove(&request_maximize.link);
     wl_list_remove(&request_fullscreen.link);
+    wl_list_remove(&set_parent_ev.link);
 }
 
 wayfire_xdg_decoration_view::wayfire_xdg_decoration_view(wlr_xdg_surface *decor) :

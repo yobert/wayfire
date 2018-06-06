@@ -77,6 +77,17 @@ static void handle_xwayland_destroy(wl_listener*, void *data)
     view->dec_keep_count();
 }
 
+static void handle_xwayland_set_parent(wl_listener*, void *data)
+{
+    auto surface = static_cast<wlr_xwayland_surface*> (data);
+    auto view = wf_view_from_void(surface->data);
+    auto parent = surface->parent ?
+        wf_view_from_void(surface->parent->data)->self() : nullptr;
+
+    assert(view);
+    view->set_toplevel_parent(parent);
+}
+
 class wayfire_xwayland_view : public wayfire_view_t
 {
     wlr_xwayland_surface *xw;
@@ -84,7 +95,8 @@ class wayfire_xwayland_view : public wayfire_view_t
     /* TODO: very bad names, also in other shells */
     wl_listener destroy, map_ev, unmap, configure,
                 request_move, request_resize,
-                request_maximize, request_fullscreen;
+                request_maximize, request_fullscreen,
+                set_parent_ev;
 
     public:
     wayfire_xwayland_view(wlr_xwayland_surface *xww)
@@ -97,6 +109,7 @@ class wayfire_xwayland_view : public wayfire_view_t
         map_ev.notify             = handle_xwayland_map;
         unmap.notify              = handle_xwayland_unmap;
         configure.notify          = handle_xwayland_request_configure;
+        set_parent_ev.notify      = handle_xwayland_set_parent;
         request_move.notify       = handle_xwayland_request_move;
         request_resize.notify     = handle_xwayland_request_resize;
         request_maximize.notify   = handle_xwayland_request_maximize;
@@ -105,6 +118,7 @@ class wayfire_xwayland_view : public wayfire_view_t
         wl_signal_add(&xw->events.destroy,            &destroy);
         wl_signal_add(&xw->events.unmap,              &unmap);
         wl_signal_add(&xw->events.map,                &map_ev);
+        wl_signal_add(&xw->events.set_parent,         &set_parent_ev);
         wl_signal_add(&xw->events.request_move,       &request_move);
         wl_signal_add(&xw->events.request_resize,     &request_resize);
         wl_signal_add(&xw->events.request_maximize,   &request_maximize);
@@ -119,6 +133,7 @@ class wayfire_xwayland_view : public wayfire_view_t
         wl_list_remove(&destroy.link);
         wl_list_remove(&unmap.link);
         wl_list_remove(&map_ev.link);
+        wl_list_remove(&set_parent_ev.link);
         wl_list_remove(&request_move.link);
         wl_list_remove(&request_resize.link);
         wl_list_remove(&request_maximize.link);
@@ -134,11 +149,14 @@ class wayfire_xwayland_view : public wayfire_view_t
         if (xw->fullscreen)
             fullscreen_request(output, true);
 
-        if (!maximized && !fullscreen)
+        if (xw->parent)
         {
-            auto wa = output->workspace->get_workarea();
-            move(xw->x + wa.x, xw->y + wa.y, false);
+            auto parent = wf_view_from_void(xw->parent->data)->self();
+            set_toplevel_parent(parent);
         }
+
+        if (!maximized && !fullscreen && !parent)
+            move(xw->x, xw->y, false);
 
         wayfire_view_t::map(surface);
     }

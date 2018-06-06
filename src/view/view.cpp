@@ -447,20 +447,45 @@ void emit_view_map(wayfire_view view)
     view->get_output()->emit_signal("map-view", &data);
 }
 
+void wayfire_view_t::reposition_relative_to_parent()
+{
+    assert(parent);
+    auto workarea = output->workspace->get_workarea();
+
+    if (parent->is_mapped())
+    {
+        int sx = parent->geometry.x + (parent->geometry.width  - geometry.width) / 2;
+        int sy = parent->geometry.y + (parent->geometry.height - geometry.height) / 2;
+
+        move(sx, sy, false);
+    } else
+    {
+        /* if we have a parent which still isn't mapped, we cannot determine
+         * the view's position, so we center it on the screen */
+        int sx = workarea.width / 2 - geometry.width / 2;
+        int sy = workarea.height/ 2 - geometry.height/ 2;
+
+        move(sx, sy, false);
+    }
+}
+
 void wayfire_view_t::map(wlr_surface *surface)
 {
     wayfire_surface_t::map(surface);
 
-    if (!is_special && !maximized && !fullscreen)
+    if (!is_special && !parent && !maximized && !fullscreen)
     {
+        auto wm = get_wm_geometry();
         auto workarea = output->workspace->get_workarea();
 
-        auto wm = get_wm_geometry();
         move(wm.x + workarea.x, wm.y + workarea.y, false);
     }
 
     if (update_size())
         damage();
+
+    if (parent)
+        reposition_relative_to_parent();
 
     if (!is_special)
     {
@@ -480,11 +505,19 @@ void emit_view_unmap(wayfire_view view)
 
 void wayfire_view_t::unmap()
 {
+    if (parent)
+        set_toplevel_parent(nullptr);
+
+    auto copy = children;
+    for (auto c : copy)
+        c->set_toplevel_parent(nullptr);
+
     log_info("unmap %s %s %p", get_title().c_str(), get_app_id().c_str(), this);
     if (output)
         emit_view_unmap(self());
 
     wayfire_surface_t::unmap();
+
     if (decoration)
     {
         decoration->close();
@@ -625,6 +658,30 @@ void wayfire_view_t::damage()
 void wayfire_view_t::destruct()
 {
     core->erase_view(self());
+}
+
+void wayfire_view_t::set_toplevel_parent(wayfire_view parent)
+{
+    if (parent == this->parent)
+        return;
+
+    if (parent)
+    {
+        parent->children.push_back(self());
+    } else
+    {
+        auto it = std::remove(this->parent->children.begin(), this->parent->children.end(), self());
+        this->parent->children.erase(it, this->parent->children.end());
+    }
+
+    this->parent = parent;
+
+    /* if the view isn't mapped, then it will be positioned properly in map() */
+    if (is_mapped())
+    {
+        if (parent)
+            reposition_relative_to_parent();
+    }
 }
 
 wayfire_view_t::~wayfire_view_t()

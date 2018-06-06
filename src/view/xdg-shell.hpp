@@ -28,7 +28,8 @@ class wayfire_xdg_view : public wayfire_view_t
     protected:
         wl_listener destroy, map_ev, unmap, new_popup,
                 request_move, request_resize,
-                request_maximize, request_fullscreen;
+                request_maximize, request_fullscreen,
+                set_parent_ev;
 
     public:
         wlr_xdg_surface *xdg_surface;
