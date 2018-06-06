@@ -195,7 +195,7 @@ class wayfire_expo : public wayfire_plugin_t
         int cx = x;
         int cy = y;
 
-        if (state.button_pressed && zoom_animation.running())
+        if (state.button_pressed && !zoom_animation.running())
         {
             start_move(cx, cy);
             state.button_pressed = false;
