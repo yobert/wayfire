@@ -186,7 +186,7 @@ class wayfire_view_t : public wayfire_surface_t
         wayfire_view_t();
         virtual ~wayfire_view_t();
         uint32_t get_id() { return id; }
-        inline wayfire_view self();
+        wayfire_view self();
 
         virtual void move(int x, int y, bool send_signal = true);
         virtual void resize(int w, int h, bool send_signal = true);
