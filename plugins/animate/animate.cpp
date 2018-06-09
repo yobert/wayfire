@@ -150,7 +150,7 @@ class wayfire_animation : public wayfire_plugin_t {
         assert(view);
 
         /* TODO: check if this is really needed */
-        if (view->is_special)
+        if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
             return;
 
         if (close_animation->as_string() != "none")
@@ -170,7 +170,7 @@ class wayfire_animation : public wayfire_plugin_t {
     {
         auto view = get_signaled_view(data);
 
-        if (view->is_special)
+        if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
             return;
 
         if (close_animation->as_string() == "fade")

@@ -129,6 +129,13 @@ class wayfire_surface_t
         virtual void render_fb(int x, int y, pixman_region32_t* damage, int target_fb);
 };
 
+enum wf_view_role
+{
+    WF_VIEW_ROLE_TOPLEVEL, // regular, "WM" views
+    WF_VIEW_ROLE_UNMANAGED, // xwayland override redirect or unmanaged views
+    WF_VIEW_ROLE_SHELL_VIEW // background, lockscreen, panel, notifications, etc
+};
+
 /* Represents a desktop window (not as X11 window, but like a xdg_toplevel surface) */
 class wayfire_view_t : public wayfire_surface_t
 {
@@ -145,7 +152,6 @@ class wayfire_view_t : public wayfire_surface_t
         int in_continuous_move = 0, in_continuous_resize = 0;
 
         bool wait_decoration = false;
-
         virtual bool update_size();
 
         uint32_t id;
@@ -170,6 +176,7 @@ class wayfire_view_t : public wayfire_surface_t
 
         virtual wf_geometry get_untransformed_bounding_box();
         void reposition_relative_to_parent();
+
     public:
 
         /* these represent toplevel relations, children here are transient windows,
@@ -177,6 +184,8 @@ class wayfire_view_t : public wayfire_surface_t
         wayfire_view parent = nullptr;
         std::vector<wayfire_view> children;
         virtual void set_toplevel_parent(wayfire_view parent);
+
+        wf_view_role role = WF_VIEW_ROLE_TOPLEVEL;
 
         /* plugins can subclass wf_custom_view_data and use it to store view-specific information
          * it must provide a virtual destructor to free its data. Custom data is deleted when the view
@@ -241,10 +250,6 @@ class wayfire_view_t : public wayfire_surface_t
 
         /* Set if the current view should not be rendered by built-in renderer */
         bool is_hidden = false;
-
-        /* backgrounds, panels, lock surfaces -> they shouldn't be touched
-         * by plugins like move, animate, etc. */
-        bool is_special = false;
 
         virtual void move_request();
         virtual void resize_request();

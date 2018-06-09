@@ -34,7 +34,7 @@ static void shell_add_background(struct wl_client *client, struct wl_resource *r
 
     log_debug("wf_shell: add_background to %s", wo->handle->name);
 
-    view->is_special = 1;
+    view->role = WF_VIEW_ROLE_SHELL_VIEW;
     view->get_output()->detach_view(view);
     view->set_output(wo);
     view->move(x, y);
@@ -57,7 +57,7 @@ static void shell_add_panel(struct wl_client *client, struct wl_resource *resour
 
     log_debug("wf_shell: add_panel");
 
-    view->is_special = 1;
+    view->role = WF_VIEW_ROLE_SHELL_VIEW;
     view->get_output()->detach_view(view);
     view->set_output(wo);
 

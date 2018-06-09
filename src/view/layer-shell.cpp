@@ -242,7 +242,7 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface *lsurf)
 
     lsurf->output = output->handle;
 
-    is_special = 1;
+    role = WF_VIEW_ROLE_SHELL_VIEW;
     lsurface->data = this;
 
     map_ev.notify   = handle_layer_surface_map;

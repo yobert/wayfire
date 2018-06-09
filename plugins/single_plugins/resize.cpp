@@ -101,7 +101,7 @@ class wayfire_resize : public wayfire_plugin_t {
 
     void initiate(wayfire_view view, int sx, int sy, uint32_t forced_edges = 0)
     {
-        if (!view || view->is_special || view->destroyed)
+        if (!view || view->role == WF_VIEW_ROLE_SHELL_VIEW || view->destroyed)
             return;
 
         if (!output->workspace->

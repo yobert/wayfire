@@ -473,7 +473,7 @@ void wayfire_view_t::map(wlr_surface *surface)
 {
     wayfire_surface_t::map(surface);
 
-    if (!is_special && !parent && !maximized && !fullscreen)
+    if (role != WF_VIEW_ROLE_TOPLEVEL && !parent && !maximized && !fullscreen)
     {
         auto wm = get_wm_geometry();
         auto workarea = output->workspace->get_workarea();
@@ -487,7 +487,7 @@ void wayfire_view_t::map(wlr_surface *surface)
     if (parent)
         reposition_relative_to_parent();
 
-    if (!is_special)
+    if (role != WF_VIEW_ROLE_SHELL_VIEW)
     {
         output->attach_view(self());
         output->focus_view(self());

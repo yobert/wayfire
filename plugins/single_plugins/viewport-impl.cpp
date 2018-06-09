@@ -216,7 +216,7 @@ bool viewport_manager::view_visible_on(wayfire_view view, std::tuple<int, int> v
     auto g = output->get_full_geometry();
     g.x = g.y = 0;
 
-    if (!view->is_special)
+    if (view->role != WF_VIEW_ROLE_SHELL_VIEW)
     {
         g.x += (tx - vx) * g.width;
         g.y += (ty - vy) * g.height;

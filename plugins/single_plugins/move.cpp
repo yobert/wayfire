@@ -39,7 +39,7 @@ class wayfire_move : public wayfire_plugin_t
                 auto focus = core->get_cursor_focus();
                 auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
 
-                if (view && !view->is_special)
+                if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
                     initiate(view, x, y);
             };
 
@@ -51,7 +51,7 @@ class wayfire_move : public wayfire_plugin_t
 
                 log_info("jaj %p %p", focus, view.get());
 
-                if (view && !view->is_special)
+                if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
                     initiate(view, sx, sy);
             };
 
@@ -166,7 +166,7 @@ class wayfire_move : public wayfire_plugin_t
 
             if (view)
             {
-                if (view->is_special)
+                if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
                     return;
 
                 view->set_moving(false);

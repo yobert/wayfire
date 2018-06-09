@@ -242,6 +242,7 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
         wl_signal_add(&xw->events.map,                &map_ev);
 
         xw->data = this;
+        role = WF_VIEW_ROLE_UNMANAGED;
     }
 
     bool is_subsurface() { return false; }

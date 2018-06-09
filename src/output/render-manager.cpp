@@ -611,7 +611,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
         if (!view->is_visible())
             goto next;
 
-        if (!view->is_special)
+        if (view->role != WF_VIEW_ROLE_SHELL_VIEW)
         {
             view_dx = -dx;
             view_dy = -dy;

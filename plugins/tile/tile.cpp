@@ -146,7 +146,7 @@ namespace wf_tiling
 
     bool is_floating_view(wayfire_view view)
     {
-        return view->is_special || view->parent != nullptr;
+        return view->role == WF_VIEW_ROLE_SHELL_VIEW || view->parent != nullptr;
     }
 
     namespace selector
@@ -398,7 +398,7 @@ class wayfire_tile : public wayfire_plugin_t
             auto conv = static_cast<view_change_viewport_signal*> (data);
             assert(conv);
 
-            if (!conv->view->is_special && !wf_tiling::is_floating_view(conv->view))
+            if (conv->view->role != WF_VIEW_ROLE_SHELL_VIEW && !wf_tiling::is_floating_view(conv->view))
             {
                 change_workspace(conv->from);
                 wf_tiling::rem_view(conv->view);
