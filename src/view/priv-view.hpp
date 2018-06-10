@@ -1,4 +1,8 @@
+#ifndef PRIV_VIEW_HPP
+#define PRIV_VIEW_HPP
+
 #include <view.hpp>
+#include <decorator.hpp>
 #include <assert.h>
 
 wayfire_surface_t* wf_surface_from_void(void *handle);
@@ -19,5 +23,7 @@ std::string xwayland_get_display();
 
 void init_desktop_apis();
 
-class decorator_base_t;
 extern decorator_base_t *wf_decorator;
+
+#endif /* end of include guard: PRIV_VIEW_HPP */
+

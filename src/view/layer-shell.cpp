@@ -2,6 +2,7 @@
 #include <cstring>
 
 #include "priv-view.hpp"
+#include "xdg-shell.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "output.hpp"
@@ -20,7 +21,7 @@ static const uint32_t both_horiz = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYE
 class wayfire_layer_shell_view : public wayfire_view_t
 {
     bool first_map = true;
-    wl_listener map_ev, unmap_ev, destroy;
+    wl_listener map_ev, unmap_ev, destroy, new_popup;
     public:
         wlr_layer_surface *lsurface;
         wlr_layer_surface_state prev_state;
@@ -245,13 +246,15 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface *lsurf)
     role = WF_VIEW_ROLE_SHELL_VIEW;
     lsurface->data = this;
 
-    map_ev.notify   = handle_layer_surface_map;
-    unmap_ev.notify = handle_layer_surface_unmap;
-    destroy.notify  = handle_layer_surface_destroy;
+    map_ev.notify    = handle_layer_surface_map;
+    unmap_ev.notify  = handle_layer_surface_unmap;
+    new_popup.notify = handle_xdg_new_popup;
+    destroy.notify   = handle_layer_surface_destroy;
 
-    wl_signal_add(&lsurface->events.map,     &map_ev);
-    wl_signal_add(&lsurface->events.unmap,   &unmap_ev);
-    wl_signal_add(&lsurface->events.destroy, &destroy);
+    wl_signal_add(&lsurface->events.map,       &map_ev);
+    wl_signal_add(&lsurface->events.unmap,     &unmap_ev);
+    wl_signal_add(&lsurface->events.new_popup, &new_popup);
+    wl_signal_add(&lsurface->events.destroy,   &destroy);
 
     /* easy reflowing */
     auto old_current = lsurface->current;

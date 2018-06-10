@@ -3,7 +3,6 @@
 #include "decorator.hpp"
 #include "xdg-shell.hpp"
 
-static void handle_xdg_new_popup(wl_listener*, void*);
 static void handle_xdg_map(wl_listener*, void *data);
 static void handle_xdg_unmap(wl_listener*, void *data);
 static void handle_xdg_destroy(wl_listener*, void *data);

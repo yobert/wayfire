@@ -1,3 +1,6 @@
+#ifndef XDG_SHELL_V6_HPP
+#define XDG_SHELL_V6_HPP
+
 #include "priv-view.hpp"
 extern "C"
 {
@@ -77,3 +80,5 @@ class wayfire_xdg6_decoration_view : public wayfire_xdg6_view
     ~wayfire_xdg6_decoration_view()
     { }
 };
+
+#endif /* end of include guard: XDG_SHELL_V6_HPP */

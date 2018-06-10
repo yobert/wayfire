@@ -1,10 +1,12 @@
+#ifndef XDG_SHELL_HPP
+#define XDG_SHELL_HPP
+
 #include "priv-view.hpp"
 extern "C"
 {
 #include <wlr/types/wlr_xdg_shell.h>
 }
 
-static void handle_xdg_new_popup(wl_listener*, void*);
 class wayfire_xdg_popup : public wayfire_surface_t
 {
     protected:
@@ -24,6 +26,8 @@ class wayfire_xdg_popup : public wayfire_surface_t
 
         virtual bool is_subsurface() { return true; }
 };
+
+void handle_xdg_new_popup(wl_listener*, void*);
 
 class wayfire_xdg_view : public wayfire_view_t
 {
@@ -83,3 +87,5 @@ class wayfire_xdg_decoration_view : public wayfire_xdg_view
     ~wayfire_xdg_decoration_view()
     { }
 };
+
+#endif /* end of include guard: XDG_SHELL_HPP */
