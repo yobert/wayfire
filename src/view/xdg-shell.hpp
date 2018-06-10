@@ -20,6 +20,8 @@ class wayfire_xdg_popup : public wayfire_surface_t
         ~wayfire_xdg_popup();
 
         virtual void get_child_position(int &x, int &y);
+        virtual void get_child_offset(int &x, int &y);
+
         virtual bool is_subsurface() { return true; }
 };
 
@@ -37,7 +39,10 @@ class wayfire_xdg_view : public wayfire_view_t
     wayfire_xdg_view(wlr_xdg_surface *s);
     virtual void map(wlr_surface *surface);
     virtual wf_point get_output_position();
+
     virtual void get_child_position(int &x, int &y);
+    virtual void get_child_offset(int &x, int &y);
+
     virtual bool update_size();
     virtual void activate(bool act);
     virtual void set_maximized(bool max);

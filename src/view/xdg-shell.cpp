@@ -38,11 +38,19 @@ wayfire_xdg_popup::~wayfire_xdg_popup()
 
 void wayfire_xdg_popup::get_child_position(int &x, int &y)
 {
-    //auto parent = popup->parent;
-    x = popup->geometry.x - popup->base->geometry.x;
-    y = popup->geometry.y - popup->base->geometry.y;
+    auto parent = wf_surface_from_void(popup->parent->data);
+    assert(parent);
+
+    parent->get_child_offset(x, y);
+    x += popup->geometry.x - popup->base->geometry.x;
+    y += popup->geometry.y - popup->base->geometry.y;
 }
 
+void wayfire_xdg_popup::get_child_offset(int &x, int &y)
+{
+    x = popup->base->geometry.x;
+    y = popup->base->geometry.y;
+}
 
 void handle_xdg_new_popup(wl_listener*, void *data)
 {
@@ -196,6 +204,12 @@ void wayfire_xdg_view::get_child_position(int &x, int &y)
 
     x = decor_x - xdg_surface->geometry.x;
     y = decor_y - xdg_surface->geometry.y;
+}
+
+void wayfire_xdg_view::get_child_offset(int &x, int &y)
+{
+    x = xdg_surface->geometry.x;
+    y = xdg_surface->geometry.y;
 }
 
 bool wayfire_xdg_view::update_size()

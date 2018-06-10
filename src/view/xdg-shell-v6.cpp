@@ -44,7 +44,6 @@ void wayfire_xdg6_popup::get_child_position(int &x, int &y)
     y = parent->geometry.y + popup->geometry.y - popup->base->geometry.y;
 }
 
-
 void handle_v6_new_popup(wl_listener*, void *data)
 {
     auto popup = static_cast<wlr_xdg_popup_v6*> (data);

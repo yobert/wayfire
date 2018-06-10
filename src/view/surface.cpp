@@ -119,6 +119,12 @@ void wayfire_surface_t::get_child_position(int &x, int &y)
     y = surface->current->subsurface_position.y;
 }
 
+void wayfire_surface_t::get_child_offset(int &x, int &y)
+{
+    x = 0;
+    y = 0;
+};
+
 wf_point wayfire_surface_t::get_output_position()
 {
     auto pos = parent_surface->get_output_position();

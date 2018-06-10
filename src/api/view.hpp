@@ -76,6 +76,9 @@ class wayfire_surface_t
     public:
         std::vector<wayfire_surface_t*> surface_children;
 
+        /* offset to be applied for children, not API function */
+        virtual void get_child_offset(int &x, int &y);
+
         wayfire_surface_t(wayfire_surface_t *parent = nullptr);
         virtual ~wayfire_surface_t();
 
