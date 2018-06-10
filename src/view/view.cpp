@@ -291,6 +291,9 @@ void wayfire_view_t::damage(const wlr_box& box)
         return;
 
     auto wm_geometry = get_wm_geometry();
+
+    wlr_box damage_box;
+
     if (transform)
     {
         auto real_box = box;
@@ -303,12 +306,35 @@ void wayfire_view_t::damage(const wlr_box& box)
                                    real_box.width, real_box.height);
 
         /* TODO: damage only the bounding box of region */
-        output->render->damage(get_output_box_from_box(get_bounding_box(),
-                                                       output->handle->scale));
+        damage_box = get_output_box_from_box(get_bounding_box(), output->handle->scale);
     } else
     {
-        output->render->damage(get_output_box_from_box(box,
-                                                       output->handle->scale));
+        damage_box = get_output_box_from_box(box, output->handle->scale);
+    }
+
+    /* shell views are visible in all workspaces. That's why we must apply
+     * their damage to all workspaces as well */
+
+    if (role == WF_VIEW_ROLE_SHELL_VIEW)
+    {
+        GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
+        GetTuple(vx, vy, output->workspace->get_current_workspace());
+        GetTuple(sw, sh, output->get_screen_size());
+
+        for (int i = 0; i < vw; i++)
+        {
+            for (int j = 0; j < vh; j++)
+            {
+                int dx = (i - vx) * sw;
+                int dy = (j - vy) * sh;
+
+                auto local_box = damage_box + wf_point{dx, dy};
+                output->render->damage(local_box);
+            }
+        }
+    } else
+    {
+        output->render->damage(damage_box);
     }
 }
 
