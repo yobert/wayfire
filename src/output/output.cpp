@@ -197,27 +197,29 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
         auto view = get_signaled_view(data);
 
         if (view == active_view)
-        {
-            wayfire_view next_focus = nullptr;
-            auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(),
-                                                           WF_LAYER_WORKSPACE);
-
-            for (auto v : views)
-            {
-                if (v != active_view && v->is_mapped())
-                {
-                    next_focus = v;
-                    break;
-                }
-            }
-
-            set_active_view(next_focus);
-        }
+            refocus(active_view, workspace->get_view_layer(view));
 
         wayfire_shell_unmap_view(view);
     };
 
     connect_signal("unmap-view", &unmap_view_cb);
+}
+
+void wayfire_output::refocus(wayfire_view skip_view, uint32_t layers)
+{
+    wayfire_view next_focus = nullptr;
+    auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(), layers);
+
+    for (auto v : views)
+    {
+        if (v != skip_view && v->is_mapped())
+        {
+            next_focus = v;
+            break;
+        }
+    }
+
+    set_active_view(next_focus);
 }
 
 workspace_manager::~workspace_manager()
@@ -475,6 +477,12 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
 
 void wayfire_output::focus_view(wayfire_view v, wlr_seat *seat)
 {
+    if (v && workspace->get_view_layer(v) < core->get_focused_layer())
+    {
+        log_info("Denying focus request for a view from a lower layer than the focused layer");
+        return;
+    }
+
     if (v && v->is_mapped())
     {
         if (v->get_keyboard_focus_surface())
@@ -645,4 +653,16 @@ int wayfire_output::add_gesture(const wayfire_touch_gesture& gesture,
 void wayfire_output::rem_gesture(int id)
 {
     core->input->rem_gesture(id);
+}
+
+uint32_t wf_all_layers_not_below(uint32_t layer)
+{
+    uint32_t mask = 0;
+    for (int i = 0; i < WF_TOTAL_LAYERS; i++)
+    {
+        if ((1 << i) >= layer)
+            mask |= (1 << i);
+    }
+
+    return mask;
 }

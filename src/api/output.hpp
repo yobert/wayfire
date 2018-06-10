@@ -116,6 +116,10 @@ class wayfire_output
 
        void bring_to_front(wayfire_view v);
 
+       /* force refocus the topmost view in one of the layers marked in layers
+        * and which isn't skip_view */
+       void refocus(wayfire_view skip_view, uint32_t layers);
+
        int add_key(wf_option key, key_callback *);
        void rem_key(key_callback *);
        void rem_key(int);

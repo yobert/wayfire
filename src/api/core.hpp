@@ -51,6 +51,7 @@ class wayfire_core
         void configure(wayfire_config *config);
 
         int times_wake = 0;
+        uint32_t focused_layer = 0;
 
     public:
 
@@ -122,6 +123,9 @@ class wayfire_core
         size_t          get_num_outputs();
 
         void for_each_output(output_callback_proc);
+
+        void focus_layer(uint32_t layer);
+        uint32_t get_focused_layer();
 
         void run(const char *command);
 

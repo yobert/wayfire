@@ -26,13 +26,16 @@ enum wf_layer
     WF_LAYER_LOCK       = (1 << 5)
 };
 
+#define WF_TOTAL_LAYERS 6
+
 #define WF_WM_LAYERS    (WF_LAYER_WORKSPACE  | WF_LAYER_XWAYLAND)
 #define WF_ABOVE_LAYERS (WF_LAYER_TOP        | WF_LAYER_LOCK)
 #define WF_BELOW_LAYERS (WF_LAYER_BACKGROUND | WF_LAYER_BOTTOM)
 
 #define WF_ALL_LAYERS   (WF_WM_LAYERS | WF_ABOVE_LAYERS | WF_BELOW_LAYERS)
 
-
+/* return all layers not below layer, ie. layers above it + the layer itself */
+uint32_t wf_all_layers_not_below(uint32_t layer);
 
 /* workspace manager controls various workspace-related functions.
  * Currently it is implemented as a plugin, see workspace_viewport_implementation plugin */

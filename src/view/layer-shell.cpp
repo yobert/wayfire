@@ -18,6 +18,21 @@ extern "C"
 static const uint32_t both_vert = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
 static const uint32_t both_horiz = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
 
+static uint32_t zwlr_layer_to_wf_layer(zwlr_layer_shell_v1_layer layer)
+{
+    switch (layer)
+    {
+        case ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY:
+            return WF_LAYER_LOCK;
+        case ZWLR_LAYER_SHELL_V1_LAYER_TOP:
+            return WF_LAYER_TOP;
+        case ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM:
+            return WF_LAYER_BOTTOM;
+        case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND:
+            return WF_LAYER_BACKGROUND;
+    }
+}
+
 class wayfire_layer_shell_view : public wayfire_view_t
 {
     bool first_map = true;
@@ -60,7 +75,6 @@ struct wf_layer_shell_manager
     void handle_map(wayfire_layer_shell_view *view)
     {
         layers[view->lsurface->layer].push_back(view);
-
         arrange_layers(view->get_output());
     }
 
@@ -171,13 +185,17 @@ struct wf_layer_shell_manager
         v->configure(box);
     }
 
-    void arrange_layer(wayfire_output *output, int layer)
+    uint32_t arrange_layer(wayfire_output *output, int layer)
     {
+        uint32_t focus_mask = 0;
         auto views = filter_views(output, layer);
 
         /* set all views that have exclusive zones first */
         for (auto v : views)
         {
+            if (v->lsurface->client_pending.keyboard_interactive)
+                focus_mask = zwlr_layer_to_wf_layer(v->lsurface->layer);
+
             if (v->lsurface->client_pending.exclusive_zone > 0)
                 set_exclusive_zone(v);
         }
@@ -185,11 +203,16 @@ struct wf_layer_shell_manager
         auto usable_workarea = output->workspace->get_workarea();
         for (auto v : views)
         {
+            if (v->lsurface->client_pending.keyboard_interactive)
+                focus_mask = zwlr_layer_to_wf_layer(v->lsurface->layer);
+
             /* anchored area is cleared in arrange_layers(), so if it's NULL,
              * then this view doesn't have exclusive zone */
             if (!v->anchored_area)
                 pin_view(v, usable_workarea);
         }
+
+        return focus_mask;
     }
 
     void arrange_layers(wayfire_output *output)
@@ -203,10 +226,13 @@ struct wf_layer_shell_manager
             v->anchored_area = nullptr;
         }
 
-        arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY);
-        arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_TOP);
-        arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM);
-        arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND);
+        uint32_t focus1 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY);
+        uint32_t focus2 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_TOP);
+        uint32_t focus3 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM);
+        uint32_t focus4 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND);
+
+        auto focus_mask = std::max({focus1, focus2, focus3, focus4});
+        core->focus_layer(focus_mask);
     }
 };
 
@@ -263,21 +289,6 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface *lsurf)
     lsurface->current = old_current;
 }
 
-static uint32_t zwlr_layer_to_wf_layer(zwlr_layer_shell_v1_layer layer)
-{
-    switch (layer)
-    {
-        case ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY:
-            return WF_LAYER_LOCK;
-        case ZWLR_LAYER_SHELL_V1_LAYER_TOP:
-            return WF_LAYER_TOP;
-        case ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM:
-            return WF_LAYER_BOTTOM;
-        case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND:
-            return WF_LAYER_BACKGROUND;
-    }
-}
-
 void wayfire_layer_shell_view::map(wlr_surface *surface)
 {
     wayfire_view_t::map(surface);
@@ -291,6 +302,9 @@ void wayfire_layer_shell_view::map(wlr_surface *surface)
 
     output->workspace->add_view_to_layer(self(),
                                          zwlr_layer_to_wf_layer(lsurface->layer));
+
+    if (lsurface->current.keyboard_interactive)
+        output->focus_view(self());
 }
 
 void wayfire_layer_shell_view::unmap()

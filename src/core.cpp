@@ -1673,6 +1673,20 @@ void wayfire_core::for_each_output(output_callback_proc call)
         call(o.second);
 }
 
+void wayfire_core::focus_layer(uint32_t layer)
+{
+    if (get_focused_layer() >= layer)
+        return;
+
+    focused_layer = layer;
+    active_output->refocus(nullptr, wf_all_layers_not_below(layer));
+}
+
+uint32_t wayfire_core::get_focused_layer()
+{
+    return focused_layer;
+}
+
 void wayfire_core::add_view(wayfire_view view)
 {
     views[view.get()] = view;
