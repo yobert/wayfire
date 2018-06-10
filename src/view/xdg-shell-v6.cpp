@@ -200,10 +200,14 @@ void wayfire_xdg6_view::get_child_position(int &x, int &y)
 bool wayfire_xdg6_view::update_size()
 {
     auto old_w = geometry.width, old_h = geometry.height;
-    if (v6_surface->geometry.width > 0 && v6_surface->geometry.height > 0)
+    int width = v6_surface->geometry.width, height = v6_surface->geometry.height;
+    if (width > 0 && height > 0)
     {
-        geometry.width = v6_surface->geometry.width;
-        geometry.height = v6_surface->geometry.height;
+        if (geometry.width != width || geometry.height != height)
+        {
+            adjust_anchored_edge(width, height);
+            wayfire_view_t::resize(width, height, true);
+        }
     } else
     {
         wayfire_view_t::update_size();
@@ -237,7 +241,6 @@ void wayfire_xdg6_view::move(int w, int h, bool send)
 
 void wayfire_xdg6_view::resize(int w, int h, bool send)
 {
-    wayfire_view_t::resize(w, h, send);
     wlr_xdg_toplevel_v6_set_size(v6_surface, w, h);
 }
 

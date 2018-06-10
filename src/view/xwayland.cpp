@@ -161,6 +161,15 @@ class wayfire_xwayland_view : public wayfire_view_t
         wayfire_view_t::map(surface);
     }
 
+    int pending_width, pending_height;
+    void commit()
+    {
+        wayfire_view_t::commit();
+
+        pending_width = geometry.width;
+        pending_height = geometry.height;
+    }
+
     bool is_subsurface() { return false; }
 
     void activate(bool active)
@@ -169,11 +178,12 @@ class wayfire_xwayland_view : public wayfire_view_t
         wlr_xwayland_surface_activate(xw, active);
     }
 
+
     void send_configure()
     {
         auto output_geometry = get_output_geometry();
         wlr_xwayland_surface_configure(xw, output_geometry.x, output_geometry.y,
-                                       geometry.width, geometry.height);
+                                       pending_width, pending_height);
     }
 
     void move(int x, int y, bool s)
@@ -184,7 +194,9 @@ class wayfire_xwayland_view : public wayfire_view_t
 
     void resize(int w, int h, bool s)
     {
-        wayfire_view_t::resize(w, h, s);
+        pending_width = w;
+        pending_height = h;
+
         send_configure();
     }
 
@@ -194,8 +206,7 @@ class wayfire_xwayland_view : public wayfire_view_t
         damage();
 
         wayfire_view_t::move(g.x, g.y, false);
-        /* send the geometry-changed signal */
-        resize(g.width, g.height, true);
+        resize(g.width, g.height, false);
     }
 
     void close()

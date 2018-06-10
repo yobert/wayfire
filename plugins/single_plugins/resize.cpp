@@ -14,9 +14,10 @@ class wayfire_resize : public wayfire_plugin_t {
     wayfire_view view;
 
     int initial_x, initial_y;
-    wf_geometry initial_geometry;
+    int initial_width, initial_height;
 
     uint32_t edges;
+
     public:
     void init(wayfire_config *config)
     {
@@ -118,9 +119,13 @@ class wayfire_resize : public wayfire_plugin_t {
 
         initial_x = sx;
         initial_y = sy;
-        initial_geometry = view->get_wm_geometry();
 
-        if (forced_edges == 0) {
+        auto wm = view->get_wm_geometry();
+        initial_width = wm.width;
+        initial_height = wm.height;
+
+        if (forced_edges == 0)
+        {
             auto vg = view->get_wm_geometry();
 
             int view_x = initial_x - vg.x;
@@ -128,22 +133,25 @@ class wayfire_resize : public wayfire_plugin_t {
 
             edges = 0;
             if (view_x < vg.width / 2) {
-                edges |= WL_SHELL_SURFACE_RESIZE_LEFT;
+                edges |= WF_RESIZE_EDGE_LEFT;
             } else {
-                edges |= WL_SHELL_SURFACE_RESIZE_RIGHT;
+                edges |= WF_RESIZE_EDGE_RIGHT;
             }
 
             if (view_y < vg.height / 2) {
-                edges |= WL_SHELL_SURFACE_RESIZE_TOP;
+                edges |= WF_RESIZE_EDGE_TOP;
             } else {
-                edges |= WL_SHELL_SURFACE_RESIZE_BOTTOM;
+                edges |= WF_RESIZE_EDGE_BOTTOM;
             }
         } else {
             edges = forced_edges;
         }
 
-        view->set_moving(true);
-        view->set_resizing(true);
+        if ((edges & WF_RESIZE_EDGE_LEFT) ||
+            (edges & WF_RESIZE_EDGE_TOP))
+            view->set_moving(true);
+
+        view->set_resizing(true, edges);
 
         if (view->maximized)
             view->set_maximized(false);
@@ -165,31 +173,29 @@ class wayfire_resize : public wayfire_plugin_t {
 
         if (view)
         {
-            view->set_moving(false);
+	    if ((edges & WF_RESIZE_EDGE_LEFT) ||
+	        (edges & WF_RESIZE_EDGE_TOP))
+                view->set_moving(false);
             view->set_resizing(false);
         }
     }
 
     void input_motion(int sx, int sy)
     {
-        auto newg = initial_geometry;
-
         int dx = sx - initial_x;
         int dy = sy - initial_y;
+        int width = initial_width;
+        int height = initial_height;
 
-        if (edges & WL_SHELL_SURFACE_RESIZE_LEFT) {
-            newg.x += dx;
-            newg.width -= dx;
-        } else {
-            newg.width += dx;
-        }
+        if (edges & WF_RESIZE_EDGE_LEFT)
+            width -= dx;
+        else
+            width += dx;
 
-        if (edges & WL_SHELL_SURFACE_RESIZE_TOP) {
-            newg.y += dy;
-            newg.height -= dy;
-        } else {
-            newg.height += dy;
-        }
+        if (edges & WF_RESIZE_EDGE_TOP)
+            height -= dy;
+        else
+            height += dy;
 
         /* TODO: add view::get_max/min size
         auto max_size = weston_desktop_surface_get_max_size(view->desktop_surface);
@@ -207,9 +213,10 @@ class wayfire_resize : public wayfire_plugin_t {
         newg.height = std::max(min_size.height, newg.height);
         */
 
-        newg.height = std::max(newg.height, 10);
-        newg.width  = std::max(newg.width,  10);
-        view->set_geometry(newg);
+        height = std::max(height, 1);
+        width  = std::max(width,  1);
+
+        view->resize(width, height);
     }
 };
 

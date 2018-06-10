@@ -48,14 +48,40 @@ bool wayfire_view_t::is_visible()
     return (is_mapped() || offscreen_buffer.valid()) && !is_hidden;
 }
 
+void wayfire_view_t::adjust_anchored_edge(int32_t new_width, int32_t new_height)
+{
+    if (edges)
+    {
+        int x = geometry.x;
+        int y = geometry.y;
+        if (edges & WF_RESIZE_EDGE_LEFT)
+            x += geometry.width - new_width;
+        if (edges & WF_RESIZE_EDGE_TOP)
+            y += geometry.height - new_height;
+
+        move(x, y, false);
+    }
+}
+
 bool wayfire_view_t::update_size()
 {
     assert(surface);
 
     int old_w = geometry.width, old_h = geometry.height;
+    int width = surface->current->width, height = surface->current->height;
 
-    geometry.width = surface->current ? surface->current->width  : 0;
-    geometry.height = surface->current? surface->current->height : 0;
+    if (surface->current)
+    {
+        if (geometry.width != width || geometry.height != height)
+        {
+            adjust_anchored_edge(width, height);
+            wayfire_view_t::resize(width, height, true);
+        }
+    } else
+    {
+	    geometry.width = 0;
+	    geometry.height = 0;
+    }
 
     return geometry.width != old_w || geometry.height != old_h;
 }
@@ -67,8 +93,12 @@ void wayfire_view_t::set_moving(bool moving)
         decoration->set_moving(moving);
 }
 
-void wayfire_view_t::set_resizing(bool resizing)
+void wayfire_view_t::set_resizing(bool resizing, uint32_t edges)
 {
+    /* edges are reset on the next commit */
+    if (resizing)
+        this->edges = edges;
+
     in_continuous_resize += resizing ? 1 : -1;
     if (decoration)
         decoration->set_resizing(resizing);
@@ -648,6 +678,13 @@ void wayfire_view_t::commit()
             xdg6_decor->child_configured(geometry);
         }
     }
+
+    /* clear the resize edges.
+     * This is must be done here because if the user(or plugin) resizes too fast,
+     * the shell client might still haven't configured the surface, * and in this
+     * case the next commit(here) needs to still have access to the gravity */
+    if (!in_continuous_resize)
+        edges = 0;
 }
 
 void wayfire_view_t::set_decoration(wayfire_view decor,

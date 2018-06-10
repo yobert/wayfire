@@ -139,6 +139,14 @@ enum wf_view_role
     WF_VIEW_ROLE_SHELL_VIEW // background, lockscreen, panel, notifications, etc
 };
 
+enum wf_resize_edges
+{
+    WF_RESIZE_EDGE_TOP     = (1 << 0),
+    WF_RESIZE_EDGE_BOTTOM  = (1 << 1),
+    WF_RESIZE_EDGE_LEFT    = (1 << 2),
+    WF_RESIZE_EDGE_RIGHT   = (1 << 3)
+};
+
 /* Represents a desktop window (not as X11 window, but like a xdg_toplevel surface) */
 class wayfire_view_t : public wayfire_surface_t
 {
@@ -156,6 +164,7 @@ class wayfire_view_t : public wayfire_surface_t
 
         bool wait_decoration = false;
         virtual bool update_size();
+        void adjust_anchored_edge(int32_t new_width, int32_t new_height);
 
         uint32_t id;
         virtual void get_child_position(int &x, int &y);
@@ -180,6 +189,8 @@ class wayfire_view_t : public wayfire_surface_t
         virtual wf_geometry get_untransformed_bounding_box();
         void reposition_relative_to_parent();
 
+        uint32_t edges = 0;
+
     public:
 
         /* these represent toplevel relations, children here are transient windows,
@@ -201,6 +212,11 @@ class wayfire_view_t : public wayfire_surface_t
         wayfire_view self();
 
         virtual void move(int x, int y, bool send_signal = true);
+
+        /* both resize and set_geometry just request the client to resize,
+         * there is no guarantee that they will actually honour the size.
+         * However, maximized surfaces typically do resize to the dimensions
+         * they are asked */
         virtual void resize(int w, int h, bool send_signal = true);
         virtual void activate(bool active);
         virtual void close() {};
@@ -231,7 +247,10 @@ class wayfire_view_t : public wayfire_surface_t
         virtual wlr_surface *get_keyboard_focus_surface() { return surface; };
 
         virtual void set_geometry(wf_geometry g);
-        virtual void set_resizing(bool resizing);
+
+        /* set edges to control the gravity of resize update
+         * default: top-left corner stays where it is */
+        virtual void set_resizing(bool resizing, uint32_t edges = 0);
         virtual void set_moving(bool moving);
 
         bool maximized = false, fullscreen = false;
