@@ -1368,6 +1368,14 @@ void bind_desktop_shell(wl_client *client, void *data, uint32_t version, uint32_
     wl_event_loop_add_idle(loop, finish_wf_shell_bind_cb, resource);
 }
 
+static void handle_output_layout_changed(wl_listener*, void *)
+{
+    core->for_each_output([] (wayfire_output *wo)
+    {
+        wo->emit_signal("output-resized", nullptr);
+    });
+}
+
 void wayfire_core::init(wayfire_config *conf)
 {
     configure(conf);
@@ -1377,6 +1385,9 @@ void wayfire_core::init(wayfire_config *conf)
     wlr_renderer_init_wl_display(renderer, display);
 
     output_layout = wlr_output_layout_create();
+    output_layout_changed.notify = handle_output_layout_changed;
+    wl_signal_add(&output_layout->events.change, &output_layout_changed);
+
     core->compositor = wlr_compositor_create(display, wlr_backend_get_renderer(backend));
     init_desktop_apis();
     input = new input_manager();

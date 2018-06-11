@@ -40,6 +40,8 @@ class wayfire_core
         friend struct plugin_manager;
         friend class wayfire_output;
 
+        wl_listener output_layout_changed;
+
         wayfire_output *active_output;
 
         std::vector<wlr_output*> pending_outputs;

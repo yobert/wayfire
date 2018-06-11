@@ -176,6 +176,18 @@ void wayfire_output::set_initial_mode()
     }
 }
 
+static void handle_output_layout_changed(wl_listener*, void *)
+{
+    core->for_each_output([] (wayfire_output *wo)
+    {
+        wo->workspace->for_each_view([=] (wayfire_view view)
+        {
+            auto wm = view->get_wm_geometry();
+            view->move(wm.x, wm.y, false);
+        }, WF_LAYER_WORKSPACE);
+    });
+}
+
 wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
 {
     this->handle = handle;
