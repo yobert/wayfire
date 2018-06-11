@@ -49,8 +49,14 @@ plugin_manager::~plugin_manager()
         p->fini();
         delete p->grab_interface;
 
-        if (p->dynamic)
-            dlclose(p->handle);
+        /* we load the same plugins for each output, so we must dlclose() the handle
+         * only when we remove the last output */
+        if (core->get_num_outputs() < 1)
+        {
+            if (p->dynamic)
+                dlclose(p->handle);
+        }
+
         p.reset();
     }
 }
@@ -76,7 +82,10 @@ wayfire_plugin plugin_manager::load_plugin_from_file(std::string path)
     get_plugin_instance_t init = union_cast<void*, get_plugin_instance_t> (initptr);
 
     auto ptr = wayfire_plugin(init());
+
     ptr->handle = handle;
+    ptr->dynamic = true;
+
     return wayfire_plugin(init());
 }
 
@@ -90,14 +99,9 @@ void plugin_manager::load_dynamic_plugins()
     {
         if(plugin != "")
         {
-            void *handle = nullptr;
             auto ptr = load_plugin_from_file(path + "/lib" + plugin + ".so");
             if(ptr)
-            {
-                ptr->handle  = handle;
-                ptr->dynamic = true;
                 plugins.push_back(ptr);
-            }
         }
     }
 }
