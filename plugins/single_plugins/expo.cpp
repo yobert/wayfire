@@ -326,7 +326,8 @@ class wayfire_expo : public wayfire_plugin_t
 
     struct {
         float scale_x, scale_y,
-              off_x, off_y;
+              off_x, off_y,
+              delimiter_offset;
     } render_params;
 
     void render()
@@ -371,6 +372,7 @@ class wayfire_expo : public wayfire_plugin_t
         glClear(GL_COLOR_BUFFER_BIT);
 
         auto vp_geometry = OpenGL::get_device_viewport();
+
         for(int j = 0; j < vh; j++) {
             for(int i = 0; i < vw; i++) {
                 if (!streams[i][j]->running) {
@@ -380,11 +382,11 @@ class wayfire_expo : public wayfire_plugin_t
                             render_params.scale_x, render_params.scale_y);
                 }
 
-                float tlx = (i - vx) * w + delimiter_offset;
-                float tly = (j - vy) * h + delimiter_offset;
+                float tlx = (i - vx) * w + render_params.delimiter_offset;
+                float tly = (j - vy) * h + render_params.delimiter_offset;
 
-                float brx = tlx + w - 2 * delimiter_offset;
-                float bry = tly + h - 2 * delimiter_offset;
+                float brx = tlx + w - 2 * render_params.delimiter_offset;
+                float bry = tly + h - 2 * render_params.delimiter_offset;
 
                 gl_geometry out_geometry = {
                     2.0f * tlx / w - 1.0f, 1.0f - 2.0f * tly / h,
@@ -417,9 +419,9 @@ class wayfire_expo : public wayfire_plugin_t
     };
 
     struct {
-        int steps = 0;
         tup scale_x, scale_y,
             off_x, off_y;
+        wf_transition delimiter_offset;
     } zoom_target;
 
     void calculate_zoom(bool zoom_in)
@@ -436,7 +438,6 @@ class wayfire_expo : public wayfire_plugin_t
         float center_w = vw / 2.f;
         float center_h = vh / 2.f;
 
-        zoom_target.steps = 0;
         if (zoom_in) {
             render_params.scale_x = render_params.scale_y = 1;
         } else {
@@ -444,16 +445,13 @@ class wayfire_expo : public wayfire_plugin_t
             render_params.scale_y = 1.f / vh;
         }
 
-        GetTuple(w,  h,  output->get_screen_size());
-
-        float mf_x = 2. * delimiter_offset / w;
-        float mf_y = 2. * delimiter_offset / h;
-
         zoom_target.scale_x = {1, 1.f / vw};
         zoom_target.scale_y = {1, 1.f / vh};
 
-        zoom_target.off_x   = {-mf_x, ((target_vx - center_w) * 2.f + 1.f) / vw + diff_w};
-        zoom_target.off_y   = { mf_y, ((center_h - target_vy) * 2.f - 1.f) / vh - diff_h};
+        zoom_target.off_x   = {0, ((target_vx - center_w) * 2.f + 1.f) / vw + diff_w};
+        zoom_target.off_y   = {0, ((center_h - target_vy) * 2.f - 1.f) / vh - diff_h};
+
+        zoom_target.delimiter_offset = {0, (float)delimiter_offset};
 
         if (!zoom_in)
         {
@@ -461,6 +459,8 @@ class wayfire_expo : public wayfire_plugin_t
             std::swap(zoom_target.scale_y.begin, zoom_target.scale_y.end);
             std::swap(zoom_target.off_x.begin, zoom_target.off_x.end);
             std::swap(zoom_target.off_y.begin, zoom_target.off_y.end);
+            std::swap(zoom_target.delimiter_offset.start,
+                      zoom_target.delimiter_offset.end);
         }
 
         state.zoom_in = zoom_in;
@@ -480,7 +480,8 @@ class wayfire_expo : public wayfire_plugin_t
         render_params.off_y = zoom_animation.progress(zoom_target.off_y.begin,
                                                       zoom_target.off_y.end);
 
-        zoom_target.steps++;
+        render_params.delimiter_offset = zoom_animation.progress(zoom_target.delimiter_offset);
+
         if (!zoom_animation.running() && !state.zoom_in)
             finalize_and_exit();
     }
