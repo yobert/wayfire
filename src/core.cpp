@@ -1643,7 +1643,7 @@ void wayfire_core::for_each_output(output_callback_proc call)
 
 void wayfire_core::focus_layer(uint32_t layer)
 {
-    if (get_focused_layer() >= layer)
+    if (get_focused_layer() == layer)
         return;
 
     focused_layer = layer;
