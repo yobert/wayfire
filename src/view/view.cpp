@@ -421,7 +421,7 @@ void wayfire_view_t::take_snapshot()
     if (!offscreen_buffer.valid())
     {
         offscreen_buffer.init(buffer_geometry.width * scale, buffer_geometry.height * scale);
-        pixman_region32_init(&offscreen_buffer.cached_damage);
+        //pixman_region32_init(&offscreen_buffer.cached_damage);
     }
 
     GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, offscreen_buffer.fbo));

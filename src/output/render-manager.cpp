@@ -312,6 +312,8 @@ void render_manager::paint()
     if (renderer)
     {
         renderer();
+        pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0,
+                              output->handle->width, output->handle->height);
         /* TODO: let custom renderers specify what they want to repaint... */
     } else
     {

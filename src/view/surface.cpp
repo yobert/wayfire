@@ -253,6 +253,7 @@ void wayfire_surface_t::commit()
 
     /* TODO: transform damage */
     damage(&dmg);
+    pixman_region32_fini(&dmg);
 }
 
 void wayfire_surface_t::set_output(wayfire_output *out)
