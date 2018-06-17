@@ -70,7 +70,7 @@ class wayfire_background
     std::string image;
 
     cairo_surface_t *img_surface = NULL;
-    cairo_t *cr;
+    cairo_t *cr = NULL;
 
     wayfire_output *output;
     wayfire_window *window = nullptr;
@@ -96,8 +96,14 @@ class wayfire_background
 
         if (window)
         {
-            /* the first inhibit was called in the constructor */
-            zwf_output_v1_inhibit_output(output->zwf);
+            /* the first inhibit was called in the constructor
+             *
+             * we check if the window has been configured, because if we had a
+             * very fast subsequent resizes, the window might still haven't got
+             * the resize event and thus it would have inhibited the output, in
+             * which case we don't have to do it again */
+            if (window->configured)
+                zwf_output_v1_inhibit_output(output->zwf);
             delete window;
         }
 
@@ -137,11 +143,12 @@ class wayfire_background
     ~wayfire_background()
     {
         std::cout << "destroy background" << std::endl;
-        cairo_destroy(cr);
-        cairo_surface_destroy(img_surface);
-
         if (window)
+        {
+            cairo_destroy(cr);
             delete window;
+            cairo_surface_destroy(img_surface);
+        }
     }
 };
 

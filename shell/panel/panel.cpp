@@ -73,15 +73,22 @@ void wayfire_panel::init(int w, int h)
     width = w * output->scale;
     height = 1.3 * widget::font_size;
 
-    zwf_output_v1_inhibit_output(output->zwf);
+    /* we check if the window has been configured, because if we had a
+     * very fast subsequent resizes, the window might still haven't got
+     * the resize event and thus it would have inhibited the output, in
+     * which case we don't have to do it again */
+    if (!window || window->configured)
+        zwf_output_v1_inhibit_output(output->zwf);
 
     if (window)
         destroy();
 
     window = output->create_window(width, height, [=] ()
-                                   {
+    {
         configure();
     });
+
+    cr = cairo_create(window->cairo_surface);
 }
 
 void wayfire_panel::destroy()
@@ -106,8 +113,6 @@ void wayfire_panel::configure()
 
     init_input();
     init_widgets();
-
-    cr = cairo_create(window->cairo_surface);
 
     if (repaint_callback)
         wl_callback_destroy(repaint_callback);
@@ -386,6 +391,10 @@ void wayfire_panel::add_callback(bool swapped)
 
 void wayfire_panel::render_frame(bool first_call)
 {
+    /* maybe a resize, the window still hasn't been initialized */
+    if (!window || !window->zwf)
+        return;
+
     if (state & WAITING)
     {
         timeval time;

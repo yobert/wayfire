@@ -406,7 +406,9 @@ wayfire_window::~wayfire_window()
     if (current_pointer_window == this)
         current_pointer_window = nullptr;
 
-    zwf_wm_surface_v1_destroy(zwf);
+    if (zwf)
+        zwf_wm_surface_v1_destroy(zwf);
+
     zxdg_toplevel_v6_destroy(toplevel);
     zxdg_surface_v6_destroy(xdg_surface);
     wl_surface_destroy(surface);
