@@ -446,13 +446,16 @@ void viewport_manager::reflow_reserved_areas()
     {
         if (view->maximized)
         {
+            /* this is legit because, if the output size has changed,
+             * update_output_geometry() would have already scaled coordinates,
+             * so that views' corners are in the proper viewports now */
             auto wm = view->get_wm_geometry();
             int vx = divide_round_down(wm.x, output_geometry.width);
             int vy = divide_round_down(wm.y, output_geometry.height);
 
             auto new_geometry = current_workarea;
-            current_workarea.x += vx * output_geometry.width;
-            current_workarea.y += vy * output_geometry.height;
+            new_geometry.x += vx * output_geometry.width;
+            new_geometry.y += vy * output_geometry.height;
 
             view->set_geometry(new_geometry);
         }
