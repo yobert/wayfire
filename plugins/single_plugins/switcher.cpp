@@ -445,19 +445,19 @@ class view_switcher : public wayfire_plugin_t
             v.view->damage();
             if (v.updates & UPDATE_OFFSET)
             {
-                tr->translation = glm::translate(glm::mat4(), glm::vec3(
+                tr->translation = glm::translate(glm::mat4(1.0), glm::vec3(
                             duration.progress(v.off_x),
                             duration.progress(v.off_y),
                             duration.progress(v.off_z)));
             }
             if (v.updates & UPDATE_SCALE)
             {
-                tr->scaling = glm::scale(glm::mat4(), glm::vec3(
+                tr->scaling = glm::scale(glm::mat4(1.0), glm::vec3(
                         duration.progress(v.scale_x), duration.progress(v.scale_y), 1));
             }
             if (v.updates & UPDATE_ROTATION)
             {
-                tr->rotation = glm::rotate(glm::mat4(),
+                tr->rotation = glm::rotate(glm::mat4(1.0),
                                            (float)duration.progress(v.rot),
                                            glm::vec3(0, 1, 0));
             }

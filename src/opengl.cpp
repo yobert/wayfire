@@ -152,7 +152,7 @@ namespace OpenGL
         ctx->mvpID   = GL_CALL(glGetUniformLocation(ctx->program, "MVP"));
         ctx->colorID = GL_CALL(glGetUniformLocation(ctx->program, "color"));
 
-        glm::mat4 identity;
+        glm::mat4 identity(1.0);
         GL_CALL(glUniformMatrix4fv(ctx->mvpID, 1, GL_FALSE, &identity[0][0]));
 
         ctx->position   = GL_CALL(glGetAttribLocation(ctx->program, "position"));

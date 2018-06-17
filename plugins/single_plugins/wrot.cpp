@@ -44,7 +44,6 @@ class wf_wrot : public wayfire_plugin_t
 
                 view->damage();
 
-
                 auto g = view->get_wm_geometry();
 
                 double cx = g.x + g.width / 2.0;

@@ -120,7 +120,6 @@ void wf_2D_view::render_with_damage(uint32_t src_tex,
     wlr_renderer_scissor(core->renderer, &scissor_box);
     GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, target_fbo));
     OpenGL::use_device_viewport();
-
     OpenGL::render_transformed_texture(src_tex, quad.geometry, {},
                                        transform, {1.0f, 1.0f, 1.0f, alpha});
 }
@@ -209,7 +208,7 @@ glm::mat4 get_output_matrix_from_transform(wl_output_transform transform)
 
     /* remove the third bit if it's set */
     uint32_t rotation = transform & (~4);
-    glm::mat4 rotation_matrix;
+    glm::mat4 rotation_matrix(1.0);
 
     if (rotation == WL_OUTPUT_TRANSFORM_90)
         rotation_matrix = glm::rotate(rotation_matrix, -WF_PI / 2.0f, {0, 0, 1});

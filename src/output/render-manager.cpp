@@ -661,8 +661,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
     /*
      TODO; implement scale != 1
-    glm::mat4 scale = glm::scale(glm::mat4(), glm::vec3(scale_x, scale_y, 1));
-    glm::mat4 translate = glm::translate(glm::mat4(), glm::vec3(scale_x - 1, scale_y - 1, 0));
+    glm::mat4 scale = glm::scale(glm::mat4(1.0), glm::vec3(scale_x, scale_y, 1));
+    glm::mat4 translate = glm::translate(glm::mat4(1.0), glm::vec3(scale_x - 1, scale_y - 1, 0));
     std::swap(wayfire_view_transform::global_scale, scale);
     std::swap(wayfire_view_transform::global_translate, translate);
     */
