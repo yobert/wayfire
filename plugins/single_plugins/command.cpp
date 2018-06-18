@@ -19,8 +19,8 @@ class wayfire_command : public wayfire_plugin_t
         std::vector<std::string> commands;
         for (auto command : section->options)
         {
-            if (command.first.length() > 8 && command.first.substr(0, 8) == "command_")
-                commands.push_back(command.first.substr(8, command.first.size() - 8));
+            if (command->name.length() > 8 && command->name.substr(0, 8) == "command_")
+                commands.push_back(command->name.substr(8, command->name.size() - 8));
         }
 
         cmds.resize(commands.size());

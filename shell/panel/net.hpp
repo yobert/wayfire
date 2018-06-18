@@ -4,6 +4,7 @@
 #include "widgets.hpp"
 #include <thread>
 #include <mutex>
+#include <map>
 
 struct connection_info
 {

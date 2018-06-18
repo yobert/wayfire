@@ -13,7 +13,7 @@ class wayfire_autostart : public wayfire_plugin_t
         auto section = config->get_section("autostart");
 
         for (const auto& command : section->options)
-            core->run(command.second->as_string().c_str());
+            core->run(command->as_string().c_str());
     }
 };
 
