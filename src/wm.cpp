@@ -57,7 +57,7 @@ void wayfire_focus::init(wayfire_config *)
         check_focus_view(core->get_cursor_focus());
     };
 
-    output->add_button(new_static_option("left"), &callback);
+    output->add_button(new_static_option("BTN_LEFT"), &callback);
     touch = [=] (int x, int y)
     {
         check_focus_view(core->get_touch_focus());

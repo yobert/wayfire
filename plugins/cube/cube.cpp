@@ -84,7 +84,7 @@ class wayfire_cube : public wayfire_plugin_t {
         duration = wf_duration(section->get_option("initial_animation", "350"));
         background_color = section->get_option("background", "0 0 0 1");
 
-        act_button = section->get_option("activate", "<alt> <ctrl> left");
+        act_button = section->get_option("activate", "<alt> <ctrl> BTN_LEFT");
         if (!act_button->as_button().valid())
             return;
 

@@ -30,7 +30,7 @@ class wf_wrot : public wayfire_plugin_t
                 last_y = y;
             };
 
-            auto button = (*config)["wrot"]->get_option("activate", "<alt> right");
+            auto button = (*config)["wrot"]->get_option("activate", "<alt> BTN_RIGHT");
             output->add_button(button, &call);
 
             grab_interface->callbacks.pointer.motion = [=] (int x, int y)

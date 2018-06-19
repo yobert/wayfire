@@ -717,6 +717,7 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         update_cursor_position(ev->time_msec, false);
     } */
 
+    log_info("got button %d", ev->button);
     in_mod_binding = false;
 
     if (ev->state == WLR_BUTTON_PRESSED)

@@ -516,7 +516,7 @@ class wayfire_tile : public wayfire_plugin_t
             }
         };
 
-        auto resize_key = config->get_section("tile")->get_option("resize", "<super> left");
+        auto resize_key = config->get_section("tile")->get_option("resize", "<super> BTN_LEFT");
         output->add_button(resize_key, &resize_container);
     }
 

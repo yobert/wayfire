@@ -24,7 +24,7 @@ class wayfire_resize : public wayfire_plugin_t {
         grab_interface->name = "resize";
         grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY;
 
-        auto button = (*config)["resize"]->get_option("activate", "<super> left");
+        auto button = (*config)["resize"]->get_option("activate", "<super> BTN_LEFT");
         if (!button->as_button().valid())
             return;
 

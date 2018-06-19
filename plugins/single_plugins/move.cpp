@@ -29,7 +29,7 @@ class wayfire_move : public wayfire_plugin_t
             grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY;
 
             auto section = config->get_section("move");
-            wf_option button = section->get_option("activate", "<alt> left");
+            wf_option button = section->get_option("activate", "<alt> BTN_LEFT");
             if (!button->as_button().valid())
                 return;
 
