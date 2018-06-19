@@ -16,6 +16,7 @@ class wayfire_move : public wayfire_plugin_t
     wayfire_view view;
 
     bool is_using_touch;
+    bool was_client_request;
     bool enable_snap;
     int slot;
     int snap_pixels;
@@ -36,6 +37,7 @@ class wayfire_move : public wayfire_plugin_t
             activate_binding = [=] (uint32_t, int x, int y)
             {
                 is_using_touch = false;
+                was_client_request = false;
                 auto focus = core->get_cursor_focus();
                 auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
 
@@ -46,10 +48,9 @@ class wayfire_move : public wayfire_plugin_t
             touch_activate_binding = [=] (int32_t sx, int32_t sy)
             {
                 is_using_touch = true;
+                was_client_request = false;
                 auto focus = core->get_touch_focus();
                 auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
-
-                log_info("jaj %p %p", focus, view.get());
 
                 if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
                     initiate(view, sx, sy);
@@ -63,14 +64,18 @@ class wayfire_move : public wayfire_plugin_t
 
             using namespace std::placeholders;
             grab_interface->callbacks.pointer.button =
-                [=] (uint32_t b, uint32_t state)
-                {
-                    if (b != button->as_button().button)
-                        return;
+            [=] (uint32_t b, uint32_t state)
+            {
+                /* the request usually comes with the left button ... */
+                if (state == WLR_BUTTON_RELEASED && was_client_request && b == BTN_LEFT)
+                    return input_pressed(state);
 
-                    is_using_touch = false;
-                    input_pressed(state);
-                };
+                if (b != button->as_button().button)
+                    return;
+
+                is_using_touch = false;
+                input_pressed(state);
+            };
 
             grab_interface->callbacks.pointer.motion = [=] (int x, int y)
             {
@@ -111,6 +116,7 @@ class wayfire_move : public wayfire_plugin_t
             if (view)
             {
                 is_using_touch = false;
+                was_client_request = true;
                 GetTuple(x, y, output->get_cursor_position());
                 initiate(view, x, y);
             }

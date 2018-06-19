@@ -13,6 +13,7 @@ class wayfire_resize : public wayfire_plugin_t {
     touch_callback touch_activate_binding;
     wayfire_view view;
 
+    bool was_client_request;
     int initial_x, initial_y;
     int initial_width, initial_height;
 
@@ -32,6 +33,7 @@ class wayfire_resize : public wayfire_plugin_t {
         {
             auto focus = core->get_cursor_focus();
             auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+            was_client_request = false;
             initiate(view, x, y);
         };
 
@@ -39,6 +41,7 @@ class wayfire_resize : public wayfire_plugin_t {
         {
             auto focus = core->get_touch_focus();
             auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+            was_client_request = false;
             initiate(view, sx, sy);
         };
 
@@ -46,12 +49,15 @@ class wayfire_resize : public wayfire_plugin_t {
         output->add_button(button, &activate_binding);
         output->add_touch(button->as_button().mod, &touch_activate_binding);
 
-        grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t s)
+        grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t state)
         {
+            if (state == WLR_BUTTON_RELEASED && was_client_request && b == BTN_LEFT)
+                return input_pressed(state);
+
             if (b != button->as_cached_button().button)
                 return;
 
-            input_pressed(s);
+            input_pressed(state);
         };
 
         grab_interface->callbacks.pointer.motion = [=] (int x, int y)
@@ -93,6 +99,7 @@ class wayfire_resize : public wayfire_plugin_t {
     void resize_requested(signal_data *data)
     {
         auto view = get_signaled_view(data);
+        was_client_request = true;
         if (view)
         {
             GetTuple(x, y, output->get_cursor_position());
