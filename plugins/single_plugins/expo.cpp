@@ -21,6 +21,8 @@ class wayfire_expo : public wayfire_plugin_t
 
         wf_option action_button;
         wf_option background_color, zoom_animation_duration;
+        wf_option delimiter_offset;
+
         wf_duration zoom_animation;
 
         render_hook_t renderer;
@@ -37,8 +39,6 @@ class wayfire_expo : public wayfire_plugin_t
 
         std::vector<std::vector<wf_workspace_stream*>> streams;
         signal_callback_t resized_cb;
-
-        int delimiter_offset;
 
     public:
     void init(wayfire_config *config)
@@ -66,7 +66,7 @@ class wayfire_expo : public wayfire_plugin_t
         zoom_animation_duration = section->get_option("duration", "300");
         zoom_animation = wf_duration(zoom_animation_duration);
 
-        delimiter_offset = *section->get_option("offset", "10");
+        delimiter_offset = section->get_option("offset", "10");
 
         toggle_cb = [=] (uint32_t key) {
             if (!state.active) {
@@ -451,7 +451,7 @@ class wayfire_expo : public wayfire_plugin_t
         zoom_target.off_x   = {0, ((target_vx - center_w) * 2.f + 1.f) / vw + diff_w};
         zoom_target.off_y   = {0, ((center_h - target_vy) * 2.f - 1.f) / vh - diff_h};
 
-        zoom_target.delimiter_offset = {0, (float)delimiter_offset};
+        zoom_target.delimiter_offset = {0, (float)delimiter_offset->as_cached_int()};
 
         if (!zoom_in)
         {
