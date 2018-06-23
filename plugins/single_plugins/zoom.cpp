@@ -40,7 +40,7 @@ class wayfire_zoom_screen : public wayfire_plugin_t
             speed    = section->get_option("speed", "0.005");
             smoothing_duration = section->get_option("smoothing_duration", "300");
 
-            duration = wf_duration(smoothing_duration, wf_animation::linear);
+            duration = wf_duration(smoothing_duration);
             duration.start(1, 1); // so that the first value we get is correct
         }
 
