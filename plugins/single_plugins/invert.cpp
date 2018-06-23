@@ -38,35 +38,50 @@ class wayfire_invert_screen : public wayfire_plugin_t
 {
 
     post_hook_t hook;
-    effect_hook_t wait_for_render;
+    key_callback toggle_cb;
 
+    bool active = false;
     GLuint program, posID, uvID;
 
     public:
         void init(wayfire_config *config)
         {
+            auto section = config->get_section("invert");
+            auto toggle_key = section->get_option("toggle", "<super> KEY_I");
+
+            if (!toggle_key->as_key().valid())
+                return;
+
             hook = [=] (uint32_t fb, uint32_t tex, uint32_t target)
             {
                 render(fb, tex, target);
             };
 
-            wait_for_render = [=] () {
-                output->render->add_post(&hook);
-                output->render->rem_effect(&wait_for_render, WF_OUTPUT_EFFECT_POST);
 
-                auto vs = OpenGL::compile_shader(vertex_shader, GL_VERTEX_SHADER);
-                auto fs = OpenGL::compile_shader(fragment_shader, GL_FRAGMENT_SHADER);
+            toggle_cb = [=] (uint32_t key) {
+                if (active)
+                {
+                    output->render->rem_post(&hook);
+                } else
+                {
+                    output->render->add_post(&hook);
+                }
 
-                program = GL_CALL(glCreateProgram());
-                GL_CALL(glAttachShader(program, vs));
-                GL_CALL(glAttachShader(program, fs));
-                GL_CALL(glLinkProgram(program));
-
-                posID = GL_CALL(glGetAttribLocation(program, "position"));
-                uvID  = GL_CALL(glGetAttribLocation(program, "uvPosition"));
+                active = !active;
             };
 
-            output->render->add_effect(&wait_for_render, WF_OUTPUT_EFFECT_POST);
+            auto vs = OpenGL::compile_shader(vertex_shader, GL_VERTEX_SHADER);
+            auto fs = OpenGL::compile_shader(fragment_shader, GL_FRAGMENT_SHADER);
+
+            program = GL_CALL(glCreateProgram());
+            GL_CALL(glAttachShader(program, vs));
+            GL_CALL(glAttachShader(program, fs));
+            GL_CALL(glLinkProgram(program));
+
+            posID = GL_CALL(glGetAttribLocation(program, "position"));
+            uvID  = GL_CALL(glGetAttribLocation(program, "uvPosition"));
+
+            output->add_key(toggle_key, &toggle_cb);
         }
 
         void render(uint32_t fb, uint32_t tex, uint32_t target)
