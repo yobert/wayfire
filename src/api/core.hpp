@@ -22,6 +22,7 @@ struct wlr_linux_dmabuf;
 struct wlr_gamma_control_manager;
 struct wlr_screenshooter;
 struct wlr_xdg_output_manager;
+struct wlr_export_dmabuf_manager_v1;
 struct wayfire_shell;
 
 #include <wayland-server.h>
@@ -76,6 +77,7 @@ class wayfire_core
             wlr_gamma_control_manager *gamma;
             wlr_screenshooter *screenshooter;
             wlr_linux_dmabuf *linux_dmabuf;
+            wlr_export_dmabuf_manager_v1 *export_dmabuf;
             wlr_xdg_output_manager *output_manager;
             wayfire_shell *wf_shell;
         } protocols;
