@@ -18,9 +18,6 @@ struct plugin_manager;
 class workspace_manager;
 class render_manager;
 
-class wayfire_view_t;
-using wayfire_view = std::shared_ptr<wayfire_view_t>;
-
 class wayfire_output
 {
     friend class wayfire_core;
@@ -38,6 +35,20 @@ class wayfire_output
 
        wl_listener destroy_listener;
        signal_callback_t unmap_view_cb;
+
+       wf_option_callback config_mode_changed,
+                          config_transform_changed,
+                          config_position_changed,
+                          config_scale_changed;
+
+       wf_option mode_opt, scale_opt, transform_opt, position_opt;
+
+       void set_initial_mode();
+       void set_initial_scale();
+       void set_initial_transform();
+       void set_initial_position();
+
+       void set_position(std::string pos);
 
     public:
        int id;
@@ -58,6 +69,13 @@ class wayfire_output
 
        void set_transform(wl_output_transform new_transform);
        wl_output_transform get_transform();
+
+       /* return true if mode switch has succeeded */
+       bool set_mode(std::string mode);
+       bool set_mode(uint32_t width, uint32_t height, uint32_t refresh_mHz);
+
+       void set_scale(double scale);
+       void set_position(wf_point p);
 
        /* makes sure that the pointer is inside the output's geometry */
        void ensure_pointer();
@@ -95,8 +113,21 @@ class wayfire_output
 
        void bring_to_front(wayfire_view v);
 
-       int add_key(uint32_t mod, uint32_t key, key_callback *);
-       int add_button(uint32_t mod, uint32_t button, button_callback *);
+       /* force refocus the topmost view in one of the layers marked in layers
+        * and which isn't skip_view */
+       void refocus(wayfire_view skip_view, uint32_t layers);
+
+       int  add_key(wf_option key, key_callback *);
+       void rem_key(key_callback *);
+       void rem_key(int);
+
+       int  add_axis(wf_option mod, axis_callback *);
+       void rem_axis(axis_callback *);
+       void rem_axis(int);
+
+       int  add_button(wf_option button, button_callback *);
+       void rem_button(button_callback*);
+       void rem_button(int);
 
        int  add_touch(uint32_t mod, touch_callback*);
        void rem_touch(int32_t id);
@@ -106,5 +137,4 @@ class wayfire_output
        int add_gesture(const wayfire_touch_gesture& gesture, touch_gesture_callback* callback);
        void rem_gesture(int id);
 };
-extern const struct wayfire_shell_interface shell_interface_impl;
 #endif /* end of include guard: OUTPUT_HPP */

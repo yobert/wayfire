@@ -65,7 +65,7 @@ namespace OpenGL
     void render_transformed_texture(GLuint text,
                                     const gl_geometry& g,
                                     const gl_geometry& texg,
-                                    glm::mat4 transform = glm::mat4(),
+                                    glm::mat4 transform = glm::mat4(1.0),
                                     glm::vec4 color = glm::vec4(1.f),
                                     uint32_t bits = 0);
 

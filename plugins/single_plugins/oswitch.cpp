@@ -2,7 +2,6 @@
 #include <core.hpp>
 #include <view.hpp>
 #include <linux/input-event-codes.h>
-#include <config.hpp>
 
 /* XXX: remove next_output_idle_cb, because if an output is unplugged
  * in between switching outputs(highly unlikely, but still possible),
@@ -25,9 +24,8 @@ class wayfire_output_manager : public wayfire_plugin_t
 
             auto section = config->get_section("oswitch");
 
-            auto actkey  = section->get_key("next_output", {WLR_MODIFIER_LOGO, KEY_K});
-            auto withwin = section->get_key("next_output_with_win",
-                    {WLR_MODIFIER_LOGO | WLR_MODIFIER_SHIFT, KEY_K});
+            auto actkey  = section->get_option("next_output", "<super> KEY_K");
+            auto withwin = section->get_option("next_output_with_win", "<super> <shift> KEY_K");
 
             switch_output = [=] (uint32_t key) {
                 /* when we switch the output, the oswitch keybinding
@@ -52,8 +50,8 @@ class wayfire_output_manager : public wayfire_plugin_t
                 wl_event_loop_add_idle(core->ev_loop, next_output_idle_cb, next);
             };
 
-            output->add_key(actkey.mod, actkey.keyval, &switch_output);
-            output->add_key(withwin.mod, withwin.keyval, &switch_output_with_window);
+            output->add_key(actkey, &switch_output);
+            output->add_key(withwin, &switch_output_with_window);
         }
 };
 

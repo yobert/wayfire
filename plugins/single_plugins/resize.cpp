@@ -4,7 +4,6 @@
 #include <workspace-manager.hpp>
 #include <linux/input.h>
 #include <signal-definitions.hpp>
-#include <config.hpp>
 
 
 class wayfire_resize : public wayfire_plugin_t {
@@ -14,25 +13,27 @@ class wayfire_resize : public wayfire_plugin_t {
     touch_callback touch_activate_binding;
     wayfire_view view;
 
+    bool was_client_request;
     int initial_x, initial_y;
-    wf_geometry initial_geometry;
+    int initial_width, initial_height;
 
     uint32_t edges;
+
     public:
     void init(wayfire_config *config)
     {
         grab_interface->name = "resize";
         grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY;
 
-        auto button = config->get_section("resize")->get_button("activate",
-                {WLR_MODIFIER_LOGO, BTN_LEFT});
-        if (button.button == 0)
+        auto button = (*config)["resize"]->get_option("activate", "<super> BTN_LEFT");
+        if (!button->as_button().valid())
             return;
 
         activate_binding = [=] (uint32_t, int x, int y)
         {
             auto focus = core->get_cursor_focus();
             auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+            was_client_request = false;
             initiate(view, x, y);
         };
 
@@ -40,19 +41,23 @@ class wayfire_resize : public wayfire_plugin_t {
         {
             auto focus = core->get_touch_focus();
             auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+            was_client_request = false;
             initiate(view, sx, sy);
         };
 
 
-        output->add_button(button.mod, button.button, &activate_binding);
-        output->add_touch(button.mod, &touch_activate_binding);
+        output->add_button(button, &activate_binding);
+        output->add_touch(button->as_button().mod, &touch_activate_binding);
 
-        grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t s)
+        grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t state)
         {
-            if (b != button.button)
+            if (state == WLR_BUTTON_RELEASED && was_client_request && b == BTN_LEFT)
+                return input_pressed(state);
+
+            if (b != button->as_cached_button().button)
                 return;
 
-            input_pressed(s);
+            input_pressed(state);
         };
 
         grab_interface->callbacks.pointer.motion = [=] (int x, int y)
@@ -88,12 +93,13 @@ class wayfire_resize : public wayfire_plugin_t {
         };
 
         output->connect_signal("detach-view", &view_destroyed);
-        output->connect_signal("destroy-view", &view_destroyed);
+        output->connect_signal("unmap-view", &view_destroyed);
     }
 
     void resize_requested(signal_data *data)
     {
         auto view = get_signaled_view(data);
+        was_client_request = true;
         if (view)
         {
             GetTuple(x, y, output->get_cursor_position());
@@ -103,7 +109,7 @@ class wayfire_resize : public wayfire_plugin_t {
 
     void initiate(wayfire_view view, int sx, int sy, uint32_t forced_edges = 0)
     {
-        if (!view || view->is_special || view->destroyed)
+        if (!view || view->role == WF_VIEW_ROLE_SHELL_VIEW || view->destroyed)
             return;
 
         if (!output->workspace->
@@ -120,9 +126,13 @@ class wayfire_resize : public wayfire_plugin_t {
 
         initial_x = sx;
         initial_y = sy;
-        initial_geometry = view->get_wm_geometry();
 
-        if (forced_edges == 0) {
+        auto wm = view->get_wm_geometry();
+        initial_width = wm.width;
+        initial_height = wm.height;
+
+        if (forced_edges == 0)
+        {
             auto vg = view->get_wm_geometry();
 
             int view_x = initial_x - vg.x;
@@ -130,22 +140,25 @@ class wayfire_resize : public wayfire_plugin_t {
 
             edges = 0;
             if (view_x < vg.width / 2) {
-                edges |= WL_SHELL_SURFACE_RESIZE_LEFT;
+                edges |= WF_RESIZE_EDGE_LEFT;
             } else {
-                edges |= WL_SHELL_SURFACE_RESIZE_RIGHT;
+                edges |= WF_RESIZE_EDGE_RIGHT;
             }
 
             if (view_y < vg.height / 2) {
-                edges |= WL_SHELL_SURFACE_RESIZE_TOP;
+                edges |= WF_RESIZE_EDGE_TOP;
             } else {
-                edges |= WL_SHELL_SURFACE_RESIZE_BOTTOM;
+                edges |= WF_RESIZE_EDGE_BOTTOM;
             }
         } else {
             edges = forced_edges;
         }
 
-        view->set_moving(true);
-        view->set_resizing(true);
+        if ((edges & WF_RESIZE_EDGE_LEFT) ||
+            (edges & WF_RESIZE_EDGE_TOP))
+            view->set_moving(true);
+
+        view->set_resizing(true, edges);
 
         if (view->maximized)
             view->set_maximized(false);
@@ -167,31 +180,29 @@ class wayfire_resize : public wayfire_plugin_t {
 
         if (view)
         {
-            view->set_moving(false);
+	    if ((edges & WF_RESIZE_EDGE_LEFT) ||
+	        (edges & WF_RESIZE_EDGE_TOP))
+                view->set_moving(false);
             view->set_resizing(false);
         }
     }
 
     void input_motion(int sx, int sy)
     {
-        auto newg = initial_geometry;
-
         int dx = sx - initial_x;
         int dy = sy - initial_y;
+        int width = initial_width;
+        int height = initial_height;
 
-        if (edges & WL_SHELL_SURFACE_RESIZE_LEFT) {
-            newg.x += dx;
-            newg.width -= dx;
-        } else {
-            newg.width += dx;
-        }
+        if (edges & WF_RESIZE_EDGE_LEFT)
+            width -= dx;
+        else
+            width += dx;
 
-        if (edges & WL_SHELL_SURFACE_RESIZE_TOP) {
-            newg.y += dy;
-            newg.height -= dy;
-        } else {
-            newg.height += dy;
-        }
+        if (edges & WF_RESIZE_EDGE_TOP)
+            height -= dy;
+        else
+            height += dy;
 
         /* TODO: add view::get_max/min size
         auto max_size = weston_desktop_surface_get_max_size(view->desktop_surface);
@@ -209,9 +220,10 @@ class wayfire_resize : public wayfire_plugin_t {
         newg.height = std::max(min_size.height, newg.height);
         */
 
-        newg.height = std::max(newg.height, 10);
-        newg.width  = std::max(newg.width,  10);
-        view->set_geometry(newg);
+        height = std::max(height, 1);
+        width  = std::max(width,  1);
+
+        view->resize(width, height);
     }
 };
 

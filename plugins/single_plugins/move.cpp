@@ -7,7 +7,6 @@
 #include <linux/input.h>
 #include <signal-definitions.hpp>
 #include "snap_signal.hpp"
-#include "../../shared/config.hpp"
 
 class wayfire_move : public wayfire_plugin_t
 {
@@ -17,6 +16,7 @@ class wayfire_move : public wayfire_plugin_t
     wayfire_view view;
 
     bool is_using_touch;
+    bool was_client_request;
     bool enable_snap;
     int slot;
     int snap_pixels;
@@ -30,48 +30,52 @@ class wayfire_move : public wayfire_plugin_t
             grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY;
 
             auto section = config->get_section("move");
-            wayfire_button button = section->get_button("activate", {WLR_MODIFIER_ALT, BTN_LEFT});
-            if (button.button == 0)
+            wf_option button = section->get_option("activate", "<alt> BTN_LEFT");
+            if (!button->as_button().valid())
                 return;
 
             activate_binding = [=] (uint32_t, int x, int y)
             {
                 is_using_touch = false;
+                was_client_request = false;
                 auto focus = core->get_cursor_focus();
                 auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
 
-                if (view && !view->is_special)
+                if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
                     initiate(view, x, y);
             };
 
             touch_activate_binding = [=] (int32_t sx, int32_t sy)
             {
                 is_using_touch = true;
+                was_client_request = false;
                 auto focus = core->get_touch_focus();
                 auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
 
-                log_info("jaj %p %p", focus, view.get());
-
-                if (view && !view->is_special)
+                if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
                     initiate(view, sx, sy);
             };
 
-            output->add_button(button.mod, button.button, &activate_binding);
-            output->add_touch(button.mod, &touch_activate_binding);
+            output->add_button(button, &activate_binding);
+            output->add_touch(button->as_button().mod, &touch_activate_binding);
 
-            enable_snap = section->get_int("enable_snap", 1);
-            snap_pixels = section->get_int("snap_threshold", 2);
+            enable_snap = int(*section->get_option("enable_snap", "1"));
+            snap_pixels = *section->get_option("snap_threshold", "2");
 
             using namespace std::placeholders;
             grab_interface->callbacks.pointer.button =
-                [=] (uint32_t b, uint32_t state)
-                {
-                    if (b != button.button)
-                        return;
+            [=] (uint32_t b, uint32_t state)
+            {
+                /* the request usually comes with the left button ... */
+                if (state == WLR_BUTTON_RELEASED && was_client_request && b == BTN_LEFT)
+                    return input_pressed(state);
 
-                    is_using_touch = false;
-                    input_pressed(state);
-                };
+                if (b != button->as_button().button)
+                    return;
+
+                is_using_touch = false;
+                input_pressed(state);
+            };
 
             grab_interface->callbacks.pointer.motion = [=] (int x, int y)
             {
@@ -102,7 +106,7 @@ class wayfire_move : public wayfire_plugin_t
                 }
             };
             output->connect_signal("detach-view", &view_destroyed);
-            output->connect_signal("destroy-view", &view_destroyed);
+            output->connect_signal("unmap-view", &view_destroyed);
         }
 
         void move_requested(signal_data *data)
@@ -112,6 +116,7 @@ class wayfire_move : public wayfire_plugin_t
             if (view)
             {
                 is_using_touch = false;
+                was_client_request = true;
                 GetTuple(x, y, output->get_cursor_position());
                 initiate(view, x, y);
             }
@@ -167,7 +172,7 @@ class wayfire_move : public wayfire_plugin_t
 
             if (view)
             {
-                if (view->is_special)
+                if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
                     return;
 
                 view->set_moving(false);

@@ -30,7 +30,8 @@ class wf_wrot : public wayfire_plugin_t
                 last_y = y;
             };
 
-            output->add_button(WLR_MODIFIER_ALT, BTN_RIGHT, &call);
+            auto button = (*config)["wrot"]->get_option("activate", "<alt> BTN_RIGHT");
+            output->add_button(button, &call);
 
             grab_interface->callbacks.pointer.motion = [=] (int x, int y)
             {
@@ -43,7 +44,6 @@ class wf_wrot : public wayfire_plugin_t
 
                 view->damage();
 
-
                 auto g = view->get_wm_geometry();
 
                 double cx = g.x + g.width / 2.0;
@@ -53,7 +53,7 @@ class wf_wrot : public wayfire_plugin_t
                 double x2 = x - cx, y2 = y - cy;
 
                 /* cross(a, b) = |a| * |b| * sin(a, b) */
-                tr->angle += std::asin(cross(x1, y1, x2, y2) / vlen(x1, y1) / vlen(x2, y2));
+                tr->angle -= std::asin(cross(x1, y1, x2, y2) / vlen(x1, y1) / vlen(x2, y2));
 
                 view->damage();
 

@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 #include <map>
+#include <nonstd/observer_ptr.h>
 
 extern "C"
 {
@@ -21,11 +22,12 @@ struct wlr_linux_dmabuf;
 struct wlr_gamma_control_manager;
 struct wlr_screenshooter;
 struct wlr_xdg_output_manager;
+struct wlr_export_dmabuf_manager_v1;
+struct wayfire_shell;
 
 #include <wayland-server.h>
 }
 
-struct desktop_apis_t;
 class decorator_base_t;
 class input_manager;
 class wayfire_config;
@@ -33,7 +35,7 @@ class wayfire_output;
 class wayfire_view_t;
 class wayfire_surface_t;
 
-using wayfire_view = std::shared_ptr<wayfire_view_t>;
+using wayfire_view = nonstd::observer_ptr<wayfire_view_t>;
 using output_callback_proc = std::function<void(wayfire_output *)>;
 
 class wayfire_core
@@ -41,25 +43,25 @@ class wayfire_core
         friend struct plugin_manager;
         friend class wayfire_output;
 
+        wl_listener output_layout_changed;
+
         wayfire_output *active_output;
 
         std::vector<wlr_output*> pending_outputs;
         std::map<wlr_output*, wayfire_output*> outputs;
 
-        /* TODO: perhaps switch to a std::vector */
-        std::map<wayfire_view_t*, wayfire_view> views;
+        std::vector<std::unique_ptr<wayfire_view_t>> views;
 
         void configure(wayfire_config *config);
 
         int times_wake = 0;
+        uint32_t focused_layer = 0;
 
     public:
 
         std::vector<wl_resource*> shell_clients;
         wayfire_config *config;
 
-
-        desktop_apis_t *api;
         bool set_decorator(decorator_base_t *decor);
 
         wl_display *display;
@@ -75,7 +77,9 @@ class wayfire_core
             wlr_gamma_control_manager *gamma;
             wlr_screenshooter *screenshooter;
             wlr_linux_dmabuf *linux_dmabuf;
+            wlr_export_dmabuf_manager_v1 *export_dmabuf;
             wlr_xdg_output_manager *output_manager;
+            wayfire_shell *wf_shell;
         } protocols;
 
 
@@ -100,7 +104,8 @@ class wayfire_core
         wayfire_surface_t *get_cursor_focus();
         wayfire_surface_t *get_touch_focus();
 
-        void add_view(wayfire_view view);
+        void add_view(std::unique_ptr<wayfire_view_t> view);
+
         wayfire_view find_view(wayfire_surface_t *);
         wayfire_view find_view(uint32_t id);
 
@@ -126,11 +131,14 @@ class wayfire_core
 
         void for_each_output(output_callback_proc);
 
+        void focus_layer(uint32_t layer);
+        uint32_t get_focused_layer();
+
         void run(const char *command);
 
         int vwidth, vheight;
 
-        std::string shadersrc, plugin_path, plugins;
+        std::string shadersrc;
         bool run_panel;
 };
 

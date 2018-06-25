@@ -6,8 +6,8 @@
 #include <workspace-manager.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <animation.hpp>
 
-#include "config.hpp"
 /* TODO: this file should be included in some header maybe(plugin.hpp) */
 #include <linux/input-event-codes.h>
 #include "view-change-viewport-signal.hpp"
@@ -18,18 +18,18 @@ class wayfire_expo : public wayfire_plugin_t
     private:
         key_callback toggle_cb, press_cb, move_cb;
         touch_gesture_callback touch_toggle_cb;
-        wayfire_button action_button;
 
-        wayfire_color background_color;
+        wf_option action_button;
+        wf_option background_color, zoom_animation_duration;
+        wf_option delimiter_offset;
 
-        int max_steps;
+        wf_duration zoom_animation;
 
         render_hook_t renderer;
 
         struct {
             bool active = false;
             bool moving = false;
-            bool in_zoom = false;
             bool button_pressed = false;
 
             bool zoom_in = false;
@@ -40,8 +40,6 @@ class wayfire_expo : public wayfire_plugin_t
         std::vector<std::vector<wf_workspace_stream*>> streams;
         signal_callback_t resized_cb;
 
-        int delimiter_offset;
-
     public:
     void init(wayfire_config *config)
     {
@@ -49,9 +47,9 @@ class wayfire_expo : public wayfire_plugin_t
         grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
 
         auto section = config->get_section("expo");
-        auto toggle_key = section->get_key("toggle", {WLR_MODIFIER_LOGO, KEY_E});
+        auto toggle_key = section->get_option("toggle", "<super> KEY_E");
 
-        if (!toggle_key.valid())
+        if (!toggle_key->as_key().valid())
             return;
 
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
@@ -65,14 +63,16 @@ class wayfire_expo : public wayfire_plugin_t
             }
         }
 
-        max_steps = section->get_duration("duration", 20);
-        delimiter_offset = section->get_int("offset", 10);
+        zoom_animation_duration = section->get_option("duration", "300");
+        zoom_animation = wf_duration(zoom_animation_duration);
+
+        delimiter_offset = section->get_option("offset", "10");
 
         toggle_cb = [=] (uint32_t key) {
             if (!state.active) {
                 activate();
             } else {
-                if (!state.in_zoom || !state.zoom_in)
+                if (!zoom_animation.running() || state.zoom_in)
                     deactivate();
             }
         };
@@ -84,7 +84,7 @@ class wayfire_expo : public wayfire_plugin_t
                 activate();
         };
 
-        output->add_key(toggle_key.mod, toggle_key.keyval, &toggle_cb);
+        output->add_key(toggle_key, &toggle_cb);
 
         wayfire_touch_gesture activate_gesture;
         activate_gesture.type = GESTURE_PINCH;
@@ -125,8 +125,7 @@ class wayfire_expo : public wayfire_plugin_t
             handle_input_move(sx, sy);
         };
 
-        renderer = std::bind(std::mem_fn(&wayfire_expo::render), this);
-
+        renderer = [=] (uint32_t fb) { render(fb); };
         resized_cb = [=] (signal_data*) {
             for (int i = 0; i < vw; i++) {
                 for (int j = 0; j < vh; j++) {
@@ -139,7 +138,7 @@ class wayfire_expo : public wayfire_plugin_t
 
         output->connect_signal("output-resized", &resized_cb);
 
-        background_color = section->get_color("background", {0, 0, 0, 1});
+        background_color = section->get_option("background", "0 0 0 1");
     }
 
     void activate()
@@ -150,11 +149,10 @@ class wayfire_expo : public wayfire_plugin_t
         grab_interface->grab();
 
         state.active = true;
-        state.in_zoom = true;
         state.button_pressed = false;
         state.moving = false;
+        zoom_animation.start();
 
-        state.zoom_in = false;
         GetTuple(vx, vy, output->workspace->get_current_workspace());
 
         target_vx = vx;
@@ -167,8 +165,7 @@ class wayfire_expo : public wayfire_plugin_t
 
     void deactivate()
     {
-        state.in_zoom = true;
-        state.zoom_in = true;
+        zoom_animation.start();
         state.moving = false;
 
         output->workspace->set_workspace(std::make_tuple(target_vx, target_vy));
@@ -197,7 +194,7 @@ class wayfire_expo : public wayfire_plugin_t
         int cx = x;
         int cy = y;
 
-        if (state.button_pressed && !state.in_zoom)
+        if (state.button_pressed && !zoom_animation.running())
         {
             start_move(cx, cy);
             state.button_pressed = false;
@@ -286,7 +283,7 @@ class wayfire_expo : public wayfire_plugin_t
         sy -= vy * og.height;
 
         wayfire_view search = nullptr;
-        output->workspace->for_each_view([&search, og, sx, sy] (wayfire_view v) {
+        output->workspace->for_each_view([&search, sx, sy] (wayfire_view v) {
             if (!search && point_inside({sx, sy}, v->get_wm_geometry()))
             search = v;
         }, WF_WM_LAYERS);
@@ -309,7 +306,7 @@ class wayfire_expo : public wayfire_plugin_t
 
     void handle_input_press(int32_t x, int32_t y, uint32_t state)
     {
-        if (this->state.in_zoom)
+        if (zoom_animation.running())
             return;
 
         if (state == WLR_BUTTON_RELEASED && !this->state.moving) {
@@ -328,10 +325,11 @@ class wayfire_expo : public wayfire_plugin_t
 
     struct {
         float scale_x, scale_y,
-              off_x, off_y;
+              off_x, off_y,
+              delimiter_offset;
     } render_params;
 
-    void render()
+    void render(uint32_t target_fb)
     {
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
         GetTuple(vx, vy, output->workspace->get_current_workspace());
@@ -366,13 +364,15 @@ class wayfire_expo : public wayfire_plugin_t
 
         OpenGL::use_device_viewport();
         auto vp = OpenGL::get_device_viewport();
+        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_fb));
         GL_CALL(glScissor(vp.x, vp.y, vp.width, vp.height));
 
-        glClearColor(background_color.r, background_color.g,
-                     background_color.b, background_color.a);
+        auto clear_color = background_color->as_cached_color();
+        glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
         glClear(GL_COLOR_BUFFER_BIT);
 
         auto vp_geometry = OpenGL::get_device_viewport();
+
         for(int j = 0; j < vh; j++) {
             for(int i = 0; i < vw; i++) {
                 if (!streams[i][j]->running) {
@@ -382,11 +382,11 @@ class wayfire_expo : public wayfire_plugin_t
                             render_params.scale_x, render_params.scale_y);
                 }
 
-                float tlx = (i - vx) * w + delimiter_offset;
-                float tly = (j - vy) * h + delimiter_offset;
+                float tlx = (i - vx) * w + render_params.delimiter_offset;
+                float tly = (j - vy) * h + render_params.delimiter_offset;
 
-                float brx = tlx + w - 2 * delimiter_offset;
-                float bry = tly + h - 2 * delimiter_offset;
+                float brx = tlx + w - 2 * render_params.delimiter_offset;
+                float bry = tly + h - 2 * render_params.delimiter_offset;
 
                 gl_geometry out_geometry = {
                     2.0f * tlx / w - 1.0f, 1.0f - 2.0f * tly / h,
@@ -399,6 +399,7 @@ class wayfire_expo : public wayfire_plugin_t
                 texg.y2 = streams[i][j]->scale_y;
 
                 GL_CALL(glEnable(GL_SCISSOR_TEST));
+                GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_fb));
 
                 GL_CALL(glScissor(vp_geometry.x, vp_geometry.y,
                                   vp_geometry.width, vp_geometry.height));
@@ -407,12 +408,12 @@ class wayfire_expo : public wayfire_plugin_t
                         glm::vec4(1), TEXTURE_TRANSFORM_USE_DEVCOORD |
                         TEXTURE_USE_TEX_GEOMETRY | TEXTURE_TRANSFORM_INVERT_Y);
 
+                GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
                 GL_CALL(glDisable(GL_SCISSOR_TEST));
             }
         }
 
-        if (state.in_zoom)
-            update_zoom();
+        update_zoom();
     }
 
     struct tup {
@@ -420,9 +421,9 @@ class wayfire_expo : public wayfire_plugin_t
     };
 
     struct {
-        int steps = 0;
         tup scale_x, scale_y,
             off_x, off_y;
+        wf_transition delimiter_offset;
     } zoom_target;
 
     void calculate_zoom(bool zoom_in)
@@ -439,7 +440,6 @@ class wayfire_expo : public wayfire_plugin_t
         float center_w = vw / 2.f;
         float center_h = vh / 2.f;
 
-        zoom_target.steps = 0;
         if (zoom_in) {
             render_params.scale_x = render_params.scale_y = 1;
         } else {
@@ -447,50 +447,45 @@ class wayfire_expo : public wayfire_plugin_t
             render_params.scale_y = 1.f / vh;
         }
 
-        GetTuple(w,  h,  output->get_screen_size());
-
-        float mf_x = 2. * delimiter_offset / w;
-        float mf_y = 2. * delimiter_offset / h;
-
         zoom_target.scale_x = {1, 1.f / vw};
         zoom_target.scale_y = {1, 1.f / vh};
 
-        zoom_target.off_x   = {-mf_x, ((target_vx - center_w) * 2.f + 1.f) / vw + diff_w};
-        zoom_target.off_y   = { mf_y, ((center_h - target_vy) * 2.f - 1.f) / vh - diff_h};
+        zoom_target.off_x   = {0, ((target_vx - center_w) * 2.f + 1.f) / vw + diff_w};
+        zoom_target.off_y   = {0, ((center_h - target_vy) * 2.f - 1.f) / vh - diff_h};
+
+        zoom_target.delimiter_offset = {0, (float)delimiter_offset->as_cached_int()};
+
+        if (!zoom_in)
+        {
+            std::swap(zoom_target.scale_x.begin, zoom_target.scale_x.end);
+            std::swap(zoom_target.scale_y.begin, zoom_target.scale_y.end);
+            std::swap(zoom_target.off_x.begin, zoom_target.off_x.end);
+            std::swap(zoom_target.off_y.begin, zoom_target.off_y.end);
+            std::swap(zoom_target.delimiter_offset.start,
+                      zoom_target.delimiter_offset.end);
+        }
+
+        state.zoom_in = zoom_in;
+        zoom_animation.start();
     }
 
     void update_zoom()
     {
-        if (state.zoom_in)
-        {
-            render_params.scale_x = GetProgress(zoom_target.scale_x.end,
-                    zoom_target.scale_x.begin, zoom_target.steps, max_steps);
-            render_params.scale_y = GetProgress(zoom_target.scale_y.end,
-                    zoom_target.scale_y.begin, zoom_target.steps, max_steps);
-            render_params.off_x = GetProgress(zoom_target.off_x.end,
-                    zoom_target.off_x.begin, zoom_target.steps, max_steps);
-            render_params.off_y = GetProgress(zoom_target.off_y.end,
-                    zoom_target.off_y.begin, zoom_target.steps, max_steps);
-        } else
-        {
-            render_params.scale_x = GetProgress(zoom_target.scale_x.begin,
-                    zoom_target.scale_x.end, zoom_target.steps, max_steps);
-            render_params.scale_y = GetProgress(zoom_target.scale_y.begin,
-                    zoom_target.scale_y.end, zoom_target.steps, max_steps);
-            render_params.off_x = GetProgress(zoom_target.off_x.begin,
-                    zoom_target.off_x.end, zoom_target.steps, max_steps);
-            render_params.off_y = GetProgress(zoom_target.off_y.begin,
-                    zoom_target.off_y.end, zoom_target.steps, max_steps);
-        }
 
-        zoom_target.steps++;
+        render_params.scale_x = zoom_animation.progress(zoom_target.scale_x.begin,
+                                                        zoom_target.scale_x.end);
+        render_params.scale_y = zoom_animation.progress(zoom_target.scale_y.begin,
+                                                        zoom_target.scale_y.end);
 
-        if (zoom_target.steps == max_steps + 1)
-        {
-            state.in_zoom = false;
-            if (state.zoom_in)
-                finalize_and_exit();
-        }
+        render_params.off_x = zoom_animation.progress(zoom_target.off_x.begin,
+                                                      zoom_target.off_x.end);
+        render_params.off_y = zoom_animation.progress(zoom_target.off_y.begin,
+                                                      zoom_target.off_y.end);
+
+        render_params.delimiter_offset = zoom_animation.progress(zoom_target.delimiter_offset);
+
+        if (!zoom_animation.running() && !state.zoom_in)
+            finalize_and_exit();
     }
 
     void finalize_and_exit()

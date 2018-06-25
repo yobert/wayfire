@@ -1,13 +1,10 @@
 #ifndef WORKSPACE_MANAGER_HPP
 #define WORKSPACE_MANAGER_HPP
 
-#include <memory>
 #include <functional>
 #include <vector>
 #include <view.hpp>
 
-class wayfire_view_t;
-using wayfire_view = std::shared_ptr<wayfire_view_t>;
 using view_callback_proc_t = std::function<void(wayfire_view)>;
 
 struct wf_workspace_implementation
@@ -26,11 +23,16 @@ enum wf_layer
     WF_LAYER_LOCK       = (1 << 5)
 };
 
+#define WF_TOTAL_LAYERS 6
+
 #define WF_WM_LAYERS    (WF_LAYER_WORKSPACE  | WF_LAYER_XWAYLAND)
 #define WF_ABOVE_LAYERS (WF_LAYER_TOP        | WF_LAYER_LOCK)
 #define WF_BELOW_LAYERS (WF_LAYER_BACKGROUND | WF_LAYER_BOTTOM)
 
 #define WF_ALL_LAYERS   (WF_WM_LAYERS | WF_ABOVE_LAYERS | WF_BELOW_LAYERS)
+
+/* return all layers not below layer, ie. layers above it + the layer itself */
+uint32_t wf_all_layers_not_below(uint32_t layer);
 
 /* workspace manager controls various workspace-related functions.
  * Currently it is implemented as a plugin, see workspace_viewport_implementation plugin */
@@ -65,9 +67,39 @@ class workspace_manager
         virtual std::tuple<int, int> get_current_workspace() = 0;
         virtual std::tuple<int, int> get_workspace_grid_size() = 0;
 
-        /* position is an enum of wayfire-shell-protocol */
-        virtual void reserve_workarea(uint32_t position,
-                uint32_t width, uint32_t height) = 0;
+        enum anchored_edge
+        {
+            WORKSPACE_ANCHORED_EDGE_TOP = 0,
+            WORKSPACE_ANCHORED_EDGE_BOTTOM = 1,
+            WORKSPACE_ANCHORED_EDGE_LEFT = 2,
+            WORKSPACE_ANCHORED_EDGE_RIGHT = 3
+        };
+
+        struct anchored_area
+        {
+            anchored_edge edge;
+            /* amount of space to reserve */
+            int reserved_size;
+
+            /* desired size, to be given later in the reflowed callback */
+            int real_size;
+
+            /* called when the anchored area geometry was changed */
+            std::function<void(wf_geometry)> reflowed;
+        };
+
+        virtual wf_geometry calculate_anchored_geometry(const anchored_area& area) = 0;
+
+        /* add the reserved area for keeping track of,
+         * if you change the given anchored area,
+         * call recalculate_reserved_areas() to refresh */
+        virtual void add_reserved_area(anchored_area *area) = 0;
+
+        /* force recalculate reserved area for each added anchored area */
+        virtual void reflow_reserved_areas() = 0;
+
+        /* remove the given area from the list */
+        virtual void remove_reserved_area(anchored_area *area) = 0;
 
         /* returns the available area for views, it is basically
          * the output geometry minus the area reserved for panels */

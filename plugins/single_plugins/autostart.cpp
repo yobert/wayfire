@@ -1,5 +1,4 @@
 #include <plugin.hpp>
-#include "config.hpp"
 #include <core.hpp>
 
 class wayfire_autostart : public wayfire_plugin_t
@@ -14,7 +13,7 @@ class wayfire_autostart : public wayfire_plugin_t
         auto section = config->get_section("autostart");
 
         for (const auto& command : section->options)
-            core->run(command.second.c_str());
+            core->run(command->as_string().c_str());
     }
 };
 

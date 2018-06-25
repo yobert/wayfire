@@ -3,11 +3,11 @@
 #include <core.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
+#include <animation.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <linux/input-event-codes.h>
-#include <config.hpp>
 #include <config.h>
 
 #define COEFF_DELTA_NEAR 0.89567f
@@ -19,13 +19,12 @@
 
 class wayfire_cube : public wayfire_plugin_t {
     button_callback activate;
-    wayfire_button act_button;
+    wf_option act_button;
 
     std::vector<wf_workspace_stream*> streams;
 
-    float XVelocity = 0.01;
-    float YVelocity = 0.01;
-    float ZVelocity = 0.05;
+    wf_option XVelocity, YVelocity, ZVelocity;
+
     float MaxFactor = 10;
 
     float angle;      // angle between sides
@@ -50,28 +49,25 @@ class wayfire_cube : public wayfire_plugin_t {
 
     struct
     {
-        duple offset_y;
-        duple offset_z;
-        duple rotation;
-        int current_step, max_steps;
-
+        wf_transition offset_y, offset_z, rotation;
 #if USE_GLES32
-        duple ease_deformation;
+        wf_transition ease_deformation;
 #endif
 
         bool in_exit, active = false;
     } animation;
 
+    wf_duration duration;
+
     glm::mat4 vp, model, view, project;
     float coeff;
 
 #if USE_GLES32
-    bool use_light;
-    int use_deform;
+    wf_option use_light, use_deform;
     float current_ease;
 #endif
 
-    wayfire_color backgroud_color;
+    wf_option background_color;
 
     public:
     void init(wayfire_config *config)
@@ -81,25 +77,22 @@ class wayfire_cube : public wayfire_plugin_t {
 
         auto section = config->get_section("cube");
 
-        XVelocity  = section->get_double("speed_spin_horiz", 0.01);
-        YVelocity  = section->get_double("speed_spin_vert",  0.01);
-        ZVelocity  = section->get_double("speed_zoom",       0.05);
+        XVelocity  = section->get_option("speed_spin_horiz", "0.01");
+        YVelocity  = section->get_option("speed_spin_vert",  "0.01");
+        ZVelocity  = section->get_option("speed_zoom",       "0.05");
 
-        animation.max_steps  = section->get_duration("initial_animation", 30);
+        duration = wf_duration(section->get_option("initial_animation", "350"));
+        background_color = section->get_option("background", "0 0 0 1");
 
-        backgroud_color = section->get_color("background", {0, 0, 0, 1});
-
-        act_button = section->get_button("activate",
-                {WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL, BTN_LEFT});
-
-        if (act_button.button == 0)
+        act_button = section->get_option("activate", "<alt> <ctrl> BTN_LEFT");
+        if (!act_button->as_button().valid())
             return;
 
         activate = [=] (uint32_t, int32_t x, int32_t y) {
             initiate(x, y);
         };
 
-        output->add_button(act_button.mod, act_button.button, &activate);
+        output->add_button(act_button, &activate);
 
         grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t s)
         {
@@ -120,15 +113,15 @@ class wayfire_cube : public wayfire_plugin_t {
 
 
 #if USE_GLES32
-        use_light = section->get_int("light", 1);
-        use_deform = section->get_int("deform", 1);
+        use_light  = section->get_option("light", "1");
+        use_deform = section->get_option("deform", "1");
 #endif
 
         auto vw = std::get<0>(output->workspace->get_workspace_grid_size());
         angle = 2 * M_PI / float(vw);
         coeff = 0.5 / std::tan(angle / 2);
 
-        renderer = [=] () {render();};
+        renderer = [=] (uint32_t fb) {render(fb);};
     }
 
     void schedule_next_frame()
@@ -189,10 +182,10 @@ class wayfire_cube : public wayfire_plugin_t {
 
 #if USE_GLES32
             GLuint defID = GL_CALL(glGetUniformLocation(program.id, "deform"));
-            glUniform1i(defID, use_deform);
+            glUniform1i(defID, *use_deform);
 
             GLuint lightID = GL_CALL(glGetUniformLocation(program.id, "light"));
-            glUniform1i(lightID, use_light);
+            glUniform1i(lightID, *use_light);
 
             program.easeID = GL_CALL(glGetUniformLocation(program.id, "ease"));
 #endif
@@ -228,7 +221,7 @@ class wayfire_cube : public wayfire_plugin_t {
         offset = 0;
         offsetVert = 0;
         zoomFactor = 1;
-        animation.current_step = 0;
+        duration.start();
         animation.in_exit = false;
         animation.offset_z = {coeff + COEFF_DELTA_NEAR, coeff + COEFF_DELTA_FAR};
 
@@ -245,56 +238,35 @@ class wayfire_cube : public wayfire_plugin_t {
 
     bool update_animation()
     {
-        float z_offset = GetProgress(animation.offset_z.start,
-                                     animation.offset_z.end,
-                                     animation.current_step,
-                                     animation.max_steps);
+        float z_offset = duration.progress(animation.offset_z);
 
 #if USE_GLES32
-        current_ease = GetProgress(animation.ease_deformation.start,
-                                   animation.ease_deformation.end,
-                                   animation.current_step,
-                                   animation.max_steps);
+        current_ease = duration.progress(animation.ease_deformation);
 #endif
 
         /* also update rotation and Y offset */
         if (animation.in_exit)
         {
-            offsetVert = GetProgress(animation.offset_y.start,
-                                   animation.offset_y.end,
-                                   animation.current_step,
-                                   animation.max_steps);
-
-            offset = GetProgress(animation.rotation.start,
-                                 animation.rotation.end,
-                                 animation.current_step,
-                                 animation.max_steps);
+            offsetVert = duration.progress(animation.offset_y);
+            offset = duration.progress(animation.rotation);
         }
 
         view = glm::lookAt(glm::vec3(0., offsetVert, z_offset),
                 glm::vec3(0., 0., 0.),
                 glm::vec3(0., 1., 0.));
 
-        if (animation.current_step < animation.max_steps)
-        {
-            ++animation.current_step;
-            if (animation.current_step == animation.max_steps)
-                return false;
-            else
-                return true;
-        }
-
-        return false;
+        return duration.running();
     }
 
-    void render()
+    void render(uint32_t target_fb)
     {
         if (program.id == (uint)-1)
             load_program();
 
         OpenGL::use_device_viewport();
-        GL_CALL(glClearColor(backgroud_color.r, backgroud_color.g,
-                backgroud_color.b, backgroud_color.a));
+
+        auto clear_color = background_color->as_cached_color();
+        GL_CALL(glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a));
 
         GL_CALL(glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT));
 
@@ -313,6 +285,7 @@ class wayfire_cube : public wayfire_plugin_t {
         GL_CALL(glDepthFunc(GL_LESS));
 
         OpenGL::use_device_viewport();
+        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_fb));
         vp = project * view;
         GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
 
@@ -375,6 +348,7 @@ class wayfire_cube : public wayfire_plugin_t {
         }
         glDisable(GL_DEPTH_TEST);
 
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
         GL_CALL(glDisableVertexAttribArray(program.posID));
         GL_CALL(glDisableVertexAttribArray(program.uvID));
 
@@ -397,8 +371,8 @@ class wayfire_cube : public wayfire_plugin_t {
         int nvx = (vx + (dvx % size) + size) % size;
         output->workspace->set_workspace(std::make_tuple(nvx, vy));
 
+        duration.start();
         animation.in_exit = true;
-        animation.current_step = 0;
         animation.offset_z = {coeff + COEFF_DELTA_FAR, coeff + COEFF_DELTA_NEAR};
         animation.offset_y = {offsetVert, 0};
         animation.rotation = {offset + 1.0f * dvx * angle, 0};
@@ -431,8 +405,8 @@ class wayfire_cube : public wayfire_plugin_t {
 
         int xdiff = x - px;
         int ydiff = y - py;
-        offset += xdiff * XVelocity;
-        offsetVert += ydiff * YVelocity;
+        offset += xdiff * XVelocity->as_cached_double();
+        offsetVert += ydiff * YVelocity->as_cached_double();
         px = x, py = y;
 
         schedule_next_frame();
@@ -440,7 +414,7 @@ class wayfire_cube : public wayfire_plugin_t {
 
     void pointer_scrolled(double amount)
     {
-        zoomFactor += ZVelocity * amount;
+        zoomFactor += amount * ZVelocity->as_cached_double();
 
         if (zoomFactor > MaxFactor)
             zoomFactor = MaxFactor;

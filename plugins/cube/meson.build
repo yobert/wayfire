@@ -1,7 +1,7 @@
 animiate = shared_module('cube',
                          'cube.cpp',
                          include_directories: [wayfire_api_inc, wayfire_conf_inc],
-                         dependencies: [wlroots, pixman],
+                         dependencies: [wlroots, pixman, wfconfig],
                          install: true,
                          install_dir: 'lib/wayfire/')
 

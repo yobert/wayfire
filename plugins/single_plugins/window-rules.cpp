@@ -1,6 +1,5 @@
 #include <output.hpp>
 #include <view.hpp>
-#include <config.hpp>
 #include <cwctype>
 #include <cstdio>
 #include <signal-definitions.hpp>
@@ -237,7 +236,7 @@ class wayfire_window_rules : public wayfire_plugin_t
         auto section = config->get_section("window-rules");
         for (auto opt : section->options)
         {
-            auto rule = parse_add_rule(opt.second);
+            auto rule = parse_add_rule(opt->as_string());
             rules_list[rule.signal].push_back(rule.func);
         }
 

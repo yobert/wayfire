@@ -5,6 +5,7 @@
 #include <map>
 #include <functional>
 #include <pixman.h>
+#include <nonstd/observer_ptr.h>
 
 extern "C"
 {
@@ -27,7 +28,14 @@ wf_point operator + (const wf_point& a, const wf_geometry& b);
 wf_geometry operator + (const wf_geometry &a, const wf_point& b);
 wf_point operator - (const wf_point& a);
 
+/* scale box */
 wf_geometry get_output_box_from_box(const wlr_box& box, float scale);
+
+/* rotate box */
+wlr_box get_scissor_box(wayfire_output *output, const wlr_box& box);
+
+/* scale + rotate */
+wlr_box output_transform_box(wayfire_output *output, const wlr_box& box);
 
 bool point_inside(wf_point point, wf_geometry rect);
 bool rect_intersect(wf_geometry screen, wf_geometry win);
@@ -40,7 +48,7 @@ struct wf_custom_view_data
 /* General TODO: mark member functions const where appropriate */
 
 class wayfire_view_t;
-using wayfire_view = std::shared_ptr<wayfire_view_t>;
+using wayfire_view = nonstd::observer_ptr<wayfire_view_t>;
 
 /* do not copy the surface, it is not reference counted and you will get crashes */
 class wayfire_surface_t;
@@ -56,11 +64,9 @@ class wayfire_surface_t
     /* TODO: maybe some functions don't need to be virtual? */
     protected:
 
-         wl_listener committed, destroy, new_sub;
-         std::vector<wayfire_surface_t*> surface_children;
-
-         virtual void for_each_surface_recursive(wf_surface_iterator_callback callback,
-                                                 int x, int y, bool reverse = false);
+        wl_listener committed, destroy, new_sub;
+        virtual void for_each_surface_recursive(wf_surface_iterator_callback callback,
+                                                int x, int y, bool reverse = false);
 
         wayfire_surface_t *parent_surface;
 
@@ -75,8 +81,11 @@ class wayfire_surface_t
         virtual void damage(const wlr_box& box);
         virtual void damage(pixman_region32_t *region);
 
-
     public:
+        std::vector<wayfire_surface_t*> surface_children;
+
+        /* offset to be applied for children, not API function */
+        virtual void get_child_offset(int &x, int &y);
 
         wayfire_surface_t(wayfire_surface_t *parent = nullptr);
         virtual ~wayfire_surface_t();
@@ -131,10 +140,27 @@ class wayfire_surface_t
         virtual void render_fb(int x, int y, pixman_region32_t* damage, int target_fb);
 };
 
+enum wf_view_role
+{
+    WF_VIEW_ROLE_TOPLEVEL, // regular, "WM" views
+    WF_VIEW_ROLE_UNMANAGED, // xwayland override redirect or unmanaged views
+    WF_VIEW_ROLE_SHELL_VIEW // background, lockscreen, panel, notifications, etc
+};
+
+enum wf_resize_edges
+{
+    WF_RESIZE_EDGE_TOP     = (1 << 0),
+    WF_RESIZE_EDGE_BOTTOM  = (1 << 1),
+    WF_RESIZE_EDGE_LEFT    = (1 << 2),
+    WF_RESIZE_EDGE_RIGHT   = (1 << 3)
+};
+
 /* Represents a desktop window (not as X11 window, but like a xdg_toplevel surface) */
 class wayfire_view_t : public wayfire_surface_t
 {
+    friend class wayfire_xdg_decoration_view;
     friend class wayfire_xdg6_decoration_view;
+
     friend void surface_destroyed_cb(wl_listener*, void *data);
 
     protected:
@@ -145,9 +171,8 @@ class wayfire_view_t : public wayfire_surface_t
         int in_continuous_move = 0, in_continuous_resize = 0;
 
         bool wait_decoration = false;
-
-        inline wayfire_view self();
         virtual bool update_size();
+        void adjust_anchored_edge(int32_t new_width, int32_t new_height);
 
         uint32_t id;
         virtual void get_child_position(int &x, int &y);
@@ -159,6 +184,7 @@ class wayfire_view_t : public wayfire_surface_t
             /* used to store output_geometry when the view has been destroyed */
             int32_t output_x = 0, output_y = 0;
             int32_t fb_width = 0, fb_height = 0;
+            int32_t fb_scale = 1;
             pixman_region32_t cached_damage;
 
             void init(int w, int h);
@@ -169,12 +195,20 @@ class wayfire_view_t : public wayfire_surface_t
 
         std::unique_ptr<wf_view_transformer_t> transform;
 
+        virtual wf_geometry get_untransformed_bounding_box();
+        void reposition_relative_to_parent();
+
+        uint32_t edges = 0;
+
     public:
 
         /* these represent toplevel relations, children here are transient windows,
          * such as the close file dialogue */
         wayfire_view parent = nullptr;
         std::vector<wayfire_view> children;
+        virtual void set_toplevel_parent(wayfire_view parent);
+
+        wf_view_role role = WF_VIEW_ROLE_TOPLEVEL;
 
         /* plugins can subclass wf_custom_view_data and use it to store view-specific information
          * it must provide a virtual destructor to free its data. Custom data is deleted when the view
@@ -184,8 +218,14 @@ class wayfire_view_t : public wayfire_surface_t
         wayfire_view_t();
         virtual ~wayfire_view_t();
         uint32_t get_id() { return id; }
+        wayfire_view self();
 
         virtual void move(int x, int y, bool send_signal = true);
+
+        /* both resize and set_geometry just request the client to resize,
+         * there is no guarantee that they will actually honour the size.
+         * However, maximized surfaces typically do resize to the dimensions
+         * they are asked */
         virtual void resize(int w, int h, bool send_signal = true);
         virtual void activate(bool active);
         virtual void close() {};
@@ -195,10 +235,19 @@ class wayfire_view_t : public wayfire_surface_t
 
         /* return geometry as should be used for all WM purposes */
         virtual wf_geometry get_wm_geometry() { return decoration ? decoration->get_wm_geometry() : geometry; }
-        virtual wf_geometry get_output_geometry();
 
-        virtual wlr_box get_bounding_box();
         virtual wf_point get_output_position();
+
+        /* return the output-local transformed coordinates of the view
+         * and all its subsurfaces */
+        virtual wlr_box get_bounding_box();
+
+        /* transform the given region using the view's transform */
+        virtual wlr_box transform_region(const wlr_box &box);
+
+        /* check whether the given region intersects any of the surfaces
+         * in the view's surface tree. */
+        virtual bool intersects_region(const wlr_box& region);
 
         /* map from global to surface local coordinates
          * returns the (sub)surface under the cursor or NULL iff the cursor is outside of the view
@@ -207,7 +256,10 @@ class wayfire_view_t : public wayfire_surface_t
         virtual wlr_surface *get_keyboard_focus_surface() { return surface; };
 
         virtual void set_geometry(wf_geometry g);
-        virtual void set_resizing(bool resizing);
+
+        /* set edges to control the gravity of resize update
+         * default: top-left corner stays where it is */
+        virtual void set_resizing(bool resizing, uint32_t edges = 0);
         virtual void set_moving(bool moving);
 
         bool maximized = false, fullscreen = false;
@@ -219,7 +271,12 @@ class wayfire_view_t : public wayfire_surface_t
         virtual void commit();
         virtual void map(wlr_surface *surface);
         virtual void unmap();
+
+        /* cleanup of the wf_view part. Not API function */
         virtual void destruct();
+
+        /* cleanup of the wlroots handle. Not API function */
+        virtual void destroy();
 
         virtual void damage();
 
@@ -229,10 +286,6 @@ class wayfire_view_t : public wayfire_surface_t
 
         /* Set if the current view should not be rendered by built-in renderer */
         bool is_hidden = false;
-
-        /* backgrounds, panels, lock surfaces -> they shouldn't be touched
-         * by plugins like move, animate, etc. */
-        bool is_special = false;
 
         virtual void move_request();
         virtual void resize_request();

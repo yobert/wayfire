@@ -3,67 +3,73 @@
 
 #include <core.hpp>
 #include <output.hpp>
+#include <render-manager.hpp>
+
 #include "animate.hpp"
+#include "animation.hpp"
+
+extern "C"
+{
+#define static
+#include <wlr/types/wlr_matrix.h>
+#undef static
+}
+
 
 void destroy_system_fade(void *data);
 
 /* animates wake from suspend/startup by fading in the whole output */
 class wf_system_fade
 {
-    weston_surface *surface = nullptr;
-    weston_view *view = nullptr;
+    wf_duration duration;
 
-    int frame_count, current_step = 0;
     wayfire_output *output;
-    effect_hook_t hook;
+
+    effect_hook_t damage_hook, render_hook;
 
     public:
-        wf_system_fade(wayfire_output *out, int fr_count) :
-            frame_count(fr_count), output(out)
+        wf_system_fade(wayfire_output *out, wf_duration dur) :
+            duration(dur), output(out)
         {
-            surface = weston_surface_create(core->ec);
-            view = weston_view_create(surface);
+            damage_hook = [=] ()
+            { output->render->damage(NULL); };
 
-            if (!surface || !view)
-            {
-                current_step = frame_count;
-                return;
-            }
+            render_hook = [=] ()
+            { render(); };
 
-            weston_surface_set_color(surface, 0, 0, 0, 1.0);
-
-            auto og = output->get_full_geometry();
-
-            weston_surface_set_size(surface, og.width, og.height);
-            weston_view_set_position(view, og.x, og.y);
-
-            weston_layer_entry_insert(&core->ec->fade_layer.view_list, &view->layer_link);
-
-            hook = [=] () { step(); };
-            output->render->add_output_effect(&hook);
+            output->render->add_effect(&damage_hook, WF_OUTPUT_EFFECT_PRE);
+            output->render->add_effect(&render_hook, WF_OUTPUT_EFFECT_OVERLAY);
             output->render->auto_redraw(true);
+
+            duration.start(1, 0);
         }
 
-        void step()
+        void render()
         {
-            float color = GetProgress(1, 0, current_step, frame_count);
-            weston_surface_set_color(surface, 0, 0, 0, color);
-            weston_view_geometry_dirty(view);
-            weston_view_schedule_repaint(view);
+            float color[4] = {0, 0, 0, (float)duration.progress()};
 
-            if (current_step++ >= frame_count)
-            {
-                auto loop = wl_display_get_event_loop(core->ec->wl_display);
-                wl_event_loop_add_idle(loop, destroy_system_fade, this);
+            auto geometry = output->get_relative_geometry();
+            geometry = get_output_box_from_box(geometry, output->handle->scale);
 
-                output->render->rem_effect(&hook);
-            }
+            float matrix[9];
+            wlr_matrix_project_box(matrix, &geometry,
+                                   WL_OUTPUT_TRANSFORM_NORMAL,
+                                   0, output->handle->transform_matrix);
+
+            wlr_renderer_scissor(core->renderer, NULL);
+            wlr_render_quad_with_matrix(core->renderer, color, matrix);
+
+            if (!duration.running())
+                finish();
         }
 
-        ~wf_system_fade()
+        void finish()
         {
-            weston_surface_destroy(surface);
+            output->render->rem_effect(&damage_hook, WF_OUTPUT_EFFECT_PRE);
+            output->render->rem_effect(&render_hook, WF_OUTPUT_EFFECT_OVERLAY);
             output->render->auto_redraw(false);
+
+            wl_event_loop_add_idle(core->ev_loop, destroy_system_fade, this);
         }
 };
 
@@ -73,4 +79,4 @@ void destroy_system_fade(void *data)
     delete fade;
 }
 
-#endif /* end of include guard: SYSTEM_FADE_HPP */
+#endif

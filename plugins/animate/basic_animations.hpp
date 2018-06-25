@@ -1,4 +1,5 @@
 #include "animate.hpp"
+#include <debug.hpp>
 #include <plugin.hpp>
 #include <opengl.hpp>
 #include <view-transform.hpp>
@@ -10,15 +11,15 @@ class fade_animation : public animation_base
     wf_2D_view *our_transform = nullptr;
 
     float start = 0, end = 1;
-    int total_frames, current_frame;
+    wf_duration duration;
 
     public:
 
-    void init(wayfire_view view, int tf, bool close)
+    void init(wayfire_view view, wf_duration dur, bool close)
     {
         this->view = view;
-        total_frames = tf;
-        current_frame = 0;
+        duration = dur;
+        duration.start();
 
         if (close)
             std::swap(start, end);
@@ -33,8 +34,10 @@ class fade_animation : public animation_base
         if (view->get_transformer() != our_transform)
             return false;
 
-        our_transform->alpha = GetProgress(start, end, current_frame, total_frames);
-        return current_frame++ < total_frames;
+        log_info("duration has progress %f", duration.progress_percentage());
+
+        our_transform->alpha = duration.progress(start, end);
+        return duration.running();
     }
 
     ~fade_animation()
@@ -52,15 +55,15 @@ class zoom_animation : public animation_base
 
     float alpha_start = 0, alpha_end = 1;
     float zoom_start = 1./3, zoom_end = 1;
-    int total_frames, current_frame;
+    wf_duration duration;
 
     public:
 
-    void init(wayfire_view view, int tf, bool close)
+    void init(wayfire_view view, wf_duration dur, bool close)
     {
         this->view = view;
-        total_frames = tf;
-        current_frame = 0;
+        duration = dur;
+        duration.start();
 
         if (close)
         {
@@ -78,13 +81,12 @@ class zoom_animation : public animation_base
         if (view->get_transformer() != our_transform)
             return false;
 
-        float c = GetProgress(zoom_start, zoom_end, current_frame, total_frames);
-
-        our_transform->alpha = GetProgress(alpha_start, alpha_end, current_frame, total_frames);
+        float c = duration.progress(zoom_start, zoom_end);
+        our_transform->alpha = duration.progress(alpha_start, alpha_end);
         our_transform->scale_x = c;
         our_transform->scale_y = c;
 
-        return current_frame++ < total_frames;
+        return duration.running();
     }
 
     ~zoom_animation()

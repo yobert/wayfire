@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <linux/input-event-codes.h>
 #include "signal-definitions.hpp"
-#include "../../shared/config.hpp"
+#include <animation.hpp>
 
 #include "snap_signal.hpp"
 
@@ -27,24 +27,24 @@ void idle_send_signal(void *data)
 
 class wayfire_grid : public wayfire_plugin_t {
 
-    std::unordered_map<wayfire_view, wf_geometry> saved_view_geometry;
+    std::map<wayfire_view, wf_geometry> saved_view_geometry;
     signal_callback_t output_resized_cb, view_destroyed_cb;
 
     std::vector<std::string> slots = {"unused", "bl", "b", "br", "l", "c", "r", "tl", "t", "tr"};
-    std::vector<wayfire_key> default_keys = {
-        {0, 0},
-        {WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL, KEY_KP1},
-        {WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL, KEY_KP2},
-        {WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL, KEY_KP3},
-        {WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL, KEY_KP4},
-        {WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL, KEY_KP5},
-        {WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL, KEY_KP6},
-        {WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL, KEY_KP7},
-        {WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL, KEY_KP8},
-        {WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL, KEY_KP9},
+    std::vector<std::string> default_keys = {
+        "none",
+        "<alt> <ctrl> KEY_KP1",
+        "<alt> <ctrl> KEY_KP2",
+        "<alt> <ctrl> KEY_KP3",
+        "<alt> <ctrl> KEY_KP4",
+        "<alt> <ctrl> KEY_KP5",
+        "<alt> <ctrl> KEY_KP6",
+        "<alt> <ctrl> KEY_KP7",
+        "<alt> <ctrl> KEY_KP8",
+        "<alt> <ctrl> KEY_KP9",
     };
     key_callback bindings[10];
-    wayfire_key keys[10];
+    wf_option keys[10];
 
     effect_hook_t hook;
 
@@ -56,7 +56,8 @@ class wayfire_grid : public wayfire_plugin_t {
         bool maximizing = false, fullscreening = false;
     } current_view;
 
-    int total_steps, current_step;
+    wf_duration animation;
+    wf_option animation_duration;
 
     public:
     void init(wayfire_config *config)
@@ -65,10 +66,11 @@ class wayfire_grid : public wayfire_plugin_t {
         grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY;
 
         auto section = config->get_section("grid");
-        total_steps = section->get_duration("duration", 15);
+        animation_duration = section->get_option("duration", "300");
+        animation = wf_duration(animation_duration);
 
         for (int i = 1; i < 10; i++) {
-            keys[i] = section->get_key("slot_" + slots[i], default_keys[i]);
+            keys[i] = section->get_option("slot_" + slots[i], default_keys[i]);
 
             bindings[i] = [=] (uint32_t key) {
                 auto view = output->get_top_view();
@@ -76,7 +78,7 @@ class wayfire_grid : public wayfire_plugin_t {
                     handle_key(view, i);
             };
 
-            output->add_key(keys[i].mod, keys[i].keyval, &bindings[i]);
+            output->add_key(keys[i], &bindings[i]);
         }
 
         hook = std::bind(std::mem_fn(&wayfire_grid::update_pos_size), this);
@@ -102,7 +104,7 @@ class wayfire_grid : public wayfire_plugin_t {
                 stop_animation();
         };
 
-        output->connect_signal("destroy-view", &view_destroyed_cb);
+        output->connect_signal("unmap-view", &view_destroyed_cb);
         output->connect_signal("detach-view", &view_destroyed_cb);
     }
 
@@ -133,7 +135,7 @@ class wayfire_grid : public wayfire_plugin_t {
             return false;
         }
 
-        current_step = 0;
+        animation.start();
         current_view.view = view;
         current_view.original = view->get_wm_geometry();
         current_view.target = {tx, ty, tw, th};
@@ -151,18 +153,13 @@ class wayfire_grid : public wayfire_plugin_t {
 
     void update_pos_size()
     {
-        int cx = GetProgress(current_view.original.x,
-                current_view.target.x, current_step, total_steps);
-        int cy = GetProgress(current_view.original.y,
-                current_view.target.y, current_step, total_steps);
-        int cw = GetProgress(current_view.original.width,
-                current_view.target.width, current_step, total_steps);
-        int ch = GetProgress(current_view.original.height,
-                current_view.target.height, current_step, total_steps);
+        int cx = animation.progress(current_view.original.x, current_view.target.x);
+        int cy = animation.progress(current_view.original.y, current_view.target.y);
+        int cw = animation.progress(current_view.original.width, current_view.target.width);
+        int ch = animation.progress(current_view.original.height, current_view.target.height);
         current_view.view->set_geometry({cx, cy, cw, ch});
 
-        current_step++;
-        if (current_step == total_steps)
+        if (!animation.running())
         {
             current_view.view->set_geometry(current_view.target);
             current_view.view->set_moving(false);
