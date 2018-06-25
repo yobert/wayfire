@@ -2,7 +2,7 @@
 #include "output.hpp"
 #include "core.hpp"
 #include "workspace-manager.hpp"
-#include "input-manager.hpp"
+#include "../core/seat/input-manager.hpp"
 #include "opengl.hpp"
 #include "debug.hpp"
 #include <algorithm>

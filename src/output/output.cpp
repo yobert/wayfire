@@ -4,10 +4,10 @@
 #include "view.hpp"
 #include "core.hpp"
 #include "signal-definitions.hpp"
-#include "input-manager.hpp"
 #include "render-manager.hpp"
 #include "workspace-manager.hpp"
 #include "wayfire-shell.hpp"
+#include "../core/seat/input-manager.hpp"
 
 #include <linux/input.h>
 

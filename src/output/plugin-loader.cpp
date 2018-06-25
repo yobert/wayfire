@@ -3,7 +3,7 @@
 #include <dlfcn.h>
 
 #include "plugin-loader.hpp"
-#include "wm.hpp"
+#include "../core/wm.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 

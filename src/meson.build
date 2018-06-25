@@ -1,5 +1,16 @@
-wayfire_sources = ['main.cpp',   'core.cpp', 'opengl.cpp',
-                   'plugin.cpp', 'wm.cpp',
+wayfire_sources = ['main.cpp',
+
+                   'core/opengl.cpp',
+                   'core/plugin.cpp',
+                   'core/core.cpp',
+                   'core/wm.cpp',
+
+                   'core/seat/input-manager.cpp',
+                   'core/seat/keyboard.cpp',
+                   'core/seat/cursor.cpp',
+                   'core/seat/touch.cpp',
+                   'core/seat/seat.cpp',
+
                    'view/surface.cpp',
                    'view/view.cpp',
                    'view/view-util.cpp',
@@ -8,6 +19,7 @@ wayfire_sources = ['main.cpp',   'core.cpp', 'opengl.cpp',
                    'view/xwayland.cpp',
                    'view/layer-shell.cpp',
                    'view/view-3d.cpp',
+
                    'output/plugin-loader.cpp',
                    'output/output.cpp',
                    'output/render-manager.cpp',
@@ -18,7 +30,7 @@ wayfire_dependencies = [wayland_server, wlroots, xkbcommon, libinput,
                        wfconfig]
 
 if conf_data.get('BUILD_WITH_IMAGEIO')
-    wayfire_sources += ['img.cpp']
+    wayfire_sources += ['core/img.cpp']
     wayfire_dependencies += [jpeg, png]
 endif
 

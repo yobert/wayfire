@@ -1,6 +1,6 @@
 #include "core.hpp"
 #include "output.hpp"
-#include "input-manager.hpp"
+#include "seat/input-manager.hpp"
 #include "signal-definitions.hpp"
 #include "debug.hpp"
 #include <cmath>

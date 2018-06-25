@@ -5,6 +5,7 @@
 #include <map>
 #include <vector>
 
+#include "seat.hpp"
 #include "plugin.hpp"
 #include "view.hpp"
 
@@ -17,34 +18,17 @@ extern "C"
 struct wlr_drag_icon;
 }
 
-
 struct wf_gesture_recognizer;
 struct key_callback_data;
 struct axis_callback_data;
 struct button_callback_data;
 struct wlr_seat;
+
 struct wf_touch;
+struct wf_keyboard;
 
-struct wf_keyboard
-{
-    wlr_keyboard *handle;
-    wlr_input_device *device;
-    wl_listener key, modifier, destroy;
-    wf_keyboard(wlr_input_device *keyboard, wayfire_config *config);
-};
-
-struct wf_drag_icon : public wayfire_surface_t
-{
-    wlr_drag_icon *icon;
-    wl_listener map_ev, unmap_ev, destroy;
-
-    wf_drag_icon(wlr_drag_icon *icon);
-
-    bool is_subsurface() { return true ;}
-    wf_point get_output_position();
-    void damage(const wlr_box& rect);
-};
-
+/* TODO: most probably we want to split even more of input_manager's functionality into
+ * wf_keyboard, wf_cursor and wf_touch */
 class input_manager
 {
     friend void handle_new_input_cb       (wl_listener*, void*);
@@ -83,6 +67,8 @@ class input_manager
         bool is_touch_enabled();
 
         void create_seat();
+        void create_cursor();
+
         void handle_new_input(wlr_input_device *dev);
         void handle_input_destroyed(wlr_input_device *dev);
 
