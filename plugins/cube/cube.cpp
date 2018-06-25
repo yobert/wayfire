@@ -439,11 +439,30 @@ class wayfire_cube : public wayfire_plugin_t
 
         schedule_next_frame();
     }
+
+    void fini()
+    {
+        if (output->is_plugin_active(grab_interface->name))
+            terminate();
+
+        auto size = streams.size();
+        for (uint i = 0; i < size; i++)
+        {
+            if (streams[i]->fbuff != uint32_t(-1))
+            {
+                GL_CALL(glDeleteFramebuffers(1, &streams[i]->fbuff));
+                GL_CALL(glDeleteTextures(1, &streams[i]->tex));
+            }
+        }
+
+        output->rem_button(&activate);
+    }
 };
 
-extern "C" {
-    wayfire_plugin_t *newInstance() {
+extern "C"
+{
+    wayfire_plugin_t *newInstance()
+    {
         return new wayfire_cube();
     }
-
 }

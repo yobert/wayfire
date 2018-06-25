@@ -154,6 +154,10 @@ class wayfire_fisheye : public wayfire_plugin_t
             GL_CALL(glAttachShader(program, fs));
             GL_CALL(glLinkProgram(program));
 
+            /* won't be really deleted until program is deleted as well */
+            GL_CALL(glDeleteShader(vs));
+            GL_CALL(glDeleteShader(fs));
+
             posID = GL_CALL(glGetAttribLocation(program, "position"));
             mouseID  = GL_CALL(glGetUniformLocation(program, "u_mouse"));
             resID  = GL_CALL(glGetUniformLocation(program, "u_resolution"));
@@ -211,9 +215,23 @@ class wayfire_fisheye : public wayfire_plugin_t
                 duration.start(current_zoom, target_zoom);
             } else if (!duration.running())
             {
-                output->render->rem_post(&hook);
-                hook_set = false;
+                finalize();
             }
+        }
+
+        void finalize()
+        {
+            output->render->rem_post(&hook);
+            hook_set = false;
+        }
+
+        void fini()
+        {
+            if (hook_set)
+                finalize();
+
+            GL_CALL(glDeleteProgram(program));
+            output->rem_key(&toggle_cb);
         }
 };
 

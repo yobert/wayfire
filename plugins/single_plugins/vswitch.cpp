@@ -240,9 +240,28 @@ class vswitch : public wayfire_plugin_t
         output->render->rem_effect(&hook, WF_OUTPUT_EFFECT_PRE);
         output->render->auto_redraw(false);
     }
+
+    void fini()
+    {
+        if (running)
+            stop_switch();
+
+        output->rem_key(&callback_left);
+        output->rem_key(&callback_right);
+        output->rem_key(&callback_up);
+        output->rem_key(&callback_down);
+
+        output->rem_key(&callback_win_left);
+        output->rem_key(&callback_win_right);
+        output->rem_key(&callback_win_up);
+        output->rem_key(&callback_win_down);
+
+        output->rem_gesture(&gesture_cb);
+    }
 };
 
-extern "C" {
+extern "C"
+{
     wayfire_plugin_t* newInstance()
     {
         return new vswitch();

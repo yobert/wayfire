@@ -110,8 +110,6 @@ struct wayfire_grab_interface_t {
             std::function<void(int32_t)> up; // id
             std::function<void(int32_t, int32_t, int32_t)> motion; // id, x, y
         } touch;
-
-        std::function<void()> cancel; // called when we must stop current grab
     } callbacks;
 };
 

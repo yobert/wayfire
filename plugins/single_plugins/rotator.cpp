@@ -35,10 +35,20 @@ class wayfire_rotator : public wayfire_plugin_t {
         output->add_key(left_key,  &left);
         output->add_key(right_key, &right);
     }
+
+    void fini()
+    {
+        output->rem_key(&up);
+        output->rem_key(&down);
+        output->rem_key(&left);
+        output->rem_key(&right);
+    }
 };
 
-extern "C" {
-    wayfire_plugin_t *newInstance() {
+extern "C"
+{
+    wayfire_plugin_t *newInstance()
+    {
         return new wayfire_rotator();
     }
 }

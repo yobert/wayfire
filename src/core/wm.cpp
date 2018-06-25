@@ -66,13 +66,6 @@ void wayfire_focus::init(wayfire_config *)
     output->add_touch(0, &touch);
 }
 
-/* TODO: remove, it is no longer necessary */
-void wayfire_fullscreen::init(wayfire_config *conf)
-{
-    grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
-    grab_interface->name = "__fs_grab";
-}
-
 void wayfire_handle_focus_parent::focus_view(wayfire_view view)
 {
     last_view = view;

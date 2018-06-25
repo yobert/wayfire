@@ -78,6 +78,10 @@ class wayfire_invert_screen : public wayfire_plugin_t
             GL_CALL(glAttachShader(program, fs));
             GL_CALL(glLinkProgram(program));
 
+            /* won't be deleted until program is deleted */
+            GL_CALL(glDeleteShader(vs));
+            GL_CALL(glDeleteShader(fs));
+
             posID = GL_CALL(glGetAttribLocation(program, "position"));
             uvID  = GL_CALL(glGetAttribLocation(program, "uvPosition"));
 
@@ -119,6 +123,15 @@ class wayfire_invert_screen : public wayfire_plugin_t
             GL_CALL(glDisableVertexAttribArray(posID));
             GL_CALL(glDisableVertexAttribArray(uvID));
             GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
+        }
+
+        void fini()
+        {
+            if (active)
+                output->render->rem_post(&hook);
+
+            GL_CALL(glDeleteProgram(program));
+            output->rem_key(&toggle_cb);
         }
 };
 

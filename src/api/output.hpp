@@ -130,11 +130,13 @@ class wayfire_output
        void rem_button(int);
 
        int  add_touch(uint32_t mod, touch_callback*);
+       void rem_touch(touch_callback*);
        void rem_touch(int32_t id);
 
        /* we take only gesture type and finger count into account,
         * we send for all possible directions */
        int add_gesture(const wayfire_touch_gesture& gesture, touch_gesture_callback* callback);
+       void rem_gesture(touch_gesture_callback*);
        void rem_gesture(int id);
 };
 #endif /* end of include guard: OUTPUT_HPP */

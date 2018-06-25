@@ -15,8 +15,8 @@ void idle_callback(void *data)
 class wayfire_apps_logger : public wayfire_plugin_t
 {
     signal_callback_t created_cb, destroyed_cb;
-
     using app = std::pair<std::string, std::string>;
+    wl_event_source *created_idle = NULL, *destroyed_idle = NULL;
 
     void update_log_file()
     {
@@ -32,22 +32,36 @@ class wayfire_apps_logger : public wayfire_plugin_t
         }, WF_LAYER_WORKSPACE);
     }
 
-    function idle_func = [=] () { update_log_file(); };
+    function idle_func_created = [=] () { update_log_file(); created_idle = NULL; };
+    function idle_func_destroyed = [=] () { update_log_file(); destroyed_idle = NULL; };
 
     public:
     void init(wayfire_config *config)
     {
         created_cb = [=] (signal_data *data)
         {
-            wl_event_loop_add_idle(core->ev_loop, idle_callback, &idle_func);
+            if (!created_idle)
+                created_idle = wl_event_loop_add_idle(core->ev_loop, idle_callback, &idle_func_created);
         };
         output->connect_signal("map-view", &created_cb);
 
         destroyed_cb = [=] (signal_data *data)
         {
-            wl_event_loop_add_idle(core->ev_loop, idle_callback, &idle_func);
+            if (!destroyed_idle)
+                destroyed_idle = wl_event_loop_add_idle(core->ev_loop, idle_callback, &idle_func_destroyed);
         };
         output->connect_signal("unmap-view", &destroyed_cb);
+    }
+
+    void fini()
+    {
+        output->disconnect_signal("map-view", &created_cb);
+        output->disconnect_signal("unmap-view", &destroyed_cb);
+
+        if (created_idle)
+            wl_event_source_remove(created_idle);
+        if (destroyed_idle)
+            wl_event_source_remove(destroyed_idle);
     }
 };
 

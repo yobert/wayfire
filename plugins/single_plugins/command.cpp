@@ -67,6 +67,12 @@ class wayfire_command : public wayfire_plugin_t
 
         output->connect_signal("reload-config", &reload_config);
     }
+
+    void fini()
+    {
+        output->disconnect_signal("reload-config", &reload_config);
+        clear_bindings();
+    }
 };
 
 extern "C"

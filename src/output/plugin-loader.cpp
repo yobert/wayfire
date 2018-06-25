@@ -1,8 +1,10 @@
 #include <sstream>
+#include <set>
 #include <memory>
 #include <dlfcn.h>
 
 #include "plugin-loader.hpp"
+#include "output.hpp"
 #include "../core/wm.hpp"
 #include "core.hpp"
 #include "debug.hpp"
@@ -20,45 +22,75 @@ namespace
     }
 }
 
-plugin_manager::plugin_manager(wayfire_output *o, wayfire_config *config,
-                               std::string list_of_plugins,
-                               std::string prefix)
+static const std::string default_plugins = "viewport_impl move resize animate \
+                                            switcher vswitch cube expo command \
+                                            grid";
+
+static void idle_reload(void *data)
 {
-    this->prefix = prefix;
-    this->to_load = (list_of_plugins == "default") ?
-        "viewport_impl move resize animate "
-        "switcher vswitch cube expo command grid" :
-        list_of_plugins;
+    auto manager = (plugin_manager *) data;
+    manager->reload_dynamic_plugins();
+    manager->idle_reload_dynamic_plugins = NULL;
+}
 
-    load_dynamic_plugins();
-    init_default_plugins();
+plugin_manager::plugin_manager(wayfire_output *o, wayfire_config *config)
+{
+    this->config = config;
+    this->output = o;
 
-    for (auto& p : plugins)
+    auto section = config->get_section("core");
+    plugins_opt = section->get_option("plugins", "default");
+
+    reload_dynamic_plugins();
+    load_static_plugins();
+
+    list_updated = [=] ()
     {
-        p->grab_interface = new wayfire_grab_interface_t(o);
-        p->output = o;
+        /* reload when config reload has finished */
+        idle_reload_dynamic_plugins =
+            wl_event_loop_add_idle(core->ev_loop, idle_reload, this);
+    };
 
-        p->init(config);
-    }
+    plugins_opt->updated.push_back(&list_updated);
 }
 
 plugin_manager::~plugin_manager()
 {
-    for (auto& p : plugins)
+    for (auto& p : loaded_plugins)
+        destroy_plugin(p.second);
+
+    loaded_plugins.clear();
+    wl_event_source_remove(idle_reload_dynamic_plugins);
+
+    plugins_opt->updated.erase(std::remove(plugins_opt->updated.begin(), plugins_opt->updated.end(),
+                                           &list_updated), plugins_opt->updated.end());
+}
+
+void plugin_manager::init_plugin(wayfire_plugin& p)
+{
+    p->grab_interface = new wayfire_grab_interface_t(output);
+    p->output = output;
+
+    p->init(config);
+}
+
+void plugin_manager::destroy_plugin(wayfire_plugin& p)
+{
+    p->grab_interface->ungrab();
+    output->deactivate_plugin(p->grab_interface);
+
+    p->fini();
+    delete p->grab_interface;
+
+    /* we load the same plugins for each output, so we must dlclose() the handle
+     * only when we remove the last output */
+    if (core->get_num_outputs() < 1)
     {
-        p->fini();
-        delete p->grab_interface;
-
-        /* we load the same plugins for each output, so we must dlclose() the handle
-         * only when we remove the last output */
-        if (core->get_num_outputs() < 1)
-        {
-            if (p->dynamic)
-                dlclose(p->handle);
-        }
-
-        p.reset();
+        if (p->dynamic)
+            dlclose(p->handle);
     }
+
+    p.reset();
 }
 
 wayfire_plugin plugin_manager::load_plugin_from_file(std::string path)
@@ -89,19 +121,53 @@ wayfire_plugin plugin_manager::load_plugin_from_file(std::string path)
     return wayfire_plugin(init());
 }
 
-void plugin_manager::load_dynamic_plugins()
+void plugin_manager::reload_dynamic_plugins()
 {
-    std::stringstream stream(to_load);
-    auto path = prefix + "/wayfire/";
+    std::stringstream stream(plugins_opt->as_string());
+    std::vector<std::string> next_plugins;
 
     std::string plugin;
     while(stream >> plugin)
     {
         if(plugin != "")
+            next_plugins.push_back(plugin);
+    }
+
+    /* erase plugins that have been removed from the config */
+    auto it = loaded_plugins.begin();
+    while(it != loaded_plugins.end())
+    {
+        /* skip built-in(static) plugins */
+        if (it->first.size() && it->first[0] == '_')
         {
-            auto ptr = load_plugin_from_file(path + "/lib" + plugin + ".so");
-            if(ptr)
-                plugins.push_back(std::move(ptr));
+            ++it;
+            continue;
+        }
+
+        if (std::find(next_plugins.begin(), next_plugins.end(), it->first) == next_plugins.end())
+        {
+            log_debug("unload plugin %s", it->first.c_str());
+            destroy_plugin(it->second);
+            it = loaded_plugins.erase(it);
+        } else
+        {
+            ++it;
+        }
+    }
+
+
+    /* load new plugins */
+    auto path = std::string(INSTALL_PREFIX "/lib/wayfire/");
+    for (auto plugin : next_plugins)
+    {
+        if (loaded_plugins.count(plugin))
+            continue;
+
+        auto ptr = load_plugin_from_file(path + "lib" + plugin + ".so");
+        if (ptr)
+        {
+            init_plugin(ptr);
+            loaded_plugins[plugin] = std::move(ptr);
         }
     }
 }
@@ -111,11 +177,15 @@ template<class T> static wayfire_plugin create_plugin()
     return std::unique_ptr<wayfire_plugin_t>(new T);
 }
 
-void plugin_manager::init_default_plugins()
+void plugin_manager::load_static_plugins()
 {
-    plugins.push_back(create_plugin<wayfire_focus>());
-    plugins.push_back(create_plugin<wayfire_close>());
-    plugins.push_back(create_plugin<wayfire_exit>());
-    plugins.push_back(create_plugin<wayfire_fullscreen>());
-    plugins.push_back(create_plugin<wayfire_handle_focus_parent>());
+    loaded_plugins["_exit"]         = create_plugin<wayfire_exit>();
+    loaded_plugins["_focus"]        = create_plugin<wayfire_focus>();
+    loaded_plugins["_close"]        = create_plugin<wayfire_close>();
+    loaded_plugins["_focus_parent"] = create_plugin<wayfire_handle_focus_parent>();
+
+    init_plugin(loaded_plugins["_exit"]);
+    init_plugin(loaded_plugins["_focus"]);
+    init_plugin(loaded_plugins["_close"]);
+    init_plugin(loaded_plugins["_focus_parent"]);
 }

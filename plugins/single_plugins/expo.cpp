@@ -507,6 +507,31 @@ class wayfire_expo : public wayfire_plugin_t
         output->render->reset_renderer();
         output->render->auto_redraw(false);
     }
+
+    void fini()
+    {
+        if (state.active)
+            finalize_and_exit();
+
+        GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
+        for (int i = 0; i < vw; i++)
+        {
+            for (int j = 0; j < vh; j++)
+            {
+                if (streams[i][j]->fbuff != uint32_t(-1))
+                {
+                    GL_CALL(glDeleteFramebuffers(1, &streams[i][j]->fbuff));
+                    GL_CALL(glDeleteTextures(1, &streams[i][j]->tex));
+                }
+            }
+        }
+
+        output->rem_key(&toggle_cb);
+        output->rem_gesture(&touch_toggle_cb);
+
+        renderer = [=] (uint32_t fb) { render(fb); };
+        output->disconnect_signal("output-resized", &resized_cb);
+    }
 };
 
 extern "C" {

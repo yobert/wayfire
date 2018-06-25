@@ -197,12 +197,10 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
     set_initial_transform();
     set_initial_position();
 
-
     render = new render_manager(this);
 
     core->set_default_cursor();
-    plugin = new plugin_manager(this, c,
-                                *c->get_section("core")->get_option("plugins", "default"));
+    plugin = new plugin_manager(this, c);
 
     unmap_view_cb = [=] (signal_data *data)
     {
@@ -661,6 +659,11 @@ int wayfire_output::add_touch(uint32_t mod, touch_callback* callback)
     return core->input->add_touch(mod, callback, this);
 }
 
+void wayfire_output::rem_touch(touch_callback *call)
+{
+    core->input->rem_touch(call);
+}
+
 void wayfire_output::rem_touch(int32_t id)
 {
     core->input->rem_touch(id);
@@ -670,6 +673,11 @@ int wayfire_output::add_gesture(const wayfire_touch_gesture& gesture,
                                 touch_gesture_callback* callback)
 {
     return core->input->add_gesture(gesture, callback, this);
+}
+
+void wayfire_output::rem_gesture(touch_gesture_callback *callback)
+{
+    core->input->rem_gesture(callback);
 }
 
 void wayfire_output::rem_gesture(int id)

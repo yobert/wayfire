@@ -273,9 +273,17 @@ class wayfire_window_rules : public wayfire_plugin_t
         };
         output->connect_signal("view-fullscreen", &fullscreened);
     }
+
+    void fini()
+    {
+        output->disconnect_signal("map-view", &created);
+        output->disconnect_signal("view-maximized", &maximized);
+        output->disconnect_signal("view-fullscreen", &fullscreened);
+    }
 };
 
-extern "C" {
+extern "C"
+{
     wayfire_plugin_t* newInstance()
     {
         return new wayfire_window_rules;

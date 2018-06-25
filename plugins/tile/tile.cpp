@@ -757,6 +757,11 @@ class wayfire_tile : public wayfire_plugin_t
             wf_tiling::selector::node->resplit((wf_split_type)newtype);
         }
     }
+
+    void fini()
+    {
+        /* broken anyway */
+    }
 };
 
 extern "C" {

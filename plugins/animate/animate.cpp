@@ -186,11 +186,11 @@ class wayfire_animation : public wayfire_plugin_t {
 
     void fini()
     {
-        output->disconnect_signal("create-view", &map_cb);
-        output->disconnect_signal("wake", &wake_cb);
-        output->disconnect_signal("output-fade-in-request", &wake_cb);
+        output->disconnect_signal("map-view", &map_cb);
+        output->disconnect_signal("unmap-view", &unmap_cb);
+        output->disconnect_signal("start-rendering", &wake_cb);
     }
-    };
+};
 
 extern "C" {
     wayfire_plugin_t *newInstance() {

@@ -138,6 +138,11 @@ class wayfire_decoration : public wayfire_plugin_t
                                                             view->get_id());
         }
     }
+
+    void fini()
+    {
+        /* TODO: when the plugin actually gets usable, it's broken now anyway */
+    }
 };
 
 extern "C"

@@ -772,10 +772,26 @@ class view_switcher : public wayfire_plugin_t
         output->bring_to_front(views[index]);
 #undef index
     }
+
+    void fini()
+    {
+        if (state.in_fast_switch)
+        {
+            fast_switch_terminate();
+        } else if (state.active)
+        {
+            deactivate();
+        }
+
+        output->rem_key(&fast_switch_binding);
+        output->rem_key(&init_binding);
+    }
 };
 
-extern "C" {
-    wayfire_plugin_t* newInstance() {
+extern "C"
+{
+    wayfire_plugin_t* newInstance()
+    {
         return new view_switcher();
     }
 }

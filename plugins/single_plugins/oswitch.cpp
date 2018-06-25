@@ -53,6 +53,12 @@ class wayfire_output_manager : public wayfire_plugin_t
             output->add_key(actkey, &switch_output);
             output->add_key(withwin, &switch_output_with_window);
         }
+
+        void fini()
+        {
+            output->rem_key(&switch_output);
+            output->rem_key(&switch_output_with_window);
+        }
 };
 
 extern "C" {

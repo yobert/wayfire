@@ -23,12 +23,6 @@ class wayfire_exit : public wayfire_plugin_t {
         void init(wayfire_config*);
 };
 
-class wayfire_fullscreen : public wayfire_plugin_t {
-    signal_callback_t act_request;
-    public:
-    void init(wayfire_config *config);
-};
-
 class wayfire_handle_focus_parent : public wayfire_plugin_t {
     signal_callback_t focus_event;
 

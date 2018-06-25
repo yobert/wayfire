@@ -64,11 +64,22 @@ class wf_wrot : public wayfire_plugin_t
             grab_interface->callbacks.pointer.button = [=] (uint32_t, uint32_t s)
             {
                 if (s == WLR_BUTTON_RELEASED)
-                {
-                    grab_interface->ungrab();
-                    output->deactivate_plugin(grab_interface);
-                }
+                    input_released();
             };
+        }
+
+        void input_released()
+        {
+            grab_interface->ungrab();
+            output->deactivate_plugin(grab_interface);
+        }
+
+        void fini()
+        {
+            if (grab_interface->is_grabbed())
+                input_released();
+
+            output->rem_button(&call);
         }
 };
 

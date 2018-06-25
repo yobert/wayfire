@@ -101,6 +101,14 @@ class wayfire_zoom_screen : public wayfire_plugin_t
                 hook_set = false;
             }
         }
+
+        void fini()
+        {
+            if (hook_set)
+                output->render->rem_post(&hook);
+
+            output->rem_axis(&axis);
+        }
 };
 
 extern "C"

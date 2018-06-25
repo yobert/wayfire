@@ -225,6 +225,19 @@ class wayfire_resize : public wayfire_plugin_t {
 
         view->resize(width, height);
     }
+
+    void fini()
+    {
+        if (grab_interface->is_grabbed())
+            input_pressed(WLR_BUTTON_RELEASED);
+
+        output->rem_button(&activate_binding);
+        output->rem_touch(&touch_activate_binding);
+
+        output->disconnect_signal("resize-request", &resize_request);
+        output->disconnect_signal("detach-view", &view_destroyed);
+        output->disconnect_signal("unmap-view", &view_destroyed);
+    }
 };
 
 extern "C" {

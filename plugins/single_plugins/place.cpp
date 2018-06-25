@@ -85,7 +85,7 @@ class wayfire_place_window : public wayfire_plugin_t
 		pos_y = rand() % area.height + area.y;
 
 		view->move(pos_x, pos_y);
-		
+
 	}
 
 	void center(wayfire_view &view, wf_geometry workarea)
@@ -95,11 +95,17 @@ class wayfire_place_window : public wayfire_plugin_t
 		window.y = workarea.y + (workarea.height / 2) - (window.height / 2);
 		view->move(window.x, window.y);
 	}
+
+    void fini()
+    {
+		output->disconnect_signal("reserved-workarea", &workarea_changed_cb);
+		output->disconnect_signal("map-view", &created_cb);
+    }
 };
 
 extern "C"
 {
-	wayfire_plugin_t *newInstance() 
+	wayfire_plugin_t *newInstance()
 	{
 		return new wayfire_place_window();
 	}
