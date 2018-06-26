@@ -7,9 +7,9 @@
 #include "system_fade.hpp"
 #include "basic_animations.hpp"
 
-#if USE_GLES32
-#include "fire.hpp"
-#endif
+//#if USE_GLES32
+//#include "fire.hpp"
+//#endif
 
 void animation_base::init(wayfire_view, wf_duration, bool) {}
 bool animation_base::step() {return false;}
@@ -115,13 +115,13 @@ class wayfire_animation : public wayfire_plugin_t {
         duration         = section->get_option("duration", "300");
         startup_duration = section->get_option("startup_duration", "600");
 
-#if not USE_GLES32
+//#if not USE_GLES32
         if(open_animation->as_string() == "fire" || close_animation->as_string() == "fire")
         {
             log_error("fire animation not supported (OpenGL ES version < 3.2)");
             open_animation = close_animation = new_static_option("fade");
         }
-#endif
+//#endif
 
         using namespace std::placeholders;
         map_cb = std::bind(std::mem_fn(&wayfire_animation::view_mapped),
@@ -161,10 +161,10 @@ class wayfire_animation : public wayfire_plugin_t {
             new animation_hook<fade_animation, false>(view, duration);
         else if (open_animation->as_string() == "zoom")
             new animation_hook<zoom_animation, false>(view, duration);
-#if USE_GLES32
-        else if (open_animation->as_string() == "fire")
-            new animation_hook<wf_fire_effect, false>(view, duration);
-#endif
+//#if USE_GLES32
+ //       else if (open_animation->as_string() == "fire")
+  //          new animation_hook<wf_fire_effect, false>(view, duration);
+//#endif
     }
 
     void view_unmapped(signal_data *data)
@@ -178,10 +178,10 @@ class wayfire_animation : public wayfire_plugin_t {
             new animation_hook<fade_animation, true> (view, duration);
         else if (close_animation->as_string() == "zoom")
             new animation_hook<zoom_animation, true> (view, duration);
-#if USE_GLES32
-        else if (close_animation->as_string() == "fire")
-            new animation_hook<wf_fire_effect, true> (view, duration);
-#endif
+//#if USE_GLES32
+//        else if (close_animation->as_string() == "fire")
+//            new animation_hook<wf_fire_effect, true> (view, duration);
+//#endif
     }
 
     void fini()

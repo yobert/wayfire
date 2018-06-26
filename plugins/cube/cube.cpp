@@ -13,11 +13,12 @@
 #define COEFF_DELTA_NEAR 0.89567f
 #define COEFF_DELTA_FAR  2.00000f
 
-#if USE_GLES32
+#ifdef USE_GLES32
 #include <GLES3/gl32.h>
 #endif
 
-class wayfire_cube : public wayfire_plugin_t {
+class wayfire_cube : public wayfire_plugin_t
+{
     button_callback activate;
     wf_option act_button;
 
@@ -40,7 +41,8 @@ class wayfire_cube : public wayfire_plugin_t {
         GLuint id = -1;
         GLuint modelID, vpID;
         GLuint posID, uvID;
-#if USE_GLES32
+#ifdef USE_GLES32
+        GLuint defID, lightID;
         GLuint easeID;
 #endif
     } program;
@@ -50,7 +52,7 @@ class wayfire_cube : public wayfire_plugin_t {
     struct
     {
         wf_transition offset_y, offset_z, rotation;
-#if USE_GLES32
+#ifdef USE_GLES32
         wf_transition ease_deformation;
 #endif
 
@@ -62,12 +64,13 @@ class wayfire_cube : public wayfire_plugin_t {
     glm::mat4 vp, model, view, project;
     float coeff;
 
-#if USE_GLES32
+#ifdef USE_GLES32
     wf_option use_light, use_deform;
     float current_ease;
 #endif
 
     wf_option background_color;
+    bool tessellation_support;
 
     public:
     void init(wayfire_config *config)
@@ -112,7 +115,7 @@ class wayfire_cube : public wayfire_plugin_t {
         };
 
 
-#if USE_GLES32
+#ifdef USE_GLES32
         use_light  = section->get_option("light", "1");
         use_deform = section->get_option("deform", "1");
 #endif
@@ -132,76 +135,92 @@ class wayfire_cube : public wayfire_plugin_t {
 
     void load_program()
     {
-#if USE_GLES32
-            std::string shaderSrcPath =
-                INSTALL_PREFIX "/share/wayfire/cube/shaders_3.2";
+
+#ifdef USE_GLES32
+        std::string ext_string(reinterpret_cast<const char*> (glGetString(GL_EXTENSIONS)));
+        tessellation_support =
+            ext_string.find(std::string("GL_EXT_tessellation_shader")) != std::string::npos;
 #else
-            std::string shaderSrcPath =
-                INSTALL_PREFIX "/share/wayfire/cube/shaders_2.0";
+        tesselation_support = false;
 #endif
 
-            program.id = GL_CALL(glCreateProgram());
-            GLuint vss, fss, tcs = -1, tes = -1, gss = -1;
+        std::string shaderSrcPath;
+        if (tessellation_support)
+        {
+            shaderSrcPath = INSTALL_PREFIX "/share/wayfire/cube/shaders_3.2";
+        } else
+        {
+            shaderSrcPath = INSTALL_PREFIX "/share/wayfire/cube/shaders_2.0";
+        }
 
-            vss = OpenGL::load_shader(std::string(shaderSrcPath)
-                        .append("/vertex.glsl").c_str(), GL_VERTEX_SHADER);
+        program.id = GL_CALL(glCreateProgram());
+        GLuint vss, fss, tcs = -1, tes = -1, gss = -1;
 
-            fss = OpenGL::load_shader(std::string(shaderSrcPath)
-                        .append("/frag.glsl").c_str(), GL_FRAGMENT_SHADER);
+        vss = OpenGL::load_shader(std::string(shaderSrcPath)
+                                  .append("/vertex.glsl").c_str(), GL_VERTEX_SHADER);
 
-            GL_CALL(glAttachShader(program.id, vss));
-            GL_CALL(glAttachShader(program.id, fss));
+        fss = OpenGL::load_shader(std::string(shaderSrcPath)
+                                  .append("/frag.glsl").c_str(), GL_FRAGMENT_SHADER);
 
-#if USE_GLES32
-            tcs = OpenGL::load_shader(std::string(shaderSrcPath)
-                    .append("/tcs.glsl").c_str(),
-                    GL_TESS_CONTROL_SHADER);
+        GL_CALL(glAttachShader(program.id, vss));
+        GL_CALL(glAttachShader(program.id, fss));
 
-            tes = OpenGL::load_shader(std::string(shaderSrcPath)
-                    .append("/tes.glsl").c_str(),
-                    GL_TESS_EVALUATION_SHADER);
+        if (tessellation_support)
+        {
+        tcs = OpenGL::load_shader(std::string(shaderSrcPath)
+                                  .append("/tcs.glsl").c_str(),
+                                  GL_TESS_CONTROL_SHADER);
 
-            gss = OpenGL::load_shader(std::string(shaderSrcPath)
-                    .append("/geom.glsl").c_str(),
-                    GL_GEOMETRY_SHADER);
-            GL_CALL(glAttachShader(program.id, tcs));
-            GL_CALL(glAttachShader(program.id, tes));
-            GL_CALL(glAttachShader(program.id, gss));
-#endif
+        tes = OpenGL::load_shader(std::string(shaderSrcPath)
+                                  .append("/tes.glsl").c_str(),
+                                  GL_TESS_EVALUATION_SHADER);
 
-            GL_CALL(glLinkProgram(program.id));
-            GL_CALL(glUseProgram(program.id));
+        gss = OpenGL::load_shader(std::string(shaderSrcPath)
+                                  .append("/geom.glsl").c_str(),
+                                  GL_GEOMETRY_SHADER);
+        GL_CALL(glAttachShader(program.id, tcs));
+        GL_CALL(glAttachShader(program.id, tes));
+        GL_CALL(glAttachShader(program.id, gss));
+        }
 
+        GL_CALL(glLinkProgram(program.id));
+        GL_CALL(glUseProgram(program.id));
 
-            program.vpID = GL_CALL(glGetUniformLocation(program.id, "VP"));
-            GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
+        GL_CALL(glDeleteShader(vss));
+        GL_CALL(glDeleteShader(fss));
+        if (tessellation_support)
+        {
+            GL_CALL(glDeleteShader(tcs));
+            GL_CALL(glDeleteShader(tes));
+            GL_CALL(glDeleteShader(gss));
+        }
 
-            program.uvID = GL_CALL(glGetAttribLocation(program.id, "uvPosition"));
-            program.posID = GL_CALL(glGetAttribLocation(program.id, "position"));
-            program.modelID = GL_CALL(glGetUniformLocation(program.id, "model"));
+        program.vpID = GL_CALL(glGetUniformLocation(program.id, "VP"));
+        GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
 
-#if USE_GLES32
-            GLuint defID = GL_CALL(glGetUniformLocation(program.id, "deform"));
-            glUniform1i(defID, *use_deform);
+        program.uvID = GL_CALL(glGetAttribLocation(program.id, "uvPosition"));
+        program.posID = GL_CALL(glGetAttribLocation(program.id, "position"));
+        program.modelID = GL_CALL(glGetUniformLocation(program.id, "model"));
 
-            GLuint lightID = GL_CALL(glGetUniformLocation(program.id, "light"));
-            glUniform1i(lightID, *use_light);
-
+        if (tessellation_support)
+        {
+            program.defID = GL_CALL(glGetUniformLocation(program.id, "deform"));
+            program.lightID = GL_CALL(glGetUniformLocation(program.id, "light"));
             program.easeID = GL_CALL(glGetUniformLocation(program.id, "ease"));
-#endif
+        }
 
-            GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
-            (void) vh;
+        GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
+        (void) vh;
 
-            streams.resize(vw);
+        streams.resize(vw);
 
 
-            for(int i = 0; i < vw; i++) {
-                streams[i] = new wf_workspace_stream;
-                streams[i]->fbuff = streams[i]->tex = -1;
-            }
+        for(int i = 0; i < vw; i++) {
+            streams[i] = new wf_workspace_stream;
+            streams[i]->fbuff = streams[i]->tex = -1;
+        }
 
-            project = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
+        project = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
     }
 
     void initiate(int x, int y)
@@ -224,10 +243,7 @@ class wayfire_cube : public wayfire_plugin_t {
         duration.start();
         animation.in_exit = false;
         animation.offset_z = {coeff + COEFF_DELTA_NEAR, coeff + COEFF_DELTA_FAR};
-
-#if USE_GLES32
         animation.ease_deformation = {0, 1};
-#endif
 
         if (update_animation())
             schedule_next_frame();
@@ -239,10 +255,7 @@ class wayfire_cube : public wayfire_plugin_t {
     bool update_animation()
     {
         float z_offset = duration.progress(animation.offset_z);
-
-#if USE_GLES32
         current_ease = duration.progress(animation.ease_deformation);
-#endif
 
         /* also update rotation and Y offset */
         if (animation.in_exit)
@@ -289,9 +302,12 @@ class wayfire_cube : public wayfire_plugin_t {
         vp = project * view;
         GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
 
-#if USE_GLES32
-        GL_CALL(glUniform1f(program.easeID, current_ease));
-#endif
+        if (tessellation_support)
+        {
+            GL_CALL(glUniform1i(program.defID, *use_deform));
+            GL_CALL(glUniform1i(program.lightID, *use_light));
+            GL_CALL(glUniform1f(program.easeID, current_ease));
+        }
 
         glm::mat4 base_model = glm::scale(glm::mat4(1.0),
                 glm::vec3(1. / zoomFactor, 1. / zoomFactor,
@@ -340,11 +356,13 @@ class wayfire_cube : public wayfire_plugin_t {
             model = glm::translate(model, glm::vec3(0, 0, coeff));
            GL_CALL(glUniformMatrix4fv(program.modelID, 1, GL_FALSE, &model[0][0]));
 
-#if USE_GLES32
-           GL_CALL(glDrawArrays(GL_PATCHES, 0, 6));
-#else
-           GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
-#endif
+           if (tessellation_support)
+           {
+               GL_CALL(glDrawArrays(GL_PATCHES, 0, 6));
+           } else
+           {
+               GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
+           }
         }
         glDisable(GL_DEPTH_TEST);
 
@@ -376,10 +394,7 @@ class wayfire_cube : public wayfire_plugin_t {
         animation.offset_z = {coeff + COEFF_DELTA_FAR, coeff + COEFF_DELTA_NEAR};
         animation.offset_y = {offsetVert, 0};
         animation.rotation = {offset + 1.0f * dvx * angle, 0};
-
-#if USE_GLES32
         animation.ease_deformation = {1, 0};
-#endif
 
         update_animation();
         schedule_next_frame();

@@ -51,7 +51,7 @@ if get_option('buildtype') == 'debug' or get_option('enable_debug_output')
   conf_data.set('WAYFIRE_DEBUG_ENABLED', true)
 endif
 
-if get_option('enable_gles32')
+if get_option('enable_gles32') and meson.get_compiler('cpp').has_header('GLES3/gl32.h')
   conf_data.set('USE_GLES32', true)
 endif
 
