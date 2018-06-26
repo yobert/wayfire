@@ -4,6 +4,7 @@
 #include <view.hpp>
 #include <decorator.hpp>
 #include <assert.h>
+#include <nonstd/make_unique.hpp>
 
 wayfire_surface_t* wf_surface_from_void(void *handle);
 wayfire_view_t* wf_view_from_void(void *handle);

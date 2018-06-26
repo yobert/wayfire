@@ -1,6 +1,7 @@
 #ifndef VIEW_HPP
 #define VIEW_HPP
 #include <plugin.hpp>
+#include <opengl.hpp>
 #include <vector>
 #include <map>
 #include <functional>
@@ -137,7 +138,7 @@ class wayfire_surface_t
          * When reverse=true, the order in which surfaces are visited is reversed */
         virtual void for_each_surface(wf_surface_iterator_callback callback, bool reverse = false);
 
-        virtual void render_fb(int x, int y, pixman_region32_t* damage, int target_fb);
+        virtual void render_fb(pixman_region32_t* damage, wf_framebuffer fb);
 };
 
 enum wf_view_role
@@ -193,7 +194,18 @@ class wayfire_view_t : public wayfire_surface_t
 
         } offscreen_buffer;
 
-        std::unique_ptr<wf_view_transformer_t> transform;
+        struct transform_t
+        {
+            std::string plugin_name = "";
+            bool to_remove = false;
+            std::unique_ptr<wf_view_transformer_t> transform;
+            wf_framebuffer fb;
+        };
+
+        bool in_paint = false;
+        std::vector<std::unique_ptr<transform_t>> transforms;
+        void _pop_transformer(nonstd::observer_ptr<transform_t>);
+        void cleanup_transforms();
 
         virtual wf_geometry get_untransformed_bounding_box();
         void reposition_relative_to_parent();
@@ -210,10 +222,8 @@ class wayfire_view_t : public wayfire_surface_t
 
         wf_view_role role = WF_VIEW_ROLE_TOPLEVEL;
 
-        /* plugins can subclass wf_custom_view_data and use it to store view-specific information
-         * it must provide a virtual destructor to free its data. Custom data is deleted when the view
-         * is destroyed if not removed earlier */
-        std::map<std::string, wf_custom_view_data*> custom_data;
+        /* plugins can subclass wf_custom_view_data and use it to store view-specific information */
+        std::map<std::string, std::unique_ptr<wf_custom_view_data>> custom_data;
 
         wayfire_view_t();
         virtual ~wayfire_view_t();
@@ -304,19 +314,29 @@ class wayfire_view_t : public wayfire_surface_t
          *
          * When a view has a custom transform, then internally all these surfaces are
          * rendered to a FBO, and then the custom transformation renders the resulting
-         * texture as it sees fit. In this way we could have composable transformations
-         * in the future(e.g several FBO passes).
+         * texture as it sees fit. In case of multiple transforms, we do multiple render passes
+         * where each transform is fed the result of the previous transforms
          *
          * Damage tracking for transformed views is done on the boundingbox of the
          * damaged region after applying the transformation, but all damaged parts
          * of the internal FBO are updated.
          * */
 
-        virtual void set_transformer(std::unique_ptr<wf_view_transformer_t> transformer);
+        void add_transformer(std::unique_ptr<wf_view_transformer_t> transformer);
 
-        /* the returned value is just a temporary object */
-        virtual wf_view_transformer_t* get_transformer() { return transform.get(); }
-        virtual void render_fb(int x, int y, pixman_region32_t* damage, int target_fb);
+        /* add a transformer with the given name. Note that you can add multiple transforms with the same name!
+         * However, get_transformer() and pop_transformer() return only the first transform with the given name */
+        void add_transformer(std::unique_ptr<wf_view_transformer_t> transformer, std::string name);
+
+        /* returns NULL if there is no such transform */
+        nonstd::observer_ptr<wf_view_transformer_t> get_transformer(std::string name);
+
+        void pop_transformer(nonstd::observer_ptr<wf_view_transformer_t> transformer);
+        void pop_transformer(std::string name);
+
+        bool has_transformer();
+
+        virtual void render_fb(pixman_region32_t* damage, wf_framebuffer framebuffer);
 
         bool has_snapshot = false;
         virtual void take_snapshot();

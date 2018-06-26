@@ -51,6 +51,10 @@ if get_option('buildtype') == 'debug' or get_option('enable_debug_output')
   conf_data.set('WAYFIRE_DEBUG_ENABLED', true)
 endif
 
+if get_option('enable_graphics_debug')
+  conf_data.set('WAYFIRE_GRAPHICS_DEBUG', true)
+endif
+
 if get_option('enable_gles32') and meson.get_compiler('cpp').has_header('GLES3/gl32.h')
   conf_data.set('USE_GLES32', true)
 endif
@@ -87,6 +91,7 @@ summary = [
 	'     imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO', false)),
 	'      gles32: @0@'.format(conf_data.get('USE_GLES32', false)),
 	'  gdk-pixbuf: @0@'.format(conf_data.get('BUILD_WITH_PIXBUF', false)),
+    'graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG', false)),
 	'----------------',
 	''
 ]

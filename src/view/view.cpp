@@ -36,6 +36,8 @@ wayfire_view_t::wayfire_view_t()
 {
     set_output(core->get_active_output());
     pixman_region32_init(&offscreen_buffer.cached_damage);
+
+    //add_transformer(nonstd::make_unique<wf_2D_view> (self()));
 }
 
 wayfire_view wayfire_view_t::self()
@@ -141,30 +143,25 @@ wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx
 
     wayfire_surface_t *ret = NULL;
 
-    auto wm = get_wm_geometry();
-    int center_x = wm.x + wm.width / 2;
-    int center_y = wm.y + wm.height / 2;
+    if (transforms.size())
+    {
+        auto it = transforms.rbegin();
+        auto box = get_untransformed_bounding_box();
+        while(it != transforms.rend())
+        {
+            auto p = (*it)->transform->transformed_to_local_point(box, {cx, cy});
+            cx = p.x; cy = p.y;
+            ++it;
+        }
+    }
 
     for_each_surface(
         [&] (wayfire_surface_t *surface, int x, int y)
         {
             if (ret) return;
 
-            int lx = cx - center_x,
-                ly = center_y - cy;
-
-            if (transform)
-            {
-                auto transformed = transform->transformed_to_local_point({lx, ly});
-                lx = transformed.x;
-                ly = transformed.y;
-            }
-
-            lx = lx + center_x;
-            ly = center_y - ly;
-
-            sx = lx - x;
-            sy = ly - y;
+            sx = cx - x;
+            sy = cy - y;
 
             if (wlr_surface_point_accepts_input(surface->surface, sx, sy))
                 ret = surface;
@@ -181,23 +178,17 @@ void wayfire_view_t::set_geometry(wf_geometry g)
 
 wlr_box wayfire_view_t::transform_region(const wlr_box& region)
 {
-    if (!transform)
-        return region;
+    auto box = region;
+    auto view = get_untransformed_bounding_box();
 
-    wlr_box wm = get_wm_geometry();
-    wlr_box box = region;
-
-    box.x = (box.x - wm.x) - wm.width / 2;
-    box.y = wm.height / 2 - (box.y - wm.y);
-
-    box = transform->get_bounding_box(box);
-
-    box.x = box.x + wm.x + wm.width / 2;
-    box.y = (wm.height / 2 - box.y) + wm.y;
+    for (auto& tr : transforms)
+    {
+        box = tr->transform->get_bounding_box(view, box);
+        view = tr->transform->get_bounding_box(view, view);
+    }
 
     return box;
 }
-
 
 bool wayfire_view_t::intersects_region(const wlr_box& region)
 {
@@ -246,18 +237,14 @@ wf_geometry wayfire_view_t::get_untransformed_bounding_box()
     return {
         offscreen_buffer.output_x,
         offscreen_buffer.output_y,
-        (int32_t)(offscreen_buffer.fb_width / output->handle->scale),
-        (int32_t)(offscreen_buffer.fb_height / output->handle->scale)
+        (int32_t)(offscreen_buffer.fb_width / output->handle->scale + 0.99),
+        (int32_t)(offscreen_buffer.fb_height / output->handle->scale + 0.99)
     };
 }
 
 wf_geometry wayfire_view_t::get_bounding_box()
 {
-    auto box = get_untransformed_bounding_box();
-    if (transform)
-        box = transform_region(box);
-
-    return box;
+    return transform_region(get_untransformed_bounding_box());
 }
 
 void wayfire_view_t::set_maximized(bool maxim)
@@ -324,7 +311,7 @@ void wayfire_view_t::damage(const wlr_box& box)
 
     wlr_box damage_box;
 
-    if (transform)
+    if (transforms.size())
     {
         auto real_box = box;
         real_box.x -= wm_geometry.x;
@@ -336,7 +323,7 @@ void wayfire_view_t::damage(const wlr_box& box)
                                    real_box.width, real_box.height);
 
         /* TODO: damage only the bounding box of region */
-        damage_box = get_output_box_from_box(get_bounding_box(), output->handle->scale);
+        damage_box = get_output_box_from_box(transform_region(box), output->handle->scale);
     } else
     {
         damage_box = get_output_box_from_box(box, output->handle->scale);
@@ -444,57 +431,165 @@ void wayfire_view_t::take_snapshot()
     wlr_renderer_end(core->renderer);
 }
 
-void wayfire_view_t::render_fb(int x, int y, pixman_region32_t* damage, int fb)
+void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
 {
-    //log_info("render_pixman %p", surface);
-
-    if (decoration && decoration->get_transformer())
-        assert(false);
-
-    if (transform && !decoration)
+    in_paint = true;
+    if (transforms.size() && !decoration)
     {
         take_snapshot();
 
-        auto vbox = get_untransformed_bounding_box();
-        auto wm = get_wm_geometry();
-        auto output_geometry = get_output_geometry();
-
-
-        wf_geometry obox;
-        obox.x = x + (vbox.x - output_geometry.x);
-        obox.y = y + (vbox.y - output_geometry.y);
-
+        wf_geometry obox = get_untransformed_bounding_box();
         obox.width = offscreen_buffer.fb_width / offscreen_buffer.fb_scale;
         obox.height = offscreen_buffer.fb_height / offscreen_buffer.fb_scale;
 
-        wf_point center;
-        center.x = (wm.x - output_geometry.x) + x + wm.width / 2.0;
-        center.y = (wm.y - output_geometry.y) + y + wm.height / 2.0;
+        auto it = transforms.begin();
+
+        GLuint last_tex = offscreen_buffer.tex;
+        while(std::next(it) != transforms.end())
+        {
+            auto& tr = *it;
+            auto& fb = tr->fb;
+
+            auto tbox = tr->transform->get_bounding_box(obox, obox);
+            if (fb.geometry.width != tbox.width || fb.geometry.height != tbox.height)
+            {
+                fb.release();
+                fb.init(tbox.width, tbox.height);
+            }
+
+            fb.geometry = tbox;
+            fb.viewport_width = tbox.width;
+            fb.viewport_height = tbox.height;
+            fb.clear();
+
+            log_info("nested render obox: (%d@%d %dx%d), fb: (%d@%d %dx%d)",
+                     obox.x, obox.y, obox.width, obox.height,
+                     tbox.x, tbox.y, tbox.width, tbox.height);
+
+            tr->transform->render_with_damage(last_tex, obox, {0, 0, tbox.width, tbox.height}, fb);
+            last_tex = fb.tex;
+
+            obox = tbox;
+            ++it;
+        }
 
         int n_rect;
         auto rects = pixman_region32_rectangles(damage, &n_rect);
-        auto output_matrix = get_output_matrix_from_transform(output->get_transform());
-
         for (int i = 0; i < n_rect; i++)
         {
-            auto box = wlr_box{rects[i].x1, rects[i].y1,
-                rects[i].x2 - rects[i].x1, rects[i].y2 - rects[i].y1};
-
+            auto box = wlr_box_from_pixman_box(rects[i]);
             auto sbox = get_scissor_box(output, box);
-            transform->render_with_damage(offscreen_buffer.tex, fb, obox, center, output_matrix, sbox);
+            (*it)->transform->render_with_damage(last_tex, obox, sbox, fb);
+
+#ifdef WAYFIRE_GRAPHICS_DEBUG
+            float proj[9];
+            wlr_matrix_projection(proj, fb.viewport_width, fb.viewport_height,
+                                  WL_OUTPUT_TRANSFORM_NORMAL);
+
+            float col[4] = {0, 0.0, 0.2, 0.5};
+            wlr_render_rect(core->renderer, &sbox, col, proj);
+#endif
         }
 
+        cleanup_transforms();
     } else
     {
-        wayfire_surface_t::render_fb(x, y, damage, fb);
+        wayfire_surface_t::render_fb(damage, fb);
     }
+    in_paint = false;
 }
 
-void wayfire_view_t::set_transformer(std::unique_ptr<wf_view_transformer_t> transformer)
+void wayfire_view_t::add_transformer(std::unique_ptr<wf_view_transformer_t> transformer, std::string name)
 {
-    /* TODO: damage all */
-    transform = std::move(transformer);
     damage();
+    auto tr = nonstd::make_unique<transform_t> ();
+    log_info("add pppp: %p", transformer.get());
+
+    tr->transform = std::move(transformer);
+    tr->plugin_name = name;
+    transforms.push_back(std::move(tr));
+    log_info("end it");
+    damage();
+}
+
+void wayfire_view_t::add_transformer(std::unique_ptr<wf_view_transformer_t> transformer)
+{
+
+    add_transformer(std::move(transformer), "");
+}
+
+nonstd::observer_ptr<wf_view_transformer_t> wayfire_view_t::get_transformer(std::string name)
+{
+    for (auto& tr : transforms)
+    {
+        if (tr->plugin_name == name)
+            return nonstd::make_observer(tr->transform.get());
+    }
+
+    return nullptr;
+}
+
+void wayfire_view_t::_pop_transformer(nonstd::observer_ptr<transform_t> transformer)
+{
+    damage();
+    log_info("start pop");
+
+    auto it = transforms.begin();
+    while(it != transforms.end())
+    {
+        if ((*it).get() == transformer.get())
+        {
+            (*it)->fb.release();
+            it = transforms.erase(it);
+        } else
+        {
+            ++it;
+        }
+    }
+
+    damage();
+}
+
+void wayfire_view_t::pop_transformer(nonstd::observer_ptr<wf_view_transformer_t> transformer)
+{
+    for(auto& tr : transforms)
+    {
+        if (tr->transform.get() == transformer.get())
+            tr->to_remove = 1;
+    }
+
+    if (!in_paint)
+        cleanup_transforms();
+}
+
+void wayfire_view_t::pop_transformer(std::string name)
+{
+    for(auto& tr : transforms)
+    {
+        if (tr->plugin_name == name)
+            tr->to_remove = 1;
+    }
+
+    if (!in_paint)
+        cleanup_transforms();
+}
+
+void wayfire_view_t::cleanup_transforms()
+{
+    std::vector<nonstd::observer_ptr<transform_t>> to_remove;
+    for (auto& tr: transforms)
+    {
+        if (tr->to_remove)
+            to_remove.push_back(nonstd::make_observer(tr.get()));
+    }
+
+    for (auto r : to_remove)
+        _pop_transformer(r);
+}
+
+bool wayfire_view_t::has_transformer()
+{
+    return transforms.size();
 }
 
 void emit_view_map(wayfire_view view)
@@ -657,13 +752,7 @@ void wayfire_view_t::fullscreen_request(wayfire_output *out, bool state)
 void wayfire_view_t::commit()
 {
     wayfire_surface_t::commit();
-
-    auto old = get_output_geometry();
-    if (update_size())
-    {
-        damage(old);
-        damage();
-    }
+    update_size();
 
     /* configure frame_interior */
     if (decoration)
@@ -717,7 +806,7 @@ void wayfire_view_t::set_decoration(wayfire_view decor,
 
 void wayfire_view_t::damage()
 {
-    damage(get_bounding_box());
+    damage(get_untransformed_bounding_box());
 }
 
 void wayfire_view_t::destruct()
@@ -758,8 +847,6 @@ void wayfire_view_t::set_toplevel_parent(wayfire_view parent)
 wayfire_view_t::~wayfire_view_t()
 {
     pixman_region32_fini(&offscreen_buffer.cached_damage);
-    for (auto& kv : custom_data)
-        delete kv.second;
 }
 
 decorator_base_t *wf_decorator;

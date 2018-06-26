@@ -609,7 +609,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     {
         wayfire_surface_t *surface;
 
-        int x, y;
+        int x, y; // framebuffer coords for the view
         pixman_region32_t damage;
 
         ~damaged_surface_t()
@@ -626,9 +626,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             auto ds = damaged_surface(new damaged_surface_t);
 
             auto bbox = view->get_bounding_box();
-            auto obox = view->get_output_geometry();
 
-            bbox = bbox + wf_point{view_dx, view_dy};
+            bbox = bbox + wf_point{-view_dx, -view_dy};
             bbox = get_output_box_from_box(bbox, output->handle->scale);
 
             pixman_region32_init_rect(&ds->damage,
@@ -637,8 +636,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             pixman_region32_intersect(&ds->damage, &ds->damage, &ws_damage);
             if (pixman_region32_not_empty(&ds->damage))
             {
-                ds->x = obox.x + view_dx;
-                ds->y = obox.y + view_dy;
+                ds->x = view_dx;
+                ds->y = view_dy;
                 ds->surface = view.get();
 
                 to_render.push_back(std::move(ds));
@@ -656,8 +655,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
                 return;
 
             /* make sure all coordinates are in workspace-local coords */
-            x += view_dx;
-            y += view_dy;
+            x -= view_dx;
+            y -= view_dy;
 
             auto ds = damaged_surface(new damaged_surface_t);
 
@@ -674,8 +673,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             pixman_region32_intersect(&ds->damage, &ds->damage, &ws_damage);
             if (pixman_region32_not_empty(&ds->damage))
             {
-                ds->x = x;
-                ds->y = y;
+                ds->x = view_dx;
+                ds->y = view_dy;
                 ds->surface = surface;
 
                 if (ds->surface->alpha >= 0.999f)
@@ -720,8 +719,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
         if (view->role != WF_VIEW_ROLE_SHELL_VIEW)
         {
-            view_dx = -dx;
-            view_dy = -dy;
+            view_dx = dx;
+            view_dy = dy;
         }
 
         /* We use the snapshot of a view if either condition is happening:
@@ -730,7 +729,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
          *    => it is snapshotted and kept alive by some plugin */
 
         /* Snapshotted views include all of their subsurfaces, so we handle them separately */
-        if (view->get_transformer() || !view->is_mapped())
+        if (view->has_transformer() || !view->is_mapped())
         {
             schedule_render_snapshotted_view(view, view_dx, view_dy);
             goto next;
@@ -766,11 +765,20 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
         GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
     }
 
+    wf_framebuffer fb;
+    fb.geometry = output->get_relative_geometry();
+    fb.transform = get_output_matrix_from_transform(output->get_transform());
+    fb.fb = target_buffer;
+    fb.viewport_width = output->handle->width;
+    fb.viewport_height = output->handle->height;
+
     auto rev_it = to_render.rbegin();
     while(rev_it != to_render.rend())
     {
         auto ds = std::move(*rev_it);
-        ds->surface->render_fb(ds->x, ds->y, &ds->damage, target_buffer);
+
+        fb.geometry.x = ds->x; fb.geometry.y = ds->y;
+        ds->surface->render_fb(&ds->damage, fb);
 
         ++rev_it;
     }

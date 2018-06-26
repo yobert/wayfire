@@ -7,6 +7,7 @@
 #mesondefine WAYFIRE_DEBUG_ENABLED
 #mesondefine USE_GLES32
 #mesondefine BUILD_WITH_PIXBUF
+#mesondefine WAYFIRE_GRAPHICS_DEBUG
 
 
 #endif /* end of include guard: CONFIG_H */

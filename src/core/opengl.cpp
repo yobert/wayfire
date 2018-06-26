@@ -2,6 +2,7 @@
 #include "opengl.hpp"
 #include "debug.hpp"
 #include "output.hpp"
+#include "core.hpp"
 #include "render-manager.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -138,25 +139,28 @@ namespace OpenGL
                     .append("/vertex.glsl").c_str(),
                      GL_VERTEX_SHADER);
 
+#ifndef WAYFIRE_GRAPHICS_DEBUG
         GLuint fss = load_shader(std::string(shaderSrcPath)
                     .append("/frag.glsl").c_str(),
+                    GL_FRAGMENT_SHADER);
+#else
+        GLuint fss = load_shader(std::string(shaderSrcPath)
+                    .append("/solid_frag.glsl").c_str(),
                      GL_FRAGMENT_SHADER);
-
+#endif
         ctx->program = GL_CALL(glCreateProgram());
 
         GL_CALL(glAttachShader(ctx->program, vss));
         GL_CALL(glAttachShader(ctx->program, fss));
         GL_CALL(glLinkProgram(ctx->program));
-        GL_CALL(glUseProgram(ctx->program));
 
-        ctx->mvpID   = GL_CALL(glGetUniformLocation(ctx->program, "MVP"));
-        ctx->colorID = GL_CALL(glGetUniformLocation(ctx->program, "color"));
-
-        glm::mat4 identity(1.0);
-        GL_CALL(glUniformMatrix4fv(ctx->mvpID, 1, GL_FALSE, &identity[0][0]));
-
+        ctx->mvpID      = GL_CALL(glGetUniformLocation(ctx->program, "MVP"));
+        ctx->colorID    = GL_CALL(glGetUniformLocation(ctx->program, "color"));
         ctx->position   = GL_CALL(glGetAttribLocation(ctx->program, "position"));
         ctx->uvPosition = GL_CALL(glGetAttribLocation(ctx->program, "uvPosition"));
+
+        GL_CALL(glDeleteShader(vss));
+        GL_CALL(glDeleteShader(fss));
         return ctx;
     }
 
@@ -252,11 +256,16 @@ namespace OpenGL
         GL_CALL(glUniformMatrix4fv(bound->mvpID, 1, GL_FALSE, &model[0][0]));
         GL_CALL(glUniform4fv(bound->colorID, 1, &color[0]));
         GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-
         GL_CALL(glDrawArrays (GL_TRIANGLE_FAN, 0, 4));
 
-        GL_CALL(glDisableVertexAttribArray(bound->position));
+#ifdef WAYFIRE_GRAPHICS_DEBUG
+        float c[4] = {0, 0, 0, -100};
+        GL_CALL(glUniform4fv(bound->colorID, 1, c));
+        GL_CALL(glDrawArrays(GL_TRIANGLE_FAN, 0, 4));
+#endif
+
         GL_CALL(glDisableVertexAttribArray(bound->uvPosition));
+        GL_CALL(glDisableVertexAttribArray(bound->position));
     }
 
     void prepare_framebuffer(GLuint &fbuff, GLuint &texture,
@@ -346,4 +355,94 @@ namespace OpenGL
         GL_CALL(glDeleteFramebuffers(1, &src_fbuff));
         return dst_tex;
     }
+}
+
+void wf_framebuffer::init()
+{
+    tex = fb = -1;
+    OpenGL::prepare_framebuffer(fb, tex, 1, 1);
+    geometry.width = bound->width;
+    geometry.height = bound->height;
+}
+
+void wf_framebuffer::init(int w, int h)
+{
+    tex = fb = -1;
+    OpenGL::prepare_framebuffer_size(w, h, fb, tex, 1, 1);
+    geometry.width = w;
+    geometry.height = h;
+}
+
+void wf_framebuffer::bind() const
+{
+    GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb));
+    GL_CALL(glViewport(0, 0, viewport_width, viewport_height));
+}
+
+void wf_framebuffer::scissor(wlr_box box) const
+{
+    GL_CALL(glEnable(GL_SCISSOR_TEST));
+    GL_CALL(glScissor(box.x, viewport_height - box.y - box.height,
+                      box.width, box.height));
+}
+
+void wf_framebuffer::clear() const
+{
+    GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb));
+    GL_CALL(glViewport(0, 0, geometry.width, geometry.height));
+    wlr_renderer_scissor(core->renderer, NULL);
+
+    GL_CALL(glClearColor(0, 0, 0, 0));
+    GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+}
+
+void wf_framebuffer::release()
+{
+    if (fb == uint32_t(-1))
+        return;
+
+    GL_CALL(glDeleteFramebuffers(1, &fb));
+    GL_CALL(glDeleteTextures(1, &tex));
+
+    fb = -1;
+    tex = -1;
+}
+
+
+#define WF_PI 3.141592f
+
+/* look up the actual values of wl_output_transform enum
+ * All _flipped transforms have values (regular_transfrom + 4) */
+glm::mat4 get_output_matrix_from_transform(wl_output_transform transform)
+{
+    glm::mat4 scale = glm::mat4(1.0);
+
+    if (transform >= 4)
+        scale = glm::scale(scale, {-1, 1, 0});
+
+    /* remove the third bit if it's set */
+    uint32_t rotation = transform & (~4);
+    glm::mat4 rotation_matrix(1.0);
+
+    if (rotation == WL_OUTPUT_TRANSFORM_90)
+        rotation_matrix = glm::rotate(rotation_matrix, -WF_PI / 2.0f, {0, 0, 1});
+    if (rotation == WL_OUTPUT_TRANSFORM_180)
+        rotation_matrix = glm::rotate(rotation_matrix,  WF_PI,        {0, 0, 1});
+    if (rotation == WL_OUTPUT_TRANSFORM_270)
+        rotation_matrix = glm::rotate(rotation_matrix,  WF_PI / 2.0f, {0, 0, 1});
+
+    return rotation_matrix * scale;
+}
+
+glm::mat4 output_get_projection(wayfire_output *output)
+{
+    auto rotation = get_output_matrix_from_transform(output->get_transform());
+
+    int w, h;
+    wlr_output_effective_resolution(output->handle, &w, &h);
+
+    auto center_translate = glm::translate(glm::mat4(1.0), {-w / 2.0f, -h/2.0f, 0.0f});
+    auto flip_y = glm::scale(glm::mat4(1.0), {2. / w, -2. / h, 1});
+
+    return rotation * flip_y * center_translate;
 }

@@ -222,8 +222,8 @@ class view_switcher : public wayfire_plugin_t
         {
             auto bg = bgl[0];
 
-            bg->set_transformer(std::unique_ptr<wf_3D_view> (new wf_3D_view(output)));
-            auto tr = dynamic_cast<wf_3D_view*> (bg->get_transformer());
+            bg->add_transformer(std::unique_ptr<wf_3D_view> (new wf_3D_view(bg)), "switcher");
+            auto tr = dynamic_cast<wf_3D_view*> (bg->get_transformer("switcher").get());
             assert(tr);
 
             tr->color = {0.6, 0.6, 0.6, 1.0};
@@ -336,9 +336,9 @@ class view_switcher : public wayfire_plugin_t
     {
         for (auto v : views)
         {
-            auto tr = v->get_transformer();
-            if (!tr || !dynamic_cast<wf_3D_view*>(tr))
-                v->set_transformer(std::unique_ptr<wf_3D_view> (new wf_3D_view(output)));
+            auto tr = v->get_transformer("switcher");
+            if (!tr)
+                v->add_transformer(std::unique_ptr<wf_3D_view> (new wf_3D_view(v)), "switcher");
         }
     }
 
@@ -439,7 +439,7 @@ class view_switcher : public wayfire_plugin_t
 
         for (auto v : active_views)
         {
-            auto tr = dynamic_cast<wf_3D_view*> (v.view->get_transformer());
+            auto tr = dynamic_cast<wf_3D_view*> (v.view->get_transformer("switcher").get());
             assert(tr);
 
             v.view->damage();
@@ -681,12 +681,12 @@ class view_switcher : public wayfire_plugin_t
         if (bgl.size())
         {
             auto bg = bgl[0];
-            bg->set_transformer(nullptr);
+            bg->pop_transformer("switcher");
         }
 
         log_info("reset tranforms");
         for(auto v : views)
-            v->set_transformer(nullptr);
+            v->pop_transformer("switcher");
 
         state.active = false;
         view_chosen(current_view_index);
@@ -736,7 +736,7 @@ class view_switcher : public wayfire_plugin_t
     {
         for (auto view : views)
         {
-            view->set_transformer(nullptr);
+            view->pop_transformer("switcher");
             if (view)
             {
                 view->alpha = 1.0;

@@ -38,12 +38,28 @@ struct gl_geometry
     float x1, y1, x2, y2;
 };
 
+struct wf_framebuffer
+{
+    GLuint tex = -1, fb = -1;
+    wf_geometry geometry = {0, 0, 0, 0};
+    glm::mat4 transform = glm::mat4(1.0);
+
+    uint32_t viewport_width, viewport_height;
+
+    void init();
+    void init(int w, int h);
+    void bind() const;
+    void scissor(wlr_box box) const;
+    void clear() const;
+    void release();
+};
+
 namespace OpenGL
 {
     /* Different Context is kept for each output */
     /* Each of the following functions uses the currently bound context */
     struct context_t {
-        GLuint program, min_program;
+        GLuint program;
 
         GLuint mvpID, colorID;
         GLuint position, uvPosition;
@@ -87,5 +103,9 @@ namespace OpenGL
     /* set program to current program */
     void use_default_program();
 }
+
+/* utils */
+glm::mat4 get_output_matrix_from_transform(wl_output_transform transform);
+glm::mat4 output_get_projection(wayfire_output *output);
 
 #endif

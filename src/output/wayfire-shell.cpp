@@ -1,4 +1,5 @@
 #include <algorithm>
+#include "nonstd/make_unique.hpp"
 #include "output.hpp"
 #include "core.hpp"
 #include "debug.hpp"
@@ -53,13 +54,15 @@ static workspace_manager::anchored_area *get_anchored_area_for_view(wayfire_view
 
     if (view->custom_data.count(cname))
     {
-        cdata = dynamic_cast<wf_shell_reserved_custom_data*> (view->custom_data[cname]);
+        cdata = dynamic_cast<wf_shell_reserved_custom_data*> (view->custom_data[cname].get());
     } else
     {
-        cdata = new wf_shell_reserved_custom_data;
-        cdata->area.reserved_size = -1;
-        cdata->area.real_size = 0;
-        view->custom_data[cname] = cdata;
+        auto data = nonstd::make_unique<wf_shell_reserved_custom_data>();
+        data->area.reserved_size = -1;
+        data->area.real_size = 0;
+
+        cdata = data.get();
+        view->custom_data[cname] = std::move(data);
     }
 
     return &cdata->area;

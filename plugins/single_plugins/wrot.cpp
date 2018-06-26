@@ -1,6 +1,7 @@
 #include "view.hpp"
 #include "view-transform.hpp"
 #include "output.hpp"
+#include <nonstd/make_unique.hpp>
 #include <linux/input.h>
 
 static double cross (double x1, double y1, double x2, double y2) // cross product
@@ -18,6 +19,7 @@ class wf_wrot : public wayfire_plugin_t
     button_callback call;
 
     int last_x, last_y;
+
     public:
         void init(wayfire_config *config)
         {
@@ -37,10 +39,11 @@ class wf_wrot : public wayfire_plugin_t
             {
                 auto view = output->get_top_view();
 
-                if (!view->get_transformer())
-                    view->set_transformer(std::unique_ptr<wf_2D_view> (new wf_2D_view(output)));
+                if (!view->get_transformer("wrot"))
+                    view->add_transformer(nonstd::make_unique<wf_2D_view> (view), "wrot");
 
-                auto tr = dynamic_cast<wf_2D_view*> (view->get_transformer());
+                auto tr = dynamic_cast<wf_2D_view*> (view->get_transformer("wrot").get());
+                assert(tr);
 
                 view->damage();
 

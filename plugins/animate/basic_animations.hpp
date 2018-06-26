@@ -3,15 +3,16 @@
 #include <plugin.hpp>
 #include <opengl.hpp>
 #include <view-transform.hpp>
+#include <nonstd/make_unique.hpp>
 #include <output.hpp>
 
 class fade_animation : public animation_base
 {
     wayfire_view view;
-    wf_2D_view *our_transform = nullptr;
 
     float start = 0, end = 1;
     wf_duration duration;
+    std::string name;
 
     public:
 
@@ -24,27 +25,23 @@ class fade_animation : public animation_base
         if (close)
             std::swap(start, end);
 
-        auto output = view->get_output();
-        our_transform = new wf_2D_view(output);
-        view->set_transformer(std::unique_ptr<wf_2D_view> (our_transform));
+        name = "animation-fade-" + std::to_string(close);
+        view->add_transformer(nonstd::make_unique<wf_2D_view> (view), name);
     }
 
     bool step()
     {
-        if (view->get_transformer() != our_transform)
-            return false;
-
         log_info("duration has progress %f", duration.progress_percentage());
 
-        our_transform->alpha = duration.progress(start, end);
+        auto transform = dynamic_cast<wf_2D_view*> (view->get_transformer(name).get());
+        transform->alpha = duration.progress(start, end);
         return duration.running();
     }
 
     ~fade_animation()
     {
         view->alpha = 1.0f;
-        if (view->get_transformer() == our_transform)
-            view->set_transformer(nullptr);
+        view->pop_transformer(name);
     }
 };
 
@@ -71,16 +68,12 @@ class zoom_animation : public animation_base
             std::swap(zoom_start, zoom_end);
         }
 
-        auto output = view->get_output();
-        our_transform = new wf_2D_view(output);
-        view->set_transformer(std::unique_ptr<wf_2D_view> (our_transform));
+        our_transform = new wf_2D_view(view);
+        view->add_transformer(std::unique_ptr<wf_2D_view> (our_transform));
     }
 
     bool step()
     {
-        if (view->get_transformer() != our_transform)
-            return false;
-
         float c = duration.progress(zoom_start, zoom_end);
         our_transform->alpha = duration.progress(alpha_start, alpha_end);
         our_transform->scale_x = c;
@@ -91,8 +84,7 @@ class zoom_animation : public animation_base
 
     ~zoom_animation()
     {
-        if (view->get_transformer() == our_transform)
-            view->set_transformer(nullptr);
+        view->pop_transformer(nonstd::make_observer(our_transform));
         view->alpha = 1.0;
     }
 };

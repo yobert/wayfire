@@ -6,67 +6,70 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "view.hpp"
+#include "opengl.hpp"
+#include "debug.hpp"
 
-/* all transforms operate with a coordinate system centered at the
- * geometric center of the main surface(the wayfire_view_t) */
-
-/* TODO: adjust to resolution */
 class wf_view_transformer_t
 {
     public:
-        virtual wf_point local_to_transformed_point(wf_point point) = 0;
-        virtual wf_point transformed_to_local_point(wf_point point) = 0;
+        virtual wf_point local_to_transformed_point(wf_geometry view, wf_point point) = 0;
+        virtual wf_point transformed_to_local_point(wf_geometry view, wf_point point) = 0;
 
         /* return the boundingbox of region after applying all transformations */
-        virtual wlr_box get_bounding_box(wlr_box region);
+        virtual wlr_box get_bounding_box(wf_geometry view, wlr_box region);
 
         /* src_tex        the internal FBO texture,
-         * target_fbo     the fbo to render to
-         * src_box        the geometry of src_tex in output-local coordinates
-         * src_center     the center of transformation for src_tex in output-local coordinates
-         * output_matrix  the transformation which maps framebuffer coordinates to output coordinates
-         * scissor_box    the area in which the transform renderer must update,
-         *                drawing outside of it will cause artifacts */
+         *
+         * src_box        box of the view that has to be repainted, contains other transforms
+         *
+         * scissor_box    the subbox of the FB which the transform renderer must update,
+         *                drawing outside of it will cause artifacts
+         *
+         * target_fb      the framebuffer the transform should render to.
+         *                it can be part of the screen, so it's geometry is
+         *                given in output-local coordinates */
         virtual void render_with_damage(uint32_t src_tex,
-                                        uint32_t target_fbo,
                                         wlr_box src_box,
-                                        wf_point src_center,
-                                        glm::mat4 output_matrix,
-                                        wlr_box scissor_box) = 0;
+                                        wlr_box scissor_box,
+                                        const wf_framebuffer& target_fb) = 0;
+
+        virtual ~wf_view_transformer_t() {log_info("destoryed"); }
 };
 
+enum
+{
+    WF_INVALID_INPUT_COORDINATES = (1 << 31)
+};
+
+/* 2D transforms operate with a coordinate system centered at the
+ * center of the main surface(the wayfire_view_t) */
 class wf_2D_view : public wf_view_transformer_t
 {
     protected:
-        wayfire_output *output;
+        wayfire_view view;
     public:
         float angle = 0.0f;
         float scale_x = 1.0f, scale_y = 1.0f;
         float translation_x = 0.0f, translation_y = 0.0f;
         float alpha = 1.0f;
 
-        float m_aspect;
-
-        glm::mat4 ortho;
-
     public:
-        wf_2D_view(wayfire_output *output);
+        wf_2D_view(wayfire_view view);
 
-        virtual wf_point local_to_transformed_point(wf_point point);
-        virtual wf_point transformed_to_local_point(wf_point point);
+        virtual wf_point local_to_transformed_point(wf_geometry view, wf_point point);
+        virtual wf_point transformed_to_local_point(wf_geometry view, wf_point point);
 
         virtual void render_with_damage(uint32_t src_tex,
-                                        uint32_t target_fbo,
                                         wlr_box src_box,
-                                        wf_point src_center,
-                                        glm::mat4 output_matrix,
-                                        wlr_box scissor_box);
+                                        wlr_box scissor_box,
+                                        const wf_framebuffer& target_fb);
 };
 
+/* Those are centered relative to the view's bounding box */
 class wf_3D_view : public wf_view_transformer_t
 {
     protected:
-        wayfire_output *output;
+        wayfire_view view;
 
     public:
         glm::mat4 view_proj{1.0}, translation{1.0}, rotation{1.0}, scaling{1.0};
@@ -74,21 +77,17 @@ class wf_3D_view : public wf_view_transformer_t
 
         glm::mat4 calculate_total_transform();
 
-        float m_width, m_height;
-        float m_aspect;
-
     public:
-        wf_3D_view(wayfire_output *output);
+        wf_3D_view(wayfire_view view);
 
-        virtual wf_point local_to_transformed_point(wf_point point);
-        virtual wf_point transformed_to_local_point(wf_point point);
+        virtual wf_point local_to_transformed_point(wf_geometry view, wf_point point);
+        virtual wf_point transformed_to_local_point(wf_geometry view, wf_point point);
 
         virtual void render_with_damage(uint32_t src_tex,
-                                        uint32_t target_fbo,
                                         wlr_box src_box,
-                                        wf_point src_center,
-                                        glm::mat4 output_matrix,
-                                        wlr_box scissor_box);
+                                        wlr_box scissor_box,
+                                        const wf_framebuffer& target_fb);
+
 };
 
 /* create a matrix which corresponds to the inverse of the given transform */

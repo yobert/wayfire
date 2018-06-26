@@ -5,6 +5,7 @@
 #include <workspace-manager.hpp>
 #include <render-manager.hpp>
 #include <signal-definitions.hpp>
+#include <nonstd/make_unique.hpp>
 #include <pixman-1/pixman.h>
 #include <opengl.hpp>
 #include <list>
@@ -35,11 +36,13 @@ class viewport_manager : public workspace_manager
 
         if (it == view->custom_data.end())
         {
-            layer_data = new custom_layer_data_t;
-            view->custom_data[custom_layer_data_t::name] = layer_data;
+            auto data = nonstd::make_unique<custom_layer_data_t>();
+
+            layer_data = data.get();
+            view->custom_data[custom_layer_data_t::name] = std::move(data);
         } else
         {
-            layer_data = dynamic_cast<custom_layer_data_t*> (it->second);
+            layer_data = dynamic_cast<custom_layer_data_t*> (it->second.get());
         }
 
         assert(layer_data);
@@ -218,7 +221,7 @@ bool viewport_manager::view_visible_on(wayfire_view view, std::tuple<int, int> v
         g.y += (ty - vy) * g.height;
     }
 
-    if (view->get_transformer())
+    if (view->has_transformer())
         return view->intersects_region(g);
     else
         return rect_intersect(g, view->get_wm_geometry());

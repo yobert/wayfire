@@ -251,6 +251,7 @@ void wayfire_xdg6_view::move(int w, int h, bool send)
 
 void wayfire_xdg6_view::resize(int w, int h, bool send)
 {
+    damage();
     wlr_xdg_toplevel_v6_set_size(v6_surface, w, h);
 }
 
@@ -408,14 +409,14 @@ static void notify_v6_created(wl_listener*, void *data)
             wf_decorator &&
             wf_decorator->is_decoration_window(surf->toplevel->title))
         {
-            auto view = std::unique_ptr<wayfire_xdg6_decoration_view>
-                (new wayfire_xdg6_decoration_view(surf));
+            auto view = nonstd::make_unique<wayfire_xdg6_decoration_view> (surf);
+            auto copy = view.get();
             core->add_view(std::move(view));
 
-            wf_decorator->decoration_ready(view->self());
+            wf_decorator->decoration_ready(copy->self());
         } else
         {
-            core->add_view(std::unique_ptr<wayfire_xdg6_view> (new wayfire_xdg6_view(surf)));
+            core->add_view(nonstd::make_unique<wayfire_xdg6_view> (surf));
         }
     }
 }

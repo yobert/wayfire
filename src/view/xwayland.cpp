@@ -232,6 +232,7 @@ class wayfire_xwayland_view : public wayfire_view_t
 
     void resize(int w, int h, bool s)
     {
+        damage();
         send_configure(w, h);
     }
 
@@ -443,11 +444,6 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
         wayfire_surface_t::dec_keep_count();
     }
 
-    virtual void render_fb(int x, int y, pixman_region32_t* damage, int target_fb)
-    {
-        wayfire_view_t::render_fb(x, y, damage, target_fb);
-    }
-
     wlr_surface *get_keyboard_focus_surface()
     {
         if (wlr_xwayland_surface_is_unmanaged(xw))
@@ -479,14 +475,10 @@ void notify_xwayland_created(wl_listener *, void *data)
 
     if (wlr_xwayland_surface_is_unmanaged(xsurf) || xsurf->override_redirect)
     {
-        auto view = std::unique_ptr<wayfire_unmanaged_xwayland_view>
-            (new wayfire_unmanaged_xwayland_view(xsurf));
-        core->add_view(std::move(view));
+        core->add_view(nonstd::make_unique<wayfire_unmanaged_xwayland_view>(xsurf));
     } else
     {
-        auto view = std::unique_ptr<wayfire_xwayland_view>
-            (new wayfire_xwayland_view(xsurf));
-        core->add_view(std::move(view));
+        core->add_view(nonstd::make_unique<wayfire_xwayland_view> (xsurf));
     }
 }
 
