@@ -282,6 +282,8 @@ class wayfire_expo : public wayfire_plugin_t
         sx -= vx * og.width;
         sy -= vy * og.height;
 
+        /* TODO: adjust to delimiter offset */
+
         wayfire_view search = nullptr;
         output->workspace->for_each_view([&search, sx, sy] (wayfire_view v) {
             if (!search && point_inside({sx, sy}, v->get_wm_geometry()))
@@ -383,10 +385,10 @@ class wayfire_expo : public wayfire_plugin_t
                 }
 
                 float tlx = (i - vx) * w + render_params.delimiter_offset;
-                float tly = (j - vy) * h + render_params.delimiter_offset;
+                float tly = (j - vy) * h + render_params.delimiter_offset * h / w;
 
                 float brx = tlx + w - 2 * render_params.delimiter_offset;
-                float bry = tly + h - 2 * render_params.delimiter_offset;
+                float bry = tly + h - 2 * render_params.delimiter_offset * h / w;
 
                 gl_geometry out_geometry = {
                     2.0f * tlx / w - 1.0f, 1.0f - 2.0f * tly / h,
