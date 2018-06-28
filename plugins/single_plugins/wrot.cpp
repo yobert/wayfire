@@ -55,6 +55,9 @@ class wf_wrot : public wayfire_plugin_t
                 double x1 = last_x - cx, y1 = last_y - cy;
                 double x2 = x - cx, y2 = y - cy;
 
+                if (vlen(x2, y2) <= 25)
+                    return view->pop_transformer("wrot");
+
                 /* cross(a, b) = |a| * |b| * sin(a, b) */
                 tr->angle -= std::asin(cross(x1, y1, x2, y2) / vlen(x1, y1) / vlen(x2, y2));
 
