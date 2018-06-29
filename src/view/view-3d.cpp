@@ -20,12 +20,7 @@ wlr_box wf_view_transformer_t::get_bounding_box(wf_geometry view, wlr_box region
     const int y1 = std::min({p1.y, p2.y, p3.y, p4.y});
     const int y2 = std::max({p1.y, p2.y, p3.y, p4.y});
 
-    auto box = wlr_box{x1, y1, x2 - x1, y2 - y1};
-
- //   log_info("box of (%d@%d %dx%d) is (%d@%d %dx%d)", region.x, region.y, region.width, region.height,
-  //           box.x, box.y, box.width, box.height);
-
-    return box;
+    return wlr_box{x1, y1, x2 - x1, y2 - y1};
 }
 
 struct transformable_quad
@@ -109,7 +104,6 @@ wf_point wf_2D_view::local_to_transformed_point(wf_geometry geometry, wf_point p
 
     auto r = get_absolute_coords_from_relative(view->get_wm_geometry(),
                                              {(int32_t) x, (int32_t) y});
-  //  log_info("local to tr: %dx%d -> %dx%d", point.x, point.y, r.x, r.y);
     return r;
 }
 
@@ -132,22 +126,12 @@ void wf_2D_view::render_with_damage(uint32_t src_tex,
                                     wlr_box scissor_box,
                                     const wf_framebuffer& fb)
 {
-   // log_info("render with damage, fb: (%d@%d %dx%d), src: (%d@%d %dx%d), center: (%d@%d)",
-    //         fb.geometry.x, fb.geometry.y, fb.geometry.width, fb.geometry.height,
-     //        src_box.x, src_box.y, src_box.width, src_box.height,
-      //       get_view_center(view).x, get_view_center(view).y);
-    //log_info("scissor is %d@%d, %dx%d", scissor_box.x, scissor_box.y, scissor_box.width, scissor_box.height);
     auto quad = center_geometry(fb.geometry, src_box, get_center(view->get_wm_geometry()));
 
     quad.geometry.x1 *= scale_x;
     quad.geometry.x2 *= scale_x;
     quad.geometry.y1 *= scale_y;
     quad.geometry.y2 *= scale_y;
-
-    log_info("quad is %fx%f %fx%f", quad.geometry.x1, quad.geometry.y1, quad.geometry.x2, quad.geometry.y2);
-    log_info("quad is %fx%f", quad.off_x, quad.off_y);
-    log_info("fb is %dx%d", fb.geometry.width, fb.geometry.height);
-
 
     auto rotate = glm::rotate(glm::mat4(1.0), angle, {0, 0, 1});
     auto translate = glm::translate(glm::mat4(1.0),

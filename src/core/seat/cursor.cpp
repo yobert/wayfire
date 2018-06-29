@@ -2,6 +2,7 @@
 #include "core.hpp"
 #include "input-manager.hpp"
 #include "workspace-manager.hpp"
+#include "debug.hpp"
 
 static void handle_pointer_button_cb(wl_listener*, void *data)
 {
@@ -69,6 +70,10 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
 
 void input_manager::update_cursor_focus(wayfire_surface_t *focus, int x, int y)
 {
+    if (cursor_focus != focus)
+    {
+        log_info("change cursor focus %p -> %p", cursor_focus, focus);
+    }
     cursor_focus = focus;
     if (focus)
     {

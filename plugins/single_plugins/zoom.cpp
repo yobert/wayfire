@@ -52,7 +52,6 @@ class wayfire_zoom_screen : public wayfire_plugin_t
             target_zoom = std::max(target_zoom, 1.0f);
             target_zoom = std::min(target_zoom, 50.0f);
 
-
             if (last_target != target_zoom)
             {
                 auto current = duration.progress();
@@ -73,10 +72,7 @@ class wayfire_zoom_screen : public wayfire_plugin_t
             GetTuple(x, y, output->get_cursor_position());
 
             /* get rotation & scale */
-            wlr_box box;
-            box.x = x;
-            box.y = y;
-            box.width = box.height = 1;
+            wlr_box box = {x, y, 1, 1};
             box = output_transform_box(output, box);
 
             x = box.x;

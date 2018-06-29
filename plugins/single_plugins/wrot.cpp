@@ -1,6 +1,7 @@
 #include "view.hpp"
 #include "view-transform.hpp"
 #include "output.hpp"
+#include "core.hpp"
 #include <nonstd/make_unique.hpp>
 #include <linux/input.h>
 
@@ -19,13 +20,26 @@ class wf_wrot : public wayfire_plugin_t
     button_callback call;
 
     int last_x, last_y;
+    wayfire_view current_view;
 
     public:
         void init(wayfire_config *config)
         {
             call = [=] (uint32_t, int x, int y)
             {
-                output->activate_plugin(grab_interface);
+                if (!output->activate_plugin(grab_interface))
+                    return;
+
+                auto focus = core->get_cursor_focus();
+                current_view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+
+                if (!current_view || current_view->role != WF_VIEW_ROLE_TOPLEVEL)
+                {
+                    output->deactivate_plugin(grab_interface);
+                    return;
+                }
+
+                output->focus_view(current_view);
                 grab_interface->grab();
 
                 last_x = x;
@@ -37,17 +51,15 @@ class wf_wrot : public wayfire_plugin_t
 
             grab_interface->callbacks.pointer.motion = [=] (int x, int y)
             {
-                auto view = output->get_top_view();
+                if (!current_view->get_transformer("wrot"))
+                    current_view->add_transformer(nonstd::make_unique<wf_2D_view> (current_view), "wrot");
 
-                if (!view->get_transformer("wrot"))
-                    view->add_transformer(nonstd::make_unique<wf_2D_view> (view), "wrot");
-
-                auto tr = dynamic_cast<wf_2D_view*> (view->get_transformer("wrot").get());
+                auto tr = dynamic_cast<wf_2D_view*> (current_view->get_transformer("wrot").get());
                 assert(tr);
 
-                view->damage();
+                current_view->damage();
 
-                auto g = view->get_wm_geometry();
+                auto g = current_view->get_wm_geometry();
 
                 double cx = g.x + g.width / 2.0;
                 double cy = g.y + g.height / 2.0;
@@ -56,12 +68,12 @@ class wf_wrot : public wayfire_plugin_t
                 double x2 = x - cx, y2 = y - cy;
 
                 if (vlen(x2, y2) <= 25)
-                    return view->pop_transformer("wrot");
+                    return current_view->pop_transformer("wrot");
 
                 /* cross(a, b) = |a| * |b| * sin(a, b) */
                 tr->angle -= std::asin(cross(x1, y1, x2, y2) / vlen(x1, y1) / vlen(x2, y2));
 
-                view->damage();
+                current_view->damage();
 
                 last_x = x;
                 last_y = y;

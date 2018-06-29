@@ -353,11 +353,7 @@ void wayfire_surface_t::render(int x, int y, wlr_box *damage)
                            0, output->handle->transform_matrix);
 
     auto box = get_scissor_box(output, *damage);
-
-    log_info("render %d@%d %dx%d at %d@%d %dx%d", geometry.x, geometry.y, geometry.width, geometry.height,
-             box.x, box.y, box.width, box.height);
     wlr_renderer_scissor(rr, &box);
-
     wlr_render_texture_with_matrix(rr, surface->buffer->texture, matrix, alpha);
 
 #ifdef WAYFIRE_GRAPHICS_DEBUG
@@ -389,6 +385,5 @@ void wayfire_surface_t::render_fb(pixman_region32_t *damage, wf_framebuffer fb)
     GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb.fb));
     auto obox = get_output_geometry();
     render_pixman(obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
-//    log_info("render at %dx%d - %dx%d", obox.x, obox.y, fb.geometry.x, fb.geometry.y);
 }
 

@@ -462,10 +462,6 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
             fb.viewport_height = tbox.height;
             fb.clear();
 
-            log_info("nested render obox: (%d@%d %dx%d), fb: (%d@%d %dx%d)",
-                     obox.x, obox.y, obox.width, obox.height,
-                     tbox.x, tbox.y, tbox.width, tbox.height);
-
             tr->transform->render_with_damage(last_tex, obox, {0, 0, tbox.width, tbox.height}, fb);
             last_tex = fb.tex;
 
@@ -503,12 +499,9 @@ void wayfire_view_t::add_transformer(std::unique_ptr<wf_view_transformer_t> tran
 {
     damage();
     auto tr = nonstd::make_unique<transform_t> ();
-    log_info("add pppp: %p", transformer.get());
-
     tr->transform = std::move(transformer);
     tr->plugin_name = name;
     transforms.push_back(std::move(tr));
-    log_info("end it");
     damage();
 }
 
@@ -532,7 +525,6 @@ nonstd::observer_ptr<wf_view_transformer_t> wayfire_view_t::get_transformer(std:
 void wayfire_view_t::_pop_transformer(nonstd::observer_ptr<transform_t> transformer)
 {
     damage();
-    log_info("start pop");
 
     auto it = transforms.begin();
     while(it != transforms.end())
