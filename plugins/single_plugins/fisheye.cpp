@@ -169,6 +169,11 @@ class wayfire_fisheye : public wayfire_plugin_t
         void render(uint32_t fb, uint32_t tex, uint32_t target)
         {
             GetTuple(x, y, output->get_cursor_position());
+            wlr_box box = {x, y, 1, 1};
+            box = output_transform_box(output, box);
+            x = box.x;
+            y = box.y;
+
             GL_CALL(glUseProgram(program));
             GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
             GL_CALL(glActiveTexture(GL_TEXTURE0));
