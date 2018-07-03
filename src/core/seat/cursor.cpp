@@ -62,6 +62,7 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
     } else
     {
         count_other_inputs--;
+        update_cursor_position(ev->time_msec, false);
     }
 
     if (active_grab && active_grab->callbacks.pointer.button)
