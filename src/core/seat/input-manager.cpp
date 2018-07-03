@@ -168,6 +168,7 @@ void input_manager::ungrab_input()
     if (active_grab)
         active_grab->output->set_active_view(active_grab->output->get_active_view());
     active_grab = nullptr;
+    update_cursor_position(last_cursor_event_msec, false);
 
     /*
     if (is_touch_enabled())

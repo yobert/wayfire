@@ -8,8 +8,7 @@ static void handle_pointer_button_cb(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_event_pointer_button*> (data);
     core->input->handle_pointer_button(ev);
-        wlr_seat_pointer_notify_button(core->input->seat, ev->time_msec,
-                                       ev->button, ev->state);
+    wlr_seat_pointer_notify_button(core->input->seat, ev->time_msec, ev->button, ev->state);
 }
 
 static void handle_pointer_motion_cb(wl_listener*, void *data)
@@ -33,7 +32,7 @@ static void handle_pointer_axis_cb(wl_listener*, void *data)
 
 void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
 {
-
+    core->input->last_cursor_event_msec = ev->time_msec;
     in_mod_binding = false;
 
     if (ev->state == WLR_BUTTON_PRESSED)
@@ -121,18 +120,21 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 
 void input_manager::handle_pointer_motion(wlr_event_pointer_motion *ev)
 {
+    core->input->last_cursor_event_msec = ev->time_msec;
     wlr_cursor_move(cursor, ev->device, ev->delta_x, ev->delta_y);
     update_cursor_position(ev->time_msec);
 }
 
 void input_manager::handle_pointer_motion_absolute(wlr_event_pointer_motion_absolute *ev)
 {
+    core->input->last_cursor_event_msec = ev->time_msec;
     wlr_cursor_warp_absolute(cursor, ev->device, ev->x, ev->y);
     update_cursor_position(ev->time_msec);;
 }
 
 void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
 {
+    core->input->last_cursor_event_msec = ev->time_msec;
     std::vector<axis_callback*> callbacks;
 
     auto mod_state = get_modifiers();

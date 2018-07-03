@@ -91,6 +91,8 @@ class input_manager
     public:
 
         input_manager();
+        int last_cursor_event_msec;
+
         wlr_seat *seat = nullptr;
         wlr_cursor *cursor = NULL;
         wlr_xcursor_manager *xcursor;
