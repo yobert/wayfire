@@ -174,10 +174,7 @@ void wayfire_xdg6_view::commit()
     if (v6_surface->geometry.x != xdg_surface_offset.x ||
         v6_surface->geometry.y != xdg_surface_offset.y)
     {
-        move(geometry.x + xdg_surface_offset.x - v6_surface->geometry.x,
-             geometry.y + xdg_surface_offset.y - v6_surface->geometry.y,
-             false);
-
+        move(geometry.x + xdg_surface_offset.x, geometry.y + xdg_surface_offset.y, false);
         xdg_surface_offset = {v6_surface->geometry.x, v6_surface->geometry.y};
     }
 }

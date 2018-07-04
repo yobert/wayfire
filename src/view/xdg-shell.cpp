@@ -176,10 +176,7 @@ wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_surface *s)
 
 void wayfire_xdg_view::on_xdg_geometry_updated()
 {
-    move(geometry.x + xdg_surface_offset.x - xdg_surface->geometry.x,
-         geometry.y + xdg_surface_offset.y - xdg_surface->geometry.y,
-         false);
-
+    move(geometry.x + xdg_surface_offset.x, geometry.y + xdg_surface_offset.y, false);
     xdg_surface_offset = {xdg_surface->geometry.x, xdg_surface->geometry.y};
 }
 
