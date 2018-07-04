@@ -37,22 +37,27 @@ class wayfire_xdg_view : public wayfire_view_t
                 request_maximize, request_fullscreen,
                 set_parent_ev;
 
+        wf_point xdg_surface_offset;
+
     public:
         wlr_xdg_surface *xdg_surface;
 
     wayfire_xdg_view(wlr_xdg_surface *s);
     virtual void map(wlr_surface *surface);
-    virtual wf_point get_output_position();
 
     virtual void get_child_position(int &x, int &y);
     virtual void get_child_offset(int &x, int &y);
 
-    virtual bool update_size();
+    virtual wf_geometry get_wm_geometry();
+
     virtual void activate(bool act);
     virtual void set_maximized(bool max);
     virtual void set_fullscreen(bool full);
     virtual void move(int w, int h, bool send);
     virtual void resize(int w, int h, bool send);
+
+    virtual void on_xdg_geometry_updated();
+    virtual void commit();
 
     virtual void destroy();
 
@@ -67,15 +72,13 @@ class wayfire_xdg_decoration_view : public wayfire_xdg_view
     wayfire_view contained = NULL;
     std::unique_ptr<wf_decorator_frame_t> frame;
 
-    wf_point xdg_surface_offset;
-
     public:
 
     wayfire_xdg_decoration_view(wlr_xdg_surface *decor);
     void init(wayfire_view view, std::unique_ptr<wf_decorator_frame_t>&& fr);
     void map(wlr_surface *surface);
     void activate(bool state);
-    void commit();
+
     void move(int x, int y, bool ss);
     void resize(int w, int h, bool ss);
     void child_configured(wf_geometry g);

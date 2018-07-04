@@ -756,7 +756,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
     uint32_t target_buffer = (stream->fbuff == 0 ? default_fb : stream->fbuff);
     GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_buffer));
-    for (int i = 0;i < n_rect; i++)
+    for (int i = 0; i < n_rect; i++)
     {
         wlr_box damage = wlr_box_from_pixman_box(rects[i]);
         auto box = get_scissor_box(output, damage);

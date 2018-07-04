@@ -134,7 +134,7 @@ wf_point wayfire_surface_t::get_output_position()
 wf_geometry wayfire_surface_t::get_output_geometry()
 {
     if (!is_mapped())
-        return {0, 0, 0, 0};
+        return geometry;
 
     auto pos = get_output_position();
     return {
@@ -236,19 +236,23 @@ void wayfire_surface_t::update_output_position()
     }
 }
 
-void wayfire_surface_t::commit()
+void wayfire_surface_t::apply_surface_damage(int x, int y)
 {
-    update_output_position();
-    auto rect = get_output_position();
-
     pixman_region32_t dmg;
     pixman_region32_init(&dmg);
     pixman_region32_copy(&dmg, &surface->current->surface_damage);
-    pixman_region32_translate(&dmg, rect.x, rect.y);
+    pixman_region32_translate(&dmg, x, y);
 
     /* TODO: transform damage */
     damage(&dmg);
     pixman_region32_fini(&dmg);
+}
+
+void wayfire_surface_t::commit()
+{
+    update_output_position();
+    auto pos = get_output_position();
+    apply_surface_damage(pos.x, pos.y);
 }
 
 void wayfire_surface_t::set_output(wayfire_output *out)

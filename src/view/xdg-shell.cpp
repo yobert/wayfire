@@ -174,6 +174,26 @@ wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_surface *s)
     xdg_surface->data = this;
 }
 
+void wayfire_xdg_view::on_xdg_geometry_updated()
+{
+    move(geometry.x + xdg_surface_offset.x - xdg_surface->geometry.x,
+         geometry.y + xdg_surface_offset.y - xdg_surface->geometry.y,
+         false);
+
+    xdg_surface_offset = {xdg_surface->geometry.x, xdg_surface->geometry.y};
+}
+
+void wayfire_xdg_view::commit()
+{
+    wayfire_view_t::commit();
+
+    if (xdg_surface->geometry.x != xdg_surface_offset.x ||
+        xdg_surface->geometry.y != xdg_surface_offset.y)
+    {
+        on_xdg_geometry_updated();
+    }
+}
+
 void wayfire_xdg_view::map(wlr_surface *surface)
 {
     if (xdg_surface->toplevel->client_pending.maximized)
@@ -188,23 +208,8 @@ void wayfire_xdg_view::map(wlr_surface *surface)
         set_toplevel_parent(parent);
     }
 
+    xdg_surface_offset = {xdg_surface->geometry.x, xdg_surface->geometry.y};
     wayfire_view_t::map(surface);
-
-}
-
-wf_point wayfire_xdg_view::get_output_position()
-{
-    if (decoration)
-        return decoration->get_output_position()
-            + wf_point{decor_x, decor_y}
-    + wf_point{-xdg_surface->geometry.x, -xdg_surface->geometry.y};
-
-    wf_point position {
-        geometry.x - xdg_surface->geometry.x,
-            geometry.y - xdg_surface->geometry.y,
-    };
-
-    return position;
 }
 
 void wayfire_xdg_view::get_child_position(int &x, int &y)
@@ -221,24 +226,18 @@ void wayfire_xdg_view::get_child_offset(int &x, int &y)
     y = xdg_surface->geometry.y;
 }
 
-bool wayfire_xdg_view::update_size()
+wf_geometry wayfire_xdg_view::get_wm_geometry()
 {
-    auto old_w = geometry.width, old_h = geometry.height;
+    if (!xdg_surface || !xdg_surface->geometry.width || !xdg_surface->geometry.height)
+        return get_output_geometry();
 
-    int width = xdg_surface->geometry.width, height = xdg_surface->geometry.height;
-    if (width > 0 && height > 0)
-    {
-        if (geometry.width != width || geometry.height != height)
-        {
-            adjust_anchored_edge(width, height);
-            wayfire_view_t::resize(width, height, true);
-        }
-    } else
-    {
-        wayfire_view_t::update_size();
-    }
-
-    return old_w != geometry.width || old_h != geometry.height;
+    auto opos = get_output_position();
+    return {
+        xdg_surface->geometry.x + opos.x,
+        xdg_surface->geometry.y + opos.y,
+        xdg_surface->geometry.width,
+        xdg_surface->geometry.height
+    };
 }
 
 void wayfire_xdg_view::activate(bool act)
@@ -297,6 +296,7 @@ void wayfire_xdg_view::destroy()
     wl_list_remove(&request_fullscreen.link);
     wl_list_remove(&set_parent_ev.link);
 
+    xdg_surface = nullptr;
     wayfire_view_t::destroy();
 }
 
@@ -335,18 +335,6 @@ void wayfire_xdg_decoration_view::activate(bool state)
     contained->activate(state);
 }
 
-void wayfire_xdg_decoration_view::commit()
-{
-    wayfire_xdg_view::commit();
-
-    wf_point new_offset = {xdg_surface->geometry.x, xdg_surface->geometry.y};
-    if (new_offset.x != xdg_surface_offset.x || new_offset.y != xdg_surface_offset.y)
-    {
-        move(geometry.x, geometry.y, false);
-        xdg_surface_offset = new_offset;
-    }
-}
-
 void wayfire_xdg_decoration_view::move(int x, int y, bool ss)
 {
     auto new_g = frame->get_child_geometry(geometry);
@@ -355,6 +343,7 @@ void wayfire_xdg_decoration_view::move(int x, int y, bool ss)
 
     log_info ("contained is moved to %d+%d, decor to %d+%d", new_g.x, new_g.y, x, y);
 
+    /* TODO: geometry.x is changed */
     contained->decor_x = new_g.x - geometry.x;
     contained->decor_y = new_g.y - geometry.y;
 

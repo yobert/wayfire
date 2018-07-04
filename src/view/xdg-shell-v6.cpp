@@ -167,6 +167,21 @@ wayfire_xdg6_view::wayfire_xdg6_view(wlr_xdg_surface_v6 *s)
     v6_surface->data = this;
 }
 
+void wayfire_xdg6_view::commit()
+{
+    wayfire_view_t::commit();
+
+    if (v6_surface->geometry.x != xdg_surface_offset.x ||
+        v6_surface->geometry.y != xdg_surface_offset.y)
+    {
+        move(geometry.x + xdg_surface_offset.x - v6_surface->geometry.x,
+             geometry.y + xdg_surface_offset.y - v6_surface->geometry.y,
+             false);
+
+        xdg_surface_offset = {v6_surface->geometry.x, v6_surface->geometry.y};
+    }
+}
+
 void wayfire_xdg6_view::map(wlr_surface *surface)
 {
     if (v6_surface->toplevel->client_pending.maximized)
@@ -182,21 +197,21 @@ void wayfire_xdg6_view::map(wlr_surface *surface)
     }
 
     wayfire_view_t::map(surface);
+    xdg_surface_offset = {v6_surface->geometry.x, v6_surface->geometry.y};
 }
 
-wf_point wayfire_xdg6_view::get_output_position()
+wf_geometry wayfire_xdg6_view::get_wm_geometry()
 {
-    if (decoration)
-        return decoration->get_output_position()
-            + wf_point{decor_x, decor_y}
-    + wf_point{-v6_surface->geometry.x, -v6_surface->geometry.y};
+    if (!v6_surface || !v6_surface->geometry.width || !v6_surface->geometry.height)
+        return get_output_geometry();
 
-    wf_point position {
-        geometry.x - v6_surface->geometry.x,
-            geometry.y - v6_surface->geometry.y,
+    auto opos = get_output_position();
+    return {
+        v6_surface->geometry.x + opos.x,
+        v6_surface->geometry.y + opos.y,
+        v6_surface->geometry.width,
+        v6_surface->geometry.height
     };
-
-    return position;
 }
 
 void wayfire_xdg6_view::get_child_position(int &x, int &y)
@@ -205,25 +220,6 @@ void wayfire_xdg6_view::get_child_position(int &x, int &y)
 
     x = decor_x - v6_surface->geometry.x;
     y = decor_y - v6_surface->geometry.y;
-}
-
-bool wayfire_xdg6_view::update_size()
-{
-    auto old_w = geometry.width, old_h = geometry.height;
-    int width = v6_surface->geometry.width, height = v6_surface->geometry.height;
-    if (width > 0 && height > 0)
-    {
-        if (geometry.width != width || geometry.height != height)
-        {
-            adjust_anchored_edge(width, height);
-            wayfire_view_t::resize(width, height, true);
-        }
-    } else
-    {
-        wayfire_view_t::update_size();
-    }
-
-    return old_w != geometry.width || old_h != geometry.height;
 }
 
 void wayfire_xdg6_view::activate(bool act)
@@ -285,6 +281,7 @@ void wayfire_xdg6_view::destroy()
     wl_list_remove(&request_fullscreen.link);
     wl_list_remove(&set_parent_ev.link);
 
+    v6_surface = nullptr;
     wayfire_view_t::destroy();
 }
 
@@ -328,6 +325,7 @@ void wayfire_xdg6_decoration_view::commit()
     wf_point new_offset = {v6_surface->geometry.x, v6_surface->geometry.y};
     if (new_offset.x != v6_surface_offset.x || new_offset.y != v6_surface_offset.y)
     {
+        /* XXX: broken */
         move(geometry.x, geometry.y, false);
         v6_surface_offset = new_offset;
     }

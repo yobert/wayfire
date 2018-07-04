@@ -82,6 +82,7 @@ class wayfire_surface_t
         virtual void damage(const wlr_box& box);
         virtual void damage(pixman_region32_t *region);
 
+        void apply_surface_damage(int x, int y);
     public:
         std::vector<wayfire_surface_t*> surface_children;
 

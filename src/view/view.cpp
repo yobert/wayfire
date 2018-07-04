@@ -54,14 +54,13 @@ void wayfire_view_t::adjust_anchored_edge(int32_t new_width, int32_t new_height)
 {
     if (edges)
     {
-        int x = geometry.x;
-        int y = geometry.y;
+        auto wm = get_wm_geometry();
         if (edges & WF_RESIZE_EDGE_LEFT)
-            x += geometry.width - new_width;
+            wm.x += geometry.width - new_width;
         if (edges & WF_RESIZE_EDGE_TOP)
-            y += geometry.height - new_height;
+            wm.y += geometry.height - new_height;
 
-        move(x, y, false);
+        move(wm.x, wm.y, false);
     }
 }
 
@@ -108,13 +107,16 @@ void wayfire_view_t::set_resizing(bool resizing, uint32_t edges)
 
 void wayfire_view_t::move(int x, int y, bool send_signal)
 {
+    auto opos = get_output_position();
+    auto wm   = get_wm_geometry();
+
     view_geometry_changed_signal data;
     data.view = self();
     data.old_geometry = get_wm_geometry();
 
     damage();
-    geometry.x = x;
-    geometry.y = y;
+    geometry.x = x + opos.x - wm.x;
+    geometry.y = y + opos.y - wm.y;
     damage();
 
     if (send_signal)
@@ -597,18 +599,20 @@ void wayfire_view_t::reposition_relative_to_parent()
     assert(parent);
     auto workarea = output->workspace->get_workarea();
 
+    auto wm_geometry = get_wm_geometry();
     if (parent->is_mapped())
     {
-        int sx = parent->geometry.x + (parent->geometry.width  - geometry.width) / 2;
-        int sy = parent->geometry.y + (parent->geometry.height - geometry.height) / 2;
+        auto parent_geometry = parent->get_wm_geometry();
+        int sx = parent_geometry.x + (parent_geometry.width  - wm_geometry.width) / 2;
+        int sy = parent_geometry.y + (parent_geometry.height - wm_geometry.height) / 2;
 
         move(sx, sy, false);
     } else
     {
         /* if we have a parent which still isn't mapped, we cannot determine
          * the view's position, so we center it on the screen */
-        int sx = workarea.width / 2 - geometry.width / 2;
-        int sy = workarea.height/ 2 - geometry.height/ 2;
+        int sx = workarea.width / 2 - wm_geometry.width / 2;
+        int sy = workarea.height/ 2 - wm_geometry.height/ 2;
 
         move(sx, sy, false);
     }
