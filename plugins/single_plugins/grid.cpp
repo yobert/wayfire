@@ -1,34 +1,191 @@
 #include <output.hpp>
 #include <core.hpp>
+#include <debug.hpp>
 #include <view.hpp>
 #include <workspace-manager.hpp>
 #include <render-manager.hpp>
 #include <algorithm>
 #include <linux/input-event-codes.h>
 #include "signal-definitions.hpp"
+#include <nonstd/make_unique.hpp>
 #include <animation.hpp>
 
 #include "snap_signal.hpp"
+#include "../wobbly/wobbly-signal.hpp"
 
-/* TODO: add support for more than one window animation at a time */
-
-struct sending_signal
+const std::string grid_view_id = "grid-view";
+class wayfire_grid_view : public wf_custom_view_data
 {
-    std::string name;
-    view_maximized_signal *data;
+    wf_duration duration;
+    bool is_active = true;
+
+    wayfire_view view;
+    wayfire_output *output;
+    effect_hook_t pre_hook;
+    signal_callback_t unmapped;
+
+    bool tiled;
+    wf_geometry target, initial;
+    wayfire_grab_interface iface;
+    wf_option animation_type;
+
+    public:
+
+    wayfire_grid_view(wayfire_view view, wayfire_grab_interface iface,
+                      wf_option animation_type, wf_option animation_duration)
+        {
+            this->view = view;
+            this->output = view->get_output();
+            this->iface = iface;
+            this->animation_type = animation_type;
+            duration = wf_duration(animation_duration);
+
+            if (!view->get_output()->activate_plugin(iface))
+            {
+                is_active = false;
+                return;
+            }
+
+            pre_hook = [=] () {
+                adjust_geometry();
+            };
+            output->render->add_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+
+            unmapped = [=] (signal_data *data)
+            {
+                if (get_signaled_view(data) == view)
+                    view->custom_data.erase(grid_view_id);
+            };
+            output->connect_signal("unmap-view", &unmapped);
+            output->connect_signal("detach-view", &unmapped);
+        }
+
+        void destroy()
+        {
+            view->custom_data.erase(grid_view_id);
+        }
+
+        void adjust_target_geometry(wf_geometry geometry, bool tiled)
+        {
+            target = geometry;
+            initial = view->get_wm_geometry();
+            this->tiled = tiled;
+
+            log_info("adjust geometry");
+
+            auto type = animation_type->as_string();
+            if (output->is_plugin_active("wobbly") || !is_active)
+                type = "wobbly";
+
+            if (type == "none")
+            {
+                view->set_maximized(tiled);
+                view->set_geometry(geometry);
+
+                return destroy();
+            }
+
+            if (type == "wobbly")
+            {
+                snap_wobbly(view, geometry);
+                view->set_maximized(tiled);
+                view->set_geometry(geometry);
+
+                if (!tiled) // release snap, so subsequent size changes don't bother us
+                    snap_wobbly(view, geometry, false);
+
+                return destroy();
+            }
+
+            view->set_maximized(1);
+            view->set_moving(1);
+            view->set_resizing(1);
+            duration.start();
+        }
+
+        void adjust_geometry()
+        {
+            log_info("adjust");
+            if (!duration.running())
+            {
+                log_info("direct end %d", tiled);
+                view->set_geometry(target);
+                view->set_maximized(tiled);
+                view->set_moving(0);
+                view->set_resizing(0);
+
+                return destroy();
+            }
+
+            int cx = duration.progress(initial.x, target.x);
+            int cy = duration.progress(initial.y, target.y);
+            int cw = duration.progress(initial.width, target.width);
+            int ch = duration.progress(initial.height, target.height);
+
+            log_info("step %d@%d %dx%d", cx, cy, cw, ch);
+
+            view->set_geometry({cx, cy, cw, ch});
+        }
+
+        ~wayfire_grid_view()
+        {
+            if (!is_active)
+                return;
+
+            output->render->rem_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+            output->deactivate_plugin(iface);
+            output->disconnect_signal("unmap-view", &unmapped);
+            output->disconnect_signal("detach-view", &unmapped);
+        }
 };
-void idle_send_signal(void *data)
+
+wayfire_grid_view *ensure_grid_view(wayfire_view view, wayfire_grab_interface iface,
+                      wf_option animation_type, wf_option animation_duration)
 {
-    auto conv = (sending_signal*) data;
-    conv->data->view->get_output()->emit_signal(conv->name, conv->data);
-    delete conv->data;
-    delete conv;
+    if (view->custom_data.count(grid_view_id))
+        return static_cast<wayfire_grid_view*> (view->custom_data[grid_view_id].get());
+
+    auto saved = nonstd::make_unique<wayfire_grid_view> (view, iface, animation_type, animation_duration);
+    auto ret = saved.get();
+    view->custom_data[grid_view_id] = std::move(saved);
+
+    return ret;
 }
 
-class wayfire_grid : public wayfire_plugin_t {
+const std::string grid_saved_pos_id = "grid-saved-pos";
+class saved_view_geometry : public wf_custom_view_data
+{
+    public:
+    wf_geometry geometry;
+    bool was_maximized; // used by fullscreen-request
+};
 
-    std::map<wayfire_view, wf_geometry> saved_view_geometry;
+bool has_saved_position(wayfire_view view, std::string suffix = "")
+{
+    return view->custom_data.count(grid_saved_pos_id + suffix);
+}
+
+saved_view_geometry *ensure_saved_geometry(wayfire_view view, std::string suffix = "")
+{
+    if (has_saved_position(view, suffix))
+        return static_cast<saved_view_geometry*> (view->custom_data[grid_saved_pos_id + suffix].get());
+
+    auto saved = nonstd::make_unique<saved_view_geometry> ();
+    auto ret = saved.get();
+    view->custom_data[grid_saved_pos_id + suffix] = std::move(saved);
+
+    return ret;
+}
+
+void erase_saved(wayfire_view view, std::string suffix = "")
+{
+    view->custom_data.erase(grid_saved_pos_id + suffix);
+}
+
+class wayfire_grid : public wayfire_plugin_t
+{
     signal_callback_t output_resized_cb, view_destroyed_cb;
+
 
     std::vector<std::string> slots = {"unused", "bl", "b", "br", "l", "c", "r", "tl", "t", "tr"};
     std::vector<std::string> default_keys = {
@@ -46,18 +203,9 @@ class wayfire_grid : public wayfire_plugin_t {
     key_callback bindings[10];
     wf_option keys[10];
 
-    effect_hook_t hook;
-
     signal_callback_t snap_cb, maximized_cb, fullscreen_cb;
 
-    struct {
-        wf_geometry original, target;
-        wayfire_view view;
-        bool maximizing = false, fullscreening = false;
-    } current_view;
-
-    wf_duration animation;
-    wf_option animation_duration;
+    wf_option animation_duration, animation_type;
 
     public:
     void init(wayfire_config *config)
@@ -67,21 +215,17 @@ class wayfire_grid : public wayfire_plugin_t {
 
         auto section = config->get_section("grid");
         animation_duration = section->get_option("duration", "300");
-        animation = wf_duration(animation_duration);
+        animation_type = section->get_option("type", "simple");
 
         for (int i = 1; i < 10; i++) {
             keys[i] = section->get_option("slot_" + slots[i], default_keys[i]);
 
             bindings[i] = [=] (uint32_t key) {
-                auto view = output->get_top_view();
-                if (view && current_view.view == nullptr)
-                    handle_key(view, i);
+                handle_key(output->get_active_view(), i);
             };
 
             output->add_key(keys[i], &bindings[i]);
         }
-
-        hook = std::bind(std::mem_fn(&wayfire_grid::update_pos_size), this);
 
         using namespace std::placeholders;
         snap_cb = std::bind(std::mem_fn(&wayfire_grid::snap_signal_cb), this, _1);
@@ -92,171 +236,80 @@ class wayfire_grid : public wayfire_plugin_t {
 
         fullscreen_cb = std::bind(std::mem_fn(&wayfire_grid::fullscreen_signal_cb), this, _1);
         output->connect_signal("view-fullscreen-request", &fullscreen_cb);
-
-        output_resized_cb = [=] (signal_data*) {
-            saved_view_geometry.clear();
-        };
-        output->connect_signal("output-resized", &output_resized_cb);
-
-        view_destroyed_cb = [=] (signal_data *data)
-        {
-            if (get_signaled_view(data) == current_view.view)
-                stop_animation();
-        };
-
-        output->connect_signal("unmap-view", &view_destroyed_cb);
-        output->connect_signal("detach-view", &view_destroyed_cb);
     }
 
     void handle_key(wayfire_view view, int key)
     {
-        int tx = 0, ty = 0, tw = 0, th = 0; // target dimensions
-        if (slots[key] == "c") {
-            toggle_maximized(view, tx, ty, tw, th);
-        } else {
-            get_slot_dimensions(key, tx, ty, tw, th);
-        }
+        wf_geometry target = get_slot_dimensions(key, output->workspace->get_workarea());
+        bool tiled = true;
 
-        start_animation(view, tx, ty, tw, th);
-        if (slots[key] == "c")
-            current_view.maximizing = view->maximized;
-    }
-
-    bool start_animation(wayfire_view view, int tx, int ty, int tw, int th)
-    {
-        auto impl = output->workspace->
-            get_implementation(output->workspace->get_current_workspace());
-
-        if (!impl->view_movable(view) || !impl->view_resizable(view))
-            return true;
-        if (!output->activate_plugin(grab_interface) || !grab_interface->grab())
+        if (view->maximized && view->get_wm_geometry() == target)
         {
-            output->deactivate_plugin(grab_interface);
-            return false;
-        }
-
-        animation.start();
-        current_view.view = view;
-        current_view.original = view->get_wm_geometry();
-        current_view.target = {tx, ty, tw, th};
-        current_view.maximizing = current_view.fullscreening = false;
-
-        view->set_moving(true);
-        view->set_resizing(true);
-        view->set_geometry(view->get_wm_geometry());
-
-        output->render->auto_redraw(true);
-        output->render->add_effect(&hook, WF_OUTPUT_EFFECT_PRE);
-
-        return true;
-    }
-
-    void update_pos_size()
-    {
-        int cx = animation.progress(current_view.original.x, current_view.target.x);
-        int cy = animation.progress(current_view.original.y, current_view.target.y);
-        int cw = animation.progress(current_view.original.width, current_view.target.width);
-        int ch = animation.progress(current_view.original.height, current_view.target.height);
-        current_view.view->set_geometry({cx, cy, cw, ch});
-
-        if (!animation.running())
-        {
-            current_view.view->set_geometry(current_view.target);
-            current_view.view->set_moving(false);
-            current_view.view->set_resizing(false);
-
-            stop_animation();
-        }
-    }
-
-    void stop_animation()
-    {
-        output->render->auto_redraw(false);
-        output->render->rem_effect(&hook, WF_OUTPUT_EFFECT_PRE);
-
-        grab_interface->ungrab();
-        output->deactivate_plugin(grab_interface);
-
-        check_send_signal(current_view.view, current_view.maximizing, current_view.fullscreening);
-        current_view.view = nullptr;
-    }
-
-    void check_send_signal(wayfire_view view, bool maximizing, bool fullscreening)
-    {
-        if (!fullscreening && !maximizing)
             return;
-
-        auto sig = new sending_signal;
-        sig->data = new view_maximized_signal;
-
-        sig->data->view = view;
-        sig->data->state = true;
-
-        if (fullscreening)
-            sig->name = "view-fullscreen";
-        else
-            sig->name = "view-maximized";
-        wl_event_loop_add_idle(core->ev_loop, idle_send_signal, sig);
-    }
-
-    void toggle_maximized(wayfire_view v, int &x, int &y, int &w, int &h,
-            bool force_maximize = false, bool use_full_area = false)
-    {
-        auto it = saved_view_geometry.find(v);
-        auto g = output->workspace->get_workarea();
-        if (use_full_area)
+        }
+        else if (!has_saved_position(view) && key)
         {
-            g = output->get_full_geometry();
-            g.x = g.y = 0;
+            ensure_saved_geometry(view)->geometry = view->get_wm_geometry();
+        } else if (has_saved_position(view) && key == 0)
+        {
+            tiled = false;
+            target = calculate_restored_geometry(ensure_saved_geometry(view)->geometry);
+            erase_saved(view);
+        } else if (!has_saved_position(view))
+        {
+            return;
         }
 
-        if (it == saved_view_geometry.end() || v->get_wm_geometry() != g ||
-                force_maximize)
-        {
-            saved_view_geometry[v] = v->get_wm_geometry();
-            x = g.x;
-            y = g.y;
-            w = g.width;
-            h = g.height;
-
-            if (!use_full_area)
-                v->set_maximized(true);
-        } else {
-            x = it->second.x;
-            y = it->second.y;
-            w = it->second.width;
-            h = it->second.height;
-
-            saved_view_geometry.erase(it);
-
-            if (!use_full_area)
-                v->set_maximized(false);
-        }
+        auto gv = ensure_grid_view(view, grab_interface, animation_type, animation_duration);
+        gv->adjust_target_geometry(target, tiled);
     }
 
-    void get_slot_dimensions(int n, int &x, int &y, int &w, int &h)
+    /* calculates the target geometry so that it is centered around the pointer */
+    wf_geometry calculate_restored_geometry(wf_geometry base_restored)
     {
-        auto g = output->workspace->get_workarea();
+        GetTuple(cx, cy, output->get_cursor_position());
+        base_restored.x = cx - base_restored.width / 2;
+        base_restored.y = cy - base_restored.height / 2;
 
-        int w2 = g.width / 2;
-        int h2 = g.height / 2;
+        /* if the view goes outside of the workarea, try to move it back inside */
+        auto wa = output->workspace->get_workarea();
+        if (base_restored.x + base_restored.width > wa.x + wa.width)
+            base_restored.x = wa.x + wa.width - base_restored.width;
+        if (base_restored.y + base_restored.height > wa.y + wa.width)
+            base_restored.y = wa.y + wa.height - base_restored.width;
+        if (base_restored.x < wa.x)
+            base_restored.x = wa.x;
+        if (base_restored.y < wa.y)
+            base_restored.y = wa.y;
 
-        if(n == 7)
-            x = g.x, y = g.y, w = w2, h = h2;
-        if(n == 8)
-            x = g.x, y = g.y, w = g.width, h = h2;
-        if(n == 9)
-            x = g.x + w2, y = g.y, w = w2, h = h2;
-        if(n == 4)
-            x = g.x, y = g.y, w = w2, h = g.height;
-        if(n == 6)
-            x = g.x + w2, y = g.y, w = w2, h = g.height;
-        if(n == 1)
-            x = g.x, y = g.y + h2, w = w2, h = h2;
-        if(n == 2)
-            x = g.x, y = g.y + h2, w = g.width, h = h2;
-        if(n == 3)
-            x = g.x + w2, y = g.y + h2, w = w2, h = h2;
+
+        return base_restored;
+    }
+
+    /*
+     * 7 8 9
+     * 4 5 6
+     * 1 2 3
+     * */
+    wf_geometry get_slot_dimensions(int n, wf_geometry area)
+    {
+        if (n == 0) // toggle off slot
+            return {0, 0, 0, 0};
+
+        int w2 = area.width / 2;
+        int h2 = area.height / 2;
+
+        if (n % 3 == 1)
+            area.width = w2;
+        if (n % 3 == 0)
+            area.width = w2, area.x += w2;
+
+        if (n >= 7)
+            area.height = h2;
+        else if (n <= 3)
+            area.height = h2, area.y += h2;
+
+        return area;
     }
 
     void snap_signal_cb(signal_data *ddata)
@@ -268,43 +321,45 @@ class wayfire_grid : public wayfire_plugin_t {
     void maximize_signal_cb(signal_data *ddata)
     {
         auto data = static_cast<view_maximized_signal*> (ddata);
-
-        int x, y, w, h;
-        toggle_maximized(data->view, x, y, w, h, data->state);
-
-        if (current_view.view || !start_animation(data->view, x, y, w, h))
-        {
-            data->view->set_geometry({x, y, w, h});
-            check_send_signal(data->view, data->state, false);
-            return;
-        }
-
-        current_view.maximizing = data->state;
+        handle_key(data->view, data->state ? 5 : 0);
     }
 
     void fullscreen_signal_cb(signal_data *ddata)
     {
         auto data = static_cast<view_fullscreen_signal*> (ddata);
 
-        int x, y, w, h;
-        toggle_maximized(data->view, x, y, w, h, data->state, true);
-
-        if (current_view.view || data->view->fullscreen == data->state ||
-            !start_animation(data->view, x, y, w, h))
+        if (data->state)
         {
-            data->view->set_geometry({x, y, w, h});
-            check_send_signal(data->view, false, data->state);
-            return;
-        }
+            if (!has_saved_position(data->view, "-fs"))
+            {
+                auto sg = ensure_saved_geometry(data->view, "-fs");
+                sg->geometry = data->view->get_wm_geometry();
+                sg->was_maximized = data->view->maximized;
+            }
 
-        current_view.fullscreening = data->state;
+            auto gv = ensure_grid_view(data->view, grab_interface, animation_type, animation_duration);
+            gv->adjust_target_geometry(output->get_relative_geometry(), true);
+
+            data->view->set_fullscreen(true);
+        } else
+        {
+            if (has_saved_position(data->view, "-fs"))
+            {
+                auto sg = ensure_saved_geometry(data->view, "-fs");
+                auto target_geometry = sg->geometry;
+                auto maximized = sg->was_maximized;
+                erase_saved(data->view, "-fs");
+
+                auto gv = ensure_grid_view(data->view, grab_interface, animation_type, animation_duration);
+                gv->adjust_target_geometry(target_geometry, maximized);
+            }
+
+            data->view->set_fullscreen(false);
+        }
     }
 
     void fini()
     {
-        if (current_view.view)
-            stop_animation();
-
         for (int i = 1; i < 10; i++)
             output->rem_key(&bindings[i]);
 
