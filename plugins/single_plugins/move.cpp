@@ -7,6 +7,7 @@
 #include <linux/input.h>
 #include <signal-definitions.hpp>
 #include "snap_signal.hpp"
+#include "../wobbly/wobbly-signal.hpp"
 
 class wayfire_move : public wayfire_plugin_t
 {
@@ -15,13 +16,15 @@ class wayfire_move : public wayfire_plugin_t
     touch_callback touch_activate_binding;
     wayfire_view view;
 
+    wf_option enable_snap, enable_snap_off, snap_threshold, snap_off_threshold;
     bool is_using_touch;
     bool was_client_request;
-    bool enable_snap;
-    int slot;
-    int snap_pixels;
+    bool unsnapped = false; // if the view was maximized or snapped, we wait a little bit before moving the view
+    // while waiting, unsnapped = false
 
-    int prev_x, prev_y;
+    int slot;
+    wf_geometry initial_geometry;
+    wf_point initial_cursor;
 
     public:
         void init(wayfire_config *config)
@@ -59,8 +62,10 @@ class wayfire_move : public wayfire_plugin_t
             output->add_button(button, &activate_binding);
             output->add_touch(button->as_button().mod, &touch_activate_binding);
 
-            enable_snap = int(*section->get_option("enable_snap", "1"));
-            snap_pixels = *section->get_option("snap_threshold", "2");
+            enable_snap = section->get_option("enable_snap", "1");
+            enable_snap_off = section->get_option("enable_snap_off", "1");
+            snap_threshold = section->get_option("snap_threshold", "2");
+            snap_off_threshold = section->get_option("snap_off_threshold", "0");
 
             using namespace std::placeholders;
             grab_interface->callbacks.pointer.button =
@@ -143,22 +148,23 @@ class wayfire_move : public wayfire_plugin_t
                 return;
             }
 
-            prev_x = sx;
-            prev_y = sy;
+            unsnapped = !view->maximized;
+            initial_geometry = view->get_wm_geometry();
+            initial_cursor = {sx, sy};
 
             output->bring_to_front(view);
-            if (view->maximized)
-                view->maximize_request(false);
-            if (view->fullscreen)
-                view->fullscreen_request(view->get_output(), false);
-
-            view->set_moving(true);
-
             if (enable_snap)
                 slot = 0;
 
             this->view = view;
             output->render->auto_redraw(true);
+
+            start_wobbly(view, sx, sy);
+            if (!unsnapped)
+            {
+                log_info("snap wobbly");
+                snap_wobbly(view, view->get_output_geometry());
+            }
         }
 
         void input_pressed(uint32_t state)
@@ -175,12 +181,14 @@ class wayfire_move : public wayfire_plugin_t
                 if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
                     return;
 
+                end_wobbly(view);
+
                 view->set_moving(false);
-                if (enable_snap && slot != 0) {
+                if (enable_snap && slot != 0)
+                {
                     snap_signal data;
                     data.view = view;
                     data.tslot = (slot_type)slot;
-
                     output->emit_signal("view-snap", &data);
                 }
             }
@@ -188,12 +196,16 @@ class wayfire_move : public wayfire_plugin_t
 
         int calc_slot()
         {
-            auto g = output->get_full_geometry();
+            GetTuple(x, y, output->get_cursor_position());
+            auto g = output->workspace->get_workarea();
 
-            bool is_left = std::abs(prev_x) <= snap_pixels;
-            bool is_right = std::abs(g.width - prev_x) <= snap_pixels;
-            bool is_top = std::abs(prev_y) < snap_pixels;
-            bool is_bottom = std::abs(g.height - prev_y) < snap_pixels;
+            if (!point_inside({x, y}, output->get_relative_geometry()))
+                return 0;
+
+            bool is_left = x - g.x <= snap_threshold->as_cached_int();
+            bool is_right = g.x + g.width - x <= snap_threshold->as_cached_int();
+            bool is_top = y - g.y < snap_threshold->as_cached_int();
+            bool is_bottom = g.x + g.height - y < snap_threshold->as_cached_int();
 
             if (is_left && is_top)
                 return SLOT_TL;
@@ -217,13 +229,36 @@ class wayfire_move : public wayfire_plugin_t
 
         void input_motion(int x, int y)
         {
-            auto vg = view->get_wm_geometry();
-            view->move(vg.x + x - prev_x, vg.y + y - prev_y);
-            prev_x = x;
-            prev_y = y;
+            move_wobbly(view, x, y);
+
+            int dx = x - initial_cursor.x;
+            int dy = y - initial_cursor.y;
+
+            if (std::sqrt(dx * dx + dy * dy) >= snap_off_threshold->as_cached_int() && !unsnapped && enable_snap_off->as_int())
+            {
+                unsnapped = 1;
+                if (view->fullscreen)
+                    view->fullscreen_request(view->get_output(), false);
+                if (view->maximized)
+                    view->maximize_request(false);
+
+
+                /* view geometry might change after unmaximize/unfullscreen, so update position */
+                initial_geometry = view->get_wm_geometry();
+
+                snap_wobbly(view, {}, false);
+                view->set_moving(true);
+            }
+
+            log_info("got here, unsnapped is %d", unsnapped);
+            if (!unsnapped)
+                return;
+
+            view->move(initial_geometry.x + dx, initial_geometry.y + dy);
 
             GetTuple(global_x, global_y, core->get_cursor_position());
             auto target_output = core->get_output_at(global_x, global_y);
+
             if (target_output != output)
             {
                 move_request_signal req;
