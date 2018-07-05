@@ -10,6 +10,7 @@
 #include <animation.hpp>
 #include <set>
 #include "view-change-viewport-signal.hpp"
+#include "../wobbly/wobbly-signal.hpp"
 
 
 #define MAX_DIRS_IN_QUEUE 4
@@ -31,26 +32,35 @@ class vswitch : public wayfire_plugin_t
         std::queue<switch_direction> dirs; // series of moves we have to do
 
         wf_duration duration;
-        wf_option animation_duration;
+        wf_option animation_duration, use_wobbly;
 
         bool running = false;
         effect_hook_t hook;
 
     public:
 
-    void init(wayfire_config *config) {
+    wayfire_view get_top_view()
+    {
+        auto ws = output->workspace->get_current_workspace();
+        auto views = output->workspace->get_views_on_workspace(ws, WF_LAYER_WORKSPACE, true);
+
+        return views.empty() ? nullptr : views[0];
+    }
+
+    void init(wayfire_config *config)
+    {
         grab_interface->name = "vswitch";
         grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
 
-        callback_left = [=] (uint32_t) { add_direction(-1, 0); };
-        callback_right = [=] (uint32_t) { add_direction(1, 0); };
-        callback_up = [=] (uint32_t) { add_direction(0, -1); };
-        callback_down = [=] (uint32_t) { add_direction(0, 1); };
+        callback_left  = [=] (uint32_t) { add_direction(-1,  0); };
+        callback_right = [=] (uint32_t) { add_direction( 1,  0); };
+        callback_up    = [=] (uint32_t) { add_direction( 0, -1); };
+        callback_down  = [=] (uint32_t) { add_direction( 0,  1); };
 
-        callback_win_left = [=] (uint32_t) { add_direction(-1, 0, output->get_top_view()); };
-        callback_win_right = [=] (uint32_t) { add_direction(1, 0, output->get_top_view()); };
-        callback_win_up = [=] (uint32_t) { add_direction(0, -1, output->get_top_view()); };
-        callback_win_down = [=] (uint32_t) { add_direction(0, 1, output->get_top_view()); };
+        callback_win_left  = [=] (uint32_t) { add_direction(-1,  0, get_top_view()); };
+        callback_win_right = [=] (uint32_t) { add_direction( 1,  0, get_top_view()); };
+        callback_win_up    = [=] (uint32_t) { add_direction( 0, -1, get_top_view()); };
+        callback_win_down  = [=] (uint32_t) { add_direction( 0,  1, get_top_view()); };
 
         auto section   = config->get_section("vswitch");
         auto key_left  = section->get_option("binding_left",  "<super> KEY_LEFT");
@@ -86,7 +96,7 @@ class vswitch : public wayfire_plugin_t
         activation_gesture.type = GESTURE_SWIPE;
 
         gesture_cb = [=] (wayfire_touch_gesture *gesture) {
-            if (gesture->direction & GESTURE_DIRECTION_UP)
+             if (gesture->direction & GESTURE_DIRECTION_UP)
                 add_direction(0, 1);
             if (gesture->direction & GESTURE_DIRECTION_DOWN)
                 add_direction(0, -1);
@@ -99,10 +109,16 @@ class vswitch : public wayfire_plugin_t
 
         animation_duration = section->get_option("duration", "180");
         duration = wf_duration(animation_duration);
+
+        use_wobbly = section->get_option("use_wobbly", "0");
         hook = std::bind(std::mem_fn(&vswitch::slide_update), this);
     }
 
-    void add_direction(int dx, int dy, wayfire_view view = nullptr) {
+    void add_direction(int dx, int dy, wayfire_view view = nullptr)
+    {
+        if (view && view->role != WF_VIEW_ROLE_TOPLEVEL)
+            view = nullptr;
+
         if (!running)
             dirs.push({0, 0, view});
 
@@ -119,7 +135,9 @@ class vswitch : public wayfire_plugin_t
 
     struct animating_view {
         wayfire_view v;
+        wf_geometry bounding_box;
         int ox, oy;
+        int anchor_x, anchor_y;
     };
     std::vector<animating_view> views;
 
@@ -128,7 +146,11 @@ class vswitch : public wayfire_plugin_t
         float dx = duration.progress(sx, tx);
         float dy = duration.progress(sy, ty);
         for (auto v : views)
+        {
             v.v->move(v.ox + dx, v.oy + dy);
+            if (use_wobbly->as_cached_int() || v.v->get_transformer("wobbly"))
+                move_wobbly(v.v, v.anchor_x + dx, v.anchor_y + dy);
+        }
 
         if (!duration.running())
             slide_done();
@@ -145,20 +167,29 @@ class vswitch : public wayfire_plugin_t
 
         vx += dx;
         vy += dy;
+        auto output_g = output->get_relative_geometry();
 
         for (auto v : views)
         {
             v.v->move(v.ox, v.oy);
             v.v->set_moving(false);
+
+            if (use_wobbly->as_cached_int() || v.v->get_transformer("wobbly"))
+            {
+                end_wobbly(v.v);
+                translate_wobbly(v.v, dx * output_g.width, dy * output_g.height);
+            }
         }
 
         output->workspace->set_workspace(std::make_tuple(vx, vy));
-
-        auto output_g = output->get_relative_geometry();
         if (front.view)
         {
             front.view->move(front.view->get_wm_geometry().x + dx * output_g.width,
                              front.view->get_wm_geometry().y + dy * output_g.height);
+
+            if (use_wobbly->as_cached_int() || front.view->get_transformer("wobbly"))
+                translate_wobbly(front.view, dx * output_g.width, dy * output_g.height);
+
             output->focus_view(front.view);
 
             view_change_viewport_signal data;
@@ -167,6 +198,12 @@ class vswitch : public wayfire_plugin_t
             data.to = output->workspace->get_current_workspace();
 
             output->emit_signal("view-change-viewport", &data);
+        }
+
+        for (auto v : views)
+        {
+            if (use_wobbly->as_cached_int() || v.v->get_transformer("wobbly"))
+                snap_wobbly(v.v, v.bounding_box + wf_point{-dx * output_g.width, -dy * output_g.height});
         }
 
         views.clear();
@@ -186,7 +223,8 @@ class vswitch : public wayfire_plugin_t
         ty = -dy * sh;
 
         GetTuple(vwidth, vheight, output->workspace->get_workspace_grid_size());
-        if (vx + dx < 0 || vx + dx >= vwidth || vy + dy < 0 || vy + dy >= vheight) {
+        if (vx + dx < 0 || vx + dx >= vwidth || vy + dy < 0 || vy + dy >= vheight)
+        {
             stop_switch();
             return;
         }
@@ -194,7 +232,7 @@ class vswitch : public wayfire_plugin_t
         auto current_views = output->workspace->get_views_on_workspace(
                 output->workspace->get_current_workspace(), WF_WM_LAYERS, false);
         auto next_views =
-                output->workspace->get_views_on_workspace(std::make_tuple(vx + dx, vy + dy), WF_WM_LAYERS, false);
+            output->workspace->get_views_on_workspace(std::make_tuple(vx + dx, vy + dy), WF_WM_LAYERS, false);
 
         std::set<wayfire_view> views_to_move;
 
@@ -203,11 +241,26 @@ class vswitch : public wayfire_plugin_t
         for (auto view : next_views)
             views_to_move.insert(view);
 
-        for (auto view : views_to_move) {
+        for (auto view : views_to_move)
+        {
             if (view->is_mapped() && !view->destroyed && view != static_view)
             {
                 view->set_moving(true);
-                views.push_back({view, view->get_wm_geometry().x, view->get_wm_geometry().y});
+                animating_view av;
+                av.v = view;
+
+                av.bounding_box = view->get_output_geometry();
+                av.anchor_x = av.bounding_box.x;// + av.bounding_box.width / 2;
+                av.anchor_y = av.bounding_box.y;// + av.bounding_box.height / 2;
+
+                if (use_wobbly->as_cached_int() || view->get_transformer("wobbly"))
+                    start_wobbly(view, av.anchor_x, av.anchor_y);
+
+                auto wm = view->get_wm_geometry();
+                av.ox = wm.x;
+                av.oy = wm.y;
+
+                views.push_back(av);
             }
         }
 
@@ -218,7 +271,7 @@ class vswitch : public wayfire_plugin_t
 
     bool start_switch()
     {
-        if (!output->activate_plugin(grab_interface)) {
+        if (false && !output->activate_plugin(grab_interface)) {
             dirs = std::queue<switch_direction> ();
             return false;
         }
