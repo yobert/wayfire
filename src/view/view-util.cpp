@@ -68,10 +68,10 @@ bool point_inside(wf_point point, wf_geometry rect)
     if(point.x < rect.x || point.y < rect.y)
         return false;
 
-    if(point.x > rect.x + rect.width)
+    if(point.x >= rect.x + rect.width)
         return false;
 
-    if(point.y > rect.y + rect.height)
+    if(point.y >= rect.y + rect.height)
         return false;
 
     return true;
