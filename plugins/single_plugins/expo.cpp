@@ -11,6 +11,7 @@
 /* TODO: this file should be included in some header maybe(plugin.hpp) */
 #include <linux/input-event-codes.h>
 #include "view-change-viewport-signal.hpp"
+#include "../wobbly/wobbly-signal.hpp"
 
 
 class wayfire_expo : public wayfire_plugin_t
@@ -189,7 +190,7 @@ class wayfire_expo : public wayfire_plugin_t
 
     int sx, sy;
     wayfire_view moving_view;
-    void handle_input_move(wl_fixed_t x, wl_fixed_t y)
+    void handle_input_move(int x, int y)
     {
         int cx = x;
         int cy = y;
@@ -215,6 +216,7 @@ class wayfire_expo : public wayfire_plugin_t
 
         auto g = moving_view->get_wm_geometry();
         moving_view->move(g.x + (cx - sx) * max, g.y + (cy - sy) * max);
+        move_wobbly(moving_view, global_x, global_y);
 
         sx = cx;
         sy = cy;
@@ -235,6 +237,10 @@ class wayfire_expo : public wayfire_plugin_t
 
         moving_view->set_moving(true);
 
+        input_coordinates_to_global_coordinates(x, y);
+        snap_wobbly(moving_view, {}, false);
+        start_wobbly(moving_view, x, y);
+
         if (moving_view->fullscreen)
             moving_view->fullscreen_request(moving_view->get_output(), false);
     }
@@ -252,6 +258,7 @@ class wayfire_expo : public wayfire_plugin_t
 
             output->emit_signal("view-change-viewport", &data);
             moving_view->set_moving(false);
+            end_wobbly(moving_view);
         }
     }
     void input_coordinates_to_global_coordinates(int &sx, int &sy)
