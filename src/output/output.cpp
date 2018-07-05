@@ -218,7 +218,7 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
 void wayfire_output::refocus(wayfire_view skip_view, uint32_t layers)
 {
     wayfire_view next_focus = nullptr;
-    auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(), layers);
+    auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(), layers, true);
 
     for (auto v : views)
     {
@@ -412,7 +412,7 @@ void wayfire_output::detach_view(wayfire_view v)
 
     wayfire_view next = nullptr;
     auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(),
-                                                   WF_WM_LAYERS);
+                                                   WF_WM_LAYERS, true);
     for (auto wview : views)
     {
         if (wview->is_mapped())

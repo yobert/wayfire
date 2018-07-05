@@ -83,7 +83,7 @@ class viewport_manager : public workspace_manager
         bool view_visible_on(wayfire_view, std::tuple<int, int>);
 
         std::vector<wayfire_view>
-            get_views_on_workspace(std::tuple<int, int> ws, uint32_t layer_mask);
+            get_views_on_workspace(std::tuple<int, int> ws, uint32_t layer_mask, bool wm_only);
         void for_each_view(view_callback_proc_t call, uint32_t layers_mask);
         void for_each_view_reverse(view_callback_proc_t call, uint32_t layers_mask);
 
@@ -293,7 +293,7 @@ void viewport_manager::set_workspace(std::tuple<int, int> nPos)
 
     if (nx == vx && ny == vy)
     {
-        auto views = get_views_on_workspace(std::make_tuple(vx, vy), WF_WM_LAYERS);
+        auto views = get_views_on_workspace(std::make_tuple(vx, vy), WF_WM_LAYERS, true);
         if (views.size() >= 1)
             output->focus_view(views[0]);
         return;
@@ -323,7 +323,7 @@ void viewport_manager::set_workspace(std::tuple<int, int> nPos)
     output->focus_view(nullptr);
     /* we iterate through views on current viewport from bottom to top
      * that way we ensure that they will be focused befor all others */
-    auto views = get_views_on_workspace(std::make_tuple(vx, vy), WF_WM_LAYERS);
+    auto views = get_views_on_workspace(std::make_tuple(vx, vy), WF_WM_LAYERS, true);
     auto it = views.rbegin();
     while(it != views.rend()) {
         if ((*it)->is_mapped() && !(*it)->destroyed)
@@ -336,7 +336,7 @@ void viewport_manager::set_workspace(std::tuple<int, int> nPos)
 
 std::vector<wayfire_view>
 viewport_manager::get_views_on_workspace(std::tuple<int, int> vp,
-                                         uint32_t layers_mask)
+                                         uint32_t layers_mask, bool wm_only)
 {
 
     std::vector<wayfire_view> views;
@@ -346,8 +346,16 @@ viewport_manager::get_views_on_workspace(std::tuple<int, int> vp,
         if ((1 << i) & layers_mask)
         {
             for (auto v : layers[i])
-                if (view_visible_on(v, vp))
+            {
+                if (wm_only && rect_intersect(output->get_relative_geometry(), v->get_wm_geometry()))
+                {
                     views.push_back(v);
+                }
+                else if (!wm_only && view_visible_on(v, vp))
+                {
+                    views.push_back(v);
+                }
+            }
         }
     }
 
@@ -482,7 +490,7 @@ void viewport_manager::update_output_geometry()
 
 void viewport_manager::check_lower_panel_layer(int base)
 {
-    auto views = get_views_on_workspace(get_current_workspace(), WF_WM_LAYERS);
+    auto views = get_views_on_workspace(get_current_workspace(), WF_WM_LAYERS, true);
 
     int cnt_fullscreen = base;
     for (auto v : views)

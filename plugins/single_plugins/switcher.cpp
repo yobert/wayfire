@@ -217,7 +217,7 @@ class view_switcher : public wayfire_plugin_t
         start_fold();
 
         auto bgl = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace(),
-                                                            WF_LAYER_BACKGROUND);
+                                                            WF_LAYER_BACKGROUND, true);
         if (bgl.size())
         {
             auto bg = bgl[0];
@@ -329,7 +329,8 @@ class view_switcher : public wayfire_plugin_t
     void update_views()
     {
         current_view_index = 0;
-        views = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace(), WF_LAYER_WORKSPACE);
+        views = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace(),
+                                                          WF_LAYER_WORKSPACE, true);
     }
 
     void update_transforms()
@@ -677,7 +678,7 @@ class view_switcher : public wayfire_plugin_t
         output->deactivate_plugin(grab_interface);
 
         auto bgl = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace(),
-                                                            WF_LAYER_BACKGROUND);
+                                                            WF_LAYER_BACKGROUND, true);
         if (bgl.size())
         {
             auto bg = bgl[0];

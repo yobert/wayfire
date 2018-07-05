@@ -413,7 +413,7 @@ void render_manager::post_paint()
     } else
     {
         auto views = output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), WF_ALL_LAYERS);
+            output->workspace->get_current_workspace(), WF_ALL_LAYERS, false);
 
         for (auto v : views)
             send_frame_done(v);
@@ -603,7 +603,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
                                    sw, sh);
     }
 
-    auto views = output->workspace->get_views_on_workspace(stream->ws, WF_ALL_LAYERS);
+    auto views = output->workspace->get_views_on_workspace(stream->ws, WF_ALL_LAYERS, false);
 
     struct damaged_surface_t
     {
