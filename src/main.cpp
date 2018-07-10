@@ -125,9 +125,9 @@ int main(int argc, char *argv[])
     */
 
 #ifdef WAYFIRE_DEBUG_ENABLED
-    wlr_log_init(L_DEBUG, NULL);
+    wlr_log_init(WLR_DEBUG, NULL);
 #else
-    wlr_log_init(L_ERROR, NULL);
+    wlr_log_init(WLR_ERROR, NULL);
 #endif
 
     std::string home_dir = secure_getenv("HOME");

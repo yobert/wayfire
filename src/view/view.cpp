@@ -69,19 +69,11 @@ bool wayfire_view_t::update_size()
     assert(surface);
 
     int old_w = geometry.width, old_h = geometry.height;
-    int width = surface->current->width, height = surface->current->height;
-
-    if (surface->current)
+    int width = surface->current.width, height = surface->current.height;
+    if (geometry.width != width || geometry.height != height)
     {
-        if (geometry.width != width || geometry.height != height)
-        {
-            adjust_anchored_edge(width, height);
-            wayfire_view_t::resize(width, height, true);
-        }
-    } else
-    {
-	    geometry.width = 0;
-	    geometry.height = 0;
+        adjust_anchored_edge(width, height);
+        wayfire_view_t::resize(width, height, true);
     }
 
     return geometry.width != old_w || geometry.height != old_h;
@@ -400,7 +392,7 @@ void wayfire_view_t::take_snapshot()
     offscreen_buffer.output_x = buffer_geometry.x;
     offscreen_buffer.output_y = buffer_geometry.y;
 
-    int scale = surface->current->scale;
+    int scale = surface->current.scale;
     if (buffer_geometry.width * scale != offscreen_buffer.fb_width
         || buffer_geometry.height * scale != offscreen_buffer.fb_height
         || offscreen_buffer.fb_scale != scale)

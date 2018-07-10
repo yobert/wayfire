@@ -327,7 +327,7 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
          * an incorrect output. However, no matter how we calculate the real
          * output, we just can't be 100% compatible because in X all windows are
          * positioned in a global coordinate space */
-        auto wo = core->get_output_at(xw->x + surface->current->width / 2, xw->y + surface->current->height / 2);
+        auto wo = core->get_output_at(xw->x + surface->current.width / 2, xw->y + surface->current.height / 2);
 
         if (!wo)
         {

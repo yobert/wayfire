@@ -679,6 +679,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
                 if (ds->surface->alpha >= 0.999f)
                 {
+                    /* TODO: wrong, we should transform opaque as well */
                     pixman_region32_t opaque;
                     pixman_region32_init(&opaque);
                     //pixman_region32_copy(&opaque, &surface->surface->current->opaque);

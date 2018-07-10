@@ -110,8 +110,9 @@ bool wayfire_surface_t::is_subsurface()
 
 void wayfire_surface_t::get_child_position(int &x, int &y)
 {
-    x = surface->current->subsurface_position.x;
-    y = surface->current->subsurface_position.y;
+    auto sub = wlr_subsurface_from_wlr_surface(surface);
+    x = sub->current.x;
+    y = sub->current.y;
 }
 
 void wayfire_surface_t::get_child_offset(int &x, int &y)
@@ -139,8 +140,8 @@ wf_geometry wayfire_surface_t::get_output_geometry()
     auto pos = get_output_position();
     return {
         pos.x, pos.y,
-        surface->current ? surface->current->width : 0,
-        surface->current ? surface->current->height : 0
+        surface->current.width,
+        surface->current.height
     };
 }
 
@@ -249,10 +250,15 @@ void wayfire_surface_t::apply_surface_damage(int x, int y)
 {
     pixman_region32_t dmg;
     pixman_region32_init(&dmg);
-    pixman_region32_copy(&dmg, &surface->current->surface_damage);
-    pixman_region32_translate(&dmg, x, y);
+    pixman_region32_copy(&dmg, &surface->buffer_damage);
 
-    /* TODO: transform damage */
+    wl_output_transform transform = wlr_output_transform_invert(surface->current.transform);
+    wlr_region_transform(&dmg, &dmg, transform, surface->current.buffer_width, surface->current.buffer_height);
+    wlr_region_scale(&dmg, &dmg, output->handle->scale / (float)surface->current.scale);
+    if (ceil(output->handle->scale) > surface->current.scale)
+        wlr_region_expand(&dmg, &dmg, ceil(output->handle->scale) - surface->current.scale);
+
+    pixman_region32_translate(&dmg, x, y);
     damage(&dmg);
     pixman_region32_fini(&dmg);
 }
@@ -334,8 +340,8 @@ void wayfire_surface_t::render_fbo(int x, int y, int fb_w, int fb_h,
     wlr_box fb_geometry;
 
     fb_geometry.x = x; fb_geometry.y = y;
-    fb_geometry.width = surface->current->width;
-    fb_geometry.height = surface->current->height;
+    fb_geometry.width = surface->current.width;
+    fb_geometry.height = surface->current.height;
 
     float id[9];
     wlr_matrix_projection(id, fb_w, fb_h, WL_OUTPUT_TRANSFORM_NORMAL);
@@ -354,7 +360,7 @@ void wayfire_surface_t::render(int x, int y, wlr_box *damage)
     if (!get_buffer())
         return;
 
-    wlr_box geometry {x, y, surface->current->width, surface->current->height};
+    wlr_box geometry {x, y, surface->current.width, surface->current.height};
     geometry = get_output_box_from_box(geometry, output->handle->scale);
 
     if (!damage) damage = &geometry;
@@ -362,7 +368,7 @@ void wayfire_surface_t::render(int x, int y, wlr_box *damage)
     auto rr = core->renderer;
     float matrix[9];
     wlr_matrix_project_box(matrix, &geometry,
-                           surface->current->transform,
+                           surface->current.transform,
                            0, output->handle->transform_matrix);
 
     auto box = get_scissor_box(output, *damage);
