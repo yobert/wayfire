@@ -191,6 +191,12 @@ void viewport_manager::add_view_to_layer(wayfire_view view, uint32_t layer)
     if (current_layer == layer)
         return;
 
+    if (layer == (uint32_t)-1 && current_layer == 0)
+    {
+        log_error ("trying to bring_to_front a view without a layer!");
+        return;
+    }
+
     if (layer == (uint32_t)-1)
         layer = current_layer;
 
