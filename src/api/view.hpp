@@ -100,6 +100,8 @@ class wayfire_surface_t
         virtual void destruct() { delete this; }
         virtual bool is_mapped() { return surface; }
 
+        virtual wlr_buffer *get_buffer();
+
         int keep_count = 0;
         bool destroyed = false;
 

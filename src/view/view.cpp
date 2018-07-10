@@ -391,7 +391,7 @@ void wayfire_view_t::offscreen_buffer_t::fini()
 
 void wayfire_view_t::take_snapshot()
 {
-    if (!is_mapped() || !wlr_surface_has_buffer(surface))
+    if (!get_buffer())
         return;
 
     wlr_renderer_begin(core->renderer, output->handle->width, output->handle->height);

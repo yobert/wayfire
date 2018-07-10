@@ -189,6 +189,15 @@ void wayfire_surface_t::unmap()
     if (destroy.notify)
         wl_list_remove(&destroy.link);
 }
+
+wlr_buffer* wayfire_surface_t::get_buffer()
+{
+    if (surface && wlr_surface_has_buffer(surface))
+        return surface->buffer;
+
+    return nullptr;
+}
+
 void wayfire_surface_t::inc_keep_count()
 {
     ++keep_count;
@@ -318,7 +327,7 @@ void wayfire_surface_t::for_each_surface(wf_surface_iterator_callback call, bool
 void wayfire_surface_t::render_fbo(int x, int y, int fb_w, int fb_h,
                                    pixman_region32_t *damage)
 {
-    if (!is_mapped() || !wlr_surface_has_buffer(surface))
+    if (!get_buffer())
         return;
 
     /* TODO: optimize, use offscreen_buffer.cached_damage */
@@ -337,12 +346,12 @@ void wayfire_surface_t::render_fbo(int x, int y, int fb_w, int fb_h,
     wlr_matrix_scale(matrix, 1.0 / fb_geometry.width, 1.0 / fb_geometry.height);
 
     wlr_renderer_scissor(core->renderer, NULL);
-    wlr_render_texture(core->renderer, surface->buffer->texture, matrix, 0, 0, 1.0f);
+    wlr_render_texture(core->renderer, get_buffer()->texture, matrix, 0, 0, 1.0f);
 }
 
 void wayfire_surface_t::render(int x, int y, wlr_box *damage)
 {
-    if (!wlr_surface_has_buffer(surface))
+    if (!get_buffer())
         return;
 
     wlr_box geometry {x, y, surface->current->width, surface->current->height};
@@ -358,7 +367,7 @@ void wayfire_surface_t::render(int x, int y, wlr_box *damage)
 
     auto box = get_scissor_box(output, *damage);
     wlr_renderer_scissor(rr, &box);
-    wlr_render_texture_with_matrix(rr, surface->buffer->texture, matrix, alpha);
+    wlr_render_texture_with_matrix(rr, get_buffer()->texture, matrix, alpha);
 
 #ifdef WAYFIRE_GRAPHICS_DEBUG
     float proj[9];
