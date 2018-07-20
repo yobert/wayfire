@@ -254,9 +254,8 @@ void wayfire_surface_t::apply_surface_damage(int x, int y)
 
     wl_output_transform transform = wlr_output_transform_invert(surface->current.transform);
     wlr_region_transform(&dmg, &dmg, transform, surface->current.buffer_width, surface->current.buffer_height);
-    wlr_region_scale(&dmg, &dmg, output->handle->scale / (float)surface->current.scale);
-    if (ceil(output->handle->scale) > surface->current.scale)
-        wlr_region_expand(&dmg, &dmg, ceil(output->handle->scale) - surface->current.scale);
+    float scale = 1.0 / (float)surface->current.scale;
+    wlr_region_scale(&dmg, &dmg, scale);
 
     pixman_region32_translate(&dmg, x, y);
     damage(&dmg);
@@ -340,8 +339,8 @@ void wayfire_surface_t::render_fbo(int x, int y, int fb_w, int fb_h,
     wlr_box fb_geometry;
 
     fb_geometry.x = x; fb_geometry.y = y;
-    fb_geometry.width = surface->current.width;
-    fb_geometry.height = surface->current.height;
+    fb_geometry.width = geometry.width * output->handle->scale;
+    fb_geometry.height = geometry.height * output->handle->scale;
 
     float id[9];
     wlr_matrix_projection(id, fb_w, fb_h, WL_OUTPUT_TRANSFORM_NORMAL);
@@ -349,7 +348,8 @@ void wayfire_surface_t::render_fbo(int x, int y, int fb_w, int fb_h,
     float matrix[9];
     wlr_matrix_project_box(matrix, &fb_geometry, WL_OUTPUT_TRANSFORM_NORMAL, 0, id);
 
-    wlr_matrix_scale(matrix, 1.0 / fb_geometry.width, 1.0 / fb_geometry.height);
+    wlr_matrix_scale(matrix, 1.0 / fb_geometry.width / surface->current.scale,
+                             1.0 / fb_geometry.height/ surface->current.scale);
 
     wlr_renderer_scissor(core->renderer, NULL);
     wlr_render_texture(core->renderer, get_buffer()->texture, matrix, 0, 0, 1.0f);

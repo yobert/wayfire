@@ -284,7 +284,7 @@ void render_manager::paint()
 
     bool needs_swap;
     if (!output_damage->make_current(&frame_damage, needs_swap) || !needs_swap)
-        if (!constant_redraw && false)
+        if (!constant_redraw)
             return;
 
     pixman_region32_t swap_damage;
