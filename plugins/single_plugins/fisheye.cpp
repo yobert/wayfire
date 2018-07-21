@@ -142,6 +142,7 @@ class wayfire_fisheye : public wayfire_plugin_t
                         {
                             hook_set = true;
                             output->render->add_post(&hook);
+                            output->render->auto_redraw(true);
                         }
                     }
             };
@@ -222,6 +223,7 @@ class wayfire_fisheye : public wayfire_plugin_t
         void finalize()
         {
             output->render->rem_post(&hook);
+            output->render->auto_redraw(false);
             hook_set = false;
         }
 

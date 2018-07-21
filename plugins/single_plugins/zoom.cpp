@@ -61,6 +61,7 @@ class wayfire_zoom_screen : public wayfire_plugin_t
                 {
                     hook_set = true;
                     output->render->add_post(&hook);
+                    output->render->auto_redraw(true);
                 }
             }
         }
@@ -93,6 +94,7 @@ class wayfire_zoom_screen : public wayfire_plugin_t
 
             if (!duration.running() && current_zoom - 1 <= 0.01)
             {
+                output->render->auto_redraw(false);
                 output->render->rem_post(&hook);
                 hook_set = false;
             }
