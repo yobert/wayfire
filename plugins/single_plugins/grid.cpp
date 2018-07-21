@@ -56,6 +56,8 @@ class wayfire_grid_view : public wf_custom_view_data
                 if (get_signaled_view(data) == view)
                     view->custom_data.erase(grid_view_id);
             };
+
+            output->render->auto_redraw(true);
             output->connect_signal("unmap-view", &unmapped);
             output->connect_signal("detach-view", &unmapped);
         }
@@ -134,6 +136,7 @@ class wayfire_grid_view : public wf_custom_view_data
 
             output->render->rem_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
             output->deactivate_plugin(iface);
+            output->render->auto_redraw(false);
             output->disconnect_signal("unmap-view", &unmapped);
             output->disconnect_signal("detach-view", &unmapped);
         }
@@ -221,7 +224,11 @@ class wayfire_grid : public wayfire_plugin_t
             keys[i] = section->get_option("slot_" + slots[i], default_keys[i]);
 
             bindings[i] = [=] (uint32_t key) {
-                handle_key(output->get_active_view(), i);
+                auto view = output->get_active_view();
+                if (view->role != WF_VIEW_ROLE_TOPLEVEL)
+                    return;
+
+                handle_key(view, i);
             };
 
             output->add_key(keys[i], &bindings[i]);
