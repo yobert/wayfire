@@ -7,6 +7,7 @@
 
 #include "debug-func.hpp"
 #include <config.hpp>
+#include "main.hpp"
 
 extern "C"
 {
@@ -21,6 +22,8 @@ extern "C"
 
 #include "core.hpp"
 #include "output.hpp"
+
+wf_runtime_config runtime_config;
 
 static wl_listener output_created;
 void output_created_cb (wl_listener*, void *data)
@@ -134,17 +137,21 @@ int main(int argc, char *argv[])
     config_file = home_dir + "/.config/wayfire.ini";
 
     struct option opts[] = {
-        { "config",   required_argument, NULL, 'c' },
-        { 0,          0,                 NULL,  0  }
+        { "config",       required_argument, NULL, 'c' },
+        { "damage-debug", no_argument,       NULL, 'd' },
+        { 0,              0,                 NULL,  0  }
     };
 
     int c, i;
-    while((c = getopt_long(argc, argv, "c:", opts, &i)) != -1)
+    while((c = getopt_long(argc, argv, "c:d", opts, &i)) != -1)
     {
         switch(c)
         {
             case 'c':
                 config_file = optarg;
+                break;
+            case 'd':
+                runtime_config.damage_debug = true;
                 break;
             default:
                 log_error("unrecognized command line argument %s", optarg);

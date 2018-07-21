@@ -5,6 +5,7 @@
 #include "../core/seat/input-manager.hpp"
 #include "opengl.hpp"
 #include "debug.hpp"
+#include "../main.hpp"
 #include <algorithm>
 
 extern "C"
@@ -290,11 +291,21 @@ void render_manager::paint()
     pixman_region32_t swap_damage;
     pixman_region32_init(&swap_damage);
 
+    int w, h;
+    wlr_output_transformed_resolution(output->handle, &w, &h);
+
     auto rr = wlr_backend_get_renderer(core->backend);
     wlr_renderer_begin(rr, output->handle->width, output->handle->height);
 
-    int w, h;
-    wlr_output_transformed_resolution(output->handle, &w, &h);
+    if (runtime_config.damage_debug)
+    {
+        pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0,
+                              output->handle->width, output->handle->height);
+
+        float color[] = {1, 1, 0, 1};
+        wlr_renderer_scissor(core->renderer, NULL);
+        wlr_renderer_clear(core->renderer, color);
+    }
 
     if (dirty_context)
         load_context();
