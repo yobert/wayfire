@@ -257,6 +257,9 @@ void wayfire_surface_t::apply_surface_damage(int x, int y)
     float scale = 1.0 / (float)surface->current.scale;
     wlr_region_scale(&dmg, &dmg, scale);
 
+    if (surface->current.scale != 1 || surface->current.scale != output->handle->scale)
+        wlr_region_expand(&dmg, &dmg, 1);
+
     pixman_region32_translate(&dmg, x, y);
     damage(&dmg);
     pixman_region32_fini(&dmg);
