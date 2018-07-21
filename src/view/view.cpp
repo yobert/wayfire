@@ -386,16 +386,15 @@ void wayfire_view_t::take_snapshot()
     if (!get_buffer())
         return;
 
-    wlr_renderer_begin(core->renderer, output->handle->width, output->handle->height);
     auto buffer_geometry = get_untransformed_bounding_box();
 
     offscreen_buffer.output_x = buffer_geometry.x;
     offscreen_buffer.output_y = buffer_geometry.y;
 
-    int scale = surface->current.scale;
-    if (buffer_geometry.width * scale != offscreen_buffer.fb_width
-        || buffer_geometry.height * scale != offscreen_buffer.fb_height
-        || offscreen_buffer.fb_scale != scale)
+    float scale = output->handle->scale;
+    if (int(buffer_geometry.width  * scale) != offscreen_buffer.fb_width ||
+        int(buffer_geometry.height * scale) != offscreen_buffer.fb_height ||
+        offscreen_buffer.fb_scale != scale)
     {
         offscreen_buffer.fini();
     }
@@ -408,21 +407,20 @@ void wayfire_view_t::take_snapshot()
     }
 
     GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, offscreen_buffer.fbo));
-    GL_CALL(glViewport(0, 0, offscreen_buffer.fb_width, offscreen_buffer.fb_height));
+    wlr_renderer_begin(core->renderer, offscreen_buffer.fb_width, offscreen_buffer.fb_height);
     wlr_renderer_scissor(core->renderer, NULL);
-
-    GL_CALL(glClearColor(0, 0, 0, 0));
-    GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
-
-    for_each_surface([=] (wayfire_surface_t *surface, int x, int y) {
-        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, offscreen_buffer.fbo));
-        GL_CALL(glViewport(0, 0, offscreen_buffer.fb_width, offscreen_buffer.fb_height));
-        surface->render_fbo((x - buffer_geometry.x) * scale, (y - buffer_geometry.y) * scale,
-                            offscreen_buffer.fb_width, offscreen_buffer.fb_height,
-                            NULL);
-    }, true);
-
+    float clear_color[] = {0, 0, 0, 0};
+    wlr_renderer_clear(core->renderer, clear_color);
     wlr_renderer_end(core->renderer);
+
+    wlr_fb_attribs fb;
+    fb.width = offscreen_buffer.fb_width;
+    fb.height = offscreen_buffer.fb_height;
+
+    for_each_surface([=] (wayfire_surface_t *surface, int x, int y)
+    {
+        surface->render_pixman(fb, x - buffer_geometry.x, y - buffer_geometry.y, NULL);
+    }, true);
 }
 
 void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)

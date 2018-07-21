@@ -83,6 +83,16 @@ class wayfire_surface_t
         virtual void damage(pixman_region32_t *region);
 
         void apply_surface_damage(int x, int y);
+
+        struct wlr_fb_attribs
+        {
+            int width, height;
+            wl_output_transform transform = WL_OUTPUT_TRANSFORM_NORMAL;
+        };
+
+        void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
+        virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage);
+
     public:
         std::vector<wayfire_surface_t*> surface_children;
 
@@ -127,21 +137,16 @@ class wayfire_surface_t
         virtual wayfire_output *get_output() { return output; };
         virtual void set_output(wayfire_output*);
 
-        virtual void render(int x, int y, wlr_box* damage);
-        /* just wrapper for the render() */
-        virtual void render_pixman(int x, int y, pixman_region32_t* damage);
+        /* NOT API */
+        virtual void  render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t* damage);
 
-        /* render to an offscreen buffer, without applying output transform/scale/etc.
-         * Rendering is done in */
-        virtual void render_fbo(int x, int y, int fb_width, int fb_height,
-                                pixman_region32_t *damage);
+        /* render the surface to the given fb */
+        virtual void render_fb(pixman_region32_t* damage, wf_framebuffer fb);
 
         /* iterate all (sub) surfaces, popups, etc. in top-most order
          * for example, first popups, then subsurfaces, then main surface
          * When reverse=true, the order in which surfaces are visited is reversed */
         virtual void for_each_surface(wf_surface_iterator_callback callback, bool reverse = false);
-
-        virtual void render_fb(pixman_region32_t* damage, wf_framebuffer fb);
 };
 
 enum wf_view_role
@@ -188,7 +193,7 @@ class wayfire_view_t : public wayfire_surface_t
             /* used to store output_geometry when the view has been destroyed */
             int32_t output_x = 0, output_y = 0;
             int32_t fb_width = 0, fb_height = 0;
-            int32_t fb_scale = 1;
+            float fb_scale = 1;
             pixman_region32_t cached_damage;
 
             void init(int w, int h);
