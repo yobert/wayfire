@@ -160,10 +160,23 @@ void plugin_manager::reload_dynamic_plugins()
     auto path = std::string(INSTALL_PREFIX "/lib/wayfire/");
     for (auto plugin : next_plugins)
     {
-        if (loaded_plugins.count(plugin))
+        if (!plugin.length())
             continue;
 
-        auto ptr = load_plugin_from_file(path + "lib" + plugin + ".so");
+
+        std::string plugin_path;
+        if (plugin.size() && plugin[0] == '/')
+        {
+            plugin_path = plugin;
+        } else
+        {
+            plugin_path = path + "lib" + plugin + ".so";
+        }
+
+        if (loaded_plugins.count(plugin_path))
+            continue;
+
+        auto ptr = load_plugin_from_file(plugin_path);
         if (ptr)
         {
             init_plugin(ptr);
