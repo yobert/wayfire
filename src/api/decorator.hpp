@@ -6,14 +6,15 @@
 class wf_decorator_frame_t
 {
     public:
-        /* return the geometry of the contained view */
-        virtual wf_geometry get_child_geometry(wf_geometry frame_geometry) = 0;
-        /* return the geometry of the frame if the child is resized to child_geometry.
-         * This must be consistent with get_child_geometry(), e.g
-         * get_geometry_interior(get_child_geometry(x)).{width, height} == x.{width, height} */
-        virtual wf_geometry get_geometry_interior(wf_geometry child_geometry) = 0;
+        virtual wf_geometry expand_wm_geometry(wf_geometry contained_wm_geometry) = 0;
+        virtual void calculate_resize_size(int& target_width, int& target_height) = 0;
 
-        virtual ~wf_decorator_frame_t() {};
+        virtual void notify_view_activated(bool active) {}
+        virtual void notify_view_resized(wf_geometry view_geometry) {}
+        virtual void notify_view_maximized() {}
+        virtual void notify_view_fullscreened() {}
+
+        virtual ~wf_decorator_frame_t() {}
 };
 
 class decorator_base_t

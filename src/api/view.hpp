@@ -87,11 +87,13 @@ class wayfire_surface_t
             wl_output_transform transform = WL_OUTPUT_TRANSFORM_NORMAL;
         };
 
-        void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
+        virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
         virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage);
 
     public:
+        /* NOT API */
         wayfire_surface_t *parent_surface;
+        /* NOT API */
         std::vector<wayfire_surface_t*> surface_children;
 
         /* offset to be applied for children, NOT API */
@@ -177,6 +179,12 @@ class wayfire_view_t : public wayfire_surface_t
     friend void surface_destroyed_cb(wl_listener*, void *data);
 
     protected:
+
+        /* those two point to the same object. Two fields are used to avoid
+         * constant casting to and from types */
+        wayfire_surface_t *decoration = NULL;
+        wf_decorator_frame_t *frame = NULL;
+
         void force_update_xwayland_position();
         int in_continuous_move = 0, in_continuous_resize = 0;
 
@@ -227,6 +235,7 @@ class wayfire_view_t : public wayfire_surface_t
         wayfire_view parent = nullptr;
         std::vector<wayfire_view> children;
         virtual void set_toplevel_parent(wayfire_view parent);
+        virtual void set_output(wayfire_output*);
 
         wf_view_role role = WF_VIEW_ROLE_TOPLEVEL;
 
@@ -252,7 +261,7 @@ class wayfire_view_t : public wayfire_surface_t
         virtual wayfire_surface_t* get_main_surface();
 
         /* return geometry as should be used for all WM purposes */
-        virtual wf_geometry get_wm_geometry() { return geometry; }
+        virtual wf_geometry get_wm_geometry();
 
         virtual wf_point get_output_position();
 
@@ -309,6 +318,18 @@ class wayfire_view_t : public wayfire_surface_t
         virtual void resize_request();
         virtual void maximize_request(bool state);
         virtual void fullscreen_request(wayfire_output *output, bool state);
+
+        /* Used to set a decoration.
+         * The parameter object MUST be a subclass of both wayfire_surface_t
+         * and of wf_decorator_frame_t
+         *
+         * The life-time of the decoration ({inc,dec}_keep_count) is managed by the view itself */
+        virtual void set_decoration(wayfire_surface_t *frame);
+
+        /* iterate all (sub) surfaces, popups, decorations, etc. in top-most order
+         * for example, first popups, then subsurfaces, then main surface
+         * When reverse=true, the order in which surfaces are visited is reversed */
+        virtual void for_each_surface(wf_surface_iterator_callback callback, bool reverse = false);
 
         /*
          *                              View transforms

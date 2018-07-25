@@ -38,6 +38,13 @@ wayfire_view_t::wayfire_view_t()
     pixman_region32_init(&offscreen_buffer.cached_damage);
 }
 
+void wayfire_view_t::set_output(wayfire_output *wo)
+{
+    wayfire_surface_t::set_output(wo);
+    if (decoration)
+        decoration->set_output(wo);
+}
+
 wayfire_view wayfire_view_t::self()
 {
     return core->find_view((wayfire_surface_t*) this);
@@ -238,15 +245,24 @@ wf_geometry wayfire_view_t::get_bounding_box()
 void wayfire_view_t::set_maximized(bool maxim)
 {
     maximized = maxim;
+
+    if (frame)
+        frame->notify_view_maximized();
 }
 
 void wayfire_view_t::set_fullscreen(bool full)
 {
     fullscreen = full;
+
+    if (frame)
+        frame->notify_view_fullscreened();
 }
 
 void wayfire_view_t::activate(bool active)
-{ }
+{
+    if (frame)
+        frame->notify_view_activated(active);
+}
 
 void wayfire_view_t::set_parent(wayfire_view parent)
 {
@@ -270,9 +286,56 @@ wayfire_surface_t* wayfire_view_t::get_main_surface()
     return this;
 }
 
+void wayfire_view_t::for_each_surface(wf_surface_iterator_callback callback, bool reverse)
+{
+    if (reverse && decoration)
+    {
+        auto pos = decoration->get_output_position();
+        callback(decoration, pos.x, pos.y);
+    }
+
+    wayfire_surface_t::for_each_surface(callback, reverse);
+
+    if (!reverse && decoration)
+    {
+        auto pos = decoration->get_output_position();
+        callback(decoration, pos.x, pos.y);
+    }
+}
+
+void wayfire_view_t::set_decoration(wayfire_surface_t *deco)
+{
+    if (decoration)
+        decoration->dec_keep_count();
+
+    auto wm = get_wm_geometry();
+
+    decoration = deco;
+    frame = dynamic_cast<wf_decorator_frame_t*> (deco);
+
+    if (!deco)
+        return;
+
+    assert(frame);
+    decoration->parent_surface = this;
+    decoration->set_output(output);
+    decoration->inc_keep_count();
+
+    frame->calculate_resize_size(wm.width, wm.height);
+    set_geometry(wm);
+}
+
 wf_point wayfire_view_t::get_output_position()
 {
     return wf_point{geometry.x, geometry.y};
+}
+
+wf_geometry wayfire_view_t::get_wm_geometry()
+{
+    if (frame)
+        return frame->expand_wm_geometry(geometry);
+    else
+        return geometry;
 }
 
 void wayfire_view_t::damage(const wlr_box& box)
@@ -699,7 +762,11 @@ void wayfire_view_t::fullscreen_request(wayfire_output *out, bool state)
 void wayfire_view_t::commit()
 {
     wayfire_surface_t::commit();
-    update_size();
+    if (update_size())
+    {
+        if (frame)
+            frame->notify_view_resized(get_wm_geometry());
+    }
 
     /* clear the resize edges.
      * This is must be done here because if the user(or plugin) resizes too fast,
@@ -716,6 +783,7 @@ void wayfire_view_t::damage()
 
 void wayfire_view_t::destruct()
 {
+    set_decoration(nullptr);
     core->erase_view(self());
 }
 

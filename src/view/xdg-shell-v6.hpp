@@ -38,6 +38,8 @@ class wayfire_xdg6_view : public wayfire_view_t
         wl_listener    set_parent_ev;
         wlr_xdg_surface_v6 *v6_surface;
 
+        virtual void get_child_offset(int& x, int& y);
+
         wayfire_xdg6_view(wlr_xdg_surface_v6 *s);
         virtual void map(wlr_surface *surface);
         virtual void activate(bool act);

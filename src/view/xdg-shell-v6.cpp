@@ -197,18 +197,33 @@ void wayfire_xdg6_view::map(wlr_surface *surface)
     xdg_surface_offset = {v6_surface->geometry.x, v6_surface->geometry.y};
 }
 
+void wayfire_xdg6_view::get_child_offset(int &x, int &y)
+{
+    x = xdg_surface_offset.x;
+    y = xdg_surface_offset.y;
+}
+
 wf_geometry wayfire_xdg6_view::get_wm_geometry()
 {
+    wf_geometry wm;
     if (!v6_surface || !v6_surface->geometry.width || !v6_surface->geometry.height)
-        return get_output_geometry();
+    {
+        wm = get_output_geometry();
+    } else
+    {
+        auto opos = get_output_position();
+        wm = {
+            v6_surface->geometry.x + opos.x,
+            v6_surface->geometry.y + opos.y,
+            v6_surface->geometry.width,
+            v6_surface->geometry.height
+        };
+    }
 
-    auto opos = get_output_position();
-    return {
-        v6_surface->geometry.x + opos.x,
-        v6_surface->geometry.y + opos.y,
-        v6_surface->geometry.width,
-        v6_surface->geometry.height
-    };
+    if (frame)
+        wm = frame->expand_wm_geometry(wm);
+
+    return wm;
 }
 
 void wayfire_xdg6_view::activate(bool act)
@@ -237,6 +252,9 @@ void wayfire_xdg6_view::move(int w, int h, bool send)
 void wayfire_xdg6_view::resize(int w, int h, bool send)
 {
     damage();
+    if (frame)
+        frame->calculate_resize_size(w, h);
+
     wlr_xdg_toplevel_v6_set_size(v6_surface, w, h);
 }
 

@@ -21,6 +21,7 @@ class wayfire_compositor_surface_t : public wayfire_surface_t
 {
     protected:
         virtual void damage(const wlr_box& box) { assert(false); }
+        virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor) { assert(false); }
 
     public:
         wayfire_compositor_surface_t() {}
@@ -29,8 +30,6 @@ class wayfire_compositor_surface_t : public wayfire_surface_t
         virtual bool is_mapped() { return true; }
 
         virtual wf_geometry get_output_geometry() { assert(false); return {}; }
-
-        virtual void  render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t* damage) { assert(false); }
         virtual void  render_fb(pixman_region32_t* damage, wf_framebuffer fb) { assert(false); }
 
         virtual void send_frame_done(const timespec& now) {}

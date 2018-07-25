@@ -6,14 +6,28 @@ extern "C"
 #undef static
 }
 
+#include <linux/input-event-codes.h>
+
 #include <compositor-surface.hpp>
 #include <output.hpp>
 #include <core.hpp>
 #include <debug.hpp>
+#include <decorator.hpp>
+#include <signal-definitions.hpp>
 #include "deco-subsurface.hpp"
 
-class simple_decoration_surface : public wayfire_compositor_surface_t
+#include <cairo.h>
+
+GLuint get_text_texture(std::string text)
 {
+}
+
+class simple_decoration_surface : public wayfire_compositor_surface_t, public wf_decorator_frame_t
+{
+    const int normal_thickness = 15;
+    int thickness = normal_thickness;
+    wayfire_view view;
+
     protected:
         virtual void damage(const wlr_box& box)
         {
@@ -22,13 +36,15 @@ class simple_decoration_surface : public wayfire_compositor_surface_t
 
         virtual void get_child_position(int &x, int &y)
         {
-            x = y = 100;
+            view->get_child_offset(x, y);
+            x -= thickness;
+            y -= thickness;
         }
 
     public:
-        simple_decoration_surface()
+        simple_decoration_surface(wayfire_view view)
         {
-            inc_keep_count();
+            this->view = view;
         }
 
         virtual ~simple_decoration_surface()
@@ -47,7 +63,11 @@ class simple_decoration_surface : public wayfire_compositor_surface_t
             return {pos.x, pos.y, width, height};
         }
 
-        virtual void render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t* damage)
+        bool active = true; // when views are mapped, they are usually activated
+        float border_color[4] = {0.15f, 0.15f, 0.15f, 0.8f};
+        float border_color_inactive[4] = {0.25f, 0.25f, 0.25f, 0.95f};
+
+        virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor)
         {
             wlr_box geometry {x, y, width, height};
             geometry = get_output_box_from_box(geometry, output->handle->scale);
@@ -59,10 +79,33 @@ class simple_decoration_surface : public wayfire_compositor_surface_t
             wlr_matrix_project_box(matrix, &geometry, WL_OUTPUT_TRANSFORM_NORMAL, 0, projection);
 
             wlr_renderer_begin(core->renderer, fb.width, fb.height);
-            wlr_renderer_scissor(core->renderer, NULL);
-            float color[] = {1, 1, 1, 1};
-            wlr_render_quad_with_matrix(core->renderer, color, matrix);
+            auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
+
+            wlr_render_quad_with_matrix(core->renderer, active ? border_color : border_color_inactive, matrix);
             wlr_renderer_end(core->renderer);
+        }
+
+        virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t* damage)
+        {
+            const float scale = output->handle->scale;
+
+            pixman_region32_t frame_region;
+            pixman_region32_init(&frame_region);
+
+            /* top */
+            pixman_region32_union_rect(&frame_region, &frame_region, x * scale, y * scale, width * scale,     thickness * scale);
+            /* left */
+            pixman_region32_union_rect(&frame_region, &frame_region, x * scale, y * scale, thickness * scale, height * scale);
+            /* right */
+            pixman_region32_union_rect(&frame_region, &frame_region, x * scale + (width - thickness) * scale, y * scale,
+                                       thickness * scale, height * scale);
+            /* bottom */
+            pixman_region32_union_rect(&frame_region, &frame_region, x * scale, y * scale + (height - thickness) * scale,
+                                       width * scale, thickness * scale);
+
+            pixman_region32_intersect(&frame_region, &frame_region, damage);
+            wayfire_surface_t::_render_pixman(fb, x, y, &frame_region);
+            pixman_region32_fini(&frame_region);
         }
 
         virtual void render_fb(pixman_region32_t* damage, wf_framebuffer fb)
@@ -88,32 +131,85 @@ class simple_decoration_surface : public wayfire_compositor_surface_t
 
         virtual void on_pointer_enter(int x, int y)
         {
-            log_info("pointer enter");
+            core->set_default_cursor();
         }
 
         virtual void on_pointer_leave()
-        {
-            log_info("pointer leave");
-        }
+        { }
 
         virtual void on_pointer_motion(int x, int y)
         {
-            log_info("pointer motion");
+            /* TODO: handle this when buttons are added */
         }
 
         virtual void on_pointer_button(uint32_t button, uint32_t state)
         {
-            log_info("pointer button");
+            if (button == BTN_LEFT && state == WLR_BUTTON_PRESSED)
+            {
+                resize_request_signal resize_request;
+                resize_request.view = view;
+                output->emit_signal("resize-request", &resize_request);
+            }
         }
 
         /* TODO: add touch events */
+
+
+        /* frame implementation */
+        virtual wf_geometry expand_wm_geometry(wf_geometry contained_wm_geometry)
+        {
+            contained_wm_geometry.x -= thickness;
+            contained_wm_geometry.y -= thickness;
+            contained_wm_geometry.width += 2 * thickness;
+            contained_wm_geometry.height += 2 * thickness;
+
+            return contained_wm_geometry;
+        }
+
+        virtual void calculate_resize_size(int& target_width, int& target_height)
+        {
+            target_width -= 2 * thickness;
+            target_height -= 2 * thickness;
+        }
+
+        virtual void notify_view_activated(bool active)
+        {
+            if (this->active != active)
+                view->damage();
+
+            this->active = active;
+        }
+
+        virtual void notify_view_resized(wf_geometry view_geometry)
+        {
+            width = view_geometry.width;
+            height = view_geometry.height;
+
+            view->damage();
+        };
+
+        virtual void notify_view_maximized()
+        {
+
+        }
+
+        virtual void notify_view_fullscreened()
+        {
+            if (view->fullscreen)
+            {
+                thickness = 0;
+                view->resize(width, height);
+            } else
+            {
+                thickness = normal_thickness;
+                view->resize(width, height);
+            }
+        };
 };
 
 void init_view(wayfire_view view)
 {
-    auto surf = new simple_decoration_surface;
-    surf->parent_surface = view.get();
-    view->surface_children.push_back(surf);
-    surf->set_output(view->get_output());
+    auto surf = new simple_decoration_surface(view);
+    view->set_decoration(surf);
     view->damage();
 }

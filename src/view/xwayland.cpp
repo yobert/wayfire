@@ -233,6 +233,8 @@ class wayfire_xwayland_view : public wayfire_view_t
     void resize(int w, int h, bool s)
     {
         damage();
+        if (frame)
+            frame->calculate_resize_size(w, h);
         send_configure(w, h);
     }
 
