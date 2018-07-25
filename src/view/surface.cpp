@@ -121,6 +121,19 @@ void wayfire_surface_t::get_child_offset(int &x, int &y)
     y = 0;
 };
 
+void wayfire_surface_t::send_frame_done(const timespec& time)
+{
+    wlr_surface_send_frame_done(surface, &time);
+}
+
+bool wayfire_surface_t::accepts_input(int32_t sx, int32_t sy)
+{
+    if (!surface)
+        return false;
+
+    return wlr_surface_point_accepts_input(surface, sx, sy);
+}
+
 wf_point wayfire_surface_t::get_output_position()
 {
     auto pos = parent_surface->get_output_position();

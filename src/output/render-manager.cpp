@@ -413,7 +413,7 @@ void render_manager::post_paint()
                                 {
                                     struct timespec now;
                                     clock_gettime(CLOCK_MONOTONIC, &now);
-                                    wlr_surface_send_frame_done(surface->surface, &now);
+                                    surface->send_frame_done(now);
                                 });
         };
 
@@ -661,8 +661,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             if (!surface->is_mapped())
                 return;
 
-            if (!wlr_surface_has_buffer(surface->surface)
-                || !pixman_region32_not_empty(&ws_damage))
+            if (!pixman_region32_not_empty(&ws_damage))
                 return;
 
             /* make sure all coordinates are in workspace-local coords */
@@ -693,7 +692,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
                     /* TODO: wrong, we should transform opaque as well */
                     pixman_region32_t opaque;
                     pixman_region32_init(&opaque);
-                    //pixman_region32_copy(&opaque, &surface->surface->current->opaque);
+                    // pixman_region32_copy(&opaque, &surface->surface->current.opaque);
                     pixman_region32_translate(&opaque, x, y);
                     wlr_region_scale(&opaque, &opaque, output->handle->scale);
                     //pixman_region32_subtract(&ws_damage, &ws_damage, &opaque);

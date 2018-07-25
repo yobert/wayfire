@@ -68,9 +68,6 @@ class wayfire_surface_t
         wl_listener committed, destroy, new_sub;
         virtual void for_each_surface_recursive(wf_surface_iterator_callback callback,
                                                 int x, int y, bool reverse = false);
-
-        wayfire_surface_t *parent_surface;
-
         wayfire_output *output = nullptr;
 
         /* position relative to parent */
@@ -94,9 +91,10 @@ class wayfire_surface_t
         virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage);
 
     public:
+        wayfire_surface_t *parent_surface;
         std::vector<wayfire_surface_t*> surface_children;
 
-        /* offset to be applied for children, not API function */
+        /* offset to be applied for children, NOT API */
         virtual void get_child_offset(int &x, int &y);
 
         wayfire_surface_t(wayfire_surface_t *parent = nullptr);
@@ -105,9 +103,16 @@ class wayfire_surface_t
         /* if surface != nullptr, then the surface is mapped */
         wlr_surface *surface = nullptr;
 
+        /* NOT API */
         virtual void map(wlr_surface *surface);
+        /* NOT API */
         virtual void unmap();
+        /* NOT API */
         virtual void destruct() { delete this; }
+
+        virtual bool accepts_input(int32_t sx, int32_t sy);
+        virtual void send_frame_done(const timespec& now);
+
         virtual bool is_mapped() { return surface; }
 
         virtual wlr_buffer *get_buffer();
@@ -127,11 +132,13 @@ class wayfire_surface_t
         /* returns top-left corner in output coordinates */
         virtual wf_point get_output_position();
 
+        /* NOT API */
         virtual void update_output_position();
 
         /* return surface box in output coordinates */
         virtual wf_geometry get_output_geometry();
 
+        /* NOT API */
         virtual void commit();
 
         virtual wayfire_output *get_output() { return output; };

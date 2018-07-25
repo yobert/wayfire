@@ -36,8 +36,6 @@ wayfire_view_t::wayfire_view_t()
 {
     set_output(core->get_active_output());
     pixman_region32_init(&offscreen_buffer.cached_damage);
-
-    //add_transformer(nonstd::make_unique<wf_2D_view> (self()));
 }
 
 wayfire_view wayfire_view_t::self()
@@ -153,7 +151,7 @@ wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx
             sx = cx - x;
             sy = cy - y;
 
-            if (wlr_surface_point_accepts_input(surface->surface, sx, sy))
+            if (surface->accepts_input(sx, sy))
                 ret = surface;
         });
 

@@ -3,6 +3,7 @@
 #include "input-manager.hpp"
 #include "workspace-manager.hpp"
 #include "debug.hpp"
+#include "compositor-surface.hpp"
 
 static void handle_pointer_button_cb(wl_listener*, void *data)
 {
@@ -64,24 +65,38 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         update_cursor_position(ev->time_msec, false);
     }
 
-    if (active_grab && active_grab->callbacks.pointer.button)
-        active_grab->callbacks.pointer.button(ev->button, ev->state);
+    if (active_grab)
+    {
+        if (active_grab->callbacks.pointer.button)
+            active_grab->callbacks.pointer.button(ev->button, ev->state);
+    } else if (cursor_focus)
+    {
+        auto custom = wf_compositor_surface_from_surface(cursor_focus);
+        if (custom)
+            custom->on_pointer_button(ev->button, ev->state);
+    }
 }
 
 void input_manager::update_cursor_focus(wayfire_surface_t *focus, int x, int y)
 {
+    wayfire_compositor_surface_t *compositor_surface = wf_compositor_surface_from_surface(cursor_focus);
+    if (compositor_surface)
+        compositor_surface->on_pointer_leave();
+
     if (cursor_focus != focus)
-    {
         log_info("change cursor focus %p -> %p", cursor_focus, focus);
-    }
+
     cursor_focus = focus;
-    if (focus)
+    if (focus && !wf_compositor_surface_from_surface(focus))
     {
         wlr_seat_pointer_notify_enter(seat, focus->surface, x, y);
     } else
     {
         wlr_seat_pointer_clear_focus(seat);
     }
+
+    if ((compositor_surface = wf_compositor_surface_from_surface(focus)))
+        compositor_surface->on_pointer_enter(x, y);
 }
 
 void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
@@ -109,7 +124,15 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
         }, WF_ALL_LAYERS);
 
     update_cursor_focus(new_focus, sx, sy);
-    wlr_seat_pointer_notify_motion(core->input->seat, time_msec, sx, sy);
+
+    auto compositor_surface = wf_compositor_surface_from_surface(new_focus);
+    if (compositor_surface)
+    {
+        compositor_surface->on_pointer_motion(sx, sy);
+    } else
+    {
+        wlr_seat_pointer_notify_motion(core->input->seat, time_msec, sx, sy);
+    }
 
     for (auto& icon : drag_icons)
     {

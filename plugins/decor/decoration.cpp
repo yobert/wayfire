@@ -4,7 +4,6 @@
 #include <signal-definitions.hpp>
 
 #include "deco-subsurface.hpp"
-
 class wayfire_decoration : public wayfire_plugin_t
 {
     signal_callback_t view_created;
@@ -12,13 +11,6 @@ class wayfire_decoration : public wayfire_plugin_t
     public:
     void init(wayfire_config *config)
     {
-        if (!core->set_decorator(&decorator))
-            return;
-
-        wl_global_create(core->display,
-                         &wf_decorator_manager_interface,
-                         1, NULL, bind_decorator);
-
         view_created = [=] (signal_data *data)
         {
             new_view(get_signaled_view(data));
@@ -29,6 +21,8 @@ class wayfire_decoration : public wayfire_plugin_t
 
     void new_view(wayfire_view view)
     {
+        if (view->role == WF_VIEW_ROLE_TOPLEVEL)
+            init_view(view);
     }
 
     void fini()
