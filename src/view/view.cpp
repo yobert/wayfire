@@ -82,8 +82,6 @@ bool wayfire_view_t::update_size()
 void wayfire_view_t::set_moving(bool moving)
 {
     in_continuous_move += moving ? 1 : -1;
-    if (decoration)
-        decoration->set_moving(moving);
 }
 
 void wayfire_view_t::set_resizing(bool resizing, uint32_t edges)
@@ -93,8 +91,6 @@ void wayfire_view_t::set_resizing(bool resizing, uint32_t edges)
         this->edges = edges;
 
     in_continuous_resize += resizing ? 1 : -1;
-    if (decoration)
-        decoration->set_resizing(resizing);
 }
 
 void wayfire_view_t::move(int x, int y, bool send_signal)
@@ -271,33 +267,18 @@ void wayfire_view_t::set_parent(wayfire_view parent)
     }
 }
 
-void wayfire_view_t::get_child_position(int &x, int &y)
-{
-    assert(decoration);
-
-    x = decor_x;
-    y = decor_y;
-}
-
 wayfire_surface_t* wayfire_view_t::get_main_surface()
 {
-    if (decoration)
-        return decoration->get_main_surface();
     return this;
 }
 
 wf_point wayfire_view_t::get_output_position()
 {
-    if (decoration)
-        return decoration->get_output_position() + wf_point{decor_x, decor_y};
     return wf_point{geometry.x, geometry.y};
 }
 
 void wayfire_view_t::damage(const wlr_box& box)
 {
-    if (decoration)
-        return decoration->damage(box);
-
     if (!output)
         return;
 
@@ -426,7 +407,7 @@ void wayfire_view_t::take_snapshot()
 void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
 {
     in_paint = true;
-    if (transforms.size() && !decoration)
+    if (transforms.size())
     {
         take_snapshot();
 
@@ -656,19 +637,10 @@ void wayfire_view_t::unmap()
         emit_view_unmap(self());
 
     wayfire_surface_t::unmap();
-
-    if (decoration)
-    {
-        decoration->close();
-        decoration->unmap();
-    }
 }
 
 void wayfire_view_t::move_request()
 {
-    if (decoration)
-        return decoration->move_request();
-
     move_request_signal data;
     data.view = self();
     output->emit_signal("move-request", &data);
@@ -676,9 +648,6 @@ void wayfire_view_t::move_request()
 
 void wayfire_view_t::resize_request()
 {
-    if (decoration)
-        return decoration->resize_request();
-
     resize_request_signal data;
     data.view = self();
     output->emit_signal("resize-request", &data);
@@ -686,9 +655,6 @@ void wayfire_view_t::resize_request()
 
 void wayfire_view_t::maximize_request(bool state)
 {
-    if (decoration)
-        return decoration->maximize_request(state);
-
     if (maximized == state)
         return;
 
@@ -709,9 +675,6 @@ void wayfire_view_t::maximize_request(bool state)
 
 void wayfire_view_t::fullscreen_request(wayfire_output *out, bool state)
 {
-    if (decoration)
-        return decoration->fullscreen_request(out, state);
-
     if (fullscreen == state)
         return;
 
@@ -740,54 +703,12 @@ void wayfire_view_t::commit()
     wayfire_surface_t::commit();
     update_size();
 
-    /* configure frame_interior */
-    if (decoration)
-    {
-        auto xdg_decor = dynamic_cast<wayfire_xdg_decoration_view*> (decoration.get());
-        if (xdg_decor)
-        {
-            xdg_decor->child_configured(geometry);
-        } else
-        {
-            auto xdg6_decor = dynamic_cast<wayfire_xdg6_decoration_view*> (decoration.get());
-            assert(xdg6_decor);
-
-            xdg6_decor->child_configured(geometry);
-        }
-    }
-
     /* clear the resize edges.
      * This is must be done here because if the user(or plugin) resizes too fast,
      * the shell client might still haven't configured the surface, * and in this
      * case the next commit(here) needs to still have access to the gravity */
     if (!in_continuous_resize)
         edges = 0;
-}
-
-void wayfire_view_t::set_decoration(wayfire_view decor,
-                                    std::unique_ptr<wf_decorator_frame_t> frame)
-{
-    if (decor)
-    {
-        if (output)
-            output->detach_view(self());
-
-        /* TODO: drop support for xdg-shell-v6 decorations as soon as
-         * xdg-shell stable gets a bit more widely supported */
-        auto xdg_decor = dynamic_cast<wayfire_xdg_decoration_view*> (decor.get());
-        if (xdg_decor)
-        {
-            xdg_decor->init(self(), std::move(frame));
-        } else
-        {
-            auto xdg6_decor = dynamic_cast<wayfire_xdg6_decoration_view*> (decor.get());
-            assert(xdg6_decor);
-
-            xdg6_decor->init(self(), std::move(frame));
-        }
-    }
-
-    decoration = decor;
 }
 
 void wayfire_view_t::damage()

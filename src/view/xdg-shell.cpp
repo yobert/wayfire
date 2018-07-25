@@ -209,14 +209,6 @@ void wayfire_xdg_view::map(wlr_surface *surface)
     wayfire_view_t::map(surface);
 }
 
-void wayfire_xdg_view::get_child_position(int &x, int &y)
-{
-    assert(decoration);
-
-    x = decor_x - xdg_surface->geometry.x;
-    y = decor_y - xdg_surface->geometry.y;
-}
-
 void wayfire_xdg_view::get_child_offset(int &x, int &y)
 {
     x = xdg_surface->geometry.x;
@@ -299,126 +291,11 @@ void wayfire_xdg_view::destroy()
 
 wayfire_xdg_view::~wayfire_xdg_view() {}
 
-wayfire_xdg_decoration_view::wayfire_xdg_decoration_view(wlr_xdg_surface *decor) :
-    wayfire_xdg_view(decor)
-{ }
-
-void wayfire_xdg_decoration_view::init(wayfire_view view, std::unique_ptr<wf_decorator_frame_t>&& fr)
-{
-    frame = std::move(fr);
-    contained = view;
-    geometry = view->get_wm_geometry();
-
-    set_geometry(geometry);
-    surface_children.push_back(view.get());
-
-    xdg_surface_offset = {xdg_surface->geometry.x, xdg_surface->geometry.y};
-}
-
-void wayfire_xdg_decoration_view::map(wlr_surface *surface)
-{
-    wayfire_xdg_view::map(surface);
-
-    if (contained->maximized)
-        maximize_request(true);
-
-    if (contained->fullscreen)
-        fullscreen_request(output, true);
-}
-
-void wayfire_xdg_decoration_view::activate(bool state)
-{
-    wayfire_xdg_view::activate(state);
-    contained->activate(state);
-}
-
-void wayfire_xdg_decoration_view::move(int x, int y, bool ss)
-{
-    auto new_g = frame->get_child_geometry(geometry);
-    new_g.x += xdg_surface->geometry.x;
-    new_g.y += xdg_surface->geometry.y;
-
-    log_info ("contained is moved to %d+%d, decor to %d+%d", new_g.x, new_g.y, x, y);
-
-    /* TODO: geometry.x is changed */
-    contained->decor_x = new_g.x - geometry.x;
-    contained->decor_y = new_g.y - geometry.y;
-
-    contained->move(new_g.x, new_g.y, false);
-    wayfire_xdg_view::move(x, y, ss);
-}
-
-void wayfire_xdg_decoration_view::resize(int w, int h, bool ss)
-{
-    auto new_geometry = geometry;
-    new_geometry.width = w;
-    new_geometry.height = h;
-
-    auto new_g = frame->get_child_geometry(new_geometry);
-    log_info ("contained is resized to %dx%d, decor to %dx%d", new_g.width, new_g.height,
-              w, h);
-
-    contained->resize(new_g.width, new_g.height, false);
-}
-
-void wayfire_xdg_decoration_view::child_configured(wf_geometry g)
-{
-    auto new_g = frame->get_geometry_interior(g);
-    /*
-       log_info("contained configured %dx%d, we become: %dx%d",
-       g.width, g.height, new_g.width, new_g.height);
-       */
-    if (new_g.width != geometry.width || new_g.height != geometry.height)
-        wayfire_xdg_view::resize(new_g.width, new_g.height, false);
-}
-
-void wayfire_xdg_decoration_view::unmap()
-{
-    /* if the contained view was closed earlier, then the decoration view
-     * has already been forcibly unmapped */
-    if (!surface) return;
-
-    wayfire_view_t::unmap();
-
-    if (contained->is_mapped())
-    {
-        contained->set_decoration(nullptr, nullptr);
-        contained->close();
-    }
-}
-
-void wayfire_xdg_decoration_view::set_maximized(bool state)
-{
-    wayfire_xdg_view::set_maximized(state);
-    contained->set_maximized(state);
-}
-
-void wayfire_xdg_decoration_view::set_fullscreen(bool state)
-{
-    wayfire_xdg_view::set_fullscreen(state);
-    contained->set_fullscreen(state);
-}
-
 static void notify_created(wl_listener*, void *data)
 {
     auto surf = static_cast<wlr_xdg_surface*> (data);
-
     if (surf->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL)
-    {
-        if (surf->toplevel->title &&
-            wf_decorator &&
-            wf_decorator->is_decoration_window(surf->toplevel->title))
-        {
-            auto view = nonstd::make_unique<wayfire_xdg_decoration_view> (surf);
-            auto copy = view.get();
-            core->add_view(std::move(view));
-
-            wf_decorator->decoration_ready(copy->self());
-        } else
-        {
-            core->add_view(nonstd::make_unique<wayfire_xdg_view> (surf));
-        }
-    }
+        core->add_view(nonstd::make_unique<wayfire_xdg_view> (surf));
 }
 
 static wlr_xdg_shell *xdg_handle;

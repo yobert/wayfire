@@ -40,7 +40,6 @@ class wayfire_xdg6_view : public wayfire_view_t
 
         wayfire_xdg6_view(wlr_xdg_surface_v6 *s);
         virtual void map(wlr_surface *surface);
-        virtual void get_child_position(int &x, int &y);
         virtual void activate(bool act);
         virtual void set_maximized(bool max);
         virtual void set_fullscreen(bool full);
@@ -54,34 +53,6 @@ class wayfire_xdg6_view : public wayfire_view_t
         virtual void close();
         virtual void destroy();
         ~wayfire_xdg6_view();
-};
-
-class wayfire_xdg6_decoration_view : public wayfire_xdg6_view
-{
-    wayfire_view contained = NULL;
-    std::unique_ptr<wf_decorator_frame_t> frame;
-
-    wf_point v6_surface_offset;
-
-    public:
-
-    wayfire_xdg6_decoration_view(wlr_xdg_surface_v6 *decor);
-    void init(wayfire_view view, std::unique_ptr<wf_decorator_frame_t>&& fr);
-    void map(wlr_surface *surface);
-    void activate(bool state);
-    void commit();
-    void move(int x, int y, bool ss);
-    void resize(int w, int h, bool ss);
-    void child_configured(wf_geometry g);
-    void unmap();
-
-    wlr_surface *get_keyboard_focus_surface()
-    { return contained->get_keyboard_focus_surface(); }
-
-    void set_maximized(bool state);
-    void set_fullscreen(bool state);
-    ~wayfire_xdg6_decoration_view()
-    { }
 };
 
 #endif /* end of include guard: XDG_SHELL_V6_HPP */

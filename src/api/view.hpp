@@ -167,15 +167,9 @@ enum wf_resize_edges
 /* Represents a desktop window (not as X11 window, but like a xdg_toplevel surface) */
 class wayfire_view_t : public wayfire_surface_t
 {
-    friend class wayfire_xdg_decoration_view;
-    friend class wayfire_xdg6_decoration_view;
-
     friend void surface_destroyed_cb(wl_listener*, void *data);
 
     protected:
-        wayfire_view decoration;
-        int decor_x, decor_y;
-
         void force_update_xwayland_position();
         int in_continuous_move = 0, in_continuous_resize = 0;
 
@@ -184,7 +178,6 @@ class wayfire_view_t : public wayfire_surface_t
         void adjust_anchored_edge(int32_t new_width, int32_t new_height);
 
         uint32_t id;
-        virtual void get_child_position(int &x, int &y);
         virtual void damage(const wlr_box& box);
 
         struct offscreen_buffer_t
@@ -252,7 +245,7 @@ class wayfire_view_t : public wayfire_surface_t
         virtual wayfire_surface_t* get_main_surface();
 
         /* return geometry as should be used for all WM purposes */
-        virtual wf_geometry get_wm_geometry() { return decoration ? decoration->get_wm_geometry() : geometry; }
+        virtual wf_geometry get_wm_geometry() { return geometry; }
 
         virtual wf_point get_output_position();
 
@@ -309,9 +302,6 @@ class wayfire_view_t : public wayfire_surface_t
         virtual void resize_request();
         virtual void maximize_request(bool state);
         virtual void fullscreen_request(wayfire_output *output, bool state);
-
-        virtual void set_decoration(wayfire_view view,
-                                    std::unique_ptr<wf_decorator_frame_t> frame);
 
         /*
          *                              View transforms
