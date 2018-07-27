@@ -112,7 +112,7 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
 
     view_geometry_changed_signal data;
     data.view = self();
-    data.old_geometry = get_wm_geometry();
+    data.old_geometry = wm;
 
     damage();
     geometry.x = x + opos.x - wm.x;

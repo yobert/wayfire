@@ -148,7 +148,7 @@ class vswitch : public wayfire_plugin_t
         for (auto v : views)
         {
             v.v->move(v.ox + dx, v.oy + dy);
-            if (use_wobbly->as_cached_int() || v.v->get_transformer("wobbly"))
+            if (use_wobbly->as_cached_int())
                 move_wobbly(v.v, v.anchor_x + dx, v.anchor_y + dy);
         }
 
@@ -174,7 +174,7 @@ class vswitch : public wayfire_plugin_t
             v.v->move(v.ox, v.oy);
             v.v->set_moving(false);
 
-            if (use_wobbly->as_cached_int() || v.v->get_transformer("wobbly"))
+            if (use_wobbly->as_cached_int())
             {
                 end_wobbly(v.v);
                 translate_wobbly(v.v, dx * output_g.width, dy * output_g.height);
@@ -187,7 +187,7 @@ class vswitch : public wayfire_plugin_t
             front.view->move(front.view->get_wm_geometry().x + dx * output_g.width,
                              front.view->get_wm_geometry().y + dy * output_g.height);
 
-            if (use_wobbly->as_cached_int() || front.view->get_transformer("wobbly"))
+            if (use_wobbly->as_cached_int())
                 translate_wobbly(front.view, dx * output_g.width, dy * output_g.height);
 
             output->focus_view(front.view);
@@ -202,7 +202,7 @@ class vswitch : public wayfire_plugin_t
 
         for (auto v : views)
         {
-            if (use_wobbly->as_cached_int() || v.v->get_transformer("wobbly"))
+            if (use_wobbly->as_cached_int())
                 snap_wobbly(v.v, v.bounding_box + wf_point{-dx * output_g.width, -dy * output_g.height});
         }
 
@@ -253,7 +253,7 @@ class vswitch : public wayfire_plugin_t
                 av.anchor_x = av.bounding_box.x;// + av.bounding_box.width / 2;
                 av.anchor_y = av.bounding_box.y;// + av.bounding_box.height / 2;
 
-                if (use_wobbly->as_cached_int() || view->get_transformer("wobbly"))
+                if (use_wobbly->as_cached_int())
                     start_wobbly(view, av.anchor_x, av.anchor_y);
 
                 auto wm = view->get_wm_geometry();

@@ -134,7 +134,7 @@ class wf_wobbly : public wf_view_transformer_t
 {
     wayfire_view view;
     effect_hook_t pre_hook;
-    signal_callback_t viewport_changed, view_removed;
+    signal_callback_t view_removed, view_geometry_changed;
     wayfire_grab_interface iface;
 
     std::unique_ptr<wobbly_surface> model;
@@ -175,18 +175,23 @@ class wf_wobbly : public wf_view_transformer_t
         };
         view->get_output()->render->add_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
 
-        viewport_changed = [=] (signal_data *data)
-        {
-            handle_viewport_changed(static_cast<change_viewport_signal*> (data));
-        };
         view_removed = [=] (signal_data *data)
         {
             if (get_signaled_view(data) == view)
                 destroy_self();
         };
 
+        view_geometry_changed = [=] (signal_data *data)
+        {
+            if (get_signaled_view(data) == view)
+            {
+                auto sig = static_cast<view_geometry_changed_signal*> (data);
+                update_view_geometry(sig->old_geometry);
+            }
+        };
+
         view->get_output()->connect_signal("detach-view", &view_removed);
-        view->get_output()->connect_signal("viewport-changed", &viewport_changed);
+        view->get_output()->connect_signal("view-geometry-changed", &view_geometry_changed);
         view->get_output()->activate_plugin(iface);
     }
 
@@ -224,7 +229,7 @@ class wf_wobbly : public wf_view_transformer_t
         if (snapped_geometry.width <= 0 && !has_active_grab)
         {
             auto wm = view->get_wm_geometry();
-            view->move(model->x + wm.x - last_boundingbox.x, model->y + wm.y - last_boundingbox.y);
+            view->move(model->x + wm.x - last_boundingbox.x, model->y + wm.y - last_boundingbox.y, false);
         }
 
         if (!has_active_grab && model->synced)
@@ -295,15 +300,6 @@ class wf_wobbly : public wf_view_transformer_t
                                           model->x_cells * model->y_cells * 2);
     }
 
-    void handle_viewport_changed(change_viewport_signal *data)
-    {
-        auto og = view->get_output()->get_relative_geometry();
-        int dx = (data->new_vx - data->old_vx) * og.width;
-        int dy = (data->new_vy - data->old_vy) * og.height;
-
-        translate(-dx, -dy);
-    }
-
     void start_grab(int x, int y)
     {
         grab_x = x;
@@ -356,12 +352,26 @@ class wf_wobbly : public wf_view_transformer_t
         view->pop_transformer("wobbly");
     }
 
+    void update_view_geometry(wf_geometry old_geometry)
+    {
+        if (has_active_grab)
+            return;
+
+        auto wm = view->get_wm_geometry();
+
+        int dx = wm.x - old_geometry.x;
+        int dy = wm.y - old_geometry.y;
+        translate(dx, dy);
+        last_boundingbox.x += dx;
+        last_boundingbox.y += dy;
+    }
+
     virtual ~wf_wobbly()
     {
         wobbly_fini(model.get());
         view->get_output()->deactivate_plugin(iface);
         view->get_output()->render->rem_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
-        view->get_output()->disconnect_signal("viewport-changed", &viewport_changed);
+        view->get_output()->disconnect_signal("view-geometry-changed", &view_geometry_changed);
         view->get_output()->disconnect_signal("detach-view", &view_removed);
     }
 };
