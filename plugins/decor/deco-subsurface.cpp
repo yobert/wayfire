@@ -128,14 +128,14 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
             wlr_render_quad_with_matrix(core->renderer, active ? border_color : border_color_inactive, matrix);
 
             if (tex == (uint)-1)
-                tex = get_text_texture(text_field_width, titlebar, view->get_title());
+                tex = get_text_texture(geometry.width, titlebar, view->get_title());
 
             auto ortho = glm::ortho(0.0f, 1.0f * fb.width, 1.0f * fb.height, 0.0f);
 
             gl_geometry gg;
             gg.x1 = geometry.x;
             gg.y1 = geometry.y;
-            gg.x2 = geometry.x + std::min(text_field_width, geometry.width);
+            gg.x2 = geometry.x + geometry.width;
             gg.y2 = geometry.y + titlebar;
 
             log_info("render tex %fx%f %fx%f", gg.x1, gg.y1, gg.x2, gg.y2);
@@ -243,6 +243,12 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
 
         virtual void notify_view_resized(wf_geometry view_geometry)
         {
+            if (width != view_geometry.width)
+            {
+                GL_CALL(glDeleteTextures(1, &tex));
+                tex = -1;
+            }
+
             width = view_geometry.width;
             height = view_geometry.height;
 
@@ -259,10 +265,12 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
             if (view->fullscreen)
             {
                 thickness = 0;
+                titlebar = 0;
                 view->resize(width, height);
             } else
             {
                 thickness = normal_thickness;
+                titlebar = titlebar_thickness;
                 view->resize(width, height);
             }
         };
