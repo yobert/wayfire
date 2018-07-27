@@ -176,8 +176,9 @@ wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_surface *s)
 
 void wayfire_xdg_view::on_xdg_geometry_updated()
 {
-    move(geometry.x + xdg_surface_offset.x, geometry.y + xdg_surface_offset.y, false);
+    auto wm = get_wm_geometry();
     xdg_surface_offset = {xdg_surface->geometry.x, xdg_surface->geometry.y};
+    move(wm.x, wm.y, false);
 }
 
 void wayfire_xdg_view::commit()
@@ -193,6 +194,7 @@ void wayfire_xdg_view::commit()
 
 void wayfire_xdg_view::map(wlr_surface *surface)
 {
+    xdg_surface_offset = {xdg_surface->geometry.x, xdg_surface->geometry.y};
     if (xdg_surface->toplevel->client_pending.maximized)
         maximize_request(true);
 
@@ -205,7 +207,6 @@ void wayfire_xdg_view::map(wlr_surface *surface)
         set_toplevel_parent(parent);
     }
 
-    xdg_surface_offset = {xdg_surface->geometry.x, xdg_surface->geometry.y};
     wayfire_view_t::map(surface);
 }
 
@@ -226,8 +227,8 @@ wf_geometry wayfire_xdg_view::get_wm_geometry()
 
         auto opos = get_output_position();
         wm = {
-            xdg_surface->geometry.x + opos.x,
-            xdg_surface->geometry.y + opos.y,
+            xdg_surface_offset.x + opos.x,
+            xdg_surface_offset.y + opos.y,
             xdg_surface->geometry.width,
             xdg_surface->geometry.height
         };

@@ -138,8 +138,6 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
             gg.x2 = geometry.x + geometry.width;
             gg.y2 = geometry.y + titlebar;
 
-            log_info("render tex %fx%f %fx%f", gg.x1, gg.y1, gg.x2, gg.y2);
-
             OpenGL::use_default_program();
             OpenGL::render_transformed_texture(tex, gg, {}, ortho, {1, 1, 1, 1}, TEXTURE_TRANSFORM_INVERT_Y);
 
