@@ -23,6 +23,7 @@ struct wlr_gamma_control_manager;
 struct wlr_screenshooter;
 struct wlr_xdg_output_manager;
 struct wlr_export_dmabuf_manager_v1;
+struct wlr_server_decoration_manager;
 struct wayfire_shell;
 
 #include <wayland-server.h>
@@ -38,12 +39,15 @@ class wayfire_surface_t;
 using wayfire_view = nonstd::observer_ptr<wayfire_view_t>;
 using output_callback_proc = std::function<void(wayfire_output *)>;
 
+struct wf_server_decoration;
+
 class wayfire_core
 {
         friend struct plugin_manager;
         friend class wayfire_output;
 
         wl_listener output_layout_changed;
+        wl_listener decoration_created;
 
         wayfire_output *active_output;
 
@@ -58,11 +62,10 @@ class wayfire_core
         uint32_t focused_layer = 0;
 
     public:
+        std::map<wlr_surface*, uint32_t> uses_csd;
 
         std::vector<wl_resource*> shell_clients;
         wayfire_config *config;
-
-        bool set_decorator(decorator_base_t *decor);
 
         wl_display *display;
         wl_event_loop *ev_loop;
@@ -78,6 +81,7 @@ class wayfire_core
             wlr_screenshooter *screenshooter;
             wlr_linux_dmabuf *linux_dmabuf;
             wlr_export_dmabuf_manager_v1 *export_dmabuf;
+            wlr_server_decoration_manager *decorator_manager;
             wlr_xdg_output_manager *output_manager;
             wayfire_shell *wf_shell;
         } protocols;

@@ -21,7 +21,7 @@ class wayfire_decoration : public wayfire_plugin_t
 
     void new_view(wayfire_view view)
     {
-        if (view->role == WF_VIEW_ROLE_TOPLEVEL)
+        if (view->should_be_decorated())
             init_view(view);
     }
 

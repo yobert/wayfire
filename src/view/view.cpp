@@ -303,6 +303,11 @@ void wayfire_view_t::for_each_surface(wf_surface_iterator_callback callback, boo
     }
 }
 
+bool wayfire_view_t::should_be_decorated()
+{
+    return role == WF_VIEW_ROLE_TOPLEVEL && !has_client_decoration;
+}
+
 void wayfire_view_t::set_decoration(wayfire_surface_t *deco)
 {
     if (decoration)
@@ -822,7 +827,6 @@ wayfire_view_t::~wayfire_view_t()
     pixman_region32_fini(&offscreen_buffer.cached_damage);
 }
 
-decorator_base_t *wf_decorator;
 void init_desktop_apis()
 {
     init_xdg_shell();

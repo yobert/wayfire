@@ -182,6 +182,12 @@ class wayfire_xwayland_view : public wayfire_view_t
 
     bool is_subsurface() { return false; }
 
+    virtual bool should_be_decorated()
+    {
+        return !(xw->decorations & (WLR_XWAYLAND_SURFACE_DECORATIONS_NO_TITLE |
+                                    WLR_XWAYLAND_SURFACE_DECORATIONS_NO_BORDER));
+    }
+
     void activate(bool active)
     {
         wayfire_view_t::activate(active);
@@ -451,6 +457,11 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
         if (wlr_xwayland_surface_is_unmanaged(xw))
             return nullptr;
         return surface;
+    }
+
+    virtual bool should_be_decorated()
+    {
+        return false;
     }
 
     ~wayfire_unmanaged_xwayland_view()

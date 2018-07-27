@@ -4,6 +4,7 @@ extern "C"
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_linux_dmabuf.h>
 #include <wlr/types/wlr_export_dmabuf_v1.h>
+#include <wlr/types/wlr_server_decoration.h>
 #include <wlr/types/wlr_gamma_control.h>
 #include <wlr/types/wlr_xdg_output.h>
 }
@@ -48,6 +49,56 @@ static void handle_output_layout_changed(wl_listener*, void *)
     });
 }
 
+/* decorations impl */
+
+struct wf_server_decoration
+{
+    wlr_surface *surface;
+    wl_listener mode_set, destroy;
+};
+
+static void handle_decoration_mode(wl_listener*, void *data)
+{
+    auto decor = (wlr_server_decoration*) data;
+    auto wd = (wf_server_decoration*) decor->data;
+
+    log_info("set decoration mode %d", decor->mode);
+
+    bool use_csd = decor->mode == WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT;
+    core->uses_csd[wd->surface] = use_csd;
+
+    auto wf_surface = wf_surface_from_void(wd->surface->data);
+    if (wf_surface)
+        wf_surface->has_client_decoration = use_csd;
+}
+
+static void handle_decoration_destroyed(wl_listener*, void *data)
+{
+    auto decor = (wlr_server_decoration*) data;
+    auto wd = (wf_server_decoration*) decor->data;
+
+    wl_list_remove(&wd->mode_set.link);
+    wl_list_remove(&wd->destroy.link);
+
+    core->uses_csd.erase(wd->surface);
+    delete wd;
+}
+
+static void handle_decoration_created(wl_listener*, void *data)
+{
+    auto decor = (wlr_server_decoration*) data;
+
+    log_info("set decoration mode %d", decor->mode);
+
+    auto wf_decor = new wf_server_decoration;
+    wf_decor->mode_set.notify = handle_decoration_mode;
+    wf_decor->destroy.notify  = handle_decoration_destroyed;
+    wf_decor->surface = decor->surface;
+    decor->data = wf_decor;
+
+    handle_decoration_mode(NULL, data);
+}
+
 void wayfire_core::init(wayfire_config *conf)
 {
     configure(conf);
@@ -68,20 +119,19 @@ void wayfire_core::init(wayfire_config *conf)
     protocols.gamma = wlr_gamma_control_manager_create(display);
     protocols.linux_dmabuf = wlr_linux_dmabuf_create(display, renderer);
     protocols.export_dmabuf = wlr_export_dmabuf_manager_v1_create(display);
+
+    protocols.decorator_manager = wlr_server_decoration_manager_create(display);
+    wlr_server_decoration_manager_set_default_mode(protocols.decorator_manager,
+                                                   WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT);
+    decoration_created.notify = handle_decoration_created;
+    wl_signal_add(&protocols.decorator_manager->events.new_decoration, &decoration_created);
+
     protocols.output_manager = wlr_xdg_output_manager_create(display, output_layout);
     protocols.wf_shell = wayfire_shell_create(display);
 
 #ifdef BUILD_WITH_IMAGEIO
     image_io::init();
 #endif
-}
-
-bool wayfire_core::set_decorator(decorator_base_t *decor)
-{
-    if (wf_decorator)
-        return false;
-
-    return (wf_decorator = decor);
 }
 
 void refocus_idle_cb(void *data)

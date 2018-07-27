@@ -96,6 +96,9 @@ class wayfire_surface_t
         /* NOT API */
         std::vector<wayfire_surface_t*> surface_children;
 
+        /* NOT API */
+        bool has_client_decoration = true;
+
         /* offset to be applied for children, NOT API */
         virtual void get_child_offset(int &x, int &y);
 
@@ -318,6 +321,9 @@ class wayfire_view_t : public wayfire_surface_t
         virtual void resize_request();
         virtual void maximize_request(bool state);
         virtual void fullscreen_request(wayfire_output *output, bool state);
+
+        /* returns whether the view should be decorated */
+        virtual bool should_be_decorated();
 
         /* Used to set a decoration.
          * The parameter object MUST be a subclass of both wayfire_surface_t

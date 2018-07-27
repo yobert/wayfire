@@ -17,12 +17,4 @@ class wf_decorator_frame_t
         virtual ~wf_decorator_frame_t() {}
 };
 
-class decorator_base_t
-{
-    public:
-        virtual bool is_decoration_window(std::string title) = 0;
-        /* a decoration window has been mapped, it is ready to be set as such */
-        virtual void decoration_ready(wayfire_view decor_window) = 0;
-};
-
 #endif /* end of include guard: DECORATOR_HPP */

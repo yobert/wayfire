@@ -24,7 +24,5 @@ std::string xwayland_get_display();
 
 void init_desktop_apis();
 
-extern decorator_base_t *wf_decorator;
-
 #endif /* end of include guard: PRIV_VIEW_HPP */
 

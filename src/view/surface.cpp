@@ -182,6 +182,9 @@ void wayfire_surface_t::map(wlr_surface *surface)
     wlr_subsurface *sub;
     wl_list_for_each(sub, &surface->subsurfaces, parent_link)
         handle_subsurface_created(NULL, sub);
+
+    if (core->uses_csd.count(surface))
+        this->has_client_decoration = core->uses_csd[surface];
 }
 
 void wayfire_surface_t::unmap()
