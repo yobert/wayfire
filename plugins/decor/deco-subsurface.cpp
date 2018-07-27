@@ -61,7 +61,8 @@ GLuint get_text_texture(int width, int height, std::string text)
 class simple_decoration_surface : public wayfire_compositor_surface_t, public wf_decorator_frame_t
 {
     const int titlebar_thickness = 30;
-    const int normal_thickness = 15;
+    const int resize_edge_threshold = 5;
+    const int normal_thickness = resize_edge_threshold;
 
     int thickness = normal_thickness;
     int titlebar = titlebar_thickness;
@@ -196,19 +197,39 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
         virtual void on_pointer_leave()
         { }
 
+        int cursor_x, cursor_y;
         virtual void on_pointer_motion(int x, int y)
         {
-            /* TODO: handle this when buttons are added */
+            cursor_x = x;
+            cursor_y = y;
+        }
+
+        void send_move_request()
+        {
+            move_request_signal move_request;
+            move_request.view = view;
+            output->emit_signal("move-request", &move_request);
+        }
+
+        void send_resize_request()
+        {
+            resize_request_signal resize_request;
+            resize_request.view = view;
+            output->emit_signal("resize-request", &resize_request);
         }
 
         virtual void on_pointer_button(uint32_t button, uint32_t state)
         {
-            if (button == BTN_LEFT && state == WLR_BUTTON_PRESSED)
-            {
-                resize_request_signal resize_request;
-                resize_request.view = view;
-                output->emit_signal("resize-request", &resize_request);
-            }
+            if (button != BTN_LEFT || state != WLR_BUTTON_PRESSED)
+                return;
+
+            if (cursor_x <= resize_edge_threshold || cursor_x >= width - resize_edge_threshold)
+                return send_resize_request();
+
+            if (cursor_y <= resize_edge_threshold || cursor_y >= width - resize_edge_threshold)
+                return send_resize_request();
+
+            send_move_request();
         }
 
         /* TODO: add touch events */
