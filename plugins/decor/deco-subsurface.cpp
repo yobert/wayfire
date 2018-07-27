@@ -23,6 +23,10 @@ extern "C"
 
 #include <cairo.h>
 
+const int titlebar_thickness = 30;
+const int resize_edge_threshold = 5;
+const int normal_thickness = resize_edge_threshold;
+
 GLuint get_text_texture(int width, int height, std::string text)
 {
     const auto format = CAIRO_FORMAT_ARGB32;
@@ -41,7 +45,7 @@ GLuint get_text_texture(int width, int height, std::string text)
     cairo_text_extents_t ext;
     cairo_text_extents(cr, text.c_str(), &ext);
 
-    cairo_move_to(cr, font_size, height - ext.height / 2.0);
+    cairo_move_to(cr, normal_thickness, font_size);
     cairo_show_text(cr, text.c_str());
 
     cairo_destroy(cr);
@@ -60,10 +64,6 @@ GLuint get_text_texture(int width, int height, std::string text)
 
 class simple_decoration_surface : public wayfire_compositor_surface_t, public wf_decorator_frame_t
 {
-    const int titlebar_thickness = 30;
-    const int resize_edge_threshold = 5;
-    const int normal_thickness = resize_edge_threshold;
-
     int thickness = normal_thickness;
     int titlebar = titlebar_thickness;
 
