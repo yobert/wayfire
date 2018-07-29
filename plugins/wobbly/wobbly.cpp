@@ -2,6 +2,7 @@
 #include <signal-definitions.hpp>
 #include <core.hpp>
 #include <view-transform.hpp>
+#include <workspace-manager.hpp>
 #include <nonstd/make_unique.hpp>
 #include <render-manager.hpp>
 
@@ -435,7 +436,13 @@ class wayfire_wobbly : public wayfire_plugin_t
 
         void fini()
         {
-            /* TODO: remove any leftover grabbed views */
+            output->workspace->for_each_view([] (wayfire_view view)
+            {
+                auto wobbly = dynamic_cast<wf_wobbly*> (view->get_transformer("wobbly").get());
+                if (wobbly)
+                    wobbly->destroy_self();
+            }, WF_ALL_LAYERS);
+
             output->disconnect_signal("wobbly-event", &wobbly_changed);
         }
 };
