@@ -126,11 +126,18 @@ void plugin_manager::reload_dynamic_plugins()
     std::stringstream stream(plugins_opt->as_string());
     std::vector<std::string> next_plugins;
 
-    std::string plugin;
-    while(stream >> plugin)
+    auto plugin_prefix = std::string(INSTALL_PREFIX "/lib/wayfire/");
+
+    std::string plugin_name;
+    while(stream >> plugin_name)
     {
-        if(plugin != "")
-            next_plugins.push_back(plugin);
+        if (plugin_name.size())
+        {
+            if (plugin_name.at(0) == '/')
+                next_plugins.push_back(plugin_name);
+            else
+                next_plugins.push_back(plugin_prefix + "lib" + plugin_name + ".so");
+        }
     }
 
     /* erase plugins that have been removed from the config */
@@ -157,26 +164,12 @@ void plugin_manager::reload_dynamic_plugins()
 
 
     /* load new plugins */
-    auto path = std::string(INSTALL_PREFIX "/lib/wayfire/");
     for (auto plugin : next_plugins)
     {
-        if (!plugin.length())
+        if (loaded_plugins.count(plugin))
             continue;
 
-
-        std::string plugin_path;
-        if (plugin.size() && plugin[0] == '/')
-        {
-            plugin_path = plugin;
-        } else
-        {
-            plugin_path = path + "lib" + plugin + ".so";
-        }
-
-        if (loaded_plugins.count(plugin_path))
-            continue;
-
-        auto ptr = load_plugin_from_file(plugin_path);
+        auto ptr = load_plugin_from_file(plugin);
         if (ptr)
         {
             init_plugin(ptr);
