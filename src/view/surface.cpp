@@ -158,6 +158,17 @@ wf_geometry wayfire_surface_t::get_output_geometry()
     };
 }
 
+void emit_map_state_change(wayfire_surface_t *surface)
+{
+    std::string state = surface->is_mapped() ? "_surface_mapped" : "_surface_unmapped";
+    wayfire_output *wo = surface->get_output();
+    if (!wo) return;
+
+    _surface_map_state_changed_signal data;
+    data.surface = surface;
+    wo->emit_signal(state, &data);
+}
+
 void wayfire_surface_t::map(wlr_surface *surface)
 {
     assert(!this->surface && surface);
@@ -185,6 +196,9 @@ void wayfire_surface_t::map(wlr_surface *surface)
 
     if (core->uses_csd.count(surface))
         this->has_client_decoration = core->uses_csd[surface];
+
+    if (is_subsurface())
+        emit_map_state_change(this);
 }
 
 void wayfire_surface_t::unmap()
@@ -193,13 +207,7 @@ void wayfire_surface_t::unmap()
     damage();
 
     this->surface = nullptr;
-
-    if (this->output)
-    {
-        _surface_unmapped_signal data;
-        data.surface = this;
-        output->emit_signal("_surface_unmapped", &data);
-    }
+    emit_map_state_change(this);
 
     wl_list_remove(&new_sub.link);
     wl_list_remove(&committed.link);

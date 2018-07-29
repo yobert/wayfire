@@ -62,7 +62,6 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
     } else
     {
         count_other_inputs--;
-        update_cursor_position(ev->time_msec, false);
     }
 
     if (active_grab)
@@ -129,7 +128,7 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
     if (compositor_surface)
     {
         compositor_surface->on_pointer_motion(sx, sy);
-    } else
+    } else if (real_update)
     {
         wlr_seat_pointer_notify_motion(core->input->seat, time_msec, sx, sy);
     }

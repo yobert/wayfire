@@ -230,7 +230,9 @@ void wayfire_core::add_output(wlr_output *output)
     wo->destroy_listener.notify = output_destroyed_callback;
     wl_signal_add(&wo->handle->events.destroy, &wo->destroy_listener);
 
-    wo->connect_signal("_surface_unmapped", &input->surface_destroyed);
+    wo->connect_signal("_surface_mapped", &input->surface_map_state_changed);
+    wo->connect_signal("_surface_unmapped", &input->surface_map_state_changed);
+
     wayfire_shell_handle_output_created(wo);
 }
 

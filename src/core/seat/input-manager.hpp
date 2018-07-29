@@ -98,7 +98,7 @@ class input_manager
         wlr_xcursor_manager *xcursor;
 
         wayfire_surface_t* cursor_focus = nullptr, *touch_focus = nullptr;
-        signal_callback_t surface_destroyed;
+        signal_callback_t surface_map_state_changed;
 
         std::unique_ptr<wf_touch> our_touch;
         std::vector<std::unique_ptr<wf_drag_icon>> drag_icons;

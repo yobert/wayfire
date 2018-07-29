@@ -12,6 +12,7 @@ wlr_box wlr_box_from_pixman_box(const pixman_box32_t& box);
 
 void emit_view_map(wayfire_view view);
 void emit_view_unmap(wayfire_view view);
+void emit_map_state_change(wayfire_surface_t *surface);
 
 void init_xdg_shell_v6();
 void init_xdg_shell();

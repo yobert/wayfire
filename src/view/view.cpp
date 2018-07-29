@@ -632,6 +632,7 @@ void emit_view_map(wayfire_view view)
     map_view_signal data;
     data.view = view;
     view->get_output()->emit_signal("map-view", &data);
+    emit_map_state_change(view.get());
 }
 
 void wayfire_view_t::reposition_relative_to_parent()

@@ -103,6 +103,13 @@ void input_manager::handle_input_destroyed(wlr_input_device *dev)
     update_capabilities();
 }
 
+static uint64_t get_input_time()
+{
+    timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
 input_manager::input_manager()
 {
     input_device_created.notify = handle_new_input_cb;
@@ -111,15 +118,18 @@ input_manager::input_manager()
     wl_signal_add(&core->backend->events.new_input,
                   &input_device_created);
 
-    surface_destroyed = [=] (signal_data *data)
+    surface_map_state_changed = [=] (signal_data *data)
     {
-        auto conv = static_cast<_surface_unmapped_signal*> (data);
+        auto conv = static_cast<_surface_map_state_changed_signal*> (data);
         assert(conv);
 
-        if (conv->surface == cursor_focus)
-            update_cursor_focus(nullptr, 0, 0);
-        if (conv->surface == touch_focus)
-            update_touch_focus(nullptr, 0, 0, 0, 0);
+        update_cursor_position(last_cursor_event_msec, false);
+
+        for (auto f : this->our_touch->gesture_recognizer.current)
+        {
+            int x, y;
+            update_touch_position(get_input_time(), f.first, f.second.sx, f.second.sy, x, y);
+        }
     };
 
     /*
