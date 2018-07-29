@@ -310,6 +310,8 @@ bool wayfire_view_t::should_be_decorated()
 
 void wayfire_view_t::set_decoration(wayfire_surface_t *deco)
 {
+    damage();
+
     if (decoration)
         decoration->dec_keep_count();
 
@@ -328,6 +330,7 @@ void wayfire_view_t::set_decoration(wayfire_surface_t *deco)
 
     frame->calculate_resize_size(wm.width, wm.height);
     set_geometry(wm);
+    damage();
 }
 
 wf_point wayfire_view_t::get_output_position()

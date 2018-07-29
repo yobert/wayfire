@@ -1,4 +1,5 @@
 #include <view.hpp>
+#include <workspace-manager.hpp>
 #include <output.hpp>
 #include <debug.hpp>
 #include <signal-definitions.hpp>
@@ -27,7 +28,11 @@ class wayfire_decoration : public wayfire_plugin_t
 
     void fini()
     {
-        /* TODO: when the plugin actually gets usable, it's broken now anyway */
+        output->workspace->for_each_view([] (wayfire_view view)
+        {
+            view->set_decoration(nullptr);
+        }, WF_ALL_LAYERS);
+        output->disconnect_signal("map-view", &view_created);
     }
 };
 
