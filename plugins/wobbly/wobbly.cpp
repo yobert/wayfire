@@ -50,7 +50,9 @@ void main()
     {
         if (times_loaded++ > 0)
             return;
-        log_info("Load program ... ");
+
+        /* viewport dimensions don't matter really, we just care to get the proper GL context */
+        wlr_renderer_begin(core->renderer, 10, 10);
 
         auto vs = OpenGL::compile_shader(vertex_source, GL_VERTEX_SHADER);
         auto fs = OpenGL::compile_shader(frag_source, GL_FRAGMENT_SHADER);
@@ -66,12 +68,18 @@ void main()
 
         GL_CALL(glDeleteShader(vs));
         GL_CALL(glDeleteShader(fs));
+
+        wlr_renderer_end(core->renderer);
     }
 
     void destroy_program()
     {
         if (--times_loaded == 0)
+        {
+            wlr_renderer_begin(core->renderer, 10, 10);
             GL_CALL(glDeleteProgram(program));
+            wlr_renderer_end(core->renderer);
+        }
     }
 
     void render_triangles(GLuint tex, glm::mat4 mat, float *pos, float *uv, int cnt)
@@ -393,6 +401,8 @@ class wayfire_wobbly : public wayfire_plugin_t
             };
 
             output->connect_signal("wobbly-event", &wobbly_changed);
+
+            wobbly_graphics::load_program();
         }
 
         void adjust_wobbly(wobbly_signal *data)
@@ -402,10 +412,7 @@ class wayfire_wobbly : public wayfire_plugin_t
 
             if ((data->events & (WOBBLY_EVENT_GRAB | WOBBLY_EVENT_SNAP))
                 && data->view->get_transformer("wobbly") == nullptr)
-            {
-                wobbly_graphics::load_program();
                 data->view->add_transformer(nonstd::make_unique<wf_wobbly> (data->view, grab_interface), "wobbly");
-            }
 
             auto wobbly = dynamic_cast<wf_wobbly*> (data->view->get_transformer("wobbly").get());
             if (!wobbly)
@@ -443,6 +450,7 @@ class wayfire_wobbly : public wayfire_plugin_t
                     wobbly->destroy_self();
             }, WF_ALL_LAYERS);
 
+            wobbly_graphics::destroy_program();
             output->disconnect_signal("wobbly-event", &wobbly_changed);
         }
 };
