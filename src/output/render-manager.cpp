@@ -413,7 +413,7 @@ void render_manager::post_paint()
     } else
     {
         auto views = output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), WF_ALL_LAYERS);
+            output->workspace->get_current_workspace(), WF_ALL_LAYERS, false);
 
         for (auto v : views)
             send_frame_done(v);
@@ -603,7 +603,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
                                    sw, sh);
     }
 
-    auto views = output->workspace->get_views_on_workspace(stream->ws, WF_ALL_LAYERS);
+    auto views = output->workspace->get_views_on_workspace(stream->ws, WF_ALL_LAYERS, false);
 
     struct damaged_surface_t
     {
@@ -681,7 +681,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
                 {
                     pixman_region32_t opaque;
                     pixman_region32_init(&opaque);
-                    pixman_region32_copy(&opaque, &surface->surface->current->opaque);
+                    //pixman_region32_copy(&opaque, &surface->surface->current->opaque);
                     pixman_region32_translate(&opaque, x, y);
                     wlr_region_scale(&opaque, &opaque, output->handle->scale);
                     //pixman_region32_subtract(&ws_damage, &ws_damage, &opaque);
@@ -756,7 +756,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
     uint32_t target_buffer = (stream->fbuff == 0 ? default_fb : stream->fbuff);
     GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_buffer));
-    for (int i = 0;i < n_rect; i++)
+    for (int i = 0; i < n_rect; i++)
     {
         wlr_box damage = wlr_box_from_pixman_box(rects[i]);
         auto box = get_scissor_box(output, damage);

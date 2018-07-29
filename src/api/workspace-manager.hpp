@@ -42,8 +42,11 @@ class workspace_manager
         /* return if the view is visible on the given workspace */
         virtual bool view_visible_on(wayfire_view view, std::tuple<int, int>) = 0;
 
+        /* returns a list of the views in the given layers on the given workspace
+         * @param wm_only - if set, this will return only the views whose WM geometry is inside
+         * the workspace. See view.hpp for a distinction between wm, output and boundingbox geometry */
         virtual std::vector<wayfire_view>
-            get_views_on_workspace(std::tuple<int, int> ws, uint32_t layer_mask) = 0;
+            get_views_on_workspace(std::tuple<int, int> ws, uint32_t layer_mask, bool wm_only) = 0;
         virtual void for_each_view(view_callback_proc_t call, uint32_t layers_mask) = 0;
         virtual void for_each_view_reverse(view_callback_proc_t call, uint32_t layers_mask) = 0;
 

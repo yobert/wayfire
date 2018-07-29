@@ -5,6 +5,7 @@
 #include <linux/input.h>
 #include <signal-definitions.hpp>
 
+#include "../wobbly/wobbly-signal.hpp"
 
 class wayfire_resize : public wayfire_plugin_t {
     signal_callback_t resize_request, view_destroyed;
@@ -18,6 +19,7 @@ class wayfire_resize : public wayfire_plugin_t {
     int initial_width, initial_height;
 
     uint32_t edges;
+    bool set_wobbly = false;
 
     public:
     void init(wayfire_config *config)
@@ -88,7 +90,6 @@ class wayfire_resize : public wayfire_plugin_t {
             {
                 view = nullptr;
                 input_pressed(WLR_BUTTON_RELEASED);
-
             }
         };
 
@@ -109,6 +110,7 @@ class wayfire_resize : public wayfire_plugin_t {
 
     void initiate(wayfire_view view, int sx, int sy, uint32_t forced_edges = 0)
     {
+        set_wobbly = false;
         if (!view || view->role == WF_VIEW_ROLE_SHELL_VIEW || view->destroyed)
             return;
 
@@ -160,14 +162,26 @@ class wayfire_resize : public wayfire_plugin_t {
 
         view->set_resizing(true, edges);
 
-        if (view->maximized)
-            view->set_maximized(false);
         if (view->fullscreen)
             view->set_fullscreen(false);
+        if (view->maximized)
+            view->set_maximized(false);
 
         if (edges == 0) /* simply deactivate */
             input_pressed(WL_POINTER_BUTTON_STATE_RELEASED);
         this->view = view;
+
+        auto og = view->get_output_geometry();
+        int anchor_x = og.x;
+        int anchor_y = og.y;
+
+        if (edges & WF_RESIZE_EDGE_LEFT)
+            anchor_x += og.width;
+        if (edges & WF_RESIZE_EDGE_TOP)
+            anchor_y += og.height;
+
+        snap_wobbly(view, {}, false);
+        start_wobbly(view, anchor_x, anchor_y);
     }
 
     void input_pressed(uint32_t state)
@@ -180,10 +194,11 @@ class wayfire_resize : public wayfire_plugin_t {
 
         if (view)
         {
-	    if ((edges & WF_RESIZE_EDGE_LEFT) ||
-	        (edges & WF_RESIZE_EDGE_TOP))
+            if ((edges & WF_RESIZE_EDGE_LEFT) ||
+                (edges & WF_RESIZE_EDGE_TOP))
                 view->set_moving(false);
             view->set_resizing(false);
+            end_wobbly(view);
         }
     }
 
@@ -204,26 +219,21 @@ class wayfire_resize : public wayfire_plugin_t {
         else
             height += dy;
 
-        /* TODO: add view::get_max/min size
-        auto max_size = weston_desktop_surface_get_max_size(view->desktop_surface);
-        auto min_size = weston_desktop_surface_get_min_size(view->desktop_surface);
-
-        min_size.width = std::max(min_size.width, 10);
-        min_size.height = std::max(min_size.height, 10);
-
-        if (max_size.width > 0)
-            newg.width = std::min(max_size.width, newg.width);
-        newg.width = std::max(min_size.width, newg.width);
-
-        if (max_size.height > 0)
-            newg.height = std::min(max_size.height, newg.height);
-        newg.height = std::max(min_size.height, newg.height);
-        */
-
         height = std::max(height, 1);
         width  = std::max(width,  1);
-
         view->resize(width, height);
+
+        auto vog = view->get_output_geometry();
+        resize_wobbly(view, vog.width, vog.height);
+
+        auto og = view->get_output_geometry();
+        int anchor_x = og.x;
+        int anchor_y = og.y;
+
+        if (edges & WF_RESIZE_EDGE_LEFT)
+            anchor_x += og.width;
+        if (edges & WF_RESIZE_EDGE_TOP)
+            anchor_y += og.height;
     }
 
     void fini()
