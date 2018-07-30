@@ -87,7 +87,7 @@ void wf_drag_icon::damage(const wlr_box& box)
             local.x -= output_geometry.x;
             local.y -= output_geometry.y;
 
-            output->render->damage(local);
+            output->render->damage(get_output_box_from_box(local, output->handle->scale));
         }
     });
 }
