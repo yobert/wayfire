@@ -272,6 +272,9 @@ void wayfire_surface_t::update_output_position()
 
 void wayfire_surface_t::apply_surface_damage(int x, int y)
 {
+    if (!output || !is_mapped())
+        return;
+
     pixman_region32_t dmg;
     pixman_region32_init(&dmg);
     pixman_region32_copy(&dmg, &surface->buffer_damage);
