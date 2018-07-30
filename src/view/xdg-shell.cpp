@@ -131,7 +131,7 @@ static void handle_xdg_request_fullscreen(wl_listener*, void *data)
     view->fullscreen_request(wo, ev->fullscreen);
 }
 
-void handle_xdg_set_parent(wl_listener* listener, void *data)
+static void handle_xdg_set_parent(wl_listener* listener, void *data)
 {
     auto surface = static_cast<wlr_xdg_surface*> (data);
     auto view = wf_view_from_void(surface->data);
@@ -140,6 +140,20 @@ void handle_xdg_set_parent(wl_listener* listener, void *data)
 
     assert(view);
     view->set_toplevel_parent(parent);
+}
+
+static void handle_xdg_set_title(wl_listener *listener, void *data)
+{
+    auto surface = static_cast<wlr_xdg_surface*> (data);
+    auto view = wf_view_from_void(surface->data);
+    emit_title_changed(view->self());
+}
+
+static void handle_xdg_set_app_id(wl_listener *listener, void *data)
+{
+    auto surface = static_cast<wlr_xdg_surface*> (data);
+    auto view = wf_view_from_void(surface->data);
+    emit_app_id_changed(view->self());
 }
 
 wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_surface *s)
@@ -153,6 +167,8 @@ wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_surface *s)
     new_popup.notify          = handle_xdg_new_popup;
     map_ev.notify             = handle_xdg_map;
     unmap_ev.notify           = handle_xdg_unmap;
+    set_title.notify          = handle_xdg_set_title;
+    set_app_id.notify         = handle_xdg_set_app_id;
     set_parent_ev.notify      = handle_xdg_set_parent;
     request_move.notify       = handle_xdg_request_move;
     request_resize.notify     = handle_xdg_request_resize;
@@ -165,6 +181,8 @@ wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_surface *s)
     wl_signal_add(&s->events.new_popup,         &new_popup);
     wl_signal_add(&xdg_surface->events.map,     &map_ev);
     wl_signal_add(&xdg_surface->events.unmap,   &unmap_ev);
+    wl_signal_add(&xdg_surface->toplevel->events.set_title,          &set_title);
+    wl_signal_add(&xdg_surface->toplevel->events.set_app_id,         &set_app_id);
     wl_signal_add(&xdg_surface->toplevel->events.set_parent,         &set_parent_ev);
     wl_signal_add(&xdg_surface->toplevel->events.request_move,       &request_move);
     wl_signal_add(&xdg_surface->toplevel->events.request_resize,     &request_resize);
@@ -299,6 +317,8 @@ void wayfire_xdg_view::destroy()
     wl_list_remove(&request_maximize.link);
     wl_list_remove(&request_fullscreen.link);
     wl_list_remove(&set_parent_ev.link);
+    wl_list_remove(&set_title.link);
+    wl_list_remove(&set_app_id.link);
 
     xdg_surface = nullptr;
     wayfire_view_t::destroy();

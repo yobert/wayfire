@@ -35,7 +35,7 @@ class wayfire_xdg_view : public wayfire_view_t
         wl_listener destroy_ev, map_ev, unmap_ev, new_popup,
                 request_move, request_resize,
                 request_maximize, request_fullscreen,
-                set_parent_ev;
+                set_parent_ev, set_title, set_app_id;
 
         wf_point xdg_surface_offset;
 

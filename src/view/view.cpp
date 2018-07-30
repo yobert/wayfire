@@ -831,6 +831,25 @@ wayfire_view_t::~wayfire_view_t()
     pixman_region32_fini(&offscreen_buffer.cached_damage);
 }
 
+void emit_title_changed(wayfire_view view)
+{
+    if (!view)
+        return;
+    title_changed_signal data;
+    data.view = view;
+    view->get_output()->emit_signal("view-title-changed", &data);
+}
+
+void emit_app_id_changed(wayfire_view view)
+{
+    if (!view)
+        return;
+
+    app_id_changed_signal data;
+    data.view = view;
+    view->get_output()->emit_signal("view-app-id-changed", &data);
+}
+
 void init_desktop_apis()
 {
     init_xdg_shell();

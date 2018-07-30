@@ -87,6 +87,20 @@ static void handle_xwayland_set_parent(wl_listener*, void *data)
     view->set_toplevel_parent(parent);
 }
 
+static void handle_xwayland_set_title(wl_listener *listener, void *data)
+{
+    auto surface = static_cast<wlr_xwayland_surface*> (data);
+    auto view = wf_view_from_void(surface->data);
+    emit_title_changed(view->self());
+}
+
+static void handle_xwayland_set_app_id(wl_listener *listener, void *data)
+{
+    auto surface = static_cast<wlr_xwayland_surface*> (data);
+    auto view = wf_view_from_void(surface->data);
+    emit_app_id_changed(view->self());
+}
+
 class wayfire_xwayland_view : public wayfire_view_t
 {
     wlr_xwayland_surface *xw;
@@ -95,7 +109,7 @@ class wayfire_xwayland_view : public wayfire_view_t
     wl_listener destroy_ev, map_ev, unmap_ev, configure,
                 request_move, request_resize,
                 request_maximize, request_fullscreen,
-                set_parent_ev;
+                set_parent_ev, set_title, set_app_id;
 
     signal_callback_t output_geometry_changed;
 
@@ -110,6 +124,8 @@ class wayfire_xwayland_view : public wayfire_view_t
         map_ev.notify             = handle_xwayland_map;
         unmap_ev.notify           = handle_xwayland_unmap;
         configure.notify          = handle_xwayland_request_configure;
+        set_title.notify          = handle_xwayland_set_title;
+        set_app_id.notify         = handle_xwayland_set_app_id;
         set_parent_ev.notify      = handle_xwayland_set_parent;
         request_move.notify       = handle_xwayland_request_move;
         request_resize.notify     = handle_xwayland_request_resize;
@@ -119,6 +135,8 @@ class wayfire_xwayland_view : public wayfire_view_t
         wl_signal_add(&xw->events.destroy,            &destroy_ev);
         wl_signal_add(&xw->events.unmap,              &unmap_ev);
         wl_signal_add(&xw->events.map,                &map_ev);
+        wl_signal_add(&xw->events.set_title,          &set_title);
+        wl_signal_add(&xw->events.set_class,          &set_app_id);
         wl_signal_add(&xw->events.set_parent,         &set_parent_ev);
         wl_signal_add(&xw->events.request_move,       &request_move);
         wl_signal_add(&xw->events.request_resize,     &request_resize);
@@ -155,6 +173,8 @@ class wayfire_xwayland_view : public wayfire_view_t
         wl_list_remove(&request_maximize.link);
         wl_list_remove(&request_fullscreen.link);
         wl_list_remove(&configure.link);
+        wl_list_remove(&set_title.link);
+        wl_list_remove(&set_app_id.link);
 
         wayfire_view_t::destroy();
     }

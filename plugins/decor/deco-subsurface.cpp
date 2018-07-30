@@ -68,6 +68,7 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
     int titlebar = titlebar_thickness;
 
     wayfire_view view;
+    signal_callback_t title_set;
 
     protected:
         virtual void damage(const wlr_box& box)
@@ -86,6 +87,22 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
         simple_decoration_surface(wayfire_view view)
         {
             this->view = view;
+            title_set = [=] (signal_data *data)
+            {
+                if (get_signaled_view(data) == view)
+                    notify_view_resized(view->get_wm_geometry());
+            };
+        }
+
+        virtual void set_output(wayfire_output *next_output)
+        {
+            if (this->output)
+                this->output->disconnect_signal("view-title-changed", &title_set);
+
+            wayfire_compositor_surface_t::set_output(next_output);
+
+            if (this->output)
+                this->output->connect_signal("view-title-changed", &title_set);
         }
 
         virtual ~simple_decoration_surface()
@@ -110,7 +127,6 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
         float border_color_inactive[4] = {0.25f, 0.25f, 0.25f, 0.95f};
 
         GLuint tex = -1;
-
 
         virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor)
         {
@@ -262,11 +278,9 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
 
         virtual void notify_view_resized(wf_geometry view_geometry)
         {
-            if (width != view_geometry.width)
-            {
+            if (tex != (uint32_t)-1)
                 GL_CALL(glDeleteTextures(1, &tex));
-                tex = -1;
-            }
+            tex = -1;
 
             width = view_geometry.width;
             height = view_geometry.height;

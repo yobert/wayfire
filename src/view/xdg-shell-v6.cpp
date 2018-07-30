@@ -135,6 +135,20 @@ void handle_v6_set_parent(wl_listener* listener, void *data)
     view->set_toplevel_parent(parent);
 }
 
+static void handle_v6_set_title(wl_listener *listener, void *data)
+{
+    auto surface = static_cast<wlr_xdg_surface_v6*> (data);
+    auto view = wf_view_from_void(surface->data);
+    emit_title_changed(view->self());
+}
+
+static void handle_v6_set_app_id(wl_listener *listener, void *data)
+{
+    auto surface = static_cast<wlr_xdg_surface_v6*> (data);
+    auto view = wf_view_from_void(surface->data);
+    emit_app_id_changed(view->self());
+}
+
 wayfire_xdg6_view::wayfire_xdg6_view(wlr_xdg_surface_v6 *s)
     : wayfire_view_t(), v6_surface(s)
 {
@@ -146,6 +160,8 @@ wayfire_xdg6_view::wayfire_xdg6_view(wlr_xdg_surface_v6 *s)
     new_popup.notify          = handle_v6_new_popup;
     map_ev.notify             = handle_v6_map;
     unmap_ev.notify           = handle_v6_unmap;
+    set_title.notify          = handle_v6_set_title;
+    set_app_id.notify         = handle_v6_set_app_id;
     set_parent_ev.notify      = handle_v6_set_parent;
     request_move.notify       = handle_v6_request_move;
     request_resize.notify     = handle_v6_request_resize;
@@ -158,6 +174,8 @@ wayfire_xdg6_view::wayfire_xdg6_view(wlr_xdg_surface_v6 *s)
     wl_signal_add(&s->events.new_popup,        &new_popup);
     wl_signal_add(&v6_surface->events.map,     &map_ev);
     wl_signal_add(&v6_surface->events.unmap,   &unmap_ev);
+    wl_signal_add(&v6_surface->toplevel->events.set_title,          &set_title);
+    wl_signal_add(&v6_surface->toplevel->events.set_app_id,         &set_app_id);
     wl_signal_add(&v6_surface->toplevel->events.set_parent,         &set_parent_ev);
     wl_signal_add(&v6_surface->toplevel->events.request_move,       &request_move);
     wl_signal_add(&v6_surface->toplevel->events.request_resize,     &request_resize);
@@ -288,6 +306,8 @@ void wayfire_xdg6_view::destroy()
     wl_list_remove(&request_maximize.link);
     wl_list_remove(&request_fullscreen.link);
     wl_list_remove(&set_parent_ev.link);
+    wl_list_remove(&set_title.link);
+    wl_list_remove(&set_app_id.link);
 
     v6_surface = nullptr;
     wayfire_view_t::destroy();
