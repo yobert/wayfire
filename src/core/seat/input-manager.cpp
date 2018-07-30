@@ -125,10 +125,13 @@ input_manager::input_manager()
 
         update_cursor_position(last_cursor_event_msec, false);
 
-        for (auto f : this->our_touch->gesture_recognizer.current)
+        if (our_touch)
         {
-            int x, y;
-            update_touch_position(get_input_time(), f.first, f.second.sx, f.second.sy, x, y);
+            for (auto f : our_touch->gesture_recognizer.current)
+            {
+                int x, y;
+                update_touch_position(get_input_time(), f.first, f.second.sx, f.second.sy, x, y);
+            }
         }
     };
 
