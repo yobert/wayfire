@@ -274,6 +274,8 @@ class wayfire_xwayland_view : public wayfire_view_t
     }
 };
 
+// TODO: some xwayland views are created as regular and
+// get the OR flag later - handle this case in wayfire_xwayland_view::map()
 class wayfire_unmanaged_xwayland_view : public wayfire_view_t
 {
     wlr_xwayland_surface *xw;
@@ -366,7 +368,7 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
         wayfire_surface_t::map(surface);
         output->workspace->add_view_to_layer(self(), WF_LAYER_XWAYLAND);
 
-        if (!wlr_xwayland_surface_is_unmanaged(xw))
+        if (wlr_xwayland_or_surface_wants_focus(xw))
         {
             auto wa = output->workspace->get_workarea();
             move(xw->x + wa.x - real_output.x, xw->y + wa.y - real_output.y, false);
@@ -378,7 +380,7 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
 
     void unmap()
     {
-        if (!wlr_xwayland_surface_is_unmanaged(xw))
+        if (wlr_xwayland_or_surface_wants_focus(xw))
             emit_view_unmap(self());
 
         wayfire_surface_t::unmap();
@@ -454,7 +456,7 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
 
     wlr_surface *get_keyboard_focus_surface()
     {
-        if (wlr_xwayland_surface_is_unmanaged(xw))
+        if (!wlr_xwayland_or_surface_wants_focus(xw))
             return nullptr;
         return surface;
     }
@@ -486,7 +488,7 @@ void notify_xwayland_created(wl_listener *, void *data)
 {
     auto xsurf = (wlr_xwayland_surface*) data;
 
-    if (wlr_xwayland_surface_is_unmanaged(xsurf) || xsurf->override_redirect)
+    if (xsurf->override_redirect)
     {
         core->add_view(nonstd::make_unique<wayfire_unmanaged_xwayland_view>(xsurf));
     } else

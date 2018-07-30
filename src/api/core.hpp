@@ -18,7 +18,7 @@ extern "C"
 #undef static
 
 struct wlr_data_device_manager;
-struct wlr_linux_dmabuf;
+struct wlr_linux_dmabuf_v1;
 struct wlr_gamma_control_manager;
 struct wlr_screenshooter;
 struct wlr_xdg_output_manager;
@@ -79,7 +79,7 @@ class wayfire_core
             wlr_data_device_manager *data_device;
             wlr_gamma_control_manager *gamma;
             wlr_screenshooter *screenshooter;
-            wlr_linux_dmabuf *linux_dmabuf;
+            wlr_linux_dmabuf_v1 *linux_dmabuf;
             wlr_export_dmabuf_manager_v1 *export_dmabuf;
             wlr_server_decoration_manager *decorator_manager;
             wlr_xdg_output_manager *output_manager;

@@ -45,6 +45,7 @@ conf_data.set('WF_SRC_DIR', meson.source_root())
 conf_data.set('INSTALL_PREFIX', get_option('prefix'))
 
 # needed to dlopen() plugins
+add_project_arguments(['-DWLR_USE_UNSTABLE'], language: ['cpp', 'c'])
 add_project_link_arguments(['-rdynamic'], language:'cpp')
 
 if get_option('buildtype') == 'debug' or get_option('enable_debug_output')
