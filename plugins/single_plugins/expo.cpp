@@ -525,23 +525,22 @@ class wayfire_expo : public wayfire_plugin_t
         if (state.active)
             finalize_and_exit();
 
-        GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
-        for (int i = 0; i < vw; i++)
+        for (auto& row : streams)
         {
-            for (int j = 0; j < vh; j++)
+            for (auto& stream: row)
             {
-                if (streams[i][j]->fbuff != uint32_t(-1))
+                if (stream->fbuff != uint32_t(-1))
                 {
-                    GL_CALL(glDeleteFramebuffers(1, &streams[i][j]->fbuff));
-                    GL_CALL(glDeleteTextures(1, &streams[i][j]->tex));
+                    if (stream->running)
+                        output->render->workspace_stream_stop(stream);
+                    GL_CALL(glDeleteFramebuffers(1, &stream->fbuff));
+                    GL_CALL(glDeleteTextures(1, &stream->tex));
                 }
             }
         }
 
         output->rem_key(&toggle_cb);
         output->rem_gesture(&touch_toggle_cb);
-
-        renderer = [=] (uint32_t fb) { render(fb); };
         output->disconnect_signal("output-resized", &resized_cb);
     }
 };
