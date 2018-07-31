@@ -166,6 +166,9 @@ class wayfire_expo : public wayfire_plugin_t
 
     void deactivate()
     {
+        if (state.moving)
+            end_move();
+
         zoom_animation.start();
         state.moving = false;
 
