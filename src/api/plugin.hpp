@@ -127,6 +127,16 @@ class wayfire_plugin_t {
         virtual void init(wayfire_config *config) = 0;
         virtual void fini();
 
+        /* override this function if the plugin cannot be safely unloaded at runtime -
+         * it will remain active even if it is removed from the config file. Please note
+         * however that they should still provide fini() and free their data - they will
+         * be destroyed once their output has been destroyed. However, non-unloadable plugins
+         * are generally destroyed after all unloadable ones */
+        virtual bool is_unloadable() { return true; }
+
+        /* used to determine if the plugin provides some special features like workspace implementations */
+        virtual bool is_internal() { return false; }
+
         /* grab_interface is already freed in destructor, so you might want to use fini() */
         virtual ~wayfire_plugin_t();
 

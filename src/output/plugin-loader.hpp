@@ -23,6 +23,8 @@ private:
     std::unordered_map<std::string, wayfire_plugin> loaded_plugins;
     wf_option_callback list_updated;
 
+    void deinit_plugins(bool unloadable, bool internal);
+
     wayfire_plugin load_plugin_from_file(std::string path);
     void load_static_plugins();
 

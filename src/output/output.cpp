@@ -237,10 +237,10 @@ workspace_manager::~workspace_manager()
 
 wayfire_output::~wayfire_output()
 {
+    delete plugin;
     core->input->free_output_bindings(this);
 
     delete workspace;
-    delete plugin;
     delete render;
 
     wl_list_remove(&destroy_listener.link);

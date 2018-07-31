@@ -538,6 +538,14 @@ class viewport_impl_plugin : public wayfire_plugin_t {
 
         output->workspace = vp;
     }
+
+    void fini()
+    {
+        output->workspace = NULL;
+    }
+
+    bool is_unloadable() { return false; }
+    bool is_internal() { return true; }
 };
 
 extern "C" {

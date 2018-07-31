@@ -54,13 +54,29 @@ plugin_manager::plugin_manager(wayfire_output *o, wayfire_config *config)
     plugins_opt->updated.push_back(&list_updated);
 }
 
-plugin_manager::~plugin_manager()
+void plugin_manager::deinit_plugins(bool unloadable, bool internal)
 {
     for (auto& p : loaded_plugins)
-        destroy_plugin(p.second);
+    {
+        if (!p.second) // already destroyed on the previous iteration
+            continue;
+
+        if (p.second->is_unloadable() == unloadable && p.second->is_internal() == internal)
+            destroy_plugin(p.second);
+    }
+}
+
+plugin_manager::~plugin_manager()
+{
+    deinit_plugins(true, false); // regular plugins - unloadable, not internal
+    deinit_plugins(false, false); // regular plugins - not-unloadable, not internal
+    deinit_plugins(true, true); // system plugins - unloadable, internal
+    deinit_plugins(false, true); // system plugins - not-unloadable, internal
 
     loaded_plugins.clear();
-    wl_event_source_remove(idle_reload_dynamic_plugins);
+
+    if (idle_reload_dynamic_plugins)
+        wl_event_source_remove(idle_reload_dynamic_plugins);
 
     plugins_opt->updated.erase(std::remove(plugins_opt->updated.begin(), plugins_opt->updated.end(),
                                            &list_updated), plugins_opt->updated.end());
@@ -151,12 +167,14 @@ void plugin_manager::reload_dynamic_plugins()
             continue;
         }
 
-        if (std::find(next_plugins.begin(), next_plugins.end(), it->first) == next_plugins.end())
+        if (std::find(next_plugins.begin(), next_plugins.end(), it->first) == next_plugins.end() &&
+            it->second->is_unloadable())
         {
             log_debug("unload plugin %s", it->first.c_str());
             destroy_plugin(it->second);
             it = loaded_plugins.erase(it);
-        } else
+        }
+        else
         {
             ++it;
         }
