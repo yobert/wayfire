@@ -319,8 +319,10 @@ class wayfire_expo : public wayfire_plugin_t
             return;
 
         if (state == WLR_BUTTON_RELEASED && !this->state.moving) {
+            this->state.button_pressed = false;
             deactivate();
         } else if (state == WLR_BUTTON_RELEASED) {
+            this->state.button_pressed = false;
             end_move();
         } else {
             this->state.button_pressed = true;
