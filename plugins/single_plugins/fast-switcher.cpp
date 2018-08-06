@@ -76,7 +76,8 @@ class wayfire_fast_switcher : public wayfire_plugin_t
     void update_views()
     {
         current_view_index = 0;
-        views = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace(), WF_LAYER_WORKSPACE);
+        views = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace(),
+                                                          WF_LAYER_WORKSPACE, true);
     }
 
     void view_chosen(int i)
