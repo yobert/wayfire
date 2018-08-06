@@ -658,20 +658,12 @@ void
 wobbly_resize_notify(struct wobbly_surface *surface)
 {
     WobblyWindow *ww = surface->ww;
-    int x, y, w, h;
 
-    x = surface->x;
-    y = surface->y;
-    w = surface->width;
-    h = surface->height;
+    surface->synced = 0;
+    ww->wobbly |= WobblyInitial;
 
     if (ww->model)
-    {
-        if (!ww->wobbly)
-            modelInitObjects (ww->model, x, y, w, h);
-
-        modelInitSprings (ww->model, w, h);
-    }
+        modelInitSprings (ww->model, surface->width, surface->height);
 }
 
 void

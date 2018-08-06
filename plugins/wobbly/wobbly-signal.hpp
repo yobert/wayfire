@@ -7,11 +7,10 @@ enum wobbly_event
 {
     WOBBLY_EVENT_GRAB      = (1 << 0),
     WOBBLY_EVENT_MOVE      = (1 << 1),
-    WOBBLY_EVENT_RESIZE    = (1 << 2),
-    WOBBLY_EVENT_END       = (1 << 3),
-    WOBBLY_EVENT_SNAP      = (1 << 4),
-    WOBBLY_EVENT_UNSNAP    = (1 << 5),
-    WOBBLY_EVENT_TRANSLATE = (1 << 6)
+    WOBBLY_EVENT_END       = (1 << 2),
+    WOBBLY_EVENT_SNAP      = (1 << 3),
+    WOBBLY_EVENT_UNSNAP    = (1 << 4),
+    WOBBLY_EVENT_TRANSLATE = (1 << 5)
 };
 
 enum wobbly_corner
@@ -57,17 +56,6 @@ inline void move_wobbly(wayfire_view view, int grab_x, int grab_y)
     sig.events = WOBBLY_EVENT_MOVE;
     sig.geometry.x = grab_x;
     sig.geometry.y = grab_y;
-
-    view->get_output()->emit_signal("wobbly-event", &sig);
-}
-
-inline void resize_wobbly(wayfire_view view, int w, int h)
-{
-    wobbly_signal sig;
-    sig.view = view;
-    sig.events = WOBBLY_EVENT_RESIZE;
-    sig.geometry.width = w;
-    sig.geometry.height = h;
 
     view->get_output()->emit_signal("wobbly-event", &sig);
 }

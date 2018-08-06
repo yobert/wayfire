@@ -223,9 +223,6 @@ class wayfire_resize : public wayfire_plugin_t {
         width  = std::max(width,  1);
         view->resize(width, height);
 
-        auto vog = view->get_output_geometry();
-        resize_wobbly(view, vog.width, vog.height);
-
         auto og = view->get_output_geometry();
         int anchor_x = og.x;
         int anchor_y = og.y;

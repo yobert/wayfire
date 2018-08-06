@@ -229,7 +229,7 @@ class wf_wobbly : public wf_view_transformer_t
         if (snapped_geometry.width <= 0)
             resize(last_boundingbox.width, last_boundingbox.height);
 
-        wobbly_prepare_paint(model.get(), 17);
+        wobbly_prepare_paint(model.get(), 16);
         wobbly_add_geometry(model.get());
         wobbly_done_paint(model.get());
 
@@ -424,9 +424,6 @@ class wayfire_wobbly : public wayfire_plugin_t
 
             if (data->events & WOBBLY_EVENT_MOVE)
                 wobbly->move(data->geometry.x, data->geometry.y);
-
-            if (data->events & WOBBLY_EVENT_RESIZE)
-                wobbly->resize(data->geometry.width, data->geometry.height);
 
             if (data->events & WOBBLY_EVENT_END)
                 wobbly->end_grab(data->unanchor);
