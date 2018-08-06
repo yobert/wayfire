@@ -32,7 +32,7 @@ static void handle_xwayland_request_configure(wl_listener*, void *data)
     auto ev = static_cast<wlr_xwayland_surface_configure_event*> (data);
     auto view = wf_view_from_void(ev->surface->data);
 
-     view->set_geometry({ev->x, ev->y, ev->width, ev->height});
+    view->set_geometry({ev->x, ev->y, ev->width, ev->height});
 }
 
 static void handle_xwayland_request_maximize(wl_listener*, void *data)
@@ -213,6 +213,13 @@ class wayfire_xwayland_view : public wayfire_view_t
 
     void send_configure(int width, int height)
     {
+        if (width < 0 || height < 0)
+        {
+            /* such a configure request would freeze xwayland. This is most probably a bug */
+            log_error("Configuring a xwayland surface with width/height <0");
+            return;
+        }
+
         auto output_geometry = get_output_geometry();
 
         int configure_x = output_geometry.x;
@@ -225,8 +232,7 @@ class wayfire_xwayland_view : public wayfire_view_t
             configure_y += real_output.y;
         }
 
-        wlr_xwayland_surface_configure(xw, configure_x, configure_y,
-                                       width, height);
+        wlr_xwayland_surface_configure(xw, configure_x, configure_y, width, height);
     }
 
     void send_configure()
@@ -412,6 +418,14 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
 
     void send_configure()
     {
+        if (geometry.width < 0 || geometry.height < 0)
+        {
+            /* such a configure request would freeze xwayland. This is most probably a bug */
+            log_error("Configuring a xwayland surface with width/height <0");
+            return;
+        }
+
+
         if (output)
         {
             auto real_output = output->get_full_geometry();
