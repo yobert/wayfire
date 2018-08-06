@@ -271,7 +271,7 @@ class vswitch : public wayfire_plugin_t
 
     bool start_switch()
     {
-        if (false && !output->activate_plugin(grab_interface)) {
+        if (!output->activate_plugin(grab_interface)) {
             dirs = std::queue<switch_direction> ();
             return false;
         }

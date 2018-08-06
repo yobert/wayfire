@@ -332,17 +332,15 @@ void wayfire_view_t::set_decoration(wayfire_surface_t *deco)
     decoration->set_output(output);
     decoration->inc_keep_count();
 
-    if (maximized || fullscreen)
-    {
-        /* if the view is maximized or fullscreen, we should try to keep
-         * the wm size as the old one */
-        frame->calculate_resize_size(wm.width, wm.height);
-        set_geometry(wm);
-    } else {
-        /* otherwise, the frame should adapt to the current size */
-        frame->notify_view_resized(wm);
-    }
+    frame->notify_view_resized(frame->expand_wm_geometry(wm));
+    move(wm.x, wm.y);
+
     damage();
+
+    if (maximized)
+        set_geometry(output->workspace->get_workarea());
+    if (fullscreen)
+        set_geometry(output->get_relative_geometry());
 }
 
 wf_point wayfire_view_t::get_output_position()

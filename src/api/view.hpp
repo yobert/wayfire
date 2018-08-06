@@ -329,7 +329,8 @@ class wayfire_view_t : public wayfire_surface_t
          * The parameter object MUST be a subclass of both wayfire_surface_t
          * and of wf_decorator_frame_t
          *
-         * The life-time of the decoration ({inc,dec}_keep_count) is managed by the view itself */
+         * The life-time of the decoration ({inc,dec}_keep_count) is managed by the view itself
+         * Setting the decoration may change the view output and wm geometry */
         virtual void set_decoration(wayfire_surface_t *frame);
 
         /* iterate all (sub) surfaces, popups, decorations, etc. in top-most order
