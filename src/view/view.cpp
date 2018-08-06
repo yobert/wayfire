@@ -332,8 +332,16 @@ void wayfire_view_t::set_decoration(wayfire_surface_t *deco)
     decoration->set_output(output);
     decoration->inc_keep_count();
 
-    frame->calculate_resize_size(wm.width, wm.height);
-    set_geometry(wm);
+    if (maximized || fullscreen)
+    {
+        /* if the view is maximized or fullscreen, we should try to keep
+         * the wm size as the old one */
+        frame->calculate_resize_size(wm.width, wm.height);
+        set_geometry(wm);
+    } else {
+        /* otherwise, the frame should adapt to the current size */
+        frame->notify_view_resized(wm);
+    }
     damage();
 }
 
