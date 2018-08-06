@@ -258,7 +258,7 @@ class wayfire_view_t : public wayfire_surface_t
          * they are asked */
         virtual void resize(int w, int h, bool send_signal = true);
         virtual void activate(bool active);
-        virtual void close() {};
+        virtual void close();
 
         virtual void set_parent(wayfire_view parent);
         virtual wayfire_surface_t* get_main_surface();

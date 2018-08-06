@@ -151,9 +151,6 @@ class wayfire_xwayland_view : public wayfire_view_t
             if (is_mapped())
                 move(geometry.x, geometry.y, false);
         };
-
-        if (output)
-            output->connect_signal("output-resized", &output_geometry_changed);
     }
 
     ~wayfire_xwayland_view()
@@ -242,7 +239,7 @@ class wayfire_xwayland_view : public wayfire_view_t
         if (output)
             output->disconnect_signal("output-resized", &output_geometry_changed);
 
-        wayfire_surface_t::set_output(wo);
+        wayfire_view_t::set_output(wo);
 
         if (wo)
             wo->connect_signal("output-resized", &output_geometry_changed);
@@ -276,6 +273,7 @@ class wayfire_xwayland_view : public wayfire_view_t
     void close()
     {
         wlr_xwayland_surface_close(xw);
+        wayfire_view_t::close();
     }
 
     void set_maximized(bool maxim)

@@ -264,6 +264,10 @@ void wayfire_view_t::activate(bool active)
         frame->notify_view_activated(active);
 }
 
+void wayfire_view_t::close()
+{
+}
+
 void wayfire_view_t::set_parent(wayfire_view parent)
 {
     if (this->parent)

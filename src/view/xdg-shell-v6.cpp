@@ -290,6 +290,7 @@ std::string wayfire_xdg6_view::get_title()
 void wayfire_xdg6_view::close()
 {
     wlr_xdg_surface_v6_send_close(v6_surface);
+    wayfire_view_t::close();
 }
 
 wayfire_xdg6_view::~wayfire_xdg6_view()

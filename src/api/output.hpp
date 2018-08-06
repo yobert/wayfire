@@ -52,6 +52,7 @@ class wayfire_output
 
     public:
        int id;
+       bool destroyed = false;
        wlr_output* handle;
        std::tuple<int, int> get_screen_size();
 

@@ -161,11 +161,15 @@ render_manager::~render_manager()
 
 void render_manager::damage(const wlr_box& box)
 {
-    output_damage->add(box);
+    if (!output->destroyed)
+        output_damage->add(box);
 }
 
 void render_manager::damage(pixman_region32_t *region)
 {
+    if (output->destroyed)
+        return;
+
     if (region)
         output_damage->add(region);
     else

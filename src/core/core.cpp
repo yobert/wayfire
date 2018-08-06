@@ -240,6 +240,7 @@ void wayfire_core::remove_output(wayfire_output *output)
 {
     log_info("removing output: %s", output->handle->name);
 
+    output->destroyed = true;
     outputs.erase(output->handle);
     wayfire_shell_handle_output_destroyed(output);
 
@@ -250,26 +251,31 @@ void wayfire_core::remove_output(wayfire_output *output)
     if (output == active_output)
         focus_output(outputs.begin()->second);
 
- //   auto og = output->get_full_geometry();
-  //  auto ng = active_output->get_full_geometry();
-   // int dx = ng.x - og.x, dy = ng.y - og.y;
-
     /* first move each desktop view(e.g windows) to another output */
-    output->workspace->for_each_view_reverse([=] (wayfire_view view)
-    {
-        view->set_output(nullptr);
-        output->workspace->add_view_to_layer(view, 0);
+    std::vector<wayfire_view> views;
+    output->workspace->for_each_view_reverse([&views] (wayfire_view view) { views.push_back(view); }, WF_WM_LAYERS);
 
+    for (auto& view : views)
+        output->detach_view(view);
+
+    for (auto& view : views)
+    {
         active_output->attach_view(view);
         active_output->focus_view(view);
-    }, WF_WM_LAYERS);
+
+        if (view->maximized)
+            view->maximize_request(true);
+
+        if (view->fullscreen)
+            view->fullscreen_request(active_output, true);
+    }
 
     /* just remove all other views - backgrounds, panels, etc.
      * desktop views have been removed by the previous cycle */
-    output->workspace->for_each_view([output] (wayfire_view view)
+    output->workspace->for_each_view([] (wayfire_view view)
     {
         view->set_output(nullptr);
-        output->workspace->add_view_to_layer(view, 0);
+        view->close();
     }, WF_ALL_LAYERS);
 
     delete output;

@@ -338,8 +338,8 @@ void wayfire_layer_shell_view::commit()
 
 void wayfire_layer_shell_view::close()
 {
-    wayfire_view_t::close();
     wlr_layer_surface_close(lsurface);
+    wayfire_view_t::close();
 }
 
 void wayfire_layer_shell_view::configure(wf_geometry box)
