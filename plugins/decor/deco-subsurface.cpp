@@ -266,6 +266,9 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
         {
             target_width -= 2 * thickness;
             target_height -= thickness + titlebar;
+
+            target_width = std::max(target_width, 1);
+            target_height = std::max(target_height, 1);
         }
 
         virtual void notify_view_activated(bool active)
