@@ -138,7 +138,10 @@ void viewport_manager::init(wayfire_output *o)
 
     view_detached = [=] (signal_data *data)
     {
-        check_lower_panel_layer(0);
+        auto view = get_signaled_view(data);
+        assert(view);
+
+        check_lower_panel_layer(view->fullscreen ? -1 : 0);
     };
 
     view_changed_viewport = [=] (signal_data *data)
