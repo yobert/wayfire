@@ -713,7 +713,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
         for (auto& icon : core->input->drag_icons)
         {
             if (!icon->is_mapped())
-                return;
+                continue;
 
             icon->set_output(output);
             icon->for_each_surface([&] (wayfire_surface_t *surface, int x, int y)
@@ -807,7 +807,10 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     if (!renderer)
     {
         for (auto& icon : core->input->drag_icons)
-            icon->set_output(nullptr);
+        {
+            if (icon->is_mapped())
+                icon->set_output(nullptr);
+        }
     }
 }
 
