@@ -3,6 +3,7 @@
 
 [![Join the chat at https://gitter.im/Wayfire-WM/Lobby](https://badges.gitter.im/Wayfire-WM/Lobby.svg)](https://gitter.im/Wayfire-WM/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+**Warning! This is an older version of wayfire which isn't maintained anymore, and neither is it updated to follow the latest libweston. Use the master branch, it is based on wlroots and is in active development. Please don't report any bugs for the libweston version that have been resolved with the transition to wlroots**
 Wayfire is a wayland compositor based on libweston. It aims to create a customizable, extendable and lightweight environment without sacrificing its appearance. If you want to gain a better impression at what it can do, see [screenshots](https://github.com/ammen99/wayfire/wiki/Screenshots), [list of plugins](https://github.com/ammen99/wayfire/wiki/Configuration-&-Plugins)
 
 # Build and install
