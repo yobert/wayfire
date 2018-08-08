@@ -7,6 +7,12 @@
 
 bool wayfire_grab_interface_t::grab()
 {
+    if (!(abilities_mask & WF_ABILITY_GRAB_INPUT))
+    {
+        log_error ("attempt to grab iface %s without input grabbing ability", name.c_str());
+        return false;
+    }
+
     if (grabbed)
         return true;
 
@@ -14,7 +20,11 @@ bool wayfire_grab_interface_t::grab()
         return false;
 
     grabbed = true;
-    return core->input->grab_input(this);
+
+    if (output == core->get_active_output())
+        return core->input->grab_input(this);
+    else
+        return true;
 }
 
 void wayfire_grab_interface_t::ungrab()

@@ -25,6 +25,9 @@ class wf_wrot : public wayfire_plugin_t
     public:
         void init(wayfire_config *config)
         {
+            grab_interface->name = "wrot";
+            grab_interface->abilities_mask = WF_ABILITY_GRAB_INPUT | WF_ABILITY_CHANGE_VIEW_GEOMETRY;
+
             call = [=] (uint32_t, int x, int y)
             {
                 if (!output->activate_plugin(grab_interface))

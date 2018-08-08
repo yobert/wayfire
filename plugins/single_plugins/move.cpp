@@ -30,7 +30,7 @@ class wayfire_move : public wayfire_plugin_t
         void init(wayfire_config *config)
         {
             grab_interface->name = "move";
-            grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY;
+            grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY | WF_ABILITY_GRAB_INPUT;
 
             auto section = config->get_section("move");
             wf_option button = section->get_option("activate", "<alt> BTN_LEFT");
