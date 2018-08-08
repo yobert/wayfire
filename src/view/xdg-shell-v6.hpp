@@ -34,7 +34,7 @@ class wayfire_xdg6_view : public wayfire_view_t
                 request_maximize, request_fullscreen,
                 set_title, set_app_id;
 
-        wf_point xdg_surface_offset;
+        wf_point xdg_surface_offset = {0, 0};
     public:
         wl_listener    set_parent_ev;
         wlr_xdg_surface_v6 *v6_surface;

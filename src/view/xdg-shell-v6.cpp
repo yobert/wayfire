@@ -40,9 +40,11 @@ wayfire_xdg6_popup::~wayfire_xdg6_popup()
 
 void wayfire_xdg6_popup::get_child_position(int &x, int &y)
 {
-    struct wlr_xdg_surface_v6 *parent = popup->parent;
-    x = parent->geometry.x + popup->geometry.x - popup->base->geometry.x;
-    y = parent->geometry.y + popup->geometry.y - popup->base->geometry.y;
+    auto parent = wf_surface_from_void(popup->parent->data);
+    parent->get_child_offset(x, y);
+
+    x += popup->geometry.x - popup->base->geometry.x;
+    y += popup->geometry.y - popup->base->geometry.y;
 }
 
 void handle_v6_new_popup(wl_listener*, void *data)
@@ -185,22 +187,32 @@ wayfire_xdg6_view::wayfire_xdg6_view(wlr_xdg_surface_v6 *s)
     v6_surface->data = this;
 }
 
+static wf_geometry get_xdg_geometry(wlr_xdg_surface_v6 *surface)
+{
+    wlr_box xdg_geometry;
+    wlr_xdg_surface_v6_get_geometry(surface, &xdg_geometry);
+    return xdg_geometry;
+}
+
 void wayfire_xdg6_view::commit()
 {
     wayfire_view_t::commit();
 
-    if (v6_surface->geometry.x != xdg_surface_offset.x ||
-        v6_surface->geometry.y != xdg_surface_offset.y)
+    auto v6_geometry = get_xdg_geometry(v6_surface);
+    if (v6_geometry.x != xdg_surface_offset.x ||
+        v6_geometry.y != xdg_surface_offset.y)
     {
         auto wm = get_wm_geometry();
-        xdg_surface_offset = {v6_surface->geometry.x, v6_surface->geometry.y};
+        xdg_surface_offset = {v6_geometry.x, v6_geometry.y};
         move(wm.x, wm.y, false);
     }
 }
 
 void wayfire_xdg6_view::map(wlr_surface *surface)
 {
-    xdg_surface_offset = {v6_surface->geometry.x, v6_surface->geometry.y};
+    auto v6_geometry = get_xdg_geometry(v6_surface);
+    xdg_surface_offset = {v6_geometry.x, v6_geometry.y};
+
     if (v6_surface->toplevel->client_pending.maximized)
         maximize_request(true);
 
@@ -224,20 +236,17 @@ void wayfire_xdg6_view::get_child_offset(int &x, int &y)
 
 wf_geometry wayfire_xdg6_view::get_wm_geometry()
 {
-    wf_geometry wm;
-    if (!v6_surface || !v6_surface->geometry.width || !v6_surface->geometry.height)
-    {
-        wm = get_output_geometry();
-    } else
-    {
-        auto opos = get_output_position();
-        wm = {
-            xdg_surface_offset.x + opos.x,
-            xdg_surface_offset.y + opos.y,
-            v6_surface->geometry.width,
-            v6_surface->geometry.height
-        };
-    }
+    if (!v6_surface)
+        return get_untransformed_bounding_box();
+
+    auto opos = get_output_position();
+    auto xdg_geometry = get_xdg_geometry(v6_surface);
+    wf_geometry wm = {
+        opos.x + xdg_surface_offset.x,
+        opos.y + xdg_surface_offset.y,
+        xdg_geometry.width,
+        xdg_geometry.height
+    };
 
     if (frame)
         wm = frame->expand_wm_geometry(wm);
