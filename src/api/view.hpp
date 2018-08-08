@@ -118,7 +118,7 @@ class wayfire_surface_t
         virtual bool accepts_input(int32_t sx, int32_t sy);
         virtual void send_frame_done(const timespec& now);
 
-        virtual bool is_mapped() { return surface; }
+        virtual bool is_mapped();
 
         virtual wlr_buffer *get_buffer();
 

@@ -60,6 +60,7 @@ void handle_subsurface_destroyed(wl_listener*, void *data)
 
     log_error ("subsurface destroyed %p", wlr_surf);
 
+    surface->destroyed = 1;
     surface->unmap();
     surface->dec_keep_count();
 }
@@ -111,6 +112,8 @@ bool wayfire_surface_t::is_subsurface()
 void wayfire_surface_t::get_child_position(int &x, int &y)
 {
     auto sub = wlr_subsurface_from_wlr_surface(surface);
+    assert(sub);
+
     x = sub->current.x;
     y = sub->current.y;
 }
@@ -132,6 +135,11 @@ bool wayfire_surface_t::accepts_input(int32_t sx, int32_t sy)
         return false;
 
     return wlr_surface_point_accepts_input(surface, sx, sy);
+}
+
+bool wayfire_surface_t::is_mapped()
+{
+    return !destroyed && surface;
 }
 
 wf_point wayfire_surface_t::get_output_position()
