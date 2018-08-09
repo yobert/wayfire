@@ -166,7 +166,7 @@ void wayfire_output::set_initial_mode()
     config_mode_changed = [this] ()
     { set_mode(mode_opt->as_string()); };
 
-    mode_opt->updated.push_back(&config_mode_changed);
+    mode_opt->add_updated_handler(&config_mode_changed);
 
     if (!set_mode(mode_opt->as_string()))
     {
@@ -237,6 +237,11 @@ workspace_manager::~workspace_manager()
 
 wayfire_output::~wayfire_output()
 {
+    mode_opt->rem_updated_handler(&config_mode_changed);
+    scale_opt->rem_updated_handler(&config_scale_changed);
+    transform_opt->rem_updated_handler(&config_transform_changed);
+    position_opt->rem_updated_handler(&config_position_changed);
+
     delete plugin;
     core->input->free_output_bindings(this);
 
@@ -284,7 +289,7 @@ void wayfire_output::set_initial_transform()
     config_transform_changed = [this] ()
     { set_transform(get_transform_from_string(transform_opt->as_string())); };
 
-    transform_opt->updated.push_back(&config_transform_changed);
+    transform_opt->add_updated_handler(&config_transform_changed);
     wlr_output_set_transform(handle, get_transform_from_string(transform_opt->as_string()));
 }
 
@@ -303,8 +308,7 @@ void wayfire_output::set_initial_scale()
     config_scale_changed = [this] ()
     { set_scale(scale_opt->as_double()); };
 
-    scale_opt->updated.push_back(&config_scale_changed);
-
+    scale_opt->add_updated_handler(&config_scale_changed);
     set_scale(scale_opt->as_double());
 }
 
@@ -341,7 +345,7 @@ void wayfire_output::set_initial_position()
     config_position_changed = [this] ()
     { set_position(position_opt->as_string()); };
 
-    position_opt->updated.push_back(&config_position_changed);
+    position_opt->add_updated_handler(&config_position_changed);
     set_position(position_opt->as_string());
 }
 
