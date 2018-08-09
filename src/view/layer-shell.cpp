@@ -50,6 +50,7 @@ class wayfire_layer_shell_view : public wayfire_view_t
         void commit();
         void close();
         virtual void destroy();
+        virtual wlr_surface *get_keyboard_focus_surface();
 
         void configure(wf_geometry geometry);
 };
@@ -340,6 +341,13 @@ void wayfire_layer_shell_view::close()
 {
     wlr_layer_surface_close(lsurface);
     wayfire_view_t::close();
+}
+
+wlr_surface *wayfire_layer_shell_view::get_keyboard_focus_surface()
+{
+    if (lsurface->current.keyboard_interactive)
+        return surface;
+    return nullptr;
 }
 
 void wayfire_layer_shell_view::configure(wf_geometry box)
