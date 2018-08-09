@@ -25,6 +25,7 @@ struct wlr_xdg_output_manager;
 struct wlr_export_dmabuf_manager_v1;
 struct wlr_server_decoration_manager;
 struct wayfire_shell;
+struct wlr_virtual_keyboard_manager_v1;
 
 #include <wayland-server.h>
 }
@@ -48,6 +49,7 @@ class wayfire_core
 
         wl_listener output_layout_changed;
         wl_listener decoration_created;
+        wl_listener vkbd_created;
 
         wayfire_output *active_output;
 
@@ -83,6 +85,7 @@ class wayfire_core
             wlr_export_dmabuf_manager_v1 *export_dmabuf;
             wlr_server_decoration_manager *decorator_manager;
             wlr_xdg_output_manager *output_manager;
+            wlr_virtual_keyboard_manager_v1 *vkbd_manager;
             wayfire_shell *wf_shell;
         } protocols;
 

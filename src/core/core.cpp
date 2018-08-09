@@ -2,6 +2,7 @@ extern "C"
 {
 #include <wlr/types/wlr_screenshooter.h>
 #include <wlr/types/wlr_data_device.h>
+#include <wlr/types/wlr_virtual_keyboard_v1.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_export_dmabuf_v1.h>
 #include <wlr/types/wlr_server_decoration.h>
@@ -99,6 +100,13 @@ static void handle_decoration_created(wl_listener*, void *data)
     handle_decoration_mode(NULL, data);
 }
 
+/* virtual keyboard */
+static void handle_virtual_keyboard(wl_listener*, void *data)
+{
+    auto kbd = (wlr_virtual_keyboard_v1*) data;
+    core->input->handle_new_input(&kbd->input_device);
+}
+
 void wayfire_core::init(wayfire_config *conf)
 {
     configure(conf);
@@ -127,6 +135,11 @@ void wayfire_core::init(wayfire_config *conf)
     wl_signal_add(&protocols.decorator_manager->events.new_decoration, &decoration_created);
 
     protocols.output_manager = wlr_xdg_output_manager_create(display, output_layout);
+
+    protocols.vkbd_manager = wlr_virtual_keyboard_manager_v1_create(display);
+    vkbd_created.notify = handle_virtual_keyboard;
+    wl_signal_add(&protocols.vkbd_manager->events.new_virtual_keyboard, &vkbd_created);
+
     protocols.wf_shell = wayfire_shell_create(display);
 
 #ifdef BUILD_WITH_IMAGEIO

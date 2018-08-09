@@ -69,7 +69,6 @@ class input_manager
         void create_seat();
         void create_cursor();
 
-        void handle_new_input(wlr_input_device *dev);
         void handle_input_destroyed(wlr_input_device *dev);
 
         void update_cursor_focus(wayfire_surface_t *focus, int x, int y);
@@ -91,6 +90,8 @@ class input_manager
     public:
 
         input_manager();
+        void handle_new_input(wlr_input_device *dev);
+
         int last_cursor_event_msec;
 
         wlr_seat *seat = nullptr;
