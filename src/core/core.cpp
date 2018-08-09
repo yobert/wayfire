@@ -278,6 +278,8 @@ void wayfire_core::remove_output(wayfire_output *output)
         view->close();
     }, WF_ALL_LAYERS);
 
+    /* FIXME: this is a hack, but depends on #46 */
+    input->surface_map_state_changed(NULL);
     delete output;
 }
 

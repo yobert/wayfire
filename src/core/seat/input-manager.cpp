@@ -120,10 +120,7 @@ input_manager::input_manager()
 
     surface_map_state_changed = [=] (signal_data *data)
     {
-        auto conv = static_cast<_surface_map_state_changed_signal*> (data);
-        assert(conv);
-
-        update_cursor_position(last_cursor_event_msec, false);
+        update_cursor_position(get_input_time(), false);
 
         if (our_touch)
         {
