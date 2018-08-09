@@ -17,6 +17,7 @@ class wayfire_xdg_popup : public wayfire_surface_t
         wlr_xdg_popup *popup;
         wlr_xdg_surface *xdg_surface;
 
+        void unconstrain();
     public:
         wayfire_xdg_popup(wlr_xdg_popup *popup);
         ~wayfire_xdg_popup();

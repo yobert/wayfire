@@ -1,5 +1,6 @@
 #include "debug.hpp"
 #include "core.hpp"
+#include "output.hpp"
 #include "decorator.hpp"
 #include "xdg-shell.hpp"
 
@@ -26,6 +27,22 @@ wayfire_xdg_popup::wayfire_xdg_popup(wlr_xdg_popup *popup)
     wl_signal_add(&popup->base->events.destroy,   &destroy);
 
     popup->base->data = this;
+
+    unconstrain();
+}
+
+void wayfire_xdg_popup::unconstrain()
+{
+    auto view = dynamic_cast<wayfire_view_t*> (get_main_surface());
+    if (!output || !view)
+        return;
+
+    auto box = output->get_full_geometry();
+    auto wm = view->get_output_geometry();
+    box.x -= wm.x;
+    box.y -= wm.y;
+
+    wlr_xdg_popup_unconstrain_from_box(popup, &box);
 }
 
 wayfire_xdg_popup::~wayfire_xdg_popup()
