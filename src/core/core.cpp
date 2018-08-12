@@ -3,6 +3,7 @@ extern "C"
 #include <wlr/types/wlr_screenshooter.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_virtual_keyboard_v1.h>
+#include <wlr/types/wlr_input_inhibitor.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_export_dmabuf_v1.h>
 #include <wlr/types/wlr_server_decoration.h>
@@ -18,6 +19,7 @@ extern "C"
 #include "core.hpp"
 #include "workspace-manager.hpp"
 #include "seat/input-manager.hpp"
+#include "seat/input-inhibit.hpp"
 #include "seat/touch.hpp"
 #include "../output/wayfire-shell.hpp"
 #include "view/priv-view.hpp"
@@ -51,7 +53,6 @@ static void handle_output_layout_changed(wl_listener*, void *)
 }
 
 /* decorations impl */
-
 struct wf_server_decoration
 {
     wlr_surface *surface;
@@ -89,8 +90,6 @@ static void handle_decoration_created(wl_listener*, void *data)
 {
     auto decor = (wlr_server_decoration*) data;
 
-    log_info("set decoration mode %d", decor->mode);
-
     auto wf_decor = new wf_server_decoration;
     wf_decor->mode_set.notify = handle_decoration_mode;
     wf_decor->destroy.notify  = handle_decoration_destroyed;
@@ -105,6 +104,19 @@ static void handle_virtual_keyboard(wl_listener*, void *data)
 {
     auto kbd = (wlr_virtual_keyboard_v1*) data;
     core->input->handle_new_input(&kbd->input_device);
+}
+
+/* input-inhibit impl */
+static void handle_input_inhibit_activated(wl_listener*, void *data)
+{
+    auto manager = (wlr_input_inhibit_manager*) data;
+    log_info("set exclusive focus");
+    core->input->set_exclusive_focus(manager->active_client);
+}
+
+static void handle_input_inhibit_deactivated(wl_listener*, void*)
+{
+    core->input->set_exclusive_focus(nullptr);
 }
 
 void wayfire_core::init(wayfire_config *conf)
@@ -131,6 +143,13 @@ void wayfire_core::init(wayfire_config *conf)
     protocols.decorator_manager = wlr_server_decoration_manager_create(display);
     wlr_server_decoration_manager_set_default_mode(protocols.decorator_manager,
                                                    WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT);
+
+    input_inhibit_activated.notify = handle_input_inhibit_activated;
+    input_inhibit_deactivated.notify = handle_input_inhibit_deactivated;
+    protocols.input_inhibit = wlr_input_inhibit_manager_create(display);
+    wl_signal_add(&protocols.input_inhibit->events.activate, &input_inhibit_activated);
+    wl_signal_add(&protocols.input_inhibit->events.deactivate, &input_inhibit_deactivated);
+
     decoration_created.notify = handle_decoration_created;
     wl_signal_add(&protocols.decorator_manager->events.new_decoration, &decoration_created);
 
@@ -247,6 +266,9 @@ void wayfire_core::add_output(wlr_output *output)
     wo->connect_signal("_surface_unmapped", &input->surface_map_state_changed);
 
     wayfire_shell_handle_output_created(wo);
+
+    if (input->exclusive_client)
+        inhibit_output(wo);
 }
 
 void wayfire_core::remove_output(wayfire_output *output)
@@ -293,6 +315,10 @@ void wayfire_core::remove_output(wayfire_output *output)
 
     /* FIXME: this is a hack, but depends on #46 */
     input->surface_map_state_changed(NULL);
+
+    if (input->exclusive_client)
+        uninhibit_output(output);
+
     delete output;
 }
 

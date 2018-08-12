@@ -29,10 +29,6 @@ class wayfire_output
        plugin_manager *plugin;
        wayfire_view active_view;
 
-       /* return an active wayfire_grab_interface on this output
-        * which has grabbed the input. If none, then return nullptr */
-       wayfire_grab_interface get_input_grab_interface();
-
        wl_listener destroy_listener;
        signal_callback_t unmap_view_cb;
 
@@ -139,5 +135,13 @@ class wayfire_output
        int add_gesture(const wayfire_touch_gesture& gesture, touch_gesture_callback* callback);
        void rem_gesture(touch_gesture_callback*);
        void rem_gesture(int id);
+
+       /* send cancel to all active plugins, NOT API */
+       void break_active_plugins();
+
+       /* return an active wayfire_grab_interface on this output
+        * which has grabbed the input. If none, then return nullptr
+        * NOT API */
+       wayfire_grab_interface get_input_grab_interface();
 };
 #endif /* end of include guard: OUTPUT_HPP */

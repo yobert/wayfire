@@ -99,6 +99,11 @@ class wayfire_move : public wayfire_plugin_t
                     input_pressed(WLR_BUTTON_RELEASED);
             };
 
+            grab_interface->callbacks.cancel = [=] ()
+            {
+                input_pressed(WLR_BUTTON_RELEASED);
+            };
+
             move_request = std::bind(std::mem_fn(&wayfire_move::move_requested), this, _1);
             output->connect_signal("move-request", &move_request);
 

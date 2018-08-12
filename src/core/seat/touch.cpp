@@ -1,5 +1,6 @@
 #include <cmath>
 
+#include "debug.hpp"
 #include "touch.hpp"
 #include "input-manager.hpp"
 #include "core.hpp"
@@ -261,6 +262,9 @@ void wf_touch::add_device(wlr_input_device *device)
 /* input_manager touch functions */
 void input_manager::update_touch_focus(wayfire_surface_t *surface, uint32_t time, int id, int x, int y)
 {
+    if (surface && !can_focus_surface(surface))
+        return;
+
     if (surface)
     {
         wlr_seat_touch_point_focus(seat, surface->surface, time, id, x, y);
@@ -287,8 +291,10 @@ wayfire_surface_t* input_manager::update_touch_position(uint32_t time, int32_t i
     wo->workspace->for_each_view(
         [&] (wayfire_view view)
         {
-            if (new_focus) return;
-            new_focus = view->map_input_coordinates(x, y, sx, sy);
+            if (new_focus) return; // already found focus
+
+            if (can_focus_surface(view.get()))
+                new_focus = view->map_input_coordinates(x, y, sx, sy);
         }, WF_ALL_LAYERS);
 
     update_touch_focus(new_focus, time, id, x, y);

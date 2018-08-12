@@ -491,6 +491,8 @@ void wayfire_output::focus_view(wayfire_view v, wlr_seat *seat)
         return;
     }
 
+    log_info("attempt to focus %p, %p", v.get(), v ? v->get_keyboard_focus_surface() : NULL);
+
     if (v && v->is_mapped())
     {
         if (v->get_keyboard_focus_surface())
@@ -609,6 +611,20 @@ wayfire_grab_interface wayfire_output::get_input_grab_interface()
             return p;
 
     return nullptr;
+}
+
+void wayfire_output::break_active_plugins()
+{
+    std::vector<wayfire_grab_interface> ifaces;
+
+    for (auto p : active_plugins)
+    {
+        if (p->callbacks.cancel)
+            ifaces.push_back(p);
+    }
+
+    for (auto p : ifaces)
+        p->callbacks.cancel();
 }
 
 /* simple wrappers for core->input, as it isn't exposed to plugins */

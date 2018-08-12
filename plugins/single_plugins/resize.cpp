@@ -79,6 +79,11 @@ class wayfire_resize : public wayfire_plugin_t {
                 input_motion(sx, sy);
         };
 
+        grab_interface->callbacks.cancel = [=] ()
+        {
+            input_pressed(WLR_BUTTON_RELEASED);
+        };
+
         using namespace std::placeholders;
         resize_request = std::bind(std::mem_fn(&wayfire_resize::resize_requested),
                 this, _1);

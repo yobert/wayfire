@@ -24,6 +24,7 @@ struct wlr_screenshooter;
 struct wlr_xdg_output_manager;
 struct wlr_export_dmabuf_manager_v1;
 struct wlr_server_decoration_manager;
+struct wlr_input_inhibit_manager;
 struct wayfire_shell;
 struct wlr_virtual_keyboard_manager_v1;
 
@@ -50,6 +51,8 @@ class wayfire_core
         wl_listener output_layout_changed;
         wl_listener decoration_created;
         wl_listener vkbd_created;
+
+        wl_listener input_inhibit_activated, input_inhibit_deactivated;
 
         wayfire_output *active_output;
 
@@ -86,6 +89,7 @@ class wayfire_core
             wlr_server_decoration_manager *decorator_manager;
             wlr_xdg_output_manager *output_manager;
             wlr_virtual_keyboard_manager_v1 *vkbd_manager;
+            wlr_input_inhibit_manager *input_inhibit;
             wayfire_shell *wf_shell;
         } protocols;
 

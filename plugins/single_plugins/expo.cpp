@@ -126,6 +126,11 @@ class wayfire_expo : public wayfire_plugin_t
             handle_input_move(sx, sy);
         };
 
+        grab_interface->callbacks.cancel = [=] ()
+        {
+            finalize_and_exit();
+        };
+
         renderer = [=] (uint32_t fb) { render(fb); };
         resized_cb = [=] (signal_data*) {
             for (int i = 0; i < vw; i++) {

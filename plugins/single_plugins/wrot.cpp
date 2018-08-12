@@ -87,6 +87,12 @@ class wf_wrot : public wayfire_plugin_t
                 if (s == WLR_BUTTON_RELEASED)
                     input_released();
             };
+
+            grab_interface->callbacks.cancel = [=] ()
+            {
+                if (grab_interface->is_grabbed())
+                input_released();
+            };
         }
 
         void input_released()

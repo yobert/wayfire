@@ -136,6 +136,11 @@ class wayfire_view_switcher : public wayfire_plugin_t
         grab_interface->callbacks.keyboard.mod = std::bind(std::mem_fn(&wayfire_view_switcher::handle_mod),
                 this, _1, _2);
 
+        grab_interface->callbacks.cancel = [=] ()
+        {
+            deactivate();
+        };
+
         next_view = section->get_option("next", "KEY_RIGHT");
         prev_view = section->get_option("prev", "KEY_LEFT");
         terminate = section->get_option("exit", "KEY_ENTER");

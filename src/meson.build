@@ -5,6 +5,7 @@ wayfire_sources = ['main.cpp',
                    'core/core.cpp',
                    'core/wm.cpp',
 
+                   'core/seat/input-inhibit.cpp',
                    'core/seat/input-manager.cpp',
                    'core/seat/keyboard.cpp',
                    'core/seat/cursor.cpp',

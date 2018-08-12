@@ -78,6 +78,9 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
 
 void input_manager::update_cursor_focus(wayfire_surface_t *focus, int x, int y)
 {
+    if (focus && !can_focus_surface(focus))
+        return;
+
     wayfire_compositor_surface_t *compositor_surface = wf_compositor_surface_from_surface(cursor_focus);
     if (compositor_surface)
         compositor_surface->on_pointer_leave();
@@ -118,8 +121,10 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
     output->workspace->for_each_view(
         [&] (wayfire_view view)
         {
-            if (new_focus) return;
-            new_focus = view->map_input_coordinates(px, py, sx, sy);
+            if (new_focus) return; // we already found a focus surface
+
+            if (core->input->can_focus_surface(view.get())) // make sure focusing this surface isn't disabled
+                new_focus = view->map_input_coordinates(px, py, sx, sy);
         }, WF_ALL_LAYERS);
 
     update_cursor_focus(new_focus, sx, sy);

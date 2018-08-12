@@ -110,6 +110,12 @@ struct wayfire_grab_interface_t {
             std::function<void(int32_t)> up; // id
             std::function<void(int32_t, int32_t, int32_t)> motion; // id, x, y
         } touch;
+
+        /* each plugin might be deactivated forcefully, for example when the desktop is locked.
+         * Plugins MUST honor this signal and exit their grabs/renderers immediately
+         *
+         * Note this is emitted for all active plugins, not only those that have grabs */
+        std::function<void()> cancel;
     } callbacks;
 };
 

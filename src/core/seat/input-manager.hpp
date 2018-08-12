@@ -94,6 +94,8 @@ class input_manager
 
         int last_cursor_event_msec;
 
+        wl_client *exclusive_client = NULL;
+
         wlr_seat *seat = nullptr;
         wlr_cursor *cursor = NULL;
         wlr_xcursor_manager *xcursor;
@@ -111,6 +113,9 @@ class input_manager
         bool grab_input(wayfire_grab_interface);
         void ungrab_input();
         bool input_grabbed();
+
+        bool can_focus_surface(wayfire_surface_t *surface);
+        void set_exclusive_focus(wl_client *client);
 
         void toggle_session();
         uint32_t get_modifiers();

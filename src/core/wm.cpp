@@ -37,7 +37,7 @@ void wayfire_close::init(wayfire_config *config)
 void wayfire_focus::init(wayfire_config *)
 {
     grab_interface->name = "_wf_focus";
-    grab_interface->abilities_mask = WF_ABILITY_GRAB_INPUT;
+    grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY;
 
     const auto check_focus_view = [=] (wayfire_surface_t *focus)
     {

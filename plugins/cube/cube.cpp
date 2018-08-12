@@ -114,6 +114,11 @@ class wayfire_cube : public wayfire_plugin_t
                 pointer_scrolled(ev->delta);
         };
 
+        grab_interface->callbacks.cancel = [=] ()
+        {
+            terminate();
+        };
+
 
 #ifdef USE_GLES32
         use_light  = section->get_option("light", "1");

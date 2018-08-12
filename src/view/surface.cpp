@@ -137,6 +137,14 @@ bool wayfire_surface_t::accepts_input(int32_t sx, int32_t sy)
     return wlr_surface_point_accepts_input(surface, sx, sy);
 }
 
+wl_client* wayfire_surface_t::get_client()
+{
+    if (surface)
+        return wl_resource_get_client(surface->resource);
+
+    return nullptr;
+}
+
 bool wayfire_surface_t::is_mapped()
 {
     return !destroyed && surface;

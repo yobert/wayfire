@@ -43,6 +43,11 @@ class wayfire_fast_switcher : public wayfire_plugin_t
         grab_interface->callbacks.keyboard.mod = std::bind(std::mem_fn(&wayfire_fast_switcher::handle_mod),
                 this, _1, _2);
 
+        grab_interface->callbacks.cancel = [=] ()
+        {
+            switch_terminate();
+        };
+
         destroyed = [=] (signal_data *data)
         {
             cleanup_view(get_signaled_view(data));
@@ -54,15 +59,7 @@ class wayfire_fast_switcher : public wayfire_plugin_t
         bool mod_released = (mod == activate_key->as_cached_key().mod && st == WLR_KEY_RELEASED);
 
         if (mod_released)
-        {
             switch_terminate();
-
-            for (auto view : views)
-            {
-                view->alpha = 1.0;
-                view->damage();
-            }
-        }
     }
 
     void handle_key(uint32_t key, uint32_t kstate)
@@ -135,6 +132,12 @@ class wayfire_fast_switcher : public wayfire_plugin_t
 
     void switch_terminate()
     {
+        for (auto view : views)
+        {
+            view->alpha = 1.0;
+            view->damage();
+        }
+
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
         active = false;

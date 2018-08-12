@@ -9,6 +9,7 @@ extern "C"
 #include <wlr/types/wlr_seat.h>
 }
 
+#include "input-inhibit.hpp"
 #include "signal-definitions.hpp"
 #include "core.hpp"
 #include "touch.hpp"
@@ -213,6 +214,27 @@ void input_manager::toggle_session()
         }
     }
 
+}
+
+bool input_manager::can_focus_surface(wayfire_surface_t *surface)
+{
+    if (exclusive_client && surface->get_client() != exclusive_client)
+        return false;
+
+    return true;
+}
+
+void input_manager::set_exclusive_focus(wl_client *client)
+{
+    exclusive_client = client;
+
+    core->for_each_output([&client] (wayfire_output *output)
+    {
+        if (client)
+            inhibit_output(output);
+        else
+            uninhibit_output(output);
+    });
 }
 
 /* add/remove bindings */
