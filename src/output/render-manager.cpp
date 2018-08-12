@@ -91,10 +91,10 @@ struct wf_output_damage
 
 void frame_cb (wl_listener*, void *data)
 {
-    auto damage = static_cast<wlr_output*>(data);
-    assert(damage);
+    auto output_damage = static_cast<wlr_output_damage*>(data);
+    assert(output_damage);
 
-    auto output = core->get_output(damage);
+    auto output = core->get_output(output_damage->output);
     assert(output);
     output->render->paint();
 }
@@ -108,7 +108,7 @@ render_manager::render_manager(wayfire_output *o)
     output_damage->add();
 
     frame_listener.notify = frame_cb;
-    wl_signal_add(&output->handle->events.frame, &frame_listener);
+    wl_signal_add(&output_damage->damage_manager->events.frame, &frame_listener);
 
     pixman_region32_init(&frame_damage);
 
@@ -288,9 +288,14 @@ void render_manager::paint()
     run_effects(effects[WF_OUTPUT_EFFECT_PRE]);
 
     bool needs_swap;
-    if (!output_damage->make_current(&frame_damage, needs_swap) || !needs_swap)
-        if (!constant_redraw)
-            return;
+    if (!output_damage->make_current(&frame_damage, needs_swap))
+        return;
+
+    if (!needs_swap && !constant_redraw)
+    {
+        post_paint();
+        return;
+    }
 
     pixman_region32_t swap_damage;
     pixman_region32_init(&swap_damage);

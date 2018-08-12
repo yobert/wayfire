@@ -14,6 +14,7 @@ extern "C"
 #include "core.hpp"
 #include "output.hpp"
 #include "debug.hpp"
+#include "render-manager.hpp"
 #include "signal-definitions.hpp"
 
 void handle_surface_committed(wl_listener*, void *data)
@@ -313,6 +314,13 @@ void wayfire_surface_t::commit()
     update_output_position();
     auto pos = get_output_position();
     apply_surface_damage(pos.x, pos.y);
+
+    if (output)
+    {
+        /* we schedule redraw, because the surface might expect
+         * a frame callback */
+        output->render->schedule_redraw();
+    }
 }
 
 void wayfire_surface_t::set_output(wayfire_output *out)
