@@ -385,6 +385,9 @@ void render_manager::paint()
     pixman_region32_fini(&swap_damage);
     post_paint();
 
+    if (runtime_config.no_damage_track)
+        output_damage->add();
+
     /*
        OpenGL::bind_context(ctx);
     if (renderer)

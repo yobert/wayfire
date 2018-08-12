@@ -3,6 +3,7 @@
 
 extern struct wf_runtime_config
 {
+    bool no_damage_track = false;
     bool damage_debug = false;
 } runtime_config;
 

@@ -137,13 +137,14 @@ int main(int argc, char *argv[])
     config_file = home_dir + "/.config/wayfire.ini";
 
     struct option opts[] = {
-        { "config",       required_argument, NULL, 'c' },
-        { "damage-debug", no_argument,       NULL, 'd' },
-        { 0,              0,                 NULL,  0  }
+        { "config",          required_argument, NULL, 'c' },
+        { "damage-debug",    no_argument,       NULL, 'd' },
+        { "damage-rerender", no_argument,       NULL, 'R' },
+        { 0,                 0,                 NULL,  0  }
     };
 
     int c, i;
-    while((c = getopt_long(argc, argv, "c:d", opts, &i)) != -1)
+    while((c = getopt_long(argc, argv, "c:dR", opts, &i)) != -1)
     {
         switch(c)
         {
@@ -152,6 +153,9 @@ int main(int argc, char *argv[])
                 break;
             case 'd':
                 runtime_config.damage_debug = true;
+                break;
+            case 'R':
+                runtime_config.no_damage_track = true;
                 break;
             default:
                 log_error("unrecognized command line argument %s", optarg);
