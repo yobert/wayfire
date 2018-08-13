@@ -201,10 +201,20 @@ void input_manager::create_cursor()
     wlr_cursor_map_to_output(cursor, NULL);
     wlr_cursor_warp(cursor, NULL, cursor->x, cursor->y);
 
-    xcursor = wlr_xcursor_manager_create(NULL, 32);
+    const char *theme_ptr;
+    auto theme = core->config->get_section("input")->get_option("cursor_theme", "default")->as_string();
+    if (theme == "default")
+    {
+        theme_ptr = NULL;
+    } else
+    {
+        theme_ptr = theme.c_str();
+    }
+
+    xcursor = wlr_xcursor_manager_create(theme_ptr, 24);
     wlr_xcursor_manager_load(xcursor, 1);
 
-    core->set_default_cursor();
+    core->set_cursor("default");
 
     button.notify             = handle_pointer_button_cb;
     motion.notify             = handle_pointer_motion_cb;

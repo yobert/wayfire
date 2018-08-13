@@ -198,10 +198,13 @@ static void output_destroyed_callback(wl_listener *, void *data)
     core->remove_output(core->get_output((wlr_output*) data));
 }
 
-void wayfire_core::set_default_cursor()
+void wayfire_core::set_cursor(std::string name)
 {
+    if (name == "default")
+        name = "left_ptr";
+
     if (input->cursor)
-        wlr_xcursor_manager_set_cursor_image(input->xcursor, "left_ptr", input->cursor);
+        wlr_xcursor_manager_set_cursor_image(input->xcursor, name.c_str(), input->cursor);
 }
 
 std::tuple<int, int> wayfire_core::get_cursor_position()

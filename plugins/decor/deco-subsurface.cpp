@@ -207,7 +207,7 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
 
         virtual void on_pointer_enter(int x, int y)
         {
-            core->set_default_cursor();
+            core->set_cursor("default");
         }
 
         virtual void on_pointer_leave()

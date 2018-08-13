@@ -102,7 +102,7 @@ class wayfire_core
         void refocus_active_output_active_view();
 
         wlr_seat *get_current_seat();
-        void set_default_cursor();
+        void set_cursor(std::string name);
 
         /* in output-layout-local coordinates */
         std::tuple<int, int> get_cursor_position();

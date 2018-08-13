@@ -170,7 +170,7 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
 
     iface->output->set_keyboard_focus(NULL, seat);
     update_cursor_focus(nullptr, 0, 0);
-    core->set_default_cursor();
+    core->set_cursor("default");
     return true;
 }
 
