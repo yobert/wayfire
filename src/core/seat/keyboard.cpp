@@ -31,6 +31,8 @@ static void handle_keyboard_key_cb(wl_listener* listener, void *data)
         wlr_seat_keyboard_notify_key(core->input->seat, ev->time_msec,
                                      ev->keycode, ev->state);
     }
+
+    wlr_idle_notify_activity(core->protocols.idle, seat);
 }
 
 static void handle_keyboard_mod_cb(wl_listener* listener, void* data)
@@ -41,6 +43,8 @@ static void handle_keyboard_mod_cb(wl_listener* listener, void* data)
     auto seat = core->get_current_seat();
     wlr_seat_set_keyboard(seat, keyboard->device);
     wlr_seat_keyboard_send_modifiers(core->input->seat, &kbd->modifiers);
+
+    wlr_idle_notify_activity(core->protocols.idle, seat);
 }
 
 wf_keyboard::wf_keyboard(wlr_input_device *dev, wayfire_config *config)

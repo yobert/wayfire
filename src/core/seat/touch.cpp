@@ -219,6 +219,7 @@ static void handle_touch_down(wl_listener* listener, void *data)
                                          ev->device, ev->x, ev->y, &lx, &ly);
 
     touch->gesture_recognizer.register_touch(ev->time_msec, ev->touch_id, lx, ly);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
 static void handle_touch_up(wl_listener* listener, void *data)
@@ -227,6 +228,7 @@ static void handle_touch_up(wl_listener* listener, void *data)
     auto touch = static_cast<wf_touch*> (ev->device->data);
 
     touch->gesture_recognizer.unregister_touch(ev->time_msec, ev->touch_id);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
 static void handle_touch_motion(wl_listener* listener, void *data)
@@ -238,6 +240,7 @@ static void handle_touch_motion(wl_listener* listener, void *data)
     wlr_cursor_absolute_to_layout_coords(core->input->cursor,
                                          ev->device, ev->x, ev->y, &lx, &ly);
     touch->gesture_recognizer.update_touch(ev->time_msec, ev->touch_id, lx, ly);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
 wf_touch::wf_touch(wlr_cursor *cursor)

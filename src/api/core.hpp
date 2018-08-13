@@ -27,6 +27,8 @@ struct wlr_server_decoration_manager;
 struct wlr_input_inhibit_manager;
 struct wayfire_shell;
 struct wlr_virtual_keyboard_manager_v1;
+struct wlr_idle;
+struct wlr_idle_inhibit_manager_v1;
 
 #include <wayland-server.h>
 }
@@ -88,6 +90,8 @@ class wayfire_core
             wlr_xdg_output_manager *output_manager;
             wlr_virtual_keyboard_manager_v1 *vkbd_manager;
             wlr_input_inhibit_manager *input_inhibit;
+            wlr_idle *idle;
+            wlr_idle_inhibit_manager_v1 *idle_inhibit;
             wayfire_shell *wf_shell;
         } protocols;
 

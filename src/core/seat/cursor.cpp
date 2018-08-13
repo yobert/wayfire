@@ -10,24 +10,28 @@ static void handle_pointer_button_cb(wl_listener*, void *data)
     auto ev = static_cast<wlr_event_pointer_button*> (data);
     core->input->handle_pointer_button(ev);
     wlr_seat_pointer_notify_button(core->input->seat, ev->time_msec, ev->button, ev->state);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
 static void handle_pointer_motion_cb(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_event_pointer_motion*> (data);
     core->input->handle_pointer_motion(ev);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
 static void handle_pointer_motion_absolute_cb(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_event_pointer_motion_absolute*> (data);
     core->input->handle_pointer_motion_absolute(ev);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
 static void handle_pointer_axis_cb(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_event_pointer_axis*> (data);
     core->input->handle_pointer_axis(ev);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
 

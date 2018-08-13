@@ -3,6 +3,8 @@ extern "C"
 #include <wlr/types/wlr_screenshooter.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_virtual_keyboard_v1.h>
+#include <wlr/types/wlr_idle.h>
+#include <wlr/types/wlr_idle_inhibit_v1.h>
 #include <wlr/types/wlr_input_inhibitor.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_export_dmabuf_v1.h>
@@ -158,6 +160,9 @@ void wayfire_core::init(wayfire_config *conf)
     protocols.vkbd_manager = wlr_virtual_keyboard_manager_v1_create(display);
     vkbd_created.notify = handle_virtual_keyboard;
     wl_signal_add(&protocols.vkbd_manager->events.new_virtual_keyboard, &vkbd_created);
+
+    protocols.idle = wlr_idle_create(display);
+    protocols.idle_inhibit = wlr_idle_inhibit_v1_create(display);
 
     protocols.wf_shell = wayfire_shell_create(display);
 
