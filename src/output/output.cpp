@@ -9,6 +9,11 @@
 #include "wayfire-shell.hpp"
 #include "../core/seat/input-manager.hpp"
 
+extern "C"
+{
+#include <wlr/backend/drm.h>
+}
+
 #include <linux/input.h>
 
 #include <algorithm>
@@ -68,14 +73,14 @@ static wl_output_transform get_transform_from_string(std::string transform)
 std::pair<wlr_output_mode, bool> parse_output_mode(std::string modeline)
 {
     wlr_output_mode mode;
-    mode.refresh = 60;
+    mode.refresh = 0; // initialize to some invalid value, autodetect
 
     int read = std::sscanf(modeline.c_str(), "%d x %d @ %d", &mode.width, &mode.height, &mode.refresh);
 
     if (mode.refresh < 1000)
         mode.refresh *= 1000;
 
-    if (read < 2 || mode.width <= 0 || mode.height <= 0 || mode.refresh <= 0)
+    if (read < 2 || mode.width <= 0 || mode.height <= 0 || mode.refresh < 0)
         return {mode, false};
 
     return {mode, true};
@@ -95,13 +100,20 @@ wf_point parse_output_layout(std::string layout)
 wlr_output_mode *find_matching_mode(wlr_output *output, int32_t w, int32_t h, int32_t rr)
 {
     wlr_output_mode *mode;
+    wlr_output_mode *best = NULL;
     wl_list_for_each(mode, &output->modes, link)
     {
-        if (mode->width == w && mode->height == h && mode->refresh == rr)
-            return mode;
+        if (mode->width == w && mode->height == h)
+        {
+            if (mode->refresh == rr)
+                return mode;
+
+            if (!best || best->refresh < mode->refresh)
+                best = mode;
+        }
     }
 
-    return NULL;
+    return best;
 }
 
 bool wayfire_output::set_mode(uint32_t width, uint32_t height, uint32_t refresh_mHz)
@@ -113,6 +125,10 @@ bool wayfire_output::set_mode(uint32_t width, uint32_t height, uint32_t refresh_
         return true;
     } else
     {
+        /* try some default refresh */
+        if (!refresh_mHz)
+            refresh_mHz = 60000;
+
         log_info("Couldn't find matching mode %dx%d@%f for output %s."
                  "Trying to use custom mode (might not work).",
                  width, height, refresh_mHz / 1000.0,
@@ -123,6 +139,79 @@ bool wayfire_output::set_mode(uint32_t width, uint32_t height, uint32_t refresh_
 
     emit_signal("mode-changed", nullptr);
     emit_signal("output-resized", nullptr);
+}
+
+// from rootston
+bool parse_modeline(const char *modeline, drmModeModeInfo &mode)
+{
+    char hsync[16];
+    char vsync[16];
+    float fclock;
+
+    mode.type = DRM_MODE_TYPE_USERDEF;
+
+    if (sscanf(modeline, "%f %hd %hd %hd %hd %hd %hd %hd %hd %15s %15s",
+               &fclock,
+               &mode.hdisplay,
+               &mode.hsync_start,
+               &mode.hsync_end,
+               &mode.htotal,
+               &mode.vdisplay,
+               &mode.vsync_start,
+               &mode.vsync_end,
+               &mode.vtotal, hsync, vsync) != 11) {
+        return false;
+    }
+
+    mode.clock = fclock * 1000;
+    mode.vrefresh = mode.clock * 1000.0 * 1000.0
+        / mode.htotal / mode.vtotal;
+    if (strcasecmp(hsync, "+hsync") == 0) {
+        mode.flags |= DRM_MODE_FLAG_PHSYNC;
+    } else if (strcasecmp(hsync, "-hsync") == 0) {
+        mode.flags |= DRM_MODE_FLAG_NHSYNC;
+    } else {
+        return false;
+    }
+
+    if (strcasecmp(vsync, "+vsync") == 0) {
+        mode.flags |= DRM_MODE_FLAG_PVSYNC;
+    } else if (strcasecmp(vsync, "-vsync") == 0) {
+        mode.flags |= DRM_MODE_FLAG_NVSYNC;
+    } else {
+        return false;
+    }
+
+    snprintf(mode.name, sizeof(mode.name), "%dx%d@%d",
+             mode.hdisplay, mode.vdisplay, mode.vrefresh / 1000);
+
+    return true;
+}
+
+void wayfire_output::add_custom_mode(std::string modeline)
+{
+    drmModeModeInfo *mode = new drmModeModeInfo;
+    if (!parse_modeline(modeline.c_str(), *mode))
+    {
+        log_error("invalid modeline %s in config file", modeline.c_str());
+        return;
+    }
+
+    log_debug("adding custom mode %s", mode->name);
+    if (wlr_output_is_drm(handle))
+        wlr_drm_connector_add_mode(handle, mode);
+}
+
+void wayfire_output::refresh_custom_modes()
+{
+    static const std::string custom_mode_prefix = "custom_mode";
+
+    auto section = core->config->get_section(handle->name);
+    for (auto& opt : section->options)
+    {
+        if (custom_mode_prefix == opt->name.substr(0, custom_mode_prefix.length()))
+            add_custom_mode(opt->as_string());
+    }
 }
 
 bool wayfire_output::set_mode(std::string mode)
@@ -141,6 +230,7 @@ bool wayfire_output::set_mode(std::string mode)
         return false;
     }
 
+    refresh_custom_modes();
     auto target = parse_output_mode(mode);
     if (!target.second)
     {
@@ -167,6 +257,9 @@ void wayfire_output::set_initial_mode()
     { set_mode(mode_opt->as_string()); };
 
     mode_opt->add_updated_handler(&config_mode_changed);
+
+    /* first set the default mode, needed by the DRM backend */
+    set_mode(default_mode);
 
     if (!set_mode(mode_opt->as_string()))
     {

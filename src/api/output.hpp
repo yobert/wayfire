@@ -45,6 +45,8 @@ class wayfire_output
        void set_initial_position();
 
        void set_position(std::string pos);
+       void refresh_custom_modes();
+       void add_custom_mode(std::string mode);
 
     public:
        int id;

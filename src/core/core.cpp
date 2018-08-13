@@ -173,12 +173,7 @@ void refocus_idle_cb(void *data)
 
 void wayfire_core::wake()
 {
-    for (auto o : pending_outputs)
-        add_output(o);
-    pending_outputs.clear();
-
-    auto loop = wl_display_get_event_loop(display);
-    wl_event_loop_add_idle(loop, refocus_idle_cb, 0);
+    wl_event_loop_add_idle(ev_loop, refocus_idle_cb, 0);
 
     if (times_wake > 0)
     {
@@ -240,18 +235,12 @@ wayfire_surface_t *wayfire_core::get_touch_focus()
 }
 
 static int _last_output_id = 0;
-/* TODO: remove pending_outputs, they are no longer necessary */
 void wayfire_core::add_output(wlr_output *output)
 {
     log_info("add new output: %s", output->name);
     if (outputs.find(output) != outputs.end())
     {
         log_info("old output");
-        return;
-    }
-
-    if (!input) {
-        pending_outputs.push_back(output);
         return;
     }
 

@@ -55,8 +55,6 @@ class wayfire_core
         wl_listener input_inhibit_activated, input_inhibit_deactivated;
 
         wayfire_output *active_output;
-
-        std::vector<wlr_output*> pending_outputs;
         std::map<wlr_output*, wayfire_output*> outputs;
 
         std::vector<std::unique_ptr<wayfire_view_t>> views;
