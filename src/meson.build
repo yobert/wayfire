@@ -27,7 +27,7 @@ wayfire_sources = ['main.cpp',
                    'output/wayfire-shell.cpp']
 
 wayfire_dependencies = [wayland_server, wlroots, xkbcommon, libinput,
-                       pixman, egl, libevdev, glesv2, glm, wf_protos,
+                       pixman, drm, egl, libevdev, glesv2, glm, wf_protos,
                        wfconfig]
 
 if conf_data.get('BUILD_WITH_IMAGEIO')

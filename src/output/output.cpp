@@ -9,6 +9,8 @@
 #include "wayfire-shell.hpp"
 #include "../core/seat/input-manager.hpp"
 
+#include <xf86drmMode.h>
+
 extern "C"
 {
 #include <wlr/backend/drm.h>
