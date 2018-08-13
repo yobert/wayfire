@@ -5,6 +5,11 @@
 #include <linux/input.h>
 #include <signal-definitions.hpp>
 
+extern "C"
+{
+#include <wlr/types/wlr_xcursor_manager.h>
+}
+
 #include "../wobbly/wobbly-signal.hpp"
 
 class wayfire_resize : public wayfire_plugin_t {
@@ -104,12 +109,13 @@ class wayfire_resize : public wayfire_plugin_t {
 
     void resize_requested(signal_data *data)
     {
+        auto request = static_cast<resize_request_signal*> (data);
         auto view = get_signaled_view(data);
         was_client_request = true;
         if (view)
         {
             GetTuple(x, y, output->get_cursor_position());
-            initiate(view, x, y);
+            initiate(view, x, y, request->edges);
         }
     }
 
@@ -147,22 +153,22 @@ class wayfire_resize : public wayfire_plugin_t {
 
             edges = 0;
             if (view_x < vg.width / 2) {
-                edges |= WF_RESIZE_EDGE_LEFT;
+                edges |= WLR_EDGE_LEFT;
             } else {
-                edges |= WF_RESIZE_EDGE_RIGHT;
+                edges |= WLR_EDGE_RIGHT;
             }
 
             if (view_y < vg.height / 2) {
-                edges |= WF_RESIZE_EDGE_TOP;
+                edges |= WLR_EDGE_TOP;
             } else {
-                edges |= WF_RESIZE_EDGE_BOTTOM;
+                edges |= WLR_EDGE_BOTTOM;
             }
         } else {
             edges = forced_edges;
         }
 
-        if ((edges & WF_RESIZE_EDGE_LEFT) ||
-            (edges & WF_RESIZE_EDGE_TOP))
+        if ((edges & WLR_EDGE_LEFT) ||
+            (edges & WLR_EDGE_TOP))
             view->set_moving(true);
 
         view->set_resizing(true, edges);
@@ -180,13 +186,15 @@ class wayfire_resize : public wayfire_plugin_t {
         int anchor_x = og.x;
         int anchor_y = og.y;
 
-        if (edges & WF_RESIZE_EDGE_LEFT)
+        if (edges & WLR_EDGE_LEFT)
             anchor_x += og.width;
-        if (edges & WF_RESIZE_EDGE_TOP)
+        if (edges & WLR_EDGE_TOP)
             anchor_y += og.height;
 
         snap_wobbly(view, {}, false);
         start_wobbly(view, anchor_x, anchor_y);
+
+        core->set_cursor(wlr_xcursor_get_resize_name((wlr_edges)edges));
     }
 
     void input_pressed(uint32_t state)
@@ -199,8 +207,8 @@ class wayfire_resize : public wayfire_plugin_t {
 
         if (view)
         {
-            if ((edges & WF_RESIZE_EDGE_LEFT) ||
-                (edges & WF_RESIZE_EDGE_TOP))
+            if ((edges & WLR_EDGE_LEFT) ||
+                (edges & WLR_EDGE_TOP))
                 view->set_moving(false);
             view->set_resizing(false);
             end_wobbly(view);
@@ -214,14 +222,14 @@ class wayfire_resize : public wayfire_plugin_t {
         int width = initial_width;
         int height = initial_height;
 
-        if (edges & WF_RESIZE_EDGE_LEFT)
+        if (edges & WLR_EDGE_LEFT)
             width -= dx;
-        else
+        else if (edges & WLR_EDGE_RIGHT)
             width += dx;
 
-        if (edges & WF_RESIZE_EDGE_TOP)
+        if (edges & WLR_EDGE_TOP)
             height -= dy;
-        else
+        else if (edges & WLR_EDGE_BOTTOM)
             height += dy;
 
         height = std::max(height, 1);
@@ -232,9 +240,9 @@ class wayfire_resize : public wayfire_plugin_t {
         int anchor_x = og.x;
         int anchor_y = og.y;
 
-        if (edges & WF_RESIZE_EDGE_LEFT)
+        if (edges & WLR_EDGE_LEFT)
             anchor_x += og.width;
-        if (edges & WF_RESIZE_EDGE_TOP)
+        if (edges & WLR_EDGE_TOP)
             anchor_y += og.height;
     }
 

@@ -3,6 +3,7 @@ extern "C"
 #define static
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_matrix.h>
+#include <wlr/types/wlr_xcursor_manager.h>
 #undef static
 }
 
@@ -198,16 +199,29 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
         }
 
         /* all input events coordinates are surface-local */
-
-        /* override this if you want to get pointer events or to stop input passthrough */
         virtual bool accepts_input(int32_t sx, int32_t sy)
         {
-            return (0 <= sx && sx < width) && (0 <= sy && sy < height);
+            /* outside of the decoration + view */
+            if (sx < 0 || sy < 0 || sx >= width || sy >= height)
+                return false;
+
+            /* inside the frame */
+            bool is_horiz = true, is_vert = true;
+            if (thickness < sx && sx < width - thickness)
+                is_horiz = false;
+
+            if (titlebar < sy && sy < height - thickness)
+                is_vert = false;
+
+            return is_horiz || is_vert;
         }
 
         virtual void on_pointer_enter(int x, int y)
         {
-            core->set_cursor("default");
+            cursor_x = x;
+            cursor_y = y;
+
+            update_cursor();
         }
 
         virtual void on_pointer_leave()
@@ -218,6 +232,8 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
         {
             cursor_x = x;
             cursor_y = y;
+
+            update_cursor();
         }
 
         void send_move_request()
@@ -231,7 +247,35 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
         {
             resize_request_signal resize_request;
             resize_request.view = view;
+            resize_request.edges = get_edges();
             output->emit_signal("resize-request", &resize_request);
+        }
+
+        uint32_t get_edges()
+        {
+            uint32_t edges = 0;
+            if (cursor_x <= thickness)
+                edges |= WLR_EDGE_LEFT;
+            if (cursor_x >= width - thickness)
+                edges |= WLR_EDGE_RIGHT;
+            if (cursor_y <= thickness)
+                edges |= WLR_EDGE_TOP;
+            if (cursor_y >= height - thickness)
+                edges |= WLR_EDGE_BOTTOM;
+
+            return edges;
+        }
+
+        std::string get_cursor(uint32_t edges)
+        {
+            if (edges)
+                return wlr_xcursor_get_resize_name((wlr_edges) edges);
+            return "default";
+        }
+
+        void update_cursor()
+        {
+            core->set_cursor(get_cursor(get_edges()));
         }
 
         virtual void on_pointer_button(uint32_t button, uint32_t state)
@@ -239,17 +283,12 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
             if (button != BTN_LEFT || state != WLR_BUTTON_PRESSED)
                 return;
 
-            if (cursor_x <= resize_edge_threshold || cursor_x >= width - resize_edge_threshold)
+            if (get_edges())
                 return send_resize_request();
-
-            if (cursor_y <= resize_edge_threshold || cursor_y >= width - resize_edge_threshold)
-                return send_resize_request();
-
             send_move_request();
         }
 
         /* TODO: add touch events */
-
 
         /* frame implementation */
         virtual wf_geometry expand_wm_geometry(wf_geometry contained_wm_geometry)

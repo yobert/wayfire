@@ -60,9 +60,9 @@ void wayfire_view_t::adjust_anchored_edge(int32_t new_width, int32_t new_height)
     if (edges)
     {
         auto wm = get_wm_geometry();
-        if (edges & WF_RESIZE_EDGE_LEFT)
+        if (edges & WLR_EDGE_LEFT)
             wm.x += geometry.width - new_width;
-        if (edges & WF_RESIZE_EDGE_TOP)
+        if (edges & WLR_EDGE_TOP)
             wm.y += geometry.height - new_height;
 
         move(wm.x, wm.y, false);
@@ -726,10 +726,11 @@ void wayfire_view_t::move_request()
     output->emit_signal("move-request", &data);
 }
 
-void wayfire_view_t::resize_request()
+void wayfire_view_t::resize_request(uint32_t edges)
 {
     resize_request_signal data;
     data.view = self();
+    data.edges = edges;
     output->emit_signal("resize-request", &data);
 }
 

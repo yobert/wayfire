@@ -18,9 +18,13 @@ using unmap_view_signal      = _view_signal;
 using focus_view_signal      = _view_signal;
 using view_set_parent_signal = _view_signal;
 using move_request_signal    = _view_signal;
-using resize_request_signal  = _view_signal;
 using title_changed_signal   = _view_signal;
 using app_id_changed_signal  = _view_signal;
+
+struct resize_request_signal : public _view_signal
+{
+    uint32_t edges;
+};
 
 /* sent when the view geometry changes */
 struct view_geometry_changed_signal : public _view_signal

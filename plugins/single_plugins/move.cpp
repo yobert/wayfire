@@ -166,10 +166,9 @@ class wayfire_move : public wayfire_plugin_t
 
             start_wobbly(view, sx, sy);
             if (!unsnapped)
-            {
-                log_info("snap wobbly");
                 snap_wobbly(view, view->get_output_geometry());
-            }
+
+            core->set_cursor("grabbing");
         }
 
         void input_pressed(uint32_t state)

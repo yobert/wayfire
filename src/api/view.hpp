@@ -12,6 +12,7 @@ extern "C"
 {
 #include <wlr/types/wlr_box.h>
 #include <wlr/types/wlr_surface.h>
+#include <wlr/util/edges.h>
 }
 
 class wayfire_output;
@@ -170,14 +171,6 @@ enum wf_view_role
     WF_VIEW_ROLE_SHELL_VIEW // background, lockscreen, panel, notifications, etc
 };
 
-enum wf_resize_edges
-{
-    WF_RESIZE_EDGE_TOP     = (1 << 0),
-    WF_RESIZE_EDGE_BOTTOM  = (1 << 1),
-    WF_RESIZE_EDGE_LEFT    = (1 << 2),
-    WF_RESIZE_EDGE_RIGHT   = (1 << 3)
-};
-
 /* Represents a desktop window (not as X11 window, but like a xdg_toplevel surface) */
 class wayfire_view_t : public wayfire_surface_t
 {
@@ -320,7 +313,7 @@ class wayfire_view_t : public wayfire_surface_t
         bool is_hidden = false;
 
         virtual void move_request();
-        virtual void resize_request();
+        virtual void resize_request(uint32_t edges = 0);
         virtual void maximize_request(bool state);
         virtual void fullscreen_request(wayfire_output *output, bool state);
 
