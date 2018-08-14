@@ -395,7 +395,8 @@ void wayfire_surface_t::_wlr_render_box(const wlr_fb_attribs& fb, int x, int y, 
     wlr_matrix_projection(projection, fb.width, fb.height, fb.transform);
 
     float matrix[9];
-    wlr_matrix_project_box(matrix, &geometry, surface->current.transform, 0, projection);
+    wlr_matrix_project_box(matrix, &geometry, wlr_output_transform_invert(surface->current.transform),
+                           0, projection);
 
     wlr_renderer_begin(core->renderer, fb.width, fb.height);
     auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
