@@ -24,7 +24,7 @@ static void handle_xwayland_request_resize(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_xwayland_resize_event*> (data);
     auto view = wf_view_from_void(ev->surface->data);
-    view->resize_request();
+    view->resize_request(ev->edges);
 }
 
 static void handle_xwayland_request_configure(wl_listener*, void *data)
