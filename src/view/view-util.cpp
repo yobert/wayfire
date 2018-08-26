@@ -122,13 +122,21 @@ wayfire_view wl_surface_to_wayfire_view(wl_resource *resource)
 
 wlr_box get_scissor_box(wayfire_output *output, const wlr_box& box)
 {
-    int ow, oh;
-    wlr_output_transformed_resolution(output->handle, &ow, &oh);
+    return get_scissor_box(output->handle->width, output->handle->height,
+                           output->handle->transform, box);
+}
+
+wlr_box get_scissor_box(uint32_t fb_width, uint32_t fb_height, uint32_t fb_transform,
+                        const wlr_box& box)
+{
+    if (fb_transform & 1)
+        std::swap(fb_width, fb_height);
 
     wlr_box result = box;
-    wl_output_transform transform = wlr_output_transform_invert(output->handle->transform);
+    wl_output_transform transform =
+        wlr_output_transform_invert((wl_output_transform)fb_transform);
 
-    wlr_box_transform(&box, transform, ow, oh, &result);
+    wlr_box_transform(&box, transform, fb_width, fb_height, &result);
     return result;
 }
 

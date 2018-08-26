@@ -145,7 +145,6 @@ void wf_2D_view::render_with_damage(uint32_t src_tex,
 
     fb.bind();
     fb.scissor(scissor_box);
-
     OpenGL::render_transformed_texture(src_tex, quad.geometry, {},
                                        transform, {1.0f, 1.0f, 1.0f, alpha});
 }

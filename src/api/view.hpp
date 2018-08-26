@@ -35,6 +35,8 @@ wf_geometry get_output_box_from_box(const wlr_box& box, float scale);
 
 /* rotate box */
 wlr_box get_scissor_box(wayfire_output *output, const wlr_box& box);
+wlr_box get_scissor_box(uint32_t fb_width, uint32_t fb_height, uint32_t transform,
+                        const wlr_box& box);
 
 /* scale + rotate */
 wlr_box output_transform_box(wayfire_output *output, const wlr_box& box);

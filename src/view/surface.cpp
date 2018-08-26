@@ -421,7 +421,7 @@ void wayfire_surface_t::_render_pixman(const wlr_fb_attribs& fb, int x, int y, p
     for (int i = 0; i < n_rect; i++)
     {
         auto rect = wlr_box_from_pixman_box(rects[i]);
-        auto box = get_scissor_box(output, rect);
+        auto box = get_scissor_box(fb.width, fb.height, fb.transform, rect);
         _wlr_render_box(fb, x, y, box);
     }
 }

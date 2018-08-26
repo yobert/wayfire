@@ -71,6 +71,8 @@ struct wf_output_damage
             pixman_region32_subtract(&frame_damage, &frame_damage, &regular);
 
             pixman_region32_union(out_damage, out_damage, &frame_damage);
+            if (runtime_config.no_damage_track)
+                pixman_region32_union(out_damage, out_damage, &regular);
 
             pixman_region32_fini(&regular);
         }
@@ -389,9 +391,6 @@ void render_manager::paint()
 
     pixman_region32_fini(&swap_damage);
     post_paint();
-
-    if (runtime_config.no_damage_track)
-        output_damage->add();
 
     /*
        OpenGL::bind_context(ctx);
