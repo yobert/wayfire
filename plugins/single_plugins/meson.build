@@ -17,4 +17,5 @@ place         = shared_module('place',         'place.cpp',         include_dire
 invert        = shared_module('invert',        'invert.cpp',        include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
 fisheye       = shared_module('fisheye',       'fisheye.cpp',       include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
 zoom          = shared_module('zoom',          'zoom.cpp',          include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
+alpha         = shared_module('alpha',         'alpha.cpp',         include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
 idle_inhibit  = shared_module('idle-inhibit',  'idle-inhibit.cpp',     include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
