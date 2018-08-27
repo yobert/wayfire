@@ -33,6 +33,8 @@
 class wayfire_alpha : public wayfire_plugin_t
 {
     axis_callback axis_cb;
+    wayfire_config_section *section;
+    wf_option modifier, min_value;
 
     public:
     void init(wayfire_config *config)
@@ -62,8 +64,8 @@ class wayfire_alpha : public wayfire_plugin_t
                 update_alpha(view, ev->delta);
         };
 
-        auto section = config->get_section("alpha");
-        auto modifier = section->get_option("modifier", "<alt>");
+        section = config->get_section("alpha");
+        modifier = section->get_option("modifier", "<alt>");
 
         output->add_axis(modifier, &axis_cb);
     }
@@ -77,6 +79,7 @@ class wayfire_alpha : public wayfire_plugin_t
             view->add_transformer(nonstd::make_unique<wf_2D_view> (view), "alpha");
 
         transformer = dynamic_cast<wf_2D_view*> (view->get_transformer("alpha").get());
+        min_value = section->get_option("min_value", "0.1");
         alpha = transformer->alpha;
 
         alpha -= delta * 0.003;
@@ -87,8 +90,8 @@ class wayfire_alpha : public wayfire_plugin_t
         if (alpha == 1.0)
             return view->pop_transformer("alpha");
 
-        if (alpha < 0)
-            alpha = 0;
+        if (alpha < min_value->as_double())
+            alpha = min_value->as_double();
 
         if (transformer->alpha != alpha)
         {
