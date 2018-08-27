@@ -59,7 +59,7 @@ class wayfire_alpha : public wayfire_plugin_t
                 return;
 
             if (ev->orientation == WLR_AXIS_ORIENTATION_VERTICAL)
-                update_alpha_target(view, ev->delta);
+                update_alpha(view, ev->delta);
         };
 
         auto section = config->get_section("alpha");
@@ -68,7 +68,7 @@ class wayfire_alpha : public wayfire_plugin_t
         output->add_axis(modifier, &axis_cb);
     }
 
-    void update_alpha_target(wayfire_view view, float delta)
+    void update_alpha(wayfire_view view, float delta)
     {
         wf_2D_view *transformer;
         float alpha;
