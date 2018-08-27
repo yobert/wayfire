@@ -59,9 +59,6 @@ class wayfire_alpha : public wayfire_plugin_t
             if (layer == WF_LAYER_BACKGROUND)
                 return;
 
-            if (!view->get_transformer("alpha"))
-                view->add_transformer(nonstd::make_unique<wf_2D_view> (view), "alpha");
-
             if (ev->orientation == WLR_AXIS_ORIENTATION_VERTICAL)
                 update_alpha_target(view, ev->delta);
         };
@@ -74,8 +71,14 @@ class wayfire_alpha : public wayfire_plugin_t
 
     void update_alpha_target(wayfire_view view, float delta)
     {
-        auto transformer = dynamic_cast<wf_2D_view*> (view->get_transformer("alpha").get());
-        float alpha = transformer->alpha;
+        wf_2D_view *transformer;
+        float alpha;
+
+        if (!view->get_transformer("alpha"))
+            view->add_transformer(nonstd::make_unique<wf_2D_view> (view), "alpha");
+
+        transformer = dynamic_cast<wf_2D_view*> (view->get_transformer("alpha").get());
+        alpha = transformer->alpha;
 
         alpha -= delta * 0.003;
 
