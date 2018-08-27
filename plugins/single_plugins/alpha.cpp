@@ -26,7 +26,6 @@
 #include <view.hpp>
 #include <plugin.hpp>
 #include <output.hpp>
-#include <animation.hpp>
 #include "view-transform.hpp"
 #include "workspace-manager.hpp"
 #include <nonstd/make_unique.hpp>
@@ -34,7 +33,6 @@
 class wayfire_alpha : public wayfire_plugin_t
 {
     axis_callback axis_cb;
-    wf_duration duration;
 
     public:
     void init(wayfire_config *config)
