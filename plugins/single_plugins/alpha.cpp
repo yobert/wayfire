@@ -53,7 +53,6 @@ class wayfire_alpha : public wayfire_plugin_t
                 return;
 
             auto view = core->find_view(focus->get_main_surface());
-
             auto layer = output->workspace->get_view_layer(view);
 
             if (layer == WF_LAYER_BACKGROUND)
