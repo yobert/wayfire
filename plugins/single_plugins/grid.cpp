@@ -225,7 +225,7 @@ class wayfire_grid : public wayfire_plugin_t
 
             bindings[i] = [=] (uint32_t key) {
                 auto view = output->get_active_view();
-                if (view->role != WF_VIEW_ROLE_TOPLEVEL)
+                if (!view || view->role != WF_VIEW_ROLE_TOPLEVEL)
                     return;
 
                 handle_key(view, i);
