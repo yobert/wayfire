@@ -103,7 +103,7 @@ class wayfire_alpha : public wayfire_plugin_t
     {
         output->workspace->for_each_view([] (wayfire_view view)
         {
-            auto transformer = dynamic_cast<wf_2D_view*> (view->get_transformer("alpha").get());
+            auto transformer = view->get_transformer("alpha").get();
             if (transformer)
                 view->pop_transformer("alpha");
         }, WF_ALL_LAYERS);
