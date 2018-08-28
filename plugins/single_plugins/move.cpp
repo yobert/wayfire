@@ -34,9 +34,6 @@ class wayfire_move : public wayfire_plugin_t
 
             auto section = config->get_section("move");
             wf_option button = section->get_option("activate", "<alt> BTN_LEFT");
-            if (!button->as_button().valid())
-                return;
-
             activate_binding = [=] (uint32_t, int x, int y)
             {
                 is_using_touch = false;

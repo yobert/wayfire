@@ -49,9 +49,6 @@ class wayfire_invert_screen : public wayfire_plugin_t
             auto section = config->get_section("invert");
             auto toggle_key = section->get_option("toggle", "<super> KEY_I");
 
-            if (!toggle_key->as_key().valid())
-                return;
-
             hook = [=] (uint32_t fb, uint32_t tex, uint32_t target)
             {
                 render(fb, tex, target);

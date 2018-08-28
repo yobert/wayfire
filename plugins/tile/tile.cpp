@@ -482,8 +482,7 @@ class wayfire_tile : public wayfire_plugin_t
         };
 
         auto select_key = config->get_section("tile")->get_option("select-mode", "<alt> KEY_S");
-        if (select_key->as_key().valid())
-            output->add_key(select_key, &select_view);
+        output->add_key(select_key, &select_view);
 
         maximize_view = [=] (uint32_t key)
         {

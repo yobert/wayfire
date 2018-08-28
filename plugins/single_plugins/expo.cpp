@@ -50,9 +50,6 @@ class wayfire_expo : public wayfire_plugin_t
         auto section = config->get_section("expo");
         auto toggle_key = section->get_option("toggle", "<super> KEY_E");
 
-        if (!toggle_key->as_key().valid())
-            return;
-
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
         streams.resize(vw);
 

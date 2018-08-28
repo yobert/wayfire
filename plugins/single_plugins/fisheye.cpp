@@ -117,9 +117,6 @@ class wayfire_fisheye : public wayfire_plugin_t
             radius = section->get_option("radius", "300");
             zoom = section->get_option("zoom", "7");
 
-            if (!toggle_key->as_key().valid())
-                return;
-
             target_zoom = zoom->as_double();
 
             hook = [=] (uint32_t fb, uint32_t tex, uint32_t target)

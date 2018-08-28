@@ -73,23 +73,15 @@ class vswitch : public wayfire_plugin_t
         auto key_win_up    = section->get_option("binding_win_up",    "<super> <shift> KEY_UP");
         auto key_win_down  = section->get_option("binding_win_down",  "<super> <shift> KEY_DOWN");
 
-        if (key_left->as_key().valid())
-            output->add_key(key_left,  &callback_left);
-        if (key_right->as_key().valid())
-            output->add_key(key_right, &callback_right);
-        if (key_up->as_key().valid())
-            output->add_key(key_up, &callback_up);
-        if (key_down->as_key().valid())
-            output->add_key(key_down, &callback_down);
+        output->add_key(key_left,  &callback_left);
+        output->add_key(key_right, &callback_right);
+        output->add_key(key_up, &callback_up);
+        output->add_key(key_down, &callback_down);
 
-        if (key_win_left->as_key().valid())
-            output->add_key(key_win_left, &callback_win_left);
-        if (key_win_right->as_key().valid())
-            output->add_key(key_win_right, &callback_win_right);
-        if (key_win_up->as_key().valid())
-            output->add_key(key_win_up, &callback_win_up);
-        if (key_win_down->as_key().valid())
-            output->add_key(key_win_down, &callback_win_down);
+        output->add_key(key_win_left, &callback_win_left);
+        output->add_key(key_win_right, &callback_win_right);
+        output->add_key(key_win_up, &callback_win_up);
+        output->add_key(key_win_down, &callback_win_down);
 
         wayfire_touch_gesture activation_gesture;
         activation_gesture.finger_count = 4;

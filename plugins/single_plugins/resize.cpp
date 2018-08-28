@@ -33,9 +33,6 @@ class wayfire_resize : public wayfire_plugin_t {
         grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY | WF_ABILITY_GRAB_INPUT;
 
         auto button = (*config)["resize"]->get_option("activate", "<super> BTN_LEFT");
-        if (!button->as_button().valid())
-            return;
-
         activate_binding = [=] (uint32_t, int x, int y)
         {
             auto focus = core->get_cursor_focus();

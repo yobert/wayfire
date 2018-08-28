@@ -88,9 +88,6 @@ class wayfire_cube : public wayfire_plugin_t
         background_color = section->get_option("background", "0 0 0 1");
 
         act_button = section->get_option("activate", "<alt> <ctrl> BTN_LEFT");
-        if (!act_button->as_button().valid())
-            return;
-
         activate = [=] (uint32_t, int32_t x, int32_t y) {
             initiate(x, y);
         };
