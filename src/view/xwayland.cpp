@@ -250,8 +250,8 @@ class wayfire_xwayland_view : public wayfire_view_t
 
     void activate(bool active)
     {
-        wayfire_view_t::activate(active);
         wlr_xwayland_surface_activate(xw, active);
+        wayfire_view_t::activate(active);
     }
 
     void send_configure(int width, int height)

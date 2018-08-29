@@ -273,8 +273,8 @@ wf_geometry wayfire_xdg6_view::get_wm_geometry()
 
 void wayfire_xdg6_view::activate(bool act)
 {
-    wayfire_view_t::activate(act);
     wlr_xdg_toplevel_v6_set_activated(v6_surface, act);
+    wayfire_view_t::activate(act);
 }
 
 void wayfire_xdg6_view::set_maximized(bool max)

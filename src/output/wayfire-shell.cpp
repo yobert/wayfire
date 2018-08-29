@@ -152,6 +152,7 @@ static void zwf_output_get_wm_surface(struct wl_client *client,
     }
 
     wo->workspace->add_view_to_layer(view, layer);
+    view->activate(true);
 }
 
 static void zwf_output_inhibit_output(struct wl_client *client,

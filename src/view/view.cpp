@@ -262,6 +262,14 @@ void wayfire_view_t::activate(bool active)
 {
     if (frame)
         frame->notify_view_activated(active);
+
+    /* we don't send activated or deactivated for shell views,
+     * they should always be active */
+    if (role == WF_VIEW_ROLE_SHELL_VIEW)
+    {
+        if (!active)
+            activate(true);
+    }
 }
 
 void wayfire_view_t::close()
