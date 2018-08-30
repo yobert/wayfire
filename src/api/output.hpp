@@ -27,7 +27,7 @@ class wayfire_output
        std::unordered_multiset<wayfire_grab_interface> active_plugins;
 
        plugin_manager *plugin;
-       wayfire_view active_view;
+       wayfire_view active_view, last_active_toplevel;
 
        wl_listener destroy_listener;
        signal_callback_t unmap_view_cb;

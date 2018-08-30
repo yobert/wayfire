@@ -551,6 +551,16 @@ void wayfire_output::set_keyboard_focus(wlr_surface *surface, wlr_seat *seat)
     }
 }
 
+/* sets the "active" view and gives it keyboard focus
+ *
+ * It maintains two different classes of "active views"
+ * 1. active_view -> the view which has the current keyboard focus
+ * 2. last_active_toplevel -> the toplevel view which last held the keyboard focus
+ *
+ * Because we don't want to deactivate views when for ex. a panel gets focus,
+ * we don't deactivate the current view when this is the case. However, when the focus
+ * goes back to the toplevel layer, we need to ensure the proper view is activated. */
+
 void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
 {
     if (v && !v->is_mapped())
@@ -561,8 +571,16 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
 
     bool refocus = (active_view == v);
 
-    if (active_view && active_view->is_mapped() && !refocus)
-        active_view->activate(false);
+    /* don't deactivate view if the next focus is not a toplevel */
+    if (v == nullptr || v->role == WF_VIEW_ROLE_TOPLEVEL)
+    {
+        if (active_view && active_view->is_mapped() && !refocus)
+            active_view->activate(false);
+
+        /* make sure to deactivate the lastly activated toplevel */
+        if (last_active_toplevel && v != last_active_toplevel)
+            last_active_toplevel->activate(false);
+    }
 
     active_view = v;
     if (active_view)
@@ -575,6 +593,9 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
     {
         set_keyboard_focus(NULL, seat);
     }
+
+    if (!active_view || active_view->role == WF_VIEW_ROLE_TOPLEVEL)
+        last_active_toplevel = active_view;
 }
 
 
