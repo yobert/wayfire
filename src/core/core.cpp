@@ -11,6 +11,7 @@ extern "C"
 #include <wlr/types/wlr_server_decoration.h>
 #include <wlr/types/wlr_gamma_control.h>
 #include <wlr/types/wlr_xdg_output.h>
+#include <wlr/types/wlr_screencopy_v1.h>
 }
 
 #include <unistd.h>
@@ -138,6 +139,7 @@ void wayfire_core::init(wayfire_config *conf)
     input = new input_manager();
 
     protocols.screenshooter = wlr_screenshooter_create(display);
+    protocols.screencopy = wlr_screencopy_manager_v1_create(display);
     protocols.gamma = wlr_gamma_control_manager_create(display);
     protocols.linux_dmabuf = wlr_linux_dmabuf_v1_create(display, renderer);
     protocols.export_dmabuf = wlr_export_dmabuf_manager_v1_create(display);

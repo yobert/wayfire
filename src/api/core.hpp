@@ -29,6 +29,7 @@ struct wayfire_shell;
 struct wlr_virtual_keyboard_manager_v1;
 struct wlr_idle;
 struct wlr_idle_inhibit_manager_v1;
+struct wlr_screencopy_manager_v1;
 
 #include <wayland-server.h>
 }
@@ -84,6 +85,7 @@ class wayfire_core
             wlr_data_device_manager *data_device;
             wlr_gamma_control_manager *gamma;
             wlr_screenshooter *screenshooter;
+            wlr_screencopy_manager_v1 *screencopy;
             wlr_linux_dmabuf_v1 *linux_dmabuf;
             wlr_export_dmabuf_manager_v1 *export_dmabuf;
             wlr_server_decoration_manager *decorator_manager;
