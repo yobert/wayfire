@@ -435,10 +435,14 @@ void render_manager::post_paint()
     } else
     {
         auto views = output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), WF_ALL_LAYERS, false);
+            output->workspace->get_current_workspace(), WF_WM_LAYERS, false);
 
         for (auto v : views)
             send_frame_done(v);
+
+        // send to all panels/backgrounds/etc
+        output->workspace->for_each_view(send_frame_done,
+            WF_BELOW_LAYERS | WF_ABOVE_LAYERS);
     }
 }
 
