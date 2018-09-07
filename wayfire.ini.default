@@ -48,6 +48,9 @@ xkb_layout = us,bg
 xkb_option = grp:win_space_toggle,compose:ralt
 xkb_variant = ,phonetic
 
+kb_repeat_rate = 40
+kb_repeat_delay = 400
+
 # set background image
 [shell]
 background = /home/<user>/Desktop/sea-tree.jpeg
