@@ -200,6 +200,7 @@ class wf_wobbly : public wf_view_transformer_t
         };
 
         view->get_output()->connect_signal("detach-view", &view_removed);
+        view->get_output()->connect_signal("unmap-view", &view_removed);
         view->get_output()->connect_signal("view-geometry-changed", &view_geometry_changed);
         view->get_output()->activate_plugin(iface);
     }
@@ -382,6 +383,7 @@ class wf_wobbly : public wf_view_transformer_t
         view->get_output()->render->rem_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
         view->get_output()->disconnect_signal("view-geometry-changed", &view_geometry_changed);
         view->get_output()->disconnect_signal("detach-view", &view_removed);
+        view->get_output()->disconnect_signal("unmap-view", &view_removed);
     }
 };
 
