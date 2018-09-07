@@ -113,7 +113,15 @@ class render_manager
         void add_effect(effect_hook_t*, wf_output_effect_type type);
         void rem_effect(const effect_hook_t*, wf_output_effect_type type);
 
+        /* add a new postprocessing effect */
         void add_post(post_hook_t*);
+        /* Calling rem_post will remove the postprocessing effect as soon as
+         * possible.
+         *
+         * NOTE: this doesn't guarantee that the hook won't be executed anymore,
+         * but it is guaranteed that the hook will be removed by the beginning
+         * of the next frame.
+         */
         void rem_post(post_hook_t*);
 
         void damage(const wlr_box& box);

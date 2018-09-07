@@ -352,8 +352,6 @@ void render_manager::paint()
     }
 
     run_effects(effects[WF_OUTPUT_EFFECT_OVERLAY]);
-    cleanup_post_hooks();
-
     wlr_renderer_scissor(rr, NULL);
     if (post_effects.size())
     {
@@ -369,7 +367,6 @@ void render_manager::paint()
             last_tex = post->target_tex;
         }
 
-        cleanup_post_hooks();
         assert(last_fb == 0 && last_tex == 0);
     }
 
@@ -391,24 +388,11 @@ void render_manager::paint()
 
     pixman_region32_fini(&swap_damage);
     post_paint();
-
-    /*
-       OpenGL::bind_context(ctx);
-    if (renderer)
-    {
-        OpenGL::bind_context(ctx);
-        renderer();
-    }  else {
-    } */
 }
 
 void render_manager::post_paint()
 {
-    /*
-    if (!renderer || draw_overlay_panel)
-        render_panels();
-        */
-
+    cleanup_post_hooks();
     run_effects(effects[WF_OUTPUT_EFFECT_POST]);
 
     if (constant_redraw)
