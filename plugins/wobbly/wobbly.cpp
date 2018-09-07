@@ -316,7 +316,7 @@ class wf_wobbly : public wf_view_transformer_t
         grab_y = y;
         has_active_grab = 1;
         wobbly_grab_notify(model.get(), x, y);
-        wobbly_unenforce_geometry(model.get());
+        unsnap();
     }
 
     void move(int x, int y)
