@@ -73,8 +73,6 @@ class input_manager
         void handle_input_destroyed(wlr_input_device *dev);
 
         void update_cursor_focus(wayfire_surface_t *focus, int x, int y);
-        void update_cursor_position(uint32_t time_msec, bool real_update = true);
-
         void update_touch_focus(wayfire_surface_t *focus,
                                 uint32_t time, int id, int x, int y);
         wayfire_surface_t* update_touch_position(uint32_t time, int id, int x, int y,
@@ -94,6 +92,7 @@ class input_manager
         void handle_new_input(wlr_input_device *dev);
 
         int last_cursor_event_msec;
+        void update_cursor_position(uint32_t time_msec, bool real_update = true);
 
         wl_client *exclusive_client = NULL;
 

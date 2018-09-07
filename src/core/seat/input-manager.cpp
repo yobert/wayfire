@@ -174,12 +174,24 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
     return true;
 }
 
+static void idle_update_cursor(void *data)
+{
+    auto input = (input_manager*) data;
+    // TODO: use CLOCK_MONOTONIC instead of last_cursor_event_msec
+    input->update_cursor_position(input->last_cursor_event_msec, false);
+}
+
 void input_manager::ungrab_input()
 {
     if (active_grab)
         active_grab->output->set_active_view(active_grab->output->get_active_view());
     active_grab = nullptr;
-    update_cursor_position(last_cursor_event_msec, false);
+
+    /* We must update cursor focus, however, if we update "too soon", the current
+     * pointer event (button press/release, maybe something else) will be sent to
+     * the client, which shouldn't happen (at the time of the event, there was
+     * still an active input grab) */
+    wl_event_loop_add_idle(core->ev_loop, idle_update_cursor, this);
 
     /*
     if (is_touch_enabled())
