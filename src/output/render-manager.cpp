@@ -776,6 +776,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     std::swap(wayfire_view_transform::global_translate, translate);
     */
 
+    wlr_renderer_begin(core->renderer, output->handle->width, output->handle->height);
+
     int n_rect;
     auto rects = pixman_region32_rectangles(&ws_damage, &n_rect);
     GL_CALL(glClearColor(0, 0, 0, 1));
@@ -790,6 +792,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
         wlr_renderer_scissor(core->renderer, &box);
         GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
     }
+
+    wlr_renderer_end(core->renderer);
 
     wf_framebuffer fb;
     fb.geometry = output->get_relative_geometry();
