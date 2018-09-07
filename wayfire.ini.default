@@ -9,9 +9,15 @@ vwidth = 3
 vheight = 2
 
 # apps that should run on startup. any backgrounds/panels belong here
+# it is recommended that you don't use the built-in panel/background,
+# as they are just demos. Consider using https://github.com/WayfireWM/wf-shell
+
 [autostart]
-bg = /usr/lib/wayfire/wayfire-shell-background
-shell = /usr/lib/wayfire/wayfire-shell-panel
+builtin_bg = /usr/lib/wayfire/wayfire-shell-background -i path_to_your_image
+builtin_panel = /usr/lib/wayfire/wayfire-shell-panel
+
+#bg = /usr/bin/wf-background
+#shell = /usr/bin/wf-panel
 
 # run a certain application when the user presses a keybinding
 # useful to setup a screenshot, brightness control, sound control bindings
@@ -51,13 +57,7 @@ background = /home/<user>/Desktop/sea-tree.jpeg
 autohide = 0 # automatically hide if the cursor isn't inside
 background_color = 0.033 0.041 0.047 0.9
 
-# customize the battery widget
-battery_icon_path_prefix = /usr/share/icons/Adwaita/64x64/status
-battery_invert_icons = 1
-battery_text_scale = 0.6
-
 # customize font
-font_face = /usr/share/fonts/dejavu/DejaVuSerif.ttf
 font_size = 45
 
 # list of launchers
@@ -69,13 +69,6 @@ launcher3_cmd = env XDG_CURRENT_DESKTOP=GNOME gnome-control-center
 launcher3_icon = /usr/share/icons/gnome/48x48/categories/preferences-system.png
 launcher5_cmd = nautilus
 launcher5_icon = /usr/share/icons/gnome/48x48/apps/system-file-manager.png
-
-# where to place each widget
-widgets_center = clock
-widgets_left = launchers
-
-# enable the following if you want network/battery
-# widgets_right = network battery
 
 # output configuration
 # overlapping outputs are not supported
