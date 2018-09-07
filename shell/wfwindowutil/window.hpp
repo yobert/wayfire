@@ -58,9 +58,6 @@ struct wayfire_output
     wayfire_output(wayfire_display *display, wl_output *);
     ~wayfire_output();
 
-    int scale = 1;
-    void set_scale(int scale);
-
     /* configured is called when the window is first configured,
      * so the rendering process for the window can start then */
     wayfire_window* create_window(int width, int height,
@@ -74,17 +71,10 @@ struct wayfire_window
     zxdg_toplevel_v6  *toplevel = nullptr;
     zwf_wm_surface_v1 *zwf = nullptr;
 
-    int scale = 1;
-    void set_scale(int scale);
-
     std::function<void(wl_pointer*, uint32_t, int x, int y)> pointer_enter;
     std::function<void()> pointer_leave;
     std::function<void(int x, int y)> pointer_move;
     std::function<void(uint32_t button, uint32_t state, int x, int y)> pointer_button;
-
-    std::function<void(uint32_t time, int32_t id, uint32_t x, uint32_t y)> touch_down;
-    std::function<void(int32_t id, uint32_t x, uint32_t y)> touch_motion;
-    std::function<void(int32_t id)> touch_up;
 
     wayfire_output *output;
 
@@ -102,7 +92,7 @@ struct wayfire_window
 };
 
 /* the focused windows */
-extern wayfire_window *current_touch_window, *current_pointer_window;
+extern wayfire_window *current_pointer_window;
 
 void render_rounded_rectangle(cairo_t *cr, int x, int y, int width, int height, double radius,
         double r, double g, double b, double a);

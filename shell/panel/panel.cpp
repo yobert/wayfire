@@ -4,7 +4,6 @@
 #include <linux/input-event-codes.h>
 #include "panel.hpp"
 #include "widgets.hpp"
-#include "net.hpp"
 
 void panel_redraw(void *data, wl_callback*, uint32_t)
 {
@@ -23,13 +22,6 @@ static void load_misc_config(wayfire_config *config)
     widget::background_color = *section->get_option("background_color",
             "0.033 0.041 0.047 0.9");
     widget::font_size = *section->get_option("font_size", "25");
-    widget::font_face = section->get_option("font_face",
-            "/usr/share/fonts/gnu-free/FreeSerif.ttf")->as_string();
-
-    battery_options::icon_path_prefix = section->get_option("battery_icon_path_prefix",
-            "/usr/share/icons/Adwaita/64x64/status")->as_string();
-    battery_options::invert_icons = int(*section->get_option("battery_invert_icons", "1"));
-    battery_options::text_scale = double(*section->get_option("battery_text_scale", "0.6"));
 }
 
 void zwf_output_hide_panels(void *data,
@@ -70,7 +62,7 @@ wayfire_panel::~wayfire_panel()
 
 void wayfire_panel::init(int w, int h)
 {
-    width = w * output->scale;
+    width = w;
     height = 1.3 * widget::font_size;
 
     /* we check if the window has been configured, because if we had a
@@ -93,17 +85,14 @@ void wayfire_panel::init(int w, int h)
 
 void wayfire_panel::destroy()
 {
-    for_each_widget(w)
-    {
-        cairo_destroy(w->cr);
-        delete w;
-    }
+    cairo_destroy(clock->cr);
+    cairo_destroy(launchers->cr);
+
+    clock = nullptr;
+    launchers = nullptr;
 
     cairo_destroy(cr);
     delete window;
-
-    for (int i = 0; i < 3; i++)
-        widgets[i].clear();
 }
 
 void wayfire_panel::configure()
@@ -119,7 +108,7 @@ void wayfire_panel::configure()
     repaint_callback = nullptr;
 
     if (!autohide)
-        zwf_wm_surface_v1_set_exclusive_zone(window->zwf, ZWF_WM_SURFACE_V1_ANCHOR_EDGE_TOP, height / output->scale);
+        zwf_wm_surface_v1_set_exclusive_zone(window->zwf, ZWF_WM_SURFACE_V1_ANCHOR_EDGE_TOP, height);
 
     zwf_wm_surface_v1_configure(window->zwf, 0, -height);
 
@@ -154,129 +143,30 @@ void wayfire_panel::init_input()
 
     window->pointer_move  = std::bind(std::mem_fn(&wayfire_panel::on_motion), this, _1, _2);
     window->pointer_button= std::bind(std::mem_fn(&wayfire_panel::on_button), this, _1, _2, _3, _4);
-
-    window->touch_down = [=] (uint32_t time, int32_t id, int x, int y)
-    {
-        ++count_input;
-        if (id == 0)
-        {
-            show(0);
-            on_enter(time);
-
-            on_button(BTN_LEFT, WL_POINTER_BUTTON_STATE_PRESSED, x, y);
-            on_motion(x, y);
-            last_x = x;
-            last_y = y;
-        }
-    };
-
-    window->touch_up = [=] (int32_t id)
-    {
-        --count_input;
-        if (id == 0)
-        {
-            on_button(BTN_LEFT, WL_POINTER_BUTTON_STATE_RELEASED, last_x, last_y);
-            on_motion(-1, -1);
-        }
-
-        if (count_input == 0)
-        {
-            if (autohide)
-                hide(1000);
-            on_leave();
-        }
-    };
-
-    window->touch_motion = [=] (int32_t id, int x, int y)
-    {
-        if (id == 0)
-        {
-            last_x = x;
-            last_y = y;
-            on_motion(x, y);
-        }
-    };
-}
-
-void wayfire_panel::position_widgets(position_policy policy)
-{
-    int widget_spacing = widget::font_size * 0.5;
-    int total_width = widget_spacing;
-
-    for (size_t i = 0; i < widgets[policy].size(); i++)
-    {
-        widgets[policy][i]->x = total_width;
-        total_width += widgets[policy][i]->get_width();
-        total_width += widget_spacing;
-    }
-
-    int delta = 0;
-    if (policy == PART_RIGHT)
-        delta += width - total_width;
-    if (policy == PART_SYMMETRIC)
-        delta += width / 2 - total_width / 2;
-
-    for (size_t i = 0; i < widgets[policy].size(); i++)
-        widgets[policy][i]->x += delta;
-}
-
-widget* wayfire_panel::create_widget_from_name(std::string name)
-{
-    widget *w = nullptr;
-    if (name == "clock")
-    {
-        w = new clock_widget();
-    }
-    else if (name == "battery")
-    {
-        w = new battery_widget();
-    }
-    else if (name == "launchers")
-    {
-        auto l = new launchers_widget();
-        l->init_launchers(config);
-        w = l;
-    }
-    else if (name == "network")
-    {
-        w = new network_widget();
-    }
-
-    if (w)
-    {
-        w->cr = cairo_create(window->cairo_surface);
-        w->panel_h = height;
-        w->create();
-    }
-
-    return w;
-}
-
-void wayfire_panel::init_widgets(std::string str, position_policy policy)
-{
-    std::istringstream stream(str);
-    std::string name;
-    while(stream >> name)
-    {
-        auto w = create_widget_from_name(name);
-        if (w) widgets[policy].push_back(w);
-    }
-
-    position_widgets(policy);
 }
 
 void wayfire_panel::init_widgets()
 {
     cr = cairo_create(window->cairo_surface);
 
-    auto section = config->get_section("shell_panel");
-    std::string left   = *section->get_option("widgets_left", "");
-    std::string center = *section->get_option("widgets_center", "clock");
-    std::string right  = *section->get_option("widgets_right", "");
+    clock = std::unique_ptr<clock_widget> (new clock_widget());
+    clock->cr = cairo_create(window->cairo_surface);
+    clock->panel_h = height;
+    clock->create();
 
-    init_widgets(left, PART_LEFT);
-    init_widgets(center, PART_SYMMETRIC);
-    init_widgets(right, PART_RIGHT);
+    launchers = std::unique_ptr<launchers_widget> (new launchers_widget());
+    launchers->init_launchers(config);
+    launchers->cr = cairo_create(window->cairo_surface);
+    launchers->panel_h = height;
+    launchers->create();
+}
+
+void wayfire_panel::position_widgets()
+{
+    int widget_spacing = widget::font_size * 0.5;
+
+    launchers->x = widget_spacing;
+    clock->x = width - clock->get_width() - widget_spacing;
 }
 
 void wayfire_panel::set_autohide(bool ah)
@@ -360,20 +250,12 @@ void wayfire_panel::on_leave()
 
 void wayfire_panel::on_button(uint32_t button, uint32_t state, int x, int y)
 {
-    for_each_widget(w)
-    {
-        if (w->pointer_button)
-            w->pointer_button(button, state, x, y);
-    }
+    launchers->pointer_button(button, state, x, y);
 }
 
 void wayfire_panel::on_motion(int x, int y)
 {
-    for_each_widget(w)
-    {
-        if (w->pointer_motion)
-            w->pointer_motion(x, y);
-    }
+    launchers->pointer_motion(x, y);
 }
 
 void wayfire_panel::add_callback(bool swapped)
@@ -435,8 +317,8 @@ void wayfire_panel::render_frame(bool first_call)
     bool should_swap = first_call;
     if (animation.target == 0 || !autohide)
     {
-        for_each_widget(w)
-            should_swap |= w->update();
+        should_swap |= launchers->update();
+        should_swap |= clock->update();
     }
 
     should_swap = should_swap || need_fullredraw;
@@ -449,11 +331,9 @@ void wayfire_panel::render_frame(bool first_call)
                 widget::background_color.b, widget::background_color.a);
         need_fullredraw = false;
 
-        for (int i = 0; i < 3; i++)
-            position_widgets((position_policy) i);
-
-        for_each_widget(w)
-            w->repaint();
+        position_widgets();
+        launchers->repaint();
+        clock->repaint();
     }
 
     /* we don't need to redraw only if we are autohiding and hidden now */

@@ -5,5 +5,5 @@ libwfwindowutil = static_library('wfwindow',
 
 
 wfwinheaders = include_directories('.')
-wf_window_util = declare_dependency(link_with: libwfwindowutil, include_directories: wfwinheaders)
+wf_window_util = declare_dependency(link_with: libwfwindowutil, include_directories: [wfwinheaders, wayfire_conf_inc])
 

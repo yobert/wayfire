@@ -23,7 +23,6 @@ wayland_protos = dependency('wayland-protocols', version: '>=1.12')
 cairo          = dependency('cairo')
 drm            = dependency('libdrm')
 egl            = dependency('egl')
-gio            = dependency('gio-2.0')
 glesv2         = dependency('glesv2')
 glm            = dependency('glm')
 libevdev       = dependency('libevdev')
@@ -35,10 +34,8 @@ xkbcommon      = dependency('xkbcommon')
 wlroots        = dependency('wlroots', fallback: ['wlroots', 'wlroots'])
 wfconfig       = dependency('wf-config', fallback: ['wf-config', 'wfconfig'])
 
-gdk    = dependency('gdk-2.0',        required: false)
-jpeg   = dependency('libjpeg',        required: false)
-pixbuf = dependency('gdk-pixbuf-2.0', required: false)
-png    = dependency('libpng',         required: false)
+jpeg = dependency('libjpeg', required: false)
+png  = dependency('libpng',  required: false)
 
 conf_data = configuration_data()
 
@@ -65,10 +62,6 @@ if png.found() and jpeg.found()
   conf_data.set('BUILD_WITH_IMAGEIO', true)
 endif
 
-if gdk.found() and pixbuf.found()
-    conf_data.set('BUILD_WITH_PIXBUF', true)
-endif
-
 configure_file(input: 'config.h.in',
                output: 'config.h',
                configuration: conf_data)
@@ -92,7 +85,6 @@ summary = [
 	'debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED', false)),
 	'     imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO', false)),
 	'      gles32: @0@'.format(conf_data.get('USE_GLES32', false)),
-	'  gdk-pixbuf: @0@'.format(conf_data.get('BUILD_WITH_PIXBUF', false)),
     'graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG', false)),
 	'----------------',
 	''

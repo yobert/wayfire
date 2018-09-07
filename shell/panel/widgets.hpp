@@ -1,20 +1,16 @@
 #ifndef WIDGETS_HPP
 #define WIDGETS_HPP
 
+#include <cairo.h>
 #include <string>
-#include <cairo-ft.h>
 #include <functional>
-#include <thread>
 #include <config.hpp>
-
-extern cairo_font_face_t *cairo_font_face;
-void load_default_font();
+#include <memory>
 
 struct widget
 {
     static wf_color background_color;
     static int32_t font_size;
-    static std::string font_face;
 
     /* those are initialized before calling create() */
     cairo_t *cr;
@@ -60,26 +56,6 @@ struct battery_options
     static std::string icon_path_prefix;
     static bool invert_icons;
     static float text_scale;
-};
-
-struct battery_widget : public widget
-{
-    bool active = false;
-    int id;
-
-    cairo_surface_t *icon_surface = nullptr;
-
-    static battery_info *info;
-    static upower_backend *backend;
-    static std::thread backend_thread;
-
-    ~battery_widget();
-
-    void create();
-    int get_width() { return width; };
-    bool update();
-    bool resized();
-    void repaint();
 };
 
 struct launcher;

@@ -4,14 +4,6 @@
 #include "config.hpp"
 #include "window.hpp"
 
-#ifdef BUILD_WITH_PIXBUF
-#include <gdk-pixbuf/gdk-pixbuf.h>
-#include <gdk/gdkcairo.h>
-#endif
-
-
-bool g_type_init_ran = false;
-
 static cairo_surface_t *create_dummy_surface(int w, int h)
 {
     cairo_surface_t *surf = cairo_image_surface_create(CAIRO_FORMAT_RGB24, w, h);
@@ -26,43 +18,8 @@ static cairo_surface_t *create_dummy_surface(int w, int h)
 
 static cairo_surface_t *create_cairo_surface_from_file(std::string name, int w, int h)
 {
-
-#ifdef BUILD_WITH_PIXBUF
-
-#if !GLIB_CHECK_VERSION(2,35,0)
-    if (!g_type_init_ran)
-    {
-        g_type_init();
-        g_type_init_ran = true;
-    }
-#endif
-
-    auto pbuf = gdk_pixbuf_new_from_file(name.c_str(), NULL);
-    if (!pbuf)
-    {
-        std::cerr << "Failed to create a pbuf. Possibly wrong background path?" << std::endl;
-        return create_dummy_surface(w, h);
-    }
-
-    int w_ = gdk_pixbuf_get_width(pbuf);
-    int h_ = gdk_pixbuf_get_height(pbuf);
-
-    auto surface = cairo_image_surface_create(
-        gdk_pixbuf_get_has_alpha(pbuf) ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24,
-        w_, h_);
-
-    auto cr = cairo_create(surface);
-    gdk_cairo_set_source_pixbuf(cr, pbuf, 0, 0);
-    cairo_paint(cr);
-
-    cairo_destroy(cr);
-    g_object_unref(pbuf);
-
-    return surface;
-#else
     auto surface = cairo_try_load_png(name.c_str());
     return surface ?: create_dummy_surface(w, h);
-#endif
 }
 
 class wayfire_background
@@ -112,7 +69,6 @@ class wayfire_background
 
     void init_background(int width, int height)
     {
-        std::cout << output->zwf << " " << window->surface << " " << ZWF_OUTPUT_V1_WM_ROLE_BACKGROUND << std::endl;
         window->zwf = zwf_output_v1_get_wm_surface(output->zwf, window->surface,
                                                    ZWF_OUTPUT_V1_WM_ROLE_BACKGROUND);
         zwf_wm_surface_v1_configure(window->zwf, 0, 0);
@@ -142,7 +98,6 @@ class wayfire_background
 
     ~wayfire_background()
     {
-        std::cout << "destroy background" << std::endl;
         if (window)
         {
             cairo_destroy(cr);
@@ -160,31 +115,23 @@ std::string bg_path;
 /* TODO: share option parsing between panel and background */
 int main(int argc, char *argv[])
 {
-    std::string home_dir = secure_getenv("HOME");
-    std::string config_file = home_dir + "/.config/wayfire.ini";
-
     struct option opts[] = {
-        { "config",   required_argument, NULL, 'c' },
-        { 0,          0,                 NULL,  0  }
+        { "image", required_argument, NULL, 'i' },
+        { 0,       0,                 NULL,  0  }
     };
 
     int c, i;
-    while((c = getopt_long(argc, argv, "c:l:", opts, &i)) != -1)
+    while((c = getopt_long(argc, argv, "i:", opts, &i)) != -1)
     {
         switch(c)
         {
-            case 'c':
-                config_file = optarg;
+            case 'i':
+                bg_path = optarg;
                 break;
             default:
                 std::cerr << "failed to parse option " << optarg << std::endl;
         }
     }
-
-    config = new wayfire_config(config_file);
-    auto section = config->get_section("shell");
-
-    bg_path = section->get_option("background", "none")->as_string();
 
     auto display = new wayfire_display([=] (wayfire_output *output)
     {

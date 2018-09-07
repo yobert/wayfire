@@ -6,8 +6,7 @@
 #include <wayland-cursor.h>
 #include <unistd.h>
 
-wayfire_window* current_touch_window = nullptr, *current_pointer_window = nullptr;
-size_t current_window_touch_points = 0;
+wayfire_window *current_pointer_window = nullptr;
 
 int pointer_x, pointer_y;
 void pointer_enter(void *data, struct wl_pointer *wl_pointer,
@@ -22,8 +21,8 @@ void pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
     auto window = (wayfire_window*) wl_surface_get_user_data(surface);
     if (window && window->pointer_enter)
-        window->pointer_enter(wl_pointer, serial,
-                pointer_x * window->scale, pointer_y * window->scale);
+        window->pointer_enter(wl_pointer, serial, pointer_x, pointer_y);
+
     if (window)
     {
         current_pointer_window = window;
@@ -54,17 +53,14 @@ void pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time,
     pointer_x = wl_fixed_to_int(surface_x);
     pointer_y = wl_fixed_to_int(surface_y);
     if (current_pointer_window && current_pointer_window->pointer_move)
-        current_pointer_window->pointer_move(pointer_x * current_pointer_window->scale,
-                                             pointer_y * current_pointer_window->scale);
+        current_pointer_window->pointer_move(pointer_x, pointer_y);
 }
 
 void pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
     uint32_t time, uint32_t button, uint32_t state)
 {
     if (current_pointer_window && current_pointer_window->pointer_button)
-        current_pointer_window->pointer_button(button, state,
-                                               pointer_x * current_pointer_window->scale,
-                                               pointer_y * current_pointer_window->scale);
+        current_pointer_window->pointer_button(button, state, pointer_x, pointer_y);
 }
 
 void pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time,
@@ -91,91 +87,6 @@ static const struct wl_pointer_listener pointer_listener = {
     .axis_discrete = pointer_axis_discrete
 };
 
-static void touch_down(void *data, struct wl_touch *wl_touch,
-                       uint32_t serial, uint32_t time, struct wl_surface *surface,
-                       int32_t id, wl_fixed_t x, wl_fixed_t y)
-{
-    auto window = (wayfire_window*) wl_surface_get_user_data(surface);
-
-    if (current_touch_window != window)
-        current_window_touch_points = 0;
-
-    current_touch_window = window;
-    current_window_touch_points++;
-
-    if (window->touch_down)
-        window->touch_down(time, id,
-                           wl_fixed_to_int(x) * window->scale,
-                           wl_fixed_to_int(y) * window->scale);
-}
-
-static void
-touch_up(void *data, struct wl_touch *wl_touch,
-         uint32_t serial, uint32_t time, int32_t id)
-{
-    if (current_touch_window && current_touch_window->touch_down)
-        current_touch_window->touch_up(id);
-
-    current_window_touch_points--;
-    if (!current_window_touch_points)
-        current_touch_window = nullptr;
-}
-
-static void
-touch_motion(void *data, struct wl_touch *wl_touch,
-             uint32_t time, int32_t id, wl_fixed_t x, wl_fixed_t y)
-{
-    if (current_touch_window->touch_motion)
-        current_touch_window->touch_motion(id,
-                                           wl_fixed_to_int(x) * current_touch_window->scale,
-                                           wl_fixed_to_int(y) * current_touch_window->scale);
-}
-
-static void
-touch_frame(void *data, wl_touch *) {}
-
-static void
-touch_cancel(void *data, wl_touch *) {}
-
-static const struct wl_touch_listener touch_listener = {
-    touch_down,
-    touch_up,
-    touch_motion,
-    touch_frame,
-    touch_cancel,
-    NULL,
-    NULL
-};
-
-
-static void update_wl_output(wayfire_output *output)
-{
-    /* TODO: connect to xdg output manager and take info */
-}
-
-static void handle_wl_output_geometry(void *data, struct wl_output *wl_output,
-                                   int32_t, int32_t, int32_t, int32_t, int32_t, const char*, const char*, int32_t)
-{ }
-
-static void handle_wl_output_mode(void *data, struct wl_output *wl_output, uint32_t flags, int32_t, int32_t, int32_t)
-{ }
-
-static void handle_wl_output_done(void *data, struct wl_output *wl_output)
-{ }
-
-static void handle_wl_output_scale(void *data, struct wl_output *wl_output, int32_t factor)
-{
-    auto wo = (wayfire_output*) wl_output_get_user_data(wl_output);
-    wo->set_scale(factor);
-}
-
-const wl_output_listener output_listener =
-{
-    handle_wl_output_geometry,
-    handle_wl_output_mode,
-    handle_wl_output_done,
-    handle_wl_output_scale
-};
 void handle_zxdg_ping (void *, zxdg_shell_v6 *shell, uint32_t serial)
 { zxdg_shell_v6_pong(shell, serial); }
 const zxdg_shell_v6_listener zxdg_listener = { handle_zxdg_ping };
@@ -202,13 +113,8 @@ void registry_add_object(void *data, struct wl_registry *registry, uint32_t name
         display->seat = (wl_seat*) wl_registry_bind(registry, name, &wl_seat_interface, std::min(version, 2u));
         display->pointer = wl_seat_get_pointer(display->seat);
 
-        auto touch = wl_seat_get_touch(display->seat);
-
         if (display->pointer)
             wl_pointer_add_listener(display->pointer, &pointer_listener, NULL);
-
-        if (touch)
-            wl_touch_add_listener(touch, &touch_listener, NULL);
     }
     else if (strcmp(interface, wl_shm_interface.name) == 0)
     {
@@ -230,7 +136,6 @@ void registry_add_object(void *data, struct wl_registry *registry, uint32_t name
     }
     else if (strcmp(interface, wl_output_interface.name) == 0)
     {
-        std::cout << "bind wl_output" << std::endl;
         auto output = (wl_output*) wl_registry_bind(registry, name, &wl_output_interface,
                                                     std::min(version, 1u));
         // XXX: are we sure that the zwf_shell_manager will be created before the wl_output?
@@ -379,19 +284,11 @@ wayfire_output::~wayfire_output()
     zxdg_output_v1_destroy(zxdg_output);
 }
 
-void wayfire_output::set_scale(int scale)
-{
-    this->scale = scale;
-}
-
 wayfire_window* wayfire_output::create_window(int width, int height,
                                               std::function<void()> configured)
 {
-    auto window = create_shm_window(display, width * scale, height * scale,
-                                    configured);
-
+    auto window = create_shm_window(display, width, height, configured);
     window->output = this;
-    window->set_scale(scale);
 
     return window;
 }
@@ -413,12 +310,6 @@ wayfire_window::~wayfire_window()
     zxdg_surface_v6_destroy(xdg_surface);
     wl_surface_destroy(surface);
     cairo_surface_destroy(cairo_surface);
-}
-
-void wayfire_window::set_scale(int scale)
-{
-    this->scale = scale;
-    wl_surface_set_buffer_scale(surface, scale);
 }
 
 /* utility functions */

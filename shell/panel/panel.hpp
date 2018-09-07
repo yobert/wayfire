@@ -5,9 +5,9 @@
 #include <config.hpp>
 #include <vector>
 
-struct widget;
-class wayfire_config;
+#include "widgets.hpp"
 
+class wayfire_config;
 class wayfire_panel
 {
     wl_callback *repaint_callback = nullptr;
@@ -51,23 +51,13 @@ class wayfire_panel
 
     void add_callback(bool swapped);
 
-    std::vector<widget*> widgets[3];
-#define for_each_widget(w) for(int i = 0; i < 3; i++) for (auto w : widgets[i])
+    std::unique_ptr<clock_widget> clock;
+    std::unique_ptr<launchers_widget> launchers;
 
-    widget *create_widget_from_name(std::string name);
-    enum position_policy
-    {
-        PART_LEFT      = 0, /* widgets are placed on the left */
-        PART_SYMMETRIC = 1, /* widgets are ordered symmetrically around the center */
-        PART_RIGHT     = 2  /* widgets are placed on the right */
-    };
-
-    void position_widgets(position_policy policy);
-    void init_widgets(std::string str, position_policy policy);
+    void position_widgets();
+    void init_widgets();
 
     void init(int32_t width, int32_t height);
-    /* load widget list and position them */
-    void init_widgets();
     void init_input();
 
     void configure();
