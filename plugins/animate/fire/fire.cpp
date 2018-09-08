@@ -18,14 +18,16 @@ void Particle::update(float time)
     if (life <= 0) // ignore
         return;
 
-    pos += speed * 0.2f;
-    speed += g * 0.3f;
+    const float slowdown = 0.8;
+
+    pos += speed * 0.2f * slowdown;
+    speed += g * 0.3f * slowdown;
 
     if (life != 0)
         color.a /= life;
 
-    life -= fade * 0.3;
-    radius = base_radius * std::min(1.0f, life * 2);
+    life -= fade * 0.3 * slowdown;
+    radius = base_radius * std::pow(life, 0.5);
     color.a *= life;
 
     if (start_pos.x < pos.x)
@@ -46,6 +48,7 @@ ParticleSystem::ParticleSystem(int particles, ParticleIniter init_func)
     ps.resize(particles);
 
     color.resize(color_per_particle * particles);
+    dark_color.resize(color_per_particle * particles);
     radius.resize(radius_per_particle * particles);
     center.resize(center_per_particle * particles);
 
@@ -88,7 +91,10 @@ void ParticleSystem::update_worker(float time, int start, int end)
             --particles_alive;
 
         for (int j = 0; j < 4; j++) // maybe use memcpy?
+        {
             color[4 * i + j] = ps[i].color[j];
+            dark_color[4 * i + j] = ps[i].color[j] * 0.5;
+        }
 
      //   printf("center %d gets %f", 2 * i, ps[i].pos[0]);
         center[2 * i] = ps[i].pos[0];
@@ -149,6 +155,7 @@ void ParticleSystem::create_program()
     auto vss = OpenGL::compile_shader(particle_vert_source, GL_VERTEX_SHADER);
     auto fss = OpenGL::compile_shader(particle_frag_source, GL_FRAGMENT_SHADER);
 
+    // TODO: destroy program & shaders properly
     program.id = GL_CALL(glCreateProgram());
     GL_CALL(glAttachShader(program.id, vss));
     GL_CALL(glAttachShader(program.id, fss));
@@ -192,16 +199,25 @@ void ParticleSystem::render(glm::mat4 matrix)
                                   false, 0, center.data()));
     GL_CALL(glVertexAttribDivisor(program.center, 1));
 
-    // particle color
-    GL_CALL(glEnableVertexAttribArray(program.color));
-    GL_CALL(glVertexAttribPointer(program.color, 4, GL_FLOAT,
-                                  false, 0, color.data()));
-    GL_CALL(glVertexAttribDivisor(program.color, 1));
-
     // matrix
     GL_CALL(glUniformMatrix4fv(program.matrix, 1, false, &matrix[0][0]));
 
+    GL_CALL(glEnableVertexAttribArray(program.color));
+    GL_CALL(glVertexAttribDivisor(program.color, 1));
+
+    /* Darken the background */
+    GL_CALL(glVertexAttribPointer(program.color, 4, GL_FLOAT,
+                                  false, 0, dark_color.data()));
+    GL_CALL(glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_ALPHA));
+    // TODO: optimize shaders for this case
     GL_CALL(glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, ps.size()));
+
+    // particle color
+    GL_CALL(glVertexAttribPointer(program.color, 4, GL_FLOAT,
+                                  false, 0, color.data()));
+    GL_CALL(glBlendFunc(GL_SRC_ALPHA, GL_ONE));
+    GL_CALL(glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, ps.size()));
+
 // reset vertex attrib state, other renderers may need this
     GL_CALL(glVertexAttribDivisor(program.position, 0));
     GL_CALL(glVertexAttribDivisor(program.radius, 0));;
@@ -215,12 +231,13 @@ void ParticleSystem::render(glm::mat4 matrix)
     GL_CALL(glDisableVertexAttribArray(program.color));
 }
 
-static constexpr int particles = 5000;
+static constexpr int particles = 2500;
 FireEffect::FireEffect(wayfire_output *output)
     : ps (particles,
           [=] (Particle& p) { this->init_particle(p); })
 {
     std::srand(std::time(NULL));
+    this->output = output;
 
     hook = [=] () {
         wlr_renderer_scissor(core->renderer, NULL);
@@ -230,21 +247,34 @@ FireEffect::FireEffect(wayfire_output *output)
     output->render->add_effect(&hook, WF_OUTPUT_EFFECT_OVERLAY);
 
     damage = [=] () {
-        ps.spawn(particles / 13);
+       // base_y -= 5;
+        if (base_y <= 0)
+        {
+            delete this;
+            return;
+        }
+        ps.spawn(particles / 5);
         ps.update();
         output->render->damage(NULL);
     };
     output->render->add_effect(&damage, WF_OUTPUT_EFFECT_PRE);
 }
 
+FireEffect::~FireEffect()
+{
+    output->render->rem_effect(&hook, WF_OUTPUT_EFFECT_OVERLAY);
+    output->render->rem_effect(&damage, WF_OUTPUT_EFFECT_PRE);
+    output->render->damage(NULL);
+}
+
 void FireEffect::init_particle(Particle& p)
 {
-    p.color = {1, 0.2, 0.02, 1};
+    p.color = {random(0.4, 1), random(0.08, 0.2), random(0.008, 0.018), 1};
     p.life = 1;
     p.fade = random(0.1, 0.6);
-    p.pos = {random(300, 600), 540};
+    p.pos = {random(0, 1920), random(base_y - 10, base_y + 10)};
     p.start_pos = p.pos;
-    p.speed = {random(-10, 10), random(-15, 5)};
+    p.speed = {random(-10, 10), random(-25, 5)};
     p.g = {-1, -3};
-    p.base_radius = p.radius = random(10, 15);
+    p.base_radius = p.radius = random(10, 15) * 1.75;
 }

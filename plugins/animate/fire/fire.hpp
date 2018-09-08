@@ -59,7 +59,7 @@ class ParticleSystem
         std::vector<Particle> ps;
 
         static constexpr int color_per_particle = 4;
-        std::vector<float> color;
+        std::vector<float> color, dark_color;
 
         static constexpr int radius_per_particle = 1;
         std::vector<float> radius;
@@ -80,11 +80,15 @@ class ParticleSystem
 
 class FireEffect
 {
+    wayfire_output *output;
     ParticleSystem ps;
     effect_hook_t hook, damage;
+    int base_y = 540;
 
     public:
         FireEffect(wayfire_output *output);
+
+        ~FireEffect();
 
         void init_particle(Particle& p);
 };

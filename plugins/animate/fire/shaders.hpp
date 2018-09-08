@@ -42,7 +42,7 @@ void main()
     }
     else {
         mediump float factor = 1.0 - len / R;
-        factor = pow(factor, 0.75);
+        factor = pow(factor, 0.5);
         gl_FragColor = factor * out_color;
     }
 }
