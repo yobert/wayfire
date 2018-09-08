@@ -6,6 +6,7 @@
 #include <core.hpp>
 #include "system_fade.hpp"
 #include "basic_animations.hpp"
+#include "fire/fire.hpp"
 
 //#if USE_GLES32
 //#include "fire.hpp"
@@ -100,6 +101,8 @@ struct animation_hook
 class wayfire_animation : public wayfire_plugin_t {
     signal_callback_t map_cb, unmap_cb, wake_cb;
 
+    key_callback test_fire;
+
     wf_option open_animation, close_animation;
     wf_option duration, startup_duration;
 
@@ -142,6 +145,13 @@ class wayfire_animation : public wayfire_plugin_t {
             output->connect_signal("wake", &wake_cb);
             */
         output->connect_signal("start-rendering", &wake_cb);
+
+        test_fire = [=] (uint32_t)
+        {
+            new FireEffect(output);
+        };
+
+        output->add_key(new_static_option("<super> KEY_G"), &test_fire);
     }
 
     /* TODO: enhance - add more animations */
