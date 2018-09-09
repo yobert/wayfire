@@ -7,9 +7,6 @@
 #include <output.hpp>
 #include <core.hpp>
 
-/* Particle simulation happens in a "virtual" output with dimensions 1920x1080.
- * The fire is then scaled to fit the actual output */
-
 static constexpr int num_particles = 2000;
 
 // generate a random float between s and e
@@ -118,11 +115,19 @@ class FireTransformer : public wf_view_transformer_t
     }
 };
 
-void FireAnimation::init(wayfire_view view, wf_duration dur, bool close)
+static float fire_duration_mod_for_height(int height)
+{
+    return std::min(height / 500.0, 1.5);
+}
+
+void FireAnimation::init(wayfire_view view, wf_option dur, bool close)
 {
 
     this->view = view;
-    this->duration = dur;
+
+    int msec = dur->as_int() * fire_duration_mod_for_height(
+        view->get_bounding_box().height);
+    this->duration = wf_duration(new_static_option(std::to_string(msec)));
 
     if (close) {
         duration.start(1, 0);

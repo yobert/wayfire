@@ -8,7 +8,7 @@
 #include "basic_animations.hpp"
 #include "fire/fire.hpp"
 
-void animation_base::init(wayfire_view, wf_duration, bool) {}
+void animation_base::init(wayfire_view, wf_option, bool) {}
 bool animation_base::step() {return false;}
 animation_base::~animation_base() {}
 
@@ -35,7 +35,7 @@ struct animation_hook
     effect_hook_t hook;
     signal_callback_t view_removed;
 
-    animation_hook(wayfire_view view, wf_duration duration)
+    animation_hook(wayfire_view view, wf_option duration)
     {
         this->view = view;
         output = view->get_output();
