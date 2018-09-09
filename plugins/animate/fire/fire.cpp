@@ -20,7 +20,8 @@ static float random(float s, float e)
 static int particle_count_for_width(int width)
 {
     int particles = FireAnimation::fire_particles->as_cached_int();
-    return particles * std::min(width / 400.0, 2.5);
+
+    return particles * std::min(width / 400.0, 3.5);
 }
 
 class FireTransformer : public wf_view_transformer_t
@@ -78,8 +79,8 @@ class FireTransformer : public wf_view_transformer_t
         p.color = {random(0.4, 1), random(0.08, 0.2), random(0.008, 0.018), 1};
 
         p.pos = {random(0, last_boundingbox.width),
-            random(last_boundingbox.height * progress_line - 10,
-                   last_boundingbox.height * progress_line + 10)};
+            random(last_boundingbox.height * (progress_line - 0.02),
+                   last_boundingbox.height * (progress_line + 0.02))};
         p.start_pos = p.pos;
 
         p.speed = {random(-10, 10), random(-25, 5)};
@@ -133,7 +134,8 @@ void FireAnimation::init(wayfire_view view, wf_option dur, bool close)
 
     int msec = dur->as_int() * fire_duration_mod_for_height(
         view->get_bounding_box().height);
-    this->duration = wf_duration(new_static_option(std::to_string(msec)));
+    this->duration = wf_duration(new_static_option(std::to_string(msec)),
+                                 wf_animation::linear);
 
     if (close) {
         duration.start(1, 0);
