@@ -106,12 +106,13 @@ class FireTransformer : public wf_view_transformer_t
             1, 1 - progress_line,
         };
 
-        OpenGL::render_transformed_texture(src_tex, src_geometry, tex_geometry, ortho,
+        OpenGL::render_transformed_texture(src_tex, src_geometry, tex_geometry,
+                                           target_fb.transform * ortho,
                                            glm::vec4(1.0), TEXTURE_USE_TEX_GEOMETRY);
 
         auto translate = glm::translate(glm::mat4(1.0),
                                         {src_box.x, src_box.y, 0});
-        ps.render(ortho * translate);
+        ps.render(target_fb.transform * ortho * translate);
     }
 };
 
