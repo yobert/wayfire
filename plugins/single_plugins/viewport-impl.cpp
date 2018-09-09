@@ -460,6 +460,9 @@ void viewport_manager::reflow_reserved_areas()
 
     for_each_view([=] (wayfire_view view)
     {
+        if (!view->is_mapped())
+            return;
+
         if (view->maximized)
         {
             /* this is legit because, if the output size has changed,
@@ -485,7 +488,10 @@ void viewport_manager::update_output_geometry()
 
     for_each_view([=] (wayfire_view view)
     {
-        auto wm = view->get_wm_geometry();
+        if (!view->is_mapped())
+            return;
+
+       auto wm = view->get_wm_geometry();
             float px = 1. * wm.x / old_w;
             float py = 1. * wm.y / old_h;
             float pw = 1. * wm.width / old_w;
