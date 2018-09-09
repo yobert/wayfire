@@ -7,7 +7,8 @@
 #include <output.hpp>
 #include <core.hpp>
 
-static constexpr int num_particles = 2000;
+wf_option FireAnimation::fire_particles;
+wf_option FireAnimation::fire_particle_size;
 
 // generate a random float between s and e
 static float random(float s, float e)
@@ -18,7 +19,8 @@ static float random(float s, float e)
 
 static int particle_count_for_width(int width)
 {
-    return std::min(num_particles * width / 400.0, 5000.0);
+    int particles = FireAnimation::fire_particles->as_cached_int();
+    return particles * std::min(width / 400.0, 2.5);
 }
 
 class FireTransformer : public wf_view_transformer_t
@@ -30,7 +32,9 @@ class FireTransformer : public wf_view_transformer_t
     public:
     ParticleSystem ps;
 
-    FireTransformer(wayfire_view view) : ps(num_particles, [=] (Particle& p) {init_particle(p); })
+    FireTransformer(wayfire_view view) :
+        ps(FireAnimation::fire_particles->as_cached_int(),
+           [=] (Particle& p) {init_particle(p); })
     {
         last_boundingbox = view->get_bounding_box();
         ps.resize(particle_count_for_width(last_boundingbox.width));
@@ -81,7 +85,8 @@ class FireTransformer : public wf_view_transformer_t
         p.speed = {random(-10, 10), random(-25, 5)};
         p.g = {-1, -3};
 
-        p.base_radius = p.radius = random(10, 15) * 1.3;
+        double size = FireAnimation::fire_particle_size->as_double();
+        p.base_radius = p.radius = random(size * 0.8, size * 1.2);
     }
 
     virtual void render_with_damage(uint32_t src_tex,

@@ -112,6 +112,11 @@ class wayfire_animation : public wayfire_plugin_t {
         duration         = section->get_option("duration", "300");
         startup_duration = section->get_option("startup_duration", "600");
 
+        FireAnimation::fire_particles =
+            section->get_option("fire_particles", "2000");
+        FireAnimation::fire_particle_size =
+            section->get_option("fire_particle_size", "16");
+
         using namespace std::placeholders;
         map_cb = std::bind(std::mem_fn(&wayfire_animation::view_mapped),
                 this, _1);

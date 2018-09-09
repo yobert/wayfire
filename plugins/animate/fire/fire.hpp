@@ -17,6 +17,9 @@ class FireAnimation : public animation_base
     wf_duration duration;
 
     public:
+
+    static wf_option fire_particles, fire_particle_size;
+
     ~FireAnimation();
     virtual void init(wayfire_view view, wf_option duration, bool close);
     virtual bool step(); /* return true if continue, false otherwise */
