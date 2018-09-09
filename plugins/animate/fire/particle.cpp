@@ -2,6 +2,7 @@
 #include "shaders.hpp"
 #include <core.hpp>
 #include <thread>
+#include <debug.hpp>
 
 void Particle::update(float time)
 {
@@ -35,13 +36,8 @@ void Particle::update(float time)
 ParticleSystem::ParticleSystem(int particles, ParticleIniter init_func)
 {
     this->pinit_func = init_func;
-    ps.resize(particles);
 
-    color.resize(color_per_particle * particles);
-    dark_color.resize(color_per_particle * particles);
-    radius.resize(radius_per_particle * particles);
-    center.resize(center_per_particle * particles);
-
+    resize(particles);
     clock_gettime(CLOCK_MONOTONIC, &last_update);
     create_program();
 
@@ -54,6 +50,7 @@ ParticleSystem::~ParticleSystem()
 
 int ParticleSystem::spawn(int num)
 {
+    // TODO: multithread this
     int spawned = 0;
     for (size_t i = 0; i < ps.size() && spawned < num; i++)
     {
@@ -66,6 +63,31 @@ int ParticleSystem::spawn(int num)
     }
 
     return spawned;
+}
+
+void ParticleSystem::resize(int num)
+{
+    if (num == (int)ps.size())
+        return;
+
+    // TODO: multithread this
+    for (int i = num; i < (int)ps.size(); i++)
+    {
+        if (ps[i].life >= 0)
+            --particles_alive;
+    }
+
+    ps.resize(num);
+
+    color.resize(color_per_particle * num);
+    dark_color.resize(color_per_particle * num);
+    radius.resize(radius_per_particle * num);
+    center.resize(center_per_particle * num);
+}
+
+int ParticleSystem::size()
+{
+    return ps.size();
 }
 
 void ParticleSystem::update_worker(float time, int start, int end)
@@ -103,11 +125,12 @@ static int64_t timespec_to_msec(const timespec& ts)
 
 void ParticleSystem::exec_worker_threads(std::function<void(int, int)> spawn_worker)
 {
+//    return spawn_worker(0, ps.size());
+
     const int num_threads = std::thread::hardware_concurrency();
     const int worker_load = (ps.size() + num_threads - 1) / num_threads;
 
     std::thread workers[num_threads];
-
     for (int i = 0; i < num_threads; i++)
     {
         int thread_start = i * worker_load;

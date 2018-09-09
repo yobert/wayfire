@@ -8,7 +8,7 @@
 
 struct Particle
 {
-    float life;
+    float life = -1;
     float fade;
 
     float radius, base_radius;
@@ -39,6 +39,13 @@ class ParticleSystem
         /* spawn at most num new particles.
          * returns the number of actually spawned particles */
         int spawn(int num);
+
+        /* change the maximal number of particles
+         * Warning: This might kill a lot of particles */
+        void resize(int num);
+
+        // return the maximal number of particles
+        int size();
 
         /* update all particles */
         void update();

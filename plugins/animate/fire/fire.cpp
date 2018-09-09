@@ -19,6 +19,10 @@ static float random(float s, float e)
     return (s * r + (1 - r) * e);
 }
 
+static int particle_count_for_width(int width)
+{
+    return std::min(num_particles * width / 400.0, 5000.0);
+}
 
 class FireTransformer : public wf_view_transformer_t
 {
@@ -29,10 +33,10 @@ class FireTransformer : public wf_view_transformer_t
     public:
     ParticleSystem ps;
 
-
     FireTransformer(wayfire_view view) : ps(num_particles, [=] (Particle& p) {init_particle(p); })
     {
         last_boundingbox = view->get_bounding_box();
+        ps.resize(particle_count_for_width(last_boundingbox.width));
     }
 
     ~FireTransformer() { }
@@ -48,7 +52,9 @@ class FireTransformer : public wf_view_transformer_t
     virtual wlr_box get_bounding_box(wf_geometry view, wlr_box region)
     {
         last_boundingbox = view;
-        // TODO
+        ps.resize(particle_count_for_width(last_boundingbox.width));
+
+         // TODO
         //
         view.x -= left_border;
         view.y -= top_border;
@@ -78,7 +84,7 @@ class FireTransformer : public wf_view_transformer_t
         p.speed = {random(-10, 10), random(-25, 5)};
         p.g = {-1, -3};
 
-        p.base_radius = p.radius = random(10, 15) * 1.5;
+        p.base_radius = p.radius = random(10, 15) * 1.3;
     }
 
     virtual void render_with_damage(uint32_t src_tex,
@@ -135,7 +141,7 @@ bool FireAnimation::step()
 {
     transformer->set_progress_line(duration.progress());
     if (duration.running())
-        transformer->ps.spawn(num_particles / 10);
+        transformer->ps.spawn(transformer->ps.size() / 10);
 
     transformer->ps.update();
     return duration.running() || transformer->ps.statistic();
