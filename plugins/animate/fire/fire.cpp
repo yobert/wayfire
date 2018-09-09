@@ -43,7 +43,7 @@ class FireTransformer : public wf_view_transformer_t
 
     static constexpr int left_border = 50;
     static constexpr int right_border = 50;
-    static constexpr int top_border = 50;
+    static constexpr int top_border = 100;
     static constexpr int bottom_border = 50;
 
     virtual wlr_box get_bounding_box(wf_geometry view, wlr_box region)
