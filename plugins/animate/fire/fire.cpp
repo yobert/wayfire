@@ -123,7 +123,7 @@ class FireTransformer : public wf_view_transformer_t
 
 static float fire_duration_mod_for_height(int height)
 {
-    return std::min(height / 500.0, 1.5);
+    return std::min(height / 400.0, 3.0);
 }
 
 void FireAnimation::init(wayfire_view view, wf_option dur, bool close)
