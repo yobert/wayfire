@@ -1,7 +1,7 @@
 #ifndef PARTICLE_ANIMATION_SHADER
 #define PARTICLE_ANIMATION_SHADER
 
-const char *particle_vert_source =
+static const char *particle_vert_source =
 R"(
 #version 100
 
@@ -25,7 +25,7 @@ void main() {
 }
 )";
 
-const char *particle_frag_source =
+static const char *particle_frag_source =
 R"(
 #version 100
 
