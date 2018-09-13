@@ -2,6 +2,7 @@
 #define RENDER_MANAGER_HPP
 
 #include "plugin.hpp"
+#include "opengl.hpp"
 #include <vector>
 #include <pixman.h>
 
@@ -126,6 +127,8 @@ class render_manager
 
         void damage(const wlr_box& box);
         void damage(pixman_region32_t *region);
+
+        wf_framebuffer get_target_framebuffer() const;
 
         void workspace_stream_start(wf_workspace_stream *stream);
         void workspace_stream_update(wf_workspace_stream *stream,

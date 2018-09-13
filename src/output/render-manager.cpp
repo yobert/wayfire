@@ -178,6 +178,18 @@ void render_manager::damage(pixman_region32_t *region)
         output_damage->add();
 }
 
+wf_framebuffer render_manager::get_target_framebuffer() const
+{
+    wf_framebuffer fb;
+    fb.geometry = output->get_relative_geometry();
+    fb.transform = get_output_matrix_from_transform(output->get_transform());
+    fb.fb = default_fb;
+    fb.viewport_width = output->handle->width;
+    fb.viewport_height = output->handle->height;
+
+    return fb;
+}
+
 void redraw_idle_cb(void *data)
 {
     wayfire_output *output = (wayfire_output*) data;
@@ -779,12 +791,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
     wlr_renderer_end(core->renderer);
 
-    wf_framebuffer fb;
-    fb.geometry = output->get_relative_geometry();
-    fb.transform = get_output_matrix_from_transform(output->get_transform());
+    auto fb = get_target_framebuffer();
     fb.fb = target_buffer;
-    fb.viewport_width = output->handle->width;
-    fb.viewport_height = output->handle->height;
 
     auto rev_it = to_render.rbegin();
     while(rev_it != to_render.rend())
