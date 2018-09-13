@@ -496,6 +496,14 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
     in_paint = true;
     if (transforms.size())
     {
+        pixman_region32_t fb_region;
+        if (damage == NULL)
+        {
+            pixman_region32_init_rect(&fb_region, 0, 0,
+                fb.viewport_width, fb.viewport_height);
+            damage = &fb_region;
+        }
+
         take_snapshot();
 
         wf_geometry obox = get_untransformed_bounding_box();
@@ -548,6 +556,9 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
         }
 
         cleanup_transforms();
+
+        if (damage == &fb_region)
+            pixman_region32_fini(&fb_region);
     } else
     {
         wayfire_surface_t::render_fb(damage, fb);
