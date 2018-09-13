@@ -171,18 +171,34 @@ void wayfire_view_t::set_geometry(wf_geometry g)
     resize(g.width, g.height);
 }
 
-wlr_box wayfire_view_t::transform_region(const wlr_box& region)
+wlr_box wayfire_view_t::transform_region(const wlr_box& region,
+    nonstd::observer_ptr<wf_view_transformer_t> upto)
 {
     auto box = region;
     auto view = get_untransformed_bounding_box();
 
     for (auto& tr : transforms)
     {
+        if (tr->transform.get() == upto.get())
+            break;
+
         box = tr->transform->get_bounding_box(view, box);
         view = tr->transform->get_bounding_box(view, view);
     }
 
     return box;
+}
+
+wlr_box wayfire_view_t::transform_region(const wlr_box& region,
+    std::string transformer)
+{
+    return transform_region(region, get_transformer(transformer));
+}
+
+wlr_box wayfire_view_t::transform_region(const wlr_box& region)
+{
+    return transform_region(region,
+        nonstd::observer_ptr<wf_view_transformer_t>(nullptr));
 }
 
 bool wayfire_view_t::intersects_region(const wlr_box& region)
@@ -654,6 +670,18 @@ bool wayfire_view_t::has_transformer()
 {
     return transforms.size();
 }
+
+wlr_box wayfire_view_t::get_bounding_box(std::string transformer)
+{
+    return get_bounding_box(get_transformer(transformer));
+}
+
+wlr_box wayfire_view_t::get_bounding_box(
+    nonstd::observer_ptr<wf_view_transformer_t> transformer)
+{
+    return transform_region(get_untransformed_bounding_box(), transformer);
+}
+
 
 void emit_view_map(wayfire_view view)
 {

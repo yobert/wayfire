@@ -269,8 +269,20 @@ class wayfire_view_t : public wayfire_surface_t
          * and all its subsurfaces */
         virtual wlr_box get_bounding_box();
 
+        /* return the output-local transformed coordinates of the view,
+         * up to the given transformer. */
+        virtual wlr_box get_bounding_box(std::string transformer);
+        virtual wlr_box get_bounding_box(
+            nonstd::observer_ptr<wf_view_transformer_t> transformer);
+
         /* transform the given region using the view's transform */
         virtual wlr_box transform_region(const wlr_box &box);
+
+        /* transform the given region using the view's transform
+         * up to the given transformer */
+        virtual wlr_box transform_region(const wlr_box& box, std::string transformer);
+        virtual wlr_box transform_region(const wlr_box& box,
+            nonstd::observer_ptr<wf_view_transformer_t> transformer);
 
         /* check whether the given region intersects any of the surfaces
          * in the view's surface tree. */
