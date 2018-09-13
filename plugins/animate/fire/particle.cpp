@@ -176,11 +176,12 @@ void ParticleSystem::create_program()
     GL_CALL(glAttachShader(program.id, fss));
     GL_CALL(glLinkProgram(program.id));
 
-    program.radius   = GL_CALL(glGetAttribLocation(program.id, "radius"));
-    program.position = GL_CALL(glGetAttribLocation(program.id, "position"));
-    program.center   = GL_CALL(glGetAttribLocation(program.id, "center"));
-    program.color    = GL_CALL(glGetAttribLocation(program.id, "color"));
-    program.matrix   = GL_CALL(glGetUniformLocation(program.id, "matrix"));
+    program.radius    = GL_CALL(glGetAttribLocation(program.id, "radius"));
+    program.position  = GL_CALL(glGetAttribLocation(program.id, "position"));
+    program.center    = GL_CALL(glGetAttribLocation(program.id, "center"));
+    program.color     = GL_CALL(glGetAttribLocation(program.id, "color"));
+    program.matrix    = GL_CALL(glGetUniformLocation(program.id, "matrix"));
+    program.smoothing = GL_CALL(glGetUniformLocation(program.id, "smoothing"));
 
     wlr_renderer_end(core->renderer);
 }
@@ -224,6 +225,7 @@ void ParticleSystem::render(glm::mat4 matrix)
     GL_CALL(glVertexAttribPointer(program.color, 4, GL_FLOAT,
                                   false, 0, dark_color.data()));
     GL_CALL(glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_ALPHA));
+    GL_CALL(glUniform1f(program.smoothing, 0.7f));
     // TODO: optimize shaders for this case
     GL_CALL(glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, ps.size()));
 
@@ -231,6 +233,7 @@ void ParticleSystem::render(glm::mat4 matrix)
     GL_CALL(glVertexAttribPointer(program.color, 4, GL_FLOAT,
                                   false, 0, color.data()));
     GL_CALL(glBlendFunc(GL_SRC_ALPHA, GL_ONE));
+    GL_CALL(glUniform1f(program.smoothing, 0.5f));
     GL_CALL(glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, ps.size()));
 
     // reset vertex attrib state, other renderers may need this

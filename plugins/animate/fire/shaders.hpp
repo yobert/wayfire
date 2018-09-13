@@ -18,7 +18,7 @@ varying mediump float R;
 
 void main() {
     uv = position * radius;
-    gl_Position = matrix * vec4(center + uv, 0.0, 1.0);
+    gl_Position = matrix * vec4(center.x + uv.x * 0.75, center.y + uv.y, 0.0, 1.0);
 
     R = radius;
     out_color = color;
@@ -33,6 +33,8 @@ varying mediump vec2 uv;
 varying mediump vec4 out_color;
 varying mediump float R;
 
+uniform mediump float smoothing;
+
 void main()
 {
     mediump float len = length(uv);
@@ -42,7 +44,7 @@ void main()
     }
     else {
         mediump float factor = 1.0 - len / R;
-        factor = pow(factor, 0.5);
+        factor = pow(factor, smoothing);
         gl_FragColor = factor * out_color;
     }
 }

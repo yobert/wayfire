@@ -79,8 +79,8 @@ class FireTransformer : public wf_view_transformer_t
         p.color = {random(0.4, 1), random(0.08, 0.2), random(0.008, 0.018), 1};
 
         p.pos = {random(0, last_boundingbox.width),
-            random(last_boundingbox.height * (progress_line - 0.02),
-                   last_boundingbox.height * (progress_line + 0.02))};
+            random(last_boundingbox.height * progress_line - 10,
+                   last_boundingbox.height * progress_line + 10)};
         p.start_pos = p.pos;
 
         p.speed = {random(-10, 10), random(-25, 5)};

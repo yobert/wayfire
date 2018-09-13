@@ -80,6 +80,7 @@ class ParticleSystem
         struct {
             GLuint id;
             GLuint radius, position, center, color;
+            GLuint smoothing;
             GLuint matrix;
         } program;
 
