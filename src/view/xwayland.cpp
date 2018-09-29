@@ -299,7 +299,8 @@ class wayfire_xwayland_view : public wayfire_view_t
     void move(int x, int y, bool s)
     {
         wayfire_view_t::move(x, y, s);
-        send_configure();
+        if (!destroyed)
+            send_configure();
     }
 
     void resize(int w, int h, bool s)

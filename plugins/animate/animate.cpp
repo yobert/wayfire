@@ -6,12 +6,9 @@
 #include <core.hpp>
 #include "system_fade.hpp"
 #include "basic_animations.hpp"
+#include "fire/fire.hpp"
 
-//#if USE_GLES32
-//#include "fire.hpp"
-//#endif
-
-void animation_base::init(wayfire_view, wf_duration, bool) {}
+void animation_base::init(wayfire_view, wf_option, bool) {}
 bool animation_base::step() {return false;}
 animation_base::~animation_base() {}
 
@@ -38,7 +35,7 @@ struct animation_hook
     effect_hook_t hook;
     signal_callback_t view_removed;
 
-    animation_hook(wayfire_view view, wf_duration duration)
+    animation_hook(wayfire_view view, wf_option duration)
     {
         this->view = view;
         output = view->get_output();
@@ -115,13 +112,10 @@ class wayfire_animation : public wayfire_plugin_t {
         duration         = section->get_option("duration", "300");
         startup_duration = section->get_option("startup_duration", "600");
 
-//#if not USE_GLES32
-        if(open_animation->as_string() == "fire" || close_animation->as_string() == "fire")
-        {
-            log_error("fire animation not supported (OpenGL ES version < 3.2)");
-            open_animation = close_animation = new_static_option("fade");
-        }
-//#endif
+        FireAnimation::fire_particles =
+            section->get_option("fire_particles", "2000");
+        FireAnimation::fire_particle_size =
+            section->get_option("fire_particle_size", "16");
 
         using namespace std::placeholders;
         map_cb = std::bind(std::mem_fn(&wayfire_animation::view_mapped),
@@ -161,10 +155,8 @@ class wayfire_animation : public wayfire_plugin_t {
             new animation_hook<fade_animation, false>(view, duration);
         else if (open_animation->as_string() == "zoom")
             new animation_hook<zoom_animation, false>(view, duration);
-//#if USE_GLES32
- //       else if (open_animation->as_string() == "fire")
-  //          new animation_hook<wf_fire_effect, false>(view, duration);
-//#endif
+        else if (open_animation->as_string() == "fire")
+            new animation_hook<FireAnimation, false>(view, duration);
     }
 
     void view_unmapped(signal_data *data)
@@ -178,10 +170,8 @@ class wayfire_animation : public wayfire_plugin_t {
             new animation_hook<fade_animation, true> (view, duration);
         else if (close_animation->as_string() == "zoom")
             new animation_hook<zoom_animation, true> (view, duration);
-//#if USE_GLES32
-//        else if (close_animation->as_string() == "fire")
-//            new animation_hook<wf_fire_effect, true> (view, duration);
-//#endif
+        else if (close_animation->as_string() == "fire")
+            new animation_hook<FireAnimation, true> (view, duration);
     }
 
     void fini()

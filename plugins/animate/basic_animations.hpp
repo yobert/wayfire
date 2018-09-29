@@ -16,10 +16,10 @@ class fade_animation : public animation_base
 
     public:
 
-    void init(wayfire_view view, wf_duration dur, bool close)
+    void init(wayfire_view view, wf_option dur, bool close)
     {
         this->view = view;
-        duration = dur;
+        duration = wf_duration(dur);
         duration.start();
 
         if (close)
@@ -56,10 +56,10 @@ class zoom_animation : public animation_base
 
     public:
 
-    void init(wayfire_view view, wf_duration dur, bool close)
+    void init(wayfire_view view, wf_option dur, bool close)
     {
         this->view = view;
-        duration = dur;
+        duration = wf_duration(dur);
         duration.start();
 
         if (close)

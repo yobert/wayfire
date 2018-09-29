@@ -1,0 +1,252 @@
+#include "particle.hpp"
+#include "shaders.hpp"
+#include <core.hpp>
+#include <thread>
+#include <debug.hpp>
+
+void Particle::update(float time)
+{
+    if (life <= 0) // ignore
+        return;
+
+    const float slowdown = 0.8;
+
+    pos += speed * 0.2f * slowdown;
+    speed += g * 0.3f * slowdown;
+
+    if (life != 0)
+        color.a /= life;
+
+    life -= fade * 0.3 * slowdown;
+    radius = base_radius * std::pow(life, 0.5);
+    color.a *= life;
+
+    if (start_pos.x < pos.x)
+        g.x = -1;
+    else
+        g.x = 1;
+
+    if (life <= 0)
+    {
+        /* move outside */
+        pos = {-10000, -10000};
+    }
+}
+
+ParticleSystem::ParticleSystem(int particles, ParticleIniter init_func)
+{
+    this->pinit_func = init_func;
+
+    resize(particles);
+    clock_gettime(CLOCK_MONOTONIC, &last_update);
+    create_program();
+
+    particles_alive.store(0);
+}
+
+ParticleSystem::~ParticleSystem()
+{
+}
+
+int ParticleSystem::spawn(int num)
+{
+    // TODO: multithread this
+    int spawned = 0;
+    for (size_t i = 0; i < ps.size() && spawned < num; i++)
+    {
+        if (ps[i].life <= 0)
+        {
+            pinit_func(ps[i]);
+            ++spawned;
+            ++particles_alive;
+        }
+    }
+
+    return spawned;
+}
+
+void ParticleSystem::resize(int num)
+{
+    if (num == (int)ps.size())
+        return;
+
+    // TODO: multithread this
+    for (int i = num; i < (int)ps.size(); i++)
+    {
+        if (ps[i].life >= 0)
+            --particles_alive;
+    }
+
+    ps.resize(num);
+
+    color.resize(color_per_particle * num);
+    dark_color.resize(color_per_particle * num);
+    radius.resize(radius_per_particle * num);
+    center.resize(center_per_particle * num);
+}
+
+int ParticleSystem::size()
+{
+    return ps.size();
+}
+
+void ParticleSystem::update_worker(float time, int start, int end)
+{
+    end = std::min(end, (int)ps.size());
+    for (int i = start; i < end; ++i)
+    {
+        if (ps[i].life <= 0)
+            continue;
+
+    //    printf("%d\n", i);
+        ps[i].update(time);
+
+        if (ps[i].life <= 0)
+            --particles_alive;
+
+        for (int j = 0; j < 4; j++) // maybe use memcpy?
+        {
+            color[4 * i + j] = ps[i].color[j];
+            dark_color[4 * i + j] = ps[i].color[j] * 0.5;
+        }
+
+     //   printf("center %d gets %f", 2 * i, ps[i].pos[0]);
+        center[2 * i] = ps[i].pos[0];
+        center[2 * i + 1] = ps[i].pos[1];
+
+        radius[i] = ps[i].radius;
+    }
+}
+
+static int64_t timespec_to_msec(const timespec& ts)
+{
+    return ts.tv_sec * 1000ll + ts.tv_nsec / 1000000ll;
+}
+
+void ParticleSystem::exec_worker_threads(std::function<void(int, int)> spawn_worker)
+{
+//    return spawn_worker(0, ps.size());
+
+    const int num_threads = std::thread::hardware_concurrency();
+    const int worker_load = (ps.size() + num_threads - 1) / num_threads;
+
+    std::thread workers[num_threads];
+    for (int i = 0; i < num_threads; i++)
+    {
+        int thread_start = i * worker_load;
+        int thread_end = (i + 1) * worker_load;
+        thread_end = std::min(thread_end, (int)ps.size());
+
+        workers[i] = std::thread([=] () { spawn_worker(thread_start, thread_end); });
+    }
+
+    for (auto& w : workers)
+        w.join();
+}
+
+void ParticleSystem::update()
+{
+    timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    // FIXME: don't hardcode 60FPS
+    float time = (timespec_to_msec(now) - timespec_to_msec(last_update)) / 16.0;
+    last_update = now;
+
+    exec_worker_threads([=] (int start, int end) {
+        update_worker(time, start, end);
+    });
+}
+
+int ParticleSystem::statistic()
+{
+    return particles_alive;
+}
+
+void ParticleSystem::create_program()
+{
+    wlr_renderer_begin(core->renderer, 10, 10); // load the proper context
+
+    auto vss = OpenGL::compile_shader(particle_vert_source, GL_VERTEX_SHADER);
+    auto fss = OpenGL::compile_shader(particle_frag_source, GL_FRAGMENT_SHADER);
+
+    // TODO: destroy program & shaders properly
+    program.id = GL_CALL(glCreateProgram());
+    GL_CALL(glAttachShader(program.id, vss));
+    GL_CALL(glAttachShader(program.id, fss));
+    GL_CALL(glLinkProgram(program.id));
+
+    program.radius    = GL_CALL(glGetAttribLocation(program.id, "radius"));
+    program.position  = GL_CALL(glGetAttribLocation(program.id, "position"));
+    program.center    = GL_CALL(glGetAttribLocation(program.id, "center"));
+    program.color     = GL_CALL(glGetAttribLocation(program.id, "color"));
+    program.matrix    = GL_CALL(glGetUniformLocation(program.id, "matrix"));
+    program.smoothing = GL_CALL(glGetUniformLocation(program.id, "smoothing"));
+
+    wlr_renderer_end(core->renderer);
+}
+
+void ParticleSystem::render(glm::mat4 matrix)
+{
+    GL_CALL(glUseProgram(program.id));
+
+    static float vertex_data[] = {
+        -1, -1,
+         1, -1,
+         1,  1,
+        -1,  1
+    };
+
+    // position
+    GL_CALL(glEnableVertexAttribArray(program.position));
+    GL_CALL(glVertexAttribPointer(program.position, 2, GL_FLOAT,
+                                  false, 0, vertex_data));
+    GL_CALL(glVertexAttribDivisor(program.position, 0));
+
+    // particle radius
+    GL_CALL(glEnableVertexAttribArray(program.radius));
+    GL_CALL(glVertexAttribPointer(program.radius, 1, GL_FLOAT,
+                                  false, 0, radius.data()));
+    GL_CALL(glVertexAttribDivisor(program.radius, 1));;
+
+    // particle center (offset)
+    GL_CALL(glEnableVertexAttribArray(program.center));
+    GL_CALL(glVertexAttribPointer(program.center, 2, GL_FLOAT,
+                                  false, 0, center.data()));
+    GL_CALL(glVertexAttribDivisor(program.center, 1));
+
+    // matrix
+    GL_CALL(glUniformMatrix4fv(program.matrix, 1, false, &matrix[0][0]));
+
+    GL_CALL(glEnableVertexAttribArray(program.color));
+    GL_CALL(glVertexAttribDivisor(program.color, 1));
+
+    /* Darken the background */
+    GL_CALL(glVertexAttribPointer(program.color, 4, GL_FLOAT,
+                                  false, 0, dark_color.data()));
+    GL_CALL(glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_ALPHA));
+    GL_CALL(glUniform1f(program.smoothing, 0.7f));
+    // TODO: optimize shaders for this case
+    GL_CALL(glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, ps.size()));
+
+    // particle color
+    GL_CALL(glVertexAttribPointer(program.color, 4, GL_FLOAT,
+                                  false, 0, color.data()));
+    GL_CALL(glBlendFunc(GL_SRC_ALPHA, GL_ONE));
+    GL_CALL(glUniform1f(program.smoothing, 0.5f));
+    GL_CALL(glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, ps.size()));
+
+    // reset vertex attrib state, other renderers may need this
+    GL_CALL(glVertexAttribDivisor(program.position, 0));
+    GL_CALL(glVertexAttribDivisor(program.radius, 0));;
+    GL_CALL(glVertexAttribDivisor(program.center, 0));
+    GL_CALL(glVertexAttribDivisor(program.color, 0));
+
+
+    GL_CALL(glDisableVertexAttribArray(program.position));
+    GL_CALL(glDisableVertexAttribArray(program.radius));
+    GL_CALL(glDisableVertexAttribArray(program.center));
+    GL_CALL(glDisableVertexAttribArray(program.color));
+}
+
+
