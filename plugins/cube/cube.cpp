@@ -301,7 +301,13 @@ class wayfire_cube : public wayfire_plugin_t
 
         OpenGL::use_device_viewport();
         GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_fb));
-        vp = project * view;
+
+        glm::mat4 scale_matrix = glm::scale(glm::mat4(1.0),
+                glm::vec3(1. / zoomFactor, 1. / zoomFactor,
+                    1. / zoomFactor));
+
+        vp = output->render->get_target_framebuffer().transform *
+            project * view * scale_matrix;
         GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
 
         if (tessellation_support)
@@ -310,11 +316,6 @@ class wayfire_cube : public wayfire_plugin_t
             GL_CALL(glUniform1i(program.lightID, *use_light));
             GL_CALL(glUniform1f(program.easeID, current_ease));
         }
-
-        glm::mat4 base_model = glm::scale(glm::mat4(1.0),
-                glm::vec3(1. / zoomFactor, 1. / zoomFactor,
-                    1. / zoomFactor));
-
 
         GLfloat vertexData[] = {
             -0.5,  0.5,
@@ -353,7 +354,7 @@ class wayfire_cube : public wayfire_plugin_t
             GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index]->tex));
             GL_CALL(glActiveTexture(GL_TEXTURE0));
 
-            model = glm::rotate(base_model,
+            model = glm::rotate(glm::mat4(1.0),
                     float(i) * angle + offset, glm::vec3(0, 1, 0));
             model = glm::translate(model, glm::vec3(0, 0, coeff));
            GL_CALL(glUniformMatrix4fv(program.modelID, 1, GL_FALSE, &model[0][0]));
