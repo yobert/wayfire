@@ -779,6 +779,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     GL_CALL(glClearColor(0, 0, 0, 1));
 
     uint32_t target_buffer = (stream->fbuff == 0 ? default_fb : stream->fbuff);
+    uint32_t target_tex = (stream->fbuff == 0 ? default_tex : stream->tex);
     GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_buffer));
     for (int i = 0; i < n_rect; i++)
     {
@@ -793,6 +794,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
     auto fb = get_target_framebuffer();
     fb.fb = target_buffer;
+    fb.tex = target_tex;
 
     auto rev_it = to_render.rbegin();
     while(rev_it != to_render.rend())
