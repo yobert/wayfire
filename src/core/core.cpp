@@ -10,7 +10,7 @@ extern "C"
 #include <wlr/types/wlr_export_dmabuf_v1.h>
 #include <wlr/types/wlr_server_decoration.h>
 #include <wlr/types/wlr_gamma_control.h>
-#include <wlr/types/wlr_xdg_output.h>
+#include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
 }
 
@@ -157,7 +157,7 @@ void wayfire_core::init(wayfire_config *conf)
     decoration_created.notify = handle_decoration_created;
     wl_signal_add(&protocols.decorator_manager->events.new_decoration, &decoration_created);
 
-    protocols.output_manager = wlr_xdg_output_manager_create(display, output_layout);
+    protocols.output_manager = wlr_xdg_output_manager_v1_create(display, output_layout);
 
     protocols.vkbd_manager = wlr_virtual_keyboard_manager_v1_create(display);
     vkbd_created.notify = handle_virtual_keyboard;
