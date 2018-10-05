@@ -149,15 +149,24 @@ void wf_2D_view::render_with_damage(uint32_t src_tex,
                                        transform, {1.0f, 1.0f, 1.0f, alpha});
 }
 
+const float wf_3D_view::fov = PI/4;
+glm::mat4 wf_3D_view::default_view_matrix()
+{
+    return glm::lookAt(
+        glm::vec3(0., 0., 1.0 / std::tan(fov / 2)),
+        glm::vec3(0., 0., 0.),
+        glm::vec3(0., 1., 0.));
+}
+
+glm::mat4 wf_3D_view::default_proj_matrix()
+{
+    return glm::perspective(fov, 1.0f, .1f, 100.f);
+}
+
 wf_3D_view::wf_3D_view(wayfire_view view)
 {
     this->view = view;
-    const float fov = PI / 8; // 45 degrees
-    auto view_matrix = glm::lookAt(glm::vec3(0., 0., 1.0 / std::tan(fov / 2)),
-                                   glm::vec3(0., 0., 0.),
-                                   glm::vec3(0., 1., 0.));
-    auto proj = glm::perspective(fov, 1.0f, .1f, 100.f);
-    view_proj = proj * view_matrix;
+    view_proj = default_proj_matrix() * default_view_matrix();
 }
 
 /* TODO: cache total_transform, because it is often unnecessarily recomputed */

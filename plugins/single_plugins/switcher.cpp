@@ -1,104 +1,86 @@
+#include <nonstd/make_unique.hpp>
+
 #include <opengl.hpp>
-#include <signal-definitions.hpp>
-#include <view.hpp>
 #include <view-transform.hpp>
+#include <debug.hpp>
+#include <core.hpp>
+
+#include <view.hpp>
+#include <output.hpp>
+#include <signal-definitions.hpp>
+
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
+
 #include <animation.hpp>
 
-#include <queue>
-#include <linux/input-event-codes.h>
 #include <algorithm>
+#include <exception>
+#include <set>
 
-enum paint_attribs
+constexpr const char* switcher_transformer = "switcher-3d";
+constexpr const char* switcher_transformer_background = "switcher-3d";
+
+constexpr float background_dim_factor = 0.6;
+
+struct SwitcherPaintAttribs
 {
-    UPDATE_SCALE = 1,
-    UPDATE_OFFSET = 2,
-    UPDATE_ROTATION = 4
+    wf_transition scale_x{1, 1}, scale_y{1, 1};
+    wf_transition off_x{0, 0}, off_y{0, 0}, off_z{0, 0};
+    wf_transition rotation{0, 0};
+    wf_transition alpha{1, 1};
 };
 
-struct view_paint_attribs
+enum SwitcherViewPosition
+{
+    SWITCHER_POSITION_LEFT = 0,
+    SWITCHER_POSITION_CENTER = 1,
+    SWITCHER_POSITION_RIGHT = 2
+};
+
+static constexpr bool view_expired(int view_position)
+{
+    return view_position < SWITCHER_POSITION_LEFT ||
+        view_position > SWITCHER_POSITION_RIGHT;
+}
+
+struct SwitcherView
 {
     wayfire_view view;
-    wf_transition scale_x, scale_y, off_x, off_y, off_z;
-    wf_transition rot;
+    SwitcherPaintAttribs attribs;
 
-    uint32_t updates;
+    int position;
+
+    /* Make animation start values the current progress of duration */
+    void refresh_start(wf_duration duration)
+    {
+        attribs.off_x.start = duration.progress(attribs.off_x);
+        attribs.off_y.start = duration.progress(attribs.off_y);
+        attribs.off_z.start = duration.progress(attribs.off_z);
+
+        attribs.scale_x.start = duration.progress(attribs.scale_x);
+        attribs.scale_y.start = duration.progress(attribs.scale_y);
+
+        attribs.alpha.start = duration.progress(attribs.alpha);
+        attribs.rotation.start = duration.progress(attribs.rotation);
+
+    }
 };
 
-float clamp(float min, float x, float max)
+class WayfireSwitcher : public wayfire_plugin_t
 {
-    if (x < min) return min;
-    if (x > max) return max;
-    return x;
-}
+    wf_duration duration;
+    wf_duration background_dim_duration;
 
-/* get an appropriate scaling so that a view with dimensions [w, h] takes
- * about c% of the screen with dimensions [sw, sh] and make sure that this scaling
- * won't resize the view too much */
-float get_scale_factor(float w, float h, float sw, float sh, float c)
-{
-    float d = w * w + h * h;
-    float sd = sw * sw + sh * sh;
+    /* If a view comes before another in this list, it is on top of it */
+    std::vector<SwitcherView> views;
 
-    return clamp(0.66, std::sqrt(sd / d), 1.5) * c;
-}
-
-/* This plugin rovides abilities to switch between views.
- * Namely, it runs in several stages:
- * 1. "Fold" - views are moved to the center of the screen(they might overlap)
- *    and all except the focused one are made smaller
- * 2. "Unfold" - views are moved to the left/right and rotated
- * 3. "Rotate" - views are rotated from left to right and vice versa
- * 4. "Reverse unfold"
- * 5. "Reverse fold"
- * */
-
-class wayfire_view_switcher : public wayfire_plugin_t
-{
-    key_callback init_binding;
-    wf_option next_view, prev_view, terminate;
-    wf_option activate_key;
-
-    signal_callback_t destroyed;
-
-    wf_duration initial_animation, regular_animation;
-
-#define MAX_ACTIONS 4
-    std::queue<int> next_actions;
-
-    struct
-    {
-        bool active = false;
-
-        bool mod_released = false;
-        bool in_fold = false;
-        bool in_unfold = false;
-        bool in_rotate = false;
-
-        bool reversed_folds = false;
-
-        /* if the user presses alt-tab(assuming this is our binding)
-         * and then presses tab several times, holding alt, we assume
-         * he/she wants to switch between windows, so we track if this is the case */
-        bool in_continuous_switch = false;
-    } state;
-
-    size_t current_view_index;
-
-    struct
-    {
-        float offset = 0.6f;
-        float angle = M_PI / 6.;
-        float back = 0.3f;
-    } attribs;
-
-    effect_hook_t hook;
-
-    std::vector<wayfire_view> views; // all views on current viewport
-    std::vector<view_paint_attribs> active_views; // views that are rendered
-
-    wf_option view_scale_config;
+    // the modifiers which were used to activate switcher
+    uint32_t activating_modifiers = 0;
+    key_callback next_view_binding, prev_view_binding;
+    effect_hook_t damage;
+    render_hook_t switcher_renderer;
+    bool active = false;
 
     public:
 
@@ -107,561 +89,519 @@ class wayfire_view_switcher : public wayfire_plugin_t
         grab_interface->name = "switcher";
         grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
 
+        switcher_renderer = [=] (uint32_t fb)
+        {
+            render_output(fb);
+        };
+
+        damage = [=] ()
+        {
+            output->render->damage(NULL);
+        };
+
         auto section = config->get_section("switcher");
+        auto speed = section->get_option("speed", "500");
+        duration = wf_duration{speed, wf_animation::circle};
+        background_dim_duration = wf_duration{speed, wf_animation::circle};
 
-        regular_animation = section->get_option("duration", "250");
-        initial_animation = section->get_option("initial_animation", "150");
+        next_view_binding = [=] (uint32_t) { handle_switch_request(-1); };
+        prev_view_binding = [=] (uint32_t) { handle_switch_request(1); };
 
-        view_scale_config = section->get_option("view_thumbnail_size", "0.4");
+        output->add_key(section->get_option("next_view", "<super> KEY_TAB"),
+            &next_view_binding);
+        output->add_key(section->get_option("prev_view", "<super> <shift> KEY_TAB"),
+            &prev_view_binding);
 
-        activate_key = section->get_option("activate", "<alt> KEY_TAB");
-
-        init_binding = [=] (uint32_t)
+        grab_interface->callbacks.keyboard.mod = [=] (uint32_t mod, uint32_t state)
         {
-            if (!state.active)
-            {
-                activate();
-            } else if (state.mod_released)
-            {
-                push_exit();
-            }
-        };
-
-        output->add_key(activate_key, &init_binding);
-
-        using namespace std::placeholders;
-        grab_interface->callbacks.keyboard.key = std::bind(std::mem_fn(&wayfire_view_switcher::handle_key),
-                this, _1, _2);
-
-        grab_interface->callbacks.keyboard.mod = std::bind(std::mem_fn(&wayfire_view_switcher::handle_mod),
-                this, _1, _2);
-
-        grab_interface->callbacks.cancel = [=] ()
-        {
-            deactivate();
-        };
-
-        next_view = section->get_option("next", "KEY_RIGHT");
-        prev_view = section->get_option("prev", "KEY_LEFT");
-        terminate = section->get_option("exit", "KEY_ENTER");
-
-        hook = [=] () { update_animation(); };
-        destroyed = [=] (signal_data *data)
-        {
-            cleanup_view(get_signaled_view(data));
+            if (state == WLR_KEY_RELEASED && (mod & activating_modifiers))
+                dearrange();
         };
     }
 
-    void setup_graphics()
+    void handle_switch_request(int dir)
     {
-        if (views.size() == 2) {
-            attribs.offset = 0.4f;
-            attribs.angle = M_PI / 5.;
-            attribs.back = 0.;
-        } else {
-            attribs.offset = 0.6f;
-            attribs.angle = M_PI / 6.;
-            attribs.back = 0.3f;
-        }
-    }
-
-    void activate()
-    {
-        if (output->is_plugin_active(grab_interface->name))
-            return;
-        if (!output->activate_plugin(grab_interface))
-            return;
-
-        update_views();
-        update_transforms();
-
-        if (!views.size())
+        /* If we haven't grabbed, then we haven't setup anything */
+        if (!grab_interface->is_grabbed())
         {
-            output->deactivate_plugin(grab_interface);
-            return;
+            if (!init_switcher())
+                return;
         }
 
-        state.active = true;
-        state.mod_released = false;
-        state.in_continuous_switch = false;
-        state.reversed_folds = false;
-        next_actions = std::queue<int>();
-
-        grab_interface->grab();
-
-        output->render->auto_redraw(true);
-        output->render->damage(NULL);
-        output->render->add_effect(&hook, WF_OUTPUT_EFFECT_PRE);
-
-        output->connect_signal("unmap-view", &destroyed);
-        output->connect_signal("detach-view", &destroyed);
-
-        setup_graphics();
-        start_fold();
-
-        auto bgl = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace(),
-                                                            WF_LAYER_BACKGROUND, true);
-        if (bgl.size())
+        /* Maybe we're still animating the exit animation from a previous
+         * switcher activation? */
+        if (!active)
         {
-            auto bg = bgl[0];
-
-            bg->add_transformer(std::unique_ptr<wf_3D_view> (new wf_3D_view(bg)), "switcher");
-            auto tr = dynamic_cast<wf_3D_view*> (bg->get_transformer("switcher").get());
-            assert(tr);
-
-            tr->color = {0.6, 0.6, 0.6, 1.0};
-            tr->scaling = glm::scale(glm::mat4(1.0f), glm::vec3(1, 1, 1));
-        }
-    }
-
-    void push_exit()
-    {
-        if (state.in_rotate || state.in_fold || state.in_unfold)
-            next_actions.push(0);
-        else
-        {
-            state.reversed_folds = true;
-            if (views.size() >= 2)
-                start_unfold();
-            else
-                start_fold();
-        }
-    }
-
-    void push_next_view(int delta)
-    {
-        log_info("push next view %d", state.in_rotate || state.in_fold || state.in_unfold);
-        if ((state.in_rotate || state.in_fold || state.in_unfold) &&
-                next_actions.size() < MAX_ACTIONS)
-            next_actions.push(delta);
-        else
-            start_rotate(delta);
-    }
-
-    void stop_continuous_switch()
-    {
-        state.in_continuous_switch = false;
-        push_exit();
-    }
-
-    void handle_mod(uint32_t mod, uint32_t st)
-    {
-        bool mod_released = (mod == activate_key->as_cached_key().mod && st == WLR_KEY_RELEASED);
-
-        if (mod_released)
-        {
-            if (state.in_continuous_switch)
-                stop_continuous_switch();
-            else
-                state.mod_released = true;
-        }
-    }
-
-    void handle_key(uint32_t key, uint32_t kstate)
-    {
-        if (kstate != WLR_KEY_PRESSED)
-            return;
-
-        if (!state.mod_released && (key == activate_key->as_cached_key().keyval))
-        {
-            state.in_continuous_switch = true;
-        }
-
-        if (key == activate_key->as_cached_key().keyval && state.in_continuous_switch)
-        {
-            push_next_view(1);
-            return;
-        }
-
-        if (state.active &&
-            (key == terminate->as_cached_key().keyval || key == activate_key->as_cached_key().keyval))
-        {
-            push_exit();
-        }
-
-        if ((key == prev_view->as_cached_key().keyval || key == next_view->as_cached_key().keyval))
-        {
-            int dx = (key == prev_view->as_cached_key().keyval ? -1 : 1);
-            push_next_view(dx);
-        }
-    }
-
-    void update_views()
-    {
-        current_view_index = 0;
-        views = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace(),
-                                                          WF_LAYER_WORKSPACE, true);
-    }
-
-    void update_transforms()
-    {
-        for (auto v : views)
-        {
-            auto tr = v->get_transformer("switcher");
-            if (!tr)
-                v->add_transformer(std::unique_ptr<wf_3D_view> (new wf_3D_view(v)), "switcher");
-        }
-    }
-
-    void view_chosen(int i)
-    {
-        for (int i = views.size() - 1; i >= 0; i--)
-            output->bring_to_front(views[i]);
-
-        output->focus_view(views[i]);
-    }
-
-    void cleanup_view(wayfire_view view)
-    {
-        size_t i = 0;
-        for (; i < views.size() && views[i] != view; i++);
-        if (i == views.size())
-            return;
-
-        views.erase(views.begin() + i);
-
-        if (views.empty())
-            deactivate();
-
-        if (i <= current_view_index)
-            current_view_index = (current_view_index + views.size() - 1) % views.size();
-
-        auto it = active_views.begin();
-        while(it != active_views.end())
-        {
-            if (it->view == view)
-                it = active_views.erase(it);
-            else
-                ++it;
-        }
-
-        if (views.size() == 2)
-            push_next_view(1);
-    }
-
-    void update_animation()
-    {
-        if (state.in_fold)
-            update_fold();
-        else if (state.in_unfold)
-            update_unfold();
-        else if (state.in_rotate)
-            update_rotate();
-    }
-
-    void start_fold()
-    {
-        GetTuple(sw, sh, output->get_screen_size());
-        active_views.clear();
-
-        initial_animation.start();
-        state.in_fold = true;
-
-        update_views();
-        for (size_t i = current_view_index, cnt = 0; cnt < views.size(); ++cnt, i = (i + 1) % views.size())
-        {
-            const auto& v = views[i];
-            /* center of screen minus center of view */
-            auto wm_geometry = v->get_wm_geometry();
-            float cx = (sw / 2.0 - wm_geometry.width / 2.0f) - wm_geometry.x;
-            float cy = wm_geometry.y - (sh / 2.0 - wm_geometry.height / 2.0f);
-
-            log_info("factor is %lf", view_scale_config->as_cached_double());
-            float scale_factor = get_scale_factor(wm_geometry.width, wm_geometry.height,
-                                                  sw, sh, view_scale_config->as_cached_double());
-
-            view_paint_attribs elem;
-            elem.view = v;
-            elem.off_z = {0, 0};
-
-            if (state.reversed_folds)
-            {
-                elem.off_x = {cx, 0};
-                elem.off_y = {cy, 0};
-                elem.scale_x = {scale_factor, 1};
-                elem.scale_y = {scale_factor, 1};
-            } else
-            {
-                elem.off_x = {0, cx};
-                elem.off_y = {0, cy};
-                elem.scale_x = {1, scale_factor};
-                elem.scale_y = {1, scale_factor};
-            }
-
-            elem.updates = UPDATE_OFFSET | UPDATE_SCALE;
-            active_views.push_back(elem);
-        }
-    }
-
-    void update_view_transforms()
-    {
-        auto &duration = initial_animation.running() ?
-            initial_animation : regular_animation;
-
-        for (auto v : active_views)
-        {
-            auto tr = dynamic_cast<wf_3D_view*> (v.view->get_transformer("switcher").get());
-            assert(tr);
-
-            v.view->damage();
-            if (v.updates & UPDATE_OFFSET)
-            {
-                tr->translation = glm::translate(glm::mat4(1.0), glm::vec3(
-                            duration.progress(v.off_x),
-                            duration.progress(v.off_y),
-                            duration.progress(v.off_z)));
-            }
-            if (v.updates & UPDATE_SCALE)
-            {
-                tr->scaling = glm::scale(glm::mat4(1.0), glm::vec3(
-                        duration.progress(v.scale_x), duration.progress(v.scale_y), 1));
-            }
-            if (v.updates & UPDATE_ROTATION)
-            {
-                tr->rotation = glm::rotate(glm::mat4(1.0),
-                                           (float)duration.progress(v.rot),
-                                           glm::vec3(0, 1, 0));
-            }
-
-            v.view->damage();
-        }
-    }
-
-    void dequeue_next_action()
-    {
-        if (!next_actions.empty())
-        {
-            int next = next_actions.front(); next_actions.pop();
-
-            /* we aren't in any fold, unfold or rotation,
-             * so the following will call the necessary functions
-             * and not push to the queue */
-            assert(!state.in_fold && !state.in_unfold && !state.in_rotate);
-
-            if (next == 0)
-                push_exit();
-            else
-                push_next_view(next);
-        }
-    }
-
-    void update_fold()
-    {
-        update_view_transforms();
-
-        if(!initial_animation.running())
-        {
-            state.in_fold = false;
-            if (!state.reversed_folds)
-            {
-                if (active_views.size() == 1)
-                    return;
-                start_unfold();
-            } else
-            {
-                deactivate();
-            }
-        }
-    }
-
-    void push_unfolded_transformed_view(wayfire_view v,
-                               wf_transition off_x, wf_transition off_z,
-                               wf_transition rot)
-    {
-        GetTuple(sw, sh, output->get_screen_size());
-        auto wm_geometry = v->get_wm_geometry();
-
-        float cx = (sw / 2.0 - wm_geometry.width / 2.0f) - wm_geometry.x;
-        float cy = wm_geometry.y - (sh / 2.0 - wm_geometry.height / 2.0f);
-
-        view_paint_attribs elem;
-        elem.view = v;
-        elem.off_x = {cx + off_x.start * sw / 2.0f, cx + off_x.end * sw / 2.0f};
-        elem.off_y = {cy, cy};
-        elem.off_z = off_z;
-        elem.rot = rot;
-
-        elem.updates = UPDATE_ROTATION | UPDATE_OFFSET;
-
-        active_views.push_back(elem);
-    }
-
-    void start_unfold()
-    {
-        state.in_unfold = true;
-        regular_animation.start();
-
-        active_views.clear();
-
-        if (views.size() == 2)
-        {
-            push_unfolded_transformed_view(views[current_view_index],
-                                           {0, attribs.offset},
-                                           {0, -attribs.back},
-                                           {0, -attribs.angle});
-
-            push_unfolded_transformed_view(views[1 - current_view_index],
-                                           {0, -attribs.offset},
-                                           {0, -attribs.back},
-                                           {0, attribs.angle});
+            active = true;
+            focus_next(dir);
+            arrange();
+            activating_modifiers = core->get_keyboard_modifiers();
         } else
         {
-            int prev = (current_view_index + views.size() - 1) % views.size();
-            int next = (current_view_index + 1) % views.size();
-
-            view_paint_attribs elem;
-
-            push_unfolded_transformed_view(views[current_view_index],
-                                           {0, 0},
-                                           {0, 0},
-                                           {0, 0});
-
-            push_unfolded_transformed_view(views[prev],
-                                           {0, -attribs.offset},
-                                           {0, -attribs.back},
-                                           {0, +attribs.angle});
-
-            push_unfolded_transformed_view(views[next],
-                                           {0, +attribs.offset},
-                                           {0, -attribs.back},
-                                           {0, -attribs.angle});
-        }
-
-        for (auto& elem : active_views)
-        {
-            if (state.reversed_folds)
-            {
-                std::swap(elem.off_x.start, elem.off_x.end);
-                std::swap(elem.off_z.start, elem.off_z.end);
-                std::swap(elem.rot.start, elem.rot.end);
-            }
+            next_view(dir);
         }
     }
 
-    void update_unfold()
+    /* Sets up basic hooks needed while switcher works and/or displays animations */
+    bool init_switcher()
     {
-        update_view_transforms();
+        if (!output->activate_plugin(grab_interface) ||
+            !grab_interface->grab())
+            return false;
 
-        if (!regular_animation.running())
-        {
-            state.in_unfold = false;
-            if (!state.reversed_folds)
-            {
-                dequeue_next_action();
-            } else
-            {
-                start_fold();
-            }
-        }
+        output->render->add_effect(&damage, WF_OUTPUT_EFFECT_PRE);
+        output->render->set_renderer(switcher_renderer);
+        output->render->auto_redraw(true);
+        return true;
     }
 
-    void start_rotate (int dir)
+    /* The reverse of init_switcher */
+    void deinit_switcher()
     {
-        int sz = views.size();
-        if (sz <= 1)
-            return;
-
-        state.in_rotate = true;
-        regular_animation.start();
-
-        current_view_index    = (current_view_index + dir + sz) % sz;
-        output->bring_to_front(views[current_view_index]);
-
-        int next = (current_view_index + 1) % sz;
-        int prev = (current_view_index - 1 + sz) % sz;
-
-        active_views.clear();
-
-        /* only two views */
-
-        if (next == prev) {
-            push_unfolded_transformed_view(views[current_view_index],
-                                           {-attribs.offset, attribs.offset},
-                                           {attribs.back, attribs.back},
-                                           {attribs.angle, -attribs.angle});
-
-            push_unfolded_transformed_view(views[next],
-                                           {-attribs.offset, -attribs.offset},
-                                           {attribs.back, attribs.back},
-                                           {attribs.angle, attribs.angle});
-        } else {
-            push_unfolded_transformed_view(views[current_view_index],
-                                           {attribs.offset * dir, 0},
-                                           {-attribs.back, 0},
-                                           {-attribs.angle * dir, 0});
-
-            if (dir == 1) {
-                push_unfolded_transformed_view(views[prev],
-                                               {0, -attribs.offset},
-                                               {0, -attribs.back},
-                                               {0, attribs.angle});
-
-                push_unfolded_transformed_view(views[next],
-                                               {attribs.offset, attribs.offset},
-                                               {-attribs.back, -attribs.back},
-                                               {-attribs.angle, -attribs.angle});
-
-            } else {
-                push_unfolded_transformed_view(views[next],
-                                               {0, attribs.offset},
-                                               {0, -attribs.back},
-                                               {0, -attribs.angle});
-
-                push_unfolded_transformed_view(views[prev],
-                                               {-attribs.offset, -attribs.offset},
-                                               {-attribs.back, -attribs.back},
-                                               {attribs.angle, attribs.angle});
-            }
-        }
-
-        for (auto& elem : active_views)
-            elem.updates = UPDATE_ROTATION | UPDATE_OFFSET;
-    }
-
-    void update_rotate()
-    {
-        update_view_transforms();
-
-        if (!regular_animation.running())
-        {
-            state.in_rotate = false;
-            dequeue_next_action();
-        }
-    }
-
-    void deactivate()
-    {
-        output->render->auto_redraw(false);
-        output->render->reset_renderer();
-        output->render->rem_effect(&hook, WF_OUTPUT_EFFECT_PRE);
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
 
-        auto bgl = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace(),
-                                                            WF_LAYER_BACKGROUND, true);
-        if (bgl.size())
-        {
-            auto bg = bgl[0];
-            bg->pop_transformer("switcher");
-        }
+        output->render->rem_effect(&damage, WF_OUTPUT_EFFECT_PRE);
+        output->render->reset_renderer();
+        output->render->auto_redraw(false);
 
-        log_info("reset tranforms");
-        for(auto v : views)
-            v->pop_transformer("switcher");
+        output->workspace->for_each_view([=] (wayfire_view view) {
+            view->pop_transformer(switcher_transformer);
+            view->pop_transformer(switcher_transformer_background);
+        }, WF_ALL_LAYERS);
 
-        state.active = false;
-        view_chosen(current_view_index);
-
-        output->disconnect_signal("unmap-view", &destroyed);
-        output->disconnect_signal("detach-view", &destroyed);
+        views.clear();
     }
 
-    void fini()
+    /* offset from the left or from the right */
+    float get_center_offset()
     {
-        if (state.active)
-            deactivate();
+        return output->get_relative_geometry().width / 3;
+    }
 
-        output->rem_key(&init_binding);
+    /* get the scale for non-focused views */
+    float get_back_scale()
+    {
+        return 0.66;
+    }
+
+    /* offset in Z-direction for non-focused views */
+    float get_z_offset()
+    {
+        return -1.0;
+    }
+
+    /* amount of rotation */
+    float get_rotation()
+    {
+        return -M_PI / 6.0;
+    }
+
+    /* Move view animation target to the left
+     * @param dir -1 for left, 1 for right */
+    void move(SwitcherView& sv, int dir)
+    {
+        sv.attribs.off_x = {
+            duration.progress(sv.attribs.off_x),
+            sv.attribs.off_x.end + get_center_offset() * dir
+        };
+
+        sv.attribs.off_y = {
+            duration.progress(sv.attribs.off_y),
+            sv.attribs.off_y.end
+        };
+
+        float z_sign = 0;
+        if (sv.position == SWITCHER_POSITION_CENTER)
+        {
+            // Move from center to either left or right, so backwards
+            z_sign = 1;
+        } else if (view_expired(sv.position + dir))
+        {
+            // Expires, don't move
+            z_sign = 0;
+        } else
+        {
+            // Not from center, doesn't expire -> comes to the center
+            z_sign = -1;
+        }
+
+        sv.attribs.off_z = {
+            duration.progress(sv.attribs.off_z),
+            sv.attribs.off_z.end + get_z_offset() * z_sign
+        };
+
+        /* scale views that aren't in the center */
+        sv.attribs.scale_x = {
+            duration.progress(sv.attribs.scale_x),
+            sv.attribs.scale_x.end * std::pow(get_back_scale(), z_sign)
+        };
+
+        sv.attribs.scale_y = {
+            duration.progress(sv.attribs.scale_y),
+            sv.attribs.scale_y.end * std::pow(get_back_scale(), z_sign)
+        };
+
+        sv.attribs.rotation = {
+            duration.progress(sv.attribs.rotation),
+            sv.attribs.rotation.end + get_rotation() * dir
+        };
+
+        sv.position += dir;
+        sv.attribs.alpha = {
+            duration.progress(sv.attribs.alpha),
+            view_expired(sv.position) ? 0.3 : 1.0
+        };
+    }
+
+    /* Move untransformed view to the center */
+    void arrange_center_view(SwitcherView& sv)
+    {
+        auto og = output->get_relative_geometry();
+        auto bbox = sv.view->get_bounding_box(switcher_transformer);
+
+        float dx = (og.width / 2 - bbox.width / 2) - bbox.x;
+        float dy = bbox.y - (og.height / 2 - bbox.height / 2);
+
+        sv.attribs.off_x = {0, dx};
+        sv.attribs.off_y = {0, dy};
+    }
+
+    /* Position the view, starting from untransformed position */
+    void arrange_view(SwitcherView& sv, int position)
+    {
+        arrange_center_view(sv);
+
+        if (position == SWITCHER_POSITION_CENTER)
+        { /* view already centered */ }
+        else {
+            move(sv, position - SWITCHER_POSITION_CENTER);
+        }
+    }
+
+    std::vector<wayfire_view> get_workspace_views() const
+    {
+        return output->workspace->get_views_on_workspace(
+            output->workspace->get_current_workspace(), WF_LAYER_WORKSPACE, true);
+    }
+
+    /* Change the current focus to the next or the previous view */
+    void focus_next(int dir)
+    {
+        auto ws_views = get_workspace_views();
+        /* Change the focused view and rearrange views so that focused is on top */
+        int size = ws_views.size();
+
+        // calculate focus index & focus it
+        int focused_view_index = (size + dir) % size;
+        auto focused_view = ws_views[focused_view_index];
+        output->focus_view(focused_view);
+    }
+
+    /* Create the initial arrangement on the screen
+     * Also changes the focus to the next or the last view, depending on dir */
+    void arrange()
+    {
+        duration.start();
+        background_dim_duration.start(1, background_dim_factor);
+
+        auto ws_views = get_workspace_views();
+        for (auto v : ws_views)
+            views.push_back(create_switcher_view(v));
+
+        /* Add a copy of the unfocused view if we have just 2 */
+        if (ws_views.size() == 2)
+            views.push_back(create_switcher_view(ws_views.back()));
+
+        arrange_view(views[0], SWITCHER_POSITION_CENTER);
+
+        /* If we have just 1 view, don't do anything else */
+        if (ws_views.size() > 1)
+            arrange_view(views.back(), SWITCHER_POSITION_LEFT);
+
+        for (int i = 1; i < (int)views.size() - 1; i++)
+            arrange_view(views[i], SWITCHER_POSITION_RIGHT);
+    }
+
+    void dearrange()
+    {
+        for (auto& sv : views)
+        {
+            sv.attribs.off_x = {duration.progress(sv.attribs.off_x), 0};
+            sv.attribs.off_y = {duration.progress(sv.attribs.off_y), 0};
+            sv.attribs.off_z = {duration.progress(sv.attribs.off_z), 0};
+
+            sv.attribs.scale_x = {duration.progress(sv.attribs.scale_x), 1.0};
+            sv.attribs.scale_y = {duration.progress(sv.attribs.scale_y), 1.0};
+
+            sv.attribs.rotation = {duration.progress(sv.attribs.rotation), 0};
+            sv.attribs.alpha    = {duration.progress(sv.attribs.alpha), 1.0};
+        }
+
+        background_dim_duration.start(background_dim_duration.progress(), 1);
+        duration.start();
+        active = false;
+    }
+
+    std::vector<wayfire_view> get_background_views() const
+    {
+        return output->workspace->get_views_on_workspace(
+            output->workspace->get_current_workspace(), WF_BELOW_LAYERS, false);
+    }
+
+    void dim_background(float dim)
+    {
+        for (auto view : get_background_views())
+        {
+            if (dim == 1.0)
+            {
+                view->pop_transformer(switcher_transformer_background);
+            } else
+            {
+                if (!view->get_transformer(switcher_transformer_background))
+                {
+                    view->add_transformer(nonstd::make_unique<wf_3D_view> (view),
+                        switcher_transformer_background);
+                }
+
+                auto tr = dynamic_cast<wf_3D_view*> (
+                    view->get_transformer(switcher_transformer_background).get());
+                tr->color[0] = tr->color[1] = tr->color[2] = dim;
+            }
+        }
+    }
+
+    SwitcherView create_switcher_view(wayfire_view view)
+    {
+        /* we add a view transform if there isn't any.
+         *
+         * Note that a view might be visible on more than 1 place, so damage
+         * tracking doesn't work reliably. To circumvent this, we simply damage
+         * the whole output */
+        if (!view->get_transformer(switcher_transformer))
+        {
+            view->add_transformer(nonstd::make_unique<wf_3D_view> (view),
+                switcher_transformer);
+        }
+
+        return SwitcherView{view, {}, SWITCHER_POSITION_CENTER};
+    }
+
+    void render_view(const SwitcherView& sv)
+    {
+        auto transform = dynamic_cast<wf_3D_view*> (
+            sv.view->get_transformer(switcher_transformer).get());
+        assert(transform);
+
+        transform->translation = glm::translate(
+            glm::mat4(1.0), {
+                duration.progress(sv.attribs.off_x),
+                duration.progress(sv.attribs.off_y),
+                duration.progress(sv.attribs.off_z)});
+
+        transform->scaling = glm::scale(
+            glm::mat4(1.0), {
+                duration.progress(sv.attribs.scale_x),
+                duration.progress(sv.attribs.scale_y),
+                1.0});
+
+        transform->rotation = glm::rotate(
+            glm::mat4(1.0), (float)duration.progress(sv.attribs.rotation),
+            {0.0, 1.0, 0.0});
+
+        transform->color[3] = duration.progress(sv.attribs.alpha);
+        sv.view->render_fb(NULL, output->render->get_target_framebuffer());
+    }
+
+    void render_output(uint32_t fb)
+    {
+        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb));
+        OpenGL::use_device_viewport();
+
+        wlr_renderer_scissor(core->renderer, NULL);
+
+        GL_CALL(glClearColor(0.0, 0.0, 0.0, 1.0));
+        GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+
+        dim_background(background_dim_duration.progress());
+        for (auto view : get_background_views())
+            view->render_fb(NULL, output->render->get_target_framebuffer());
+
+        /* Render in the reverse order because we don't use depth testing */
+        auto it = views.rbegin();
+        while (it != views.rend())
+        {
+            render_view(*it);
+            ++it;
+        }
+
+        if (!duration.running())
+        {
+            cleanup_expired();
+
+            if (!active)
+                deinit_switcher();
+        }
+    }
+
+    /* delete all views matching the given criteria, skipping the first "start" views */
+    void cleanup_views(std::function<bool(SwitcherView&)> criteria)
+    {
+        auto it = views.begin();
+        while(it != views.end())
+        {
+            if (criteria(*it)) {
+                it = views.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    /* Removes all expired views from the list */
+    void cleanup_expired()
+    {
+        cleanup_views([=] (SwitcherView& sv)
+            { return view_expired(sv.position); });
+    }
+
+    /* sort views according to their Z-order */
+    void rebuild_view_list()
+    {
+        std::stable_sort(views.begin(), views.end(),
+            [] (const SwitcherView& a, const SwitcherView& b)
+            {
+                enum category {
+                    FOCUSED = 0,
+                    UNFOCUSED = 1,
+                    EXPIRED = 2
+                };
+
+                auto view_category = [] (const SwitcherView& sv)
+                {
+                    if (sv.position == SWITCHER_POSITION_CENTER)
+                        return FOCUSED;
+                    if (view_expired(sv.position))
+                        return EXPIRED;
+                    return UNFOCUSED;
+                };
+
+                category aCat = view_category(a), bCat = view_category(b);
+                if (aCat == bCat) {
+                    return a.position < b.position;
+                } else {
+                    return aCat < bCat;
+                }
+            });
+    }
+
+    void next_view(int dir)
+    {
+        cleanup_expired();
+
+        if (count_different_active_views() <= 1)
+            return;
+
+        /* Count of views in the left/right slots */
+        int count_right = 0;
+        int count_left = 0;
+
+        /* Move the topmost view from the center and the left/right group,
+         * depending on the direction*/
+        int to_move = (1 << SWITCHER_POSITION_CENTER) | (1 << (1 - dir));
+        for (auto& sv : views)
+        {
+            if (!view_expired(sv.position) && ((1 << sv.position) & to_move))
+            {
+                to_move ^= (1 << sv.position); // only the topmost one
+                move(sv, dir);
+            } else if (!view_expired(sv.position))
+            {
+                /* Make sure animations start from where we are now */
+                sv.refresh_start(duration);
+            }
+
+            count_left += (sv.position == SWITCHER_POSITION_LEFT);
+            count_right += (sv.position == SWITCHER_POSITION_RIGHT);
+        }
+
+        /* Create a new view on the missing slot, but if both are missing,
+         * show just the centered view */
+        if (bool(count_left) ^ bool(count_right))
+        {
+            const int empty_slot = 1 - dir;
+            fill_emtpy_slot(empty_slot);
+        }
+
+        rebuild_view_list();
+        output->focus_view(views.front().view);
+        duration.start();
+    }
+
+    int count_different_active_views()
+    {
+        std::set<wayfire_view> active_views;
+        for (auto& sv : views)
+            active_views.insert(sv.view);
+
+        return active_views.size();
+    }
+
+    /* Move the last view in the given slot so that it becomes invalid */
+    wayfire_view invalidate_last_in_slot(int slot)
+    {
+        for (int i = views.size() - 1; i >= 0; i--)
+        {
+            if (views[i].position == slot)
+            {
+                move(views[i], slot - 1);
+                return views[i].view;
+            }
+        }
+
+        return nullptr;
+    }
+
+    /* Returns the non-focused view in the case where there is only 1 view */
+    wayfire_view get_unfocused_view()
+    {
+        for (auto& sv : views)
+        {
+            if (!view_expired(sv.position) &&
+                sv.position != SWITCHER_POSITION_CENTER)
+            {
+                return sv.view;
+            }
+        }
+
+        return nullptr;
+    }
+
+    void fill_emtpy_slot(const int empty_slot)
+    {
+        const int full_slot = 2 - empty_slot;
+
+        /* We have an empty slot. We invalidate the bottom-most view in the
+         * opposite slot, and create a new view with the same content to
+         * fill in the empty slot */
+        auto view_to_create = invalidate_last_in_slot(full_slot);
+
+        /* special case: we have just 2 views
+         * in this case, the "new" view should not be the same as the
+         * invalidated view(because this view is focused now), but the
+         * one which isn't focused */
+        if (count_different_active_views() == 2)
+            view_to_create = get_unfocused_view();
+        assert(view_to_create);
+
+        auto sv = create_switcher_view(view_to_create);
+        arrange_view(sv, empty_slot);
+
+        /* directly show it on the target position */
+        sv.refresh_start({new_static_option("0")});
+        sv.attribs.alpha = {0, 1};
+
+        views.push_back(sv);
     }
 };
 
@@ -669,6 +609,6 @@ extern "C"
 {
     wayfire_plugin_t* newInstance()
     {
-        return new wayfire_view_switcher();
+        return new WayfireSwitcher();
     }
 }

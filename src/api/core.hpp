@@ -108,6 +108,9 @@ class wayfire_core
         void refocus_active_output_active_view();
 
         wlr_seat *get_current_seat();
+
+        uint32_t get_keyboard_modifiers();
+
         void set_cursor(std::string name);
 
         /* in output-layout-local coordinates */

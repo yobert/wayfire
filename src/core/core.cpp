@@ -200,6 +200,11 @@ void wayfire_core::sleep()
 wlr_seat* wayfire_core::get_current_seat()
 { return input->seat; }
 
+uint32_t wayfire_core::get_keyboard_modifiers()
+{
+    return input->get_modifiers();
+}
+
 static void output_destroyed_callback(wl_listener *, void *data)
 {
     core->remove_output(core->get_output((wlr_output*) data));
