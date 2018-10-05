@@ -521,6 +521,8 @@ class WayfireSwitcher : public wayfire_plugin_t
             if (!active)
                 deinit_switcher();
         }
+
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
     }
 
     /* delete all views matching the given criteria, skipping the first "start" views */
