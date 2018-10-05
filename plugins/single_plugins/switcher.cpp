@@ -160,6 +160,9 @@ class WayfireSwitcher : public wayfire_plugin_t
 
     void handle_switch_request(int dir)
     {
+        if (get_workspace_views().empty())
+            return;
+
         /* If we haven't grabbed, then we haven't setup anything */
         if (!output->is_plugin_active(grab_interface->name))
         {
