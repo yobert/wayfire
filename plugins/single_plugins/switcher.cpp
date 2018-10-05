@@ -63,7 +63,6 @@ struct SwitcherView
 
         attribs.alpha.start = duration.progress(attribs.alpha);
         attribs.rotation.start = duration.progress(attribs.rotation);
-
     }
 };
 
@@ -72,14 +71,18 @@ class WayfireSwitcher : public wayfire_plugin_t
     wf_duration duration;
     wf_duration background_dim_duration;
 
+    wf_option view_thumbnail_scale;
+
     /* If a view comes before another in this list, it is on top of it */
     std::vector<SwitcherView> views;
 
     // the modifiers which were used to activate switcher
     uint32_t activating_modifiers = 0;
     key_callback next_view_binding, prev_view_binding;
+
     effect_hook_t damage;
     render_hook_t switcher_renderer;
+
     bool active = false;
 
     public:
@@ -100,6 +103,9 @@ class WayfireSwitcher : public wayfire_plugin_t
         };
 
         auto section = config->get_section("switcher");
+
+        view_thumbnail_scale = section->get_option("view_thumbnail_scale", "1.0");
+
         auto speed = section->get_option("speed", "500");
         duration = wf_duration{speed, wf_animation::circle};
         background_dim_duration = wf_duration{speed, wf_animation::circle};
@@ -254,6 +260,23 @@ class WayfireSwitcher : public wayfire_plugin_t
         };
     }
 
+    /* Calculate how much a view should be scaled to fit into the slots */
+    float calculate_scaling_factor(const wf_geometry& bbox) const
+    {
+        /* Each view should not be more than this percentage of the
+         * width/height of the output */
+        constexpr float screen_percentage = 0.45;
+
+        auto og = output->get_relative_geometry();
+
+        float max_width = og.width * screen_percentage;
+        float max_height = og.height * screen_percentage;
+
+        float needed_exact = std::min(max_width / bbox.width, max_height / bbox.height);
+        // don't scale down if the view is already small enough
+        return std::min(needed_exact, 1.0f) * view_thumbnail_scale->as_cached_double();
+    }
+
     /* Move untransformed view to the center */
     void arrange_center_view(SwitcherView& sv)
     {
@@ -265,6 +288,10 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         sv.attribs.off_x = {0, dx};
         sv.attribs.off_y = {0, dy};
+
+        float scale = calculate_scaling_factor(bbox);
+        sv.attribs.scale_x = {1, scale};
+        sv.attribs.scale_y = {1, scale};
     }
 
     /* Position the view, starting from untransformed position */
