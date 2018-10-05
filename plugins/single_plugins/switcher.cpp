@@ -83,8 +83,9 @@ class WayfireSwitcher : public wayfire_plugin_t
     effect_hook_t damage;
     render_hook_t switcher_renderer;
 
-    bool active = false;
+    signal_callback_t view_removed;
 
+    bool active = false;
     public:
 
     void init(wayfire_config *config)
@@ -121,14 +122,46 @@ class WayfireSwitcher : public wayfire_plugin_t
         grab_interface->callbacks.keyboard.mod = [=] (uint32_t mod, uint32_t state)
         {
             if (state == WLR_KEY_RELEASED && (mod & activating_modifiers))
+            {
                 dearrange();
+                grab_interface->ungrab();
+            }
         };
+
+        view_removed = [=] (signal_data *data)
+        {
+            handle_view_removed(get_signaled_view(data));
+        };
+        output->connect_signal("detach-view", &view_removed);
+    }
+
+    void handle_view_removed(wayfire_view view)
+    {
+        log_info("handle view removed !!!!!!!!!!!");
+        // not running at all, don't care
+        if (!output->is_plugin_active(grab_interface->name))
+            return;
+
+        bool need_action = false;
+        for (auto& sv : views)
+            need_action |= (sv.view == view);
+
+        // don't do anything if we're not using this view
+        if (!need_action)
+            return;
+
+        if (active) {
+            arrange();
+        } else {
+            cleanup_views([=] (SwitcherView& sv)
+                { return sv.view == view; });
+        }
     }
 
     void handle_switch_request(int dir)
     {
         /* If we haven't grabbed, then we haven't setup anything */
-        if (!grab_interface->is_grabbed())
+        if (!output->is_plugin_active(grab_interface->name))
         {
             if (!init_switcher())
                 return;
@@ -139,6 +172,10 @@ class WayfireSwitcher : public wayfire_plugin_t
         if (!active)
         {
             active = true;
+
+            // grabs shouldn't fail if we could successfully activate plugin
+            assert(grab_interface->grab());
+
             focus_next(dir);
             arrange();
             activating_modifiers = core->get_keyboard_modifiers();
@@ -151,8 +188,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     /* Sets up basic hooks needed while switcher works and/or displays animations */
     bool init_switcher()
     {
-        if (!output->activate_plugin(grab_interface) ||
-            !grab_interface->grab())
+        if (!output->activate_plugin(grab_interface))
             return false;
 
         output->render->add_effect(&damage, WF_OUTPUT_EFFECT_PRE);
@@ -164,7 +200,6 @@ class WayfireSwitcher : public wayfire_plugin_t
     /* The reverse of init_switcher */
     void deinit_switcher()
     {
-        grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
 
         output->render->rem_effect(&damage, WF_OUTPUT_EFFECT_PRE);
@@ -306,10 +341,20 @@ class WayfireSwitcher : public wayfire_plugin_t
         }
     }
 
+    // returns a list of mapped views
     std::vector<wayfire_view> get_workspace_views() const
     {
-        return output->workspace->get_views_on_workspace(
+        auto all_views = output->workspace->get_views_on_workspace(
             output->workspace->get_current_workspace(), WF_LAYER_WORKSPACE, true);
+
+        decltype(all_views) mapped_views;
+        for (auto view : all_views)
+        {
+            if (view->is_mapped())
+                mapped_views.push_back(view);
+        }
+
+        return mapped_views;
     }
 
     /* Change the current focus to the next or the previous view */
@@ -329,10 +374,14 @@ class WayfireSwitcher : public wayfire_plugin_t
      * Also changes the focus to the next or the last view, depending on dir */
     void arrange()
     {
+        // clear views in case that deinit() hasn't been run
+        views.clear();
+
         duration.start();
         background_dim_duration.start(1, background_dim_factor);
 
         auto ws_views = get_workspace_views();
+        log_info("restart with %lu", ws_views.size());
         for (auto v : ws_views)
             views.push_back(create_switcher_view(v));
 
