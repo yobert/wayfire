@@ -71,7 +71,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     wf_duration duration;
     wf_duration background_dim_duration;
 
-    wf_option view_thumbnail_scale;
+    wf_option view_thumbnail_scale, touch_sensitivity;
 
     /* If a view comes before another in this list, it is on top of it */
     std::vector<SwitcherView> views;
@@ -79,6 +79,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     // the modifiers which were used to activate switcher
     uint32_t activating_modifiers = 0;
     key_callback next_view_binding, prev_view_binding;
+    touch_gesture_callback touch_activate;
 
     effect_hook_t damage;
     render_hook_t switcher_renderer;
@@ -106,6 +107,7 @@ class WayfireSwitcher : public wayfire_plugin_t
         auto section = config->get_section("switcher");
 
         view_thumbnail_scale = section->get_option("view_thumbnail_scale", "1.0");
+        touch_sensitivity = section->get_option("touch_sensitivity", "1.0");
 
         auto speed = section->get_option("speed", "500");
         duration = wf_duration{speed, wf_animation::circle};
@@ -122,10 +124,36 @@ class WayfireSwitcher : public wayfire_plugin_t
         grab_interface->callbacks.keyboard.mod = [=] (uint32_t mod, uint32_t state)
         {
             if (state == WLR_KEY_RELEASED && (mod & activating_modifiers))
+                handle_done();
+        };
+
+        touch_activate = [=] (wayfire_touch_gesture*) {
+            if (!active)
             {
-                dearrange();
-                grab_interface->ungrab();
+                /* We set it to -1 to indicate that the user hasn't done anything yet */
+                touch_total_dx = -1;
+                handle_switch_request(0);
+            } else {
+                handle_done();
             }
+        };
+
+        wayfire_touch_gesture gesture;
+        gesture.type = GESTURE_EDGE_SWIPE;
+        gesture.direction = GESTURE_DIRECTION_DOWN;
+        gesture.finger_count = 3;
+        output->add_gesture(gesture, &touch_activate);
+
+        grab_interface->callbacks.touch.down = [=] (int id, int x, int y) {
+            if (id == 0) handle_touch_down(x, y);
+        };
+
+        grab_interface->callbacks.touch.up = [=] (int id) {
+            if (id == 0) handle_touch_up();
+        };
+
+        grab_interface->callbacks.touch.motion = [=] (int id, int x, int y) {
+            if (id == 0) handle_touch_motion(x, y);
         };
 
         view_removed = [=] (signal_data *data)
@@ -186,6 +214,43 @@ class WayfireSwitcher : public wayfire_plugin_t
         {
             next_view(dir);
         }
+    }
+
+    /* When switcher is done and starts animating towards end */
+    void handle_done()
+    {
+        dearrange();
+        grab_interface->ungrab();
+    }
+
+    int touch_sx, touch_total_dx = -1;
+    void handle_touch_down(int x, int)
+    {
+        touch_sx = x;
+        touch_total_dx = 0;
+    }
+
+    void handle_touch_motion(int x, int)
+    {
+        const float TOUCH_SENSITIVITY = 0.05 *
+            touch_sensitivity->as_cached_double();
+
+        auto og = output->get_relative_geometry();
+
+        float dx = touch_sx - x;
+        if (std::abs(dx) > TOUCH_SENSITIVITY * og.width)
+        {
+            touch_total_dx += touch_sx - x;
+            handle_switch_request(dx > 0 ? -1 : 1);
+            touch_sx = x;
+        }
+    }
+
+    void handle_touch_up()
+    {
+        /* This means we haven't switched views, so the user wants to stop */
+        if (touch_total_dx == 0)
+            handle_done();
     }
 
     /* Sets up basic hooks needed while switcher works and/or displays animations */
