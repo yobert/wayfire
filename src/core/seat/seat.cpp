@@ -60,8 +60,11 @@ wf_point wf_drag_icon::get_output_position()
 
     GetTuple(x, y, pos);
 
-    x += icon->sx;
-    y += icon->sy;
+    if (is_mapped())
+    {
+        x += icon->surface->sx;
+        y += icon->surface->sy;
+    }
 
     if (output)
     {

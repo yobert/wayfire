@@ -88,6 +88,9 @@ class wf_3D_view : public wf_view_transformer_t
                                         wlr_box scissor_box,
                                         const wf_framebuffer& target_fb);
 
+        static const float fov; // PI / 8
+        static glm::mat4 default_view_matrix();
+        static glm::mat4 default_proj_matrix();
 };
 
 /* create a matrix which corresponds to the inverse of the given transform */

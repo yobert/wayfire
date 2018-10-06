@@ -11,7 +11,7 @@
 extern "C"
 {
 #define namespace namespace_t
-#include <wlr/types/wlr_layer_shell.h>
+#include <wlr/types/wlr_layer_shell_v1.h>
 #undef namespace
 }
 
@@ -38,12 +38,12 @@ class wayfire_layer_shell_view : public wayfire_view_t
     bool first_map = true;
     wl_listener map_ev, unmap_ev, destroy_ev, new_popup;
     public:
-        wlr_layer_surface *lsurface;
-        wlr_layer_surface_state prev_state;
+        wlr_layer_surface_v1 *lsurface;
+        wlr_layer_surface_v1_state prev_state;
 
         std::unique_ptr<workspace_manager::anchored_area> anchored_area;
 
-        wayfire_layer_shell_view(wlr_layer_surface *lsurf);
+        wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf);
 
         void map(wlr_surface *surface);
         void unmap();
@@ -244,7 +244,7 @@ static void handle_layer_surface_map(wl_listener*, void *data);
 static void handle_layer_surface_unmap(wl_listener*, void *data);
 static void handle_layer_surface_destroy(wl_listener*, void *data);
 
-wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface *lsurf)
+wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
     : wayfire_view_t(), lsurface(lsurf)
 {
     log_debug("Create a layer surface: namespace %s layer %d anchor %d,"
@@ -339,7 +339,7 @@ void wayfire_layer_shell_view::commit()
 
 void wayfire_layer_shell_view::close()
 {
-    wlr_layer_surface_close(lsurface);
+    wlr_layer_surface_v1_close(lsurface);
     wayfire_view_t::close();
 }
 
@@ -389,12 +389,12 @@ void wayfire_layer_shell_view::configure(wf_geometry box)
     wayfire_view_t::move(box.x, box.y, false);
     wayfire_view_t::resize(box.width, box.height, false);
 
-    wlr_layer_surface_configure(lsurface, box.width, box.height);
+    wlr_layer_surface_v1_configure(lsurface, box.width, box.height);
 }
 
 static void handle_layer_surface_map(wl_listener*, void *data)
 {
-    auto lsurface = static_cast<wlr_layer_surface*> (data);
+    auto lsurface = static_cast<wlr_layer_surface_v1*> (data);
     auto view = wf_view_from_void(lsurface->data);
 
     view->map(lsurface->surface);
@@ -402,7 +402,7 @@ static void handle_layer_surface_map(wl_listener*, void *data)
 
 static void handle_layer_surface_unmap(wl_listener*, void *data)
 {
-    auto lsurface = static_cast<wlr_layer_surface*> (data);
+    auto lsurface = static_cast<wlr_layer_surface_v1*> (data);
     auto view = wf_view_from_void(lsurface->data);
 
     view->unmap();
@@ -410,7 +410,7 @@ static void handle_layer_surface_unmap(wl_listener*, void *data)
 
 static void handle_layer_surface_destroy(wl_listener*, void *data)
 {
-    auto lsurface = static_cast<wlr_layer_surface*> (data);
+    auto lsurface = static_cast<wlr_layer_surface_v1*> (data);
     auto view = wf_view_from_void(lsurface->data);
 
     view->destroyed = 1;
@@ -419,16 +419,16 @@ static void handle_layer_surface_destroy(wl_listener*, void *data)
 
 static void handle_layer_surface_created(wl_listener *listener, void *data)
 {
-    auto lsurf = static_cast<wlr_layer_surface*> (data);
+    auto lsurf = static_cast<wlr_layer_surface_v1*> (data);
     core->add_view(nonstd::make_unique<wayfire_layer_shell_view> (lsurf));
 }
 
-static wlr_layer_shell *layer_shell_handle;
+static wlr_layer_shell_v1 *layer_shell_handle;
 wl_listener layer_surface_created;
 
 void init_layer_shell()
 {
-    layer_shell_handle = wlr_layer_shell_create(core->display);
+    layer_shell_handle = wlr_layer_shell_v1_create(core->display);
     layer_surface_created.notify = handle_layer_surface_created;
 
     if (layer_shell_handle)

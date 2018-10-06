@@ -176,13 +176,10 @@ rotate_up = <ctrl> <alt> KEY_UP
 
 # change active window with an animation
 [switcher]
-activate = <alt> KEY_TAB
-duration = 350
-exit = KEY_ENTER
-initial_animation = 100
-next = KEY_RIGHT
-prev = KEY_LEFT
-view_thumbnail_size = 0.4
+next_view = <alt> KEY_TAB
+prev_view = <alt> <shift> KEY_TAB
+speed = 500
+view_thumbnail_scale = 1.0
 
 # simple active window switcher, similar to alt-esc in gnome or windows
 [fast-switcher]
