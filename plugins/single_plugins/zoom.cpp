@@ -105,7 +105,7 @@ class wayfire_zoom_screen : public wayfire_plugin_t
             if (hook_set)
                 output->render->rem_post(&hook);
 
-            output->rem_axis(&axis);
+            output->rem_binding(&axis);
         }
 };
 

@@ -300,6 +300,7 @@ void input_manager::set_touch_focus(wayfire_surface_t *surface, uint32_t time, i
 
 void input_manager::handle_touch_down(uint32_t time, int32_t id, int32_t x, int32_t y)
 {
+    in_mod_binding = false;
     auto wo = core->get_output_at(x, y);
     core->focus_output(wo);
 
@@ -307,14 +308,14 @@ void input_manager::handle_touch_down(uint32_t time, int32_t id, int32_t x, int3
     int ox = x - og.x;
     int oy = y - og.y;
 
-    if (id == 0)
-        core->input->check_touch_bindings(ox, oy);
-
-
     if (active_grab)
     {
+        if (id == 0)
+            check_touch_bindings(ox, oy);
+
         if (active_grab->callbacks.touch.down)
             active_grab->callbacks.touch.down(id, ox, oy);
+
         return;
     }
 
@@ -322,6 +323,8 @@ void input_manager::handle_touch_down(uint32_t time, int32_t id, int32_t x, int3
     auto focus = input_surface_at(x, y, lx, ly);
     set_touch_focus(focus, time, id, lx, ly);
     update_drag_icons();
+
+    check_touch_bindings(ox, oy);
 }
 
 void input_manager::handle_touch_up(uint32_t time, int32_t id)
@@ -365,12 +368,12 @@ void input_manager::check_touch_bindings(int x, int y)
 {
     uint32_t mods = get_modifiers();
     std::vector<touch_callback*> calls;
-    for (auto listener : touch_listeners)
+    for (auto& binding : bindings[WF_BINDING_TOUCH])
     {
-        if (listener.second.mod == mods &&
-                listener.second.output == core->get_active_output())
+        if (binding->value->as_cached_key().matches({mods, 0}) &&
+            binding->output == core->get_active_output())
         {
-            calls.push_back(listener.second.call);
+            calls.push_back(binding->call.touch);
         }
     }
 
@@ -380,17 +383,30 @@ void input_manager::check_touch_bindings(int x, int y)
 
 void input_manager::handle_gesture(wf_touch_gesture g)
 {
-    for (const auto& listener : gesture_listeners)
+    std::vector<std::function<void()>> callbacks;
+
+    for (auto& binding : bindings[WF_BINDING_GESTURE])
     {
-        const auto& listener_value = listener.second.gesture->as_cached_gesture();
-        const auto& listener_direction = listener_value.direction;
-        if (listener_value.type == g.type &&
-            listener_value.finger_count == g.finger_count &&
-            (listener_direction == 0 || listener_direction == g.direction) &&
-            core->get_active_output() == listener.second.output)
+        if (binding->output == core->get_active_output() &&
+            binding->value->as_cached_gesture().matches(g))
         {
-            (*listener.second.call)(&g);
+            auto call = binding->call.gesture;
+            callbacks.push_back([=, &g] () {
+                (*call) (&g);
+            });
         }
     }
+
+    for (auto& binding : bindings[WF_BINDING_ACTIVATOR])
+    {
+        if (binding->output == core->get_active_output() &&
+            binding->value->matches_gesture(g))
+        {
+            callbacks.push_back(*binding->call.activator);
+        }
+    }
+
+    for (auto call : callbacks)
+        call();
 }
 

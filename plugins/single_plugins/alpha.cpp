@@ -107,7 +107,7 @@ class wayfire_alpha : public wayfire_plugin_t
                 view->pop_transformer("alpha");
         }, WF_ALL_LAYERS);
 
-        output->rem_axis(&axis_cb);
+        output->rem_binding(&axis_cb);
     }
 };
 

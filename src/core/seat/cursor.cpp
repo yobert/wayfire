@@ -48,22 +48,34 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         auto output = core->get_output_at(gx, gy);
         core->focus_output(output);
 
-        std::vector<button_callback*> callbacks;
+        GetTuple(ox, oy, core->get_active_output()->get_cursor_position());
+        std::vector<std::function<void()>> callbacks;
 
         auto mod_state = get_modifiers();
-        for (auto& pair : button_bindings)
+        for (auto& binding : bindings[WF_BINDING_BUTTON])
         {
-            auto& binding = pair.second;
-            const auto button = binding->button->as_cached_button();
             if (binding->output == core->get_active_output() &&
-                mod_state == button.mod && ev->button == button.button)
-                callbacks.push_back(binding->call);
+                binding->value->as_cached_button().matches(
+                    {mod_state, ev->button}))
+            {
+                auto callback = binding->call.button;
+                callbacks.push_back([=] () {(*callback) (ev->button, ox, oy);});
+            }
         }
 
-        GetTuple(ox, oy, core->get_active_output()->get_cursor_position());
+        for (auto& binding : bindings[WF_BINDING_ACTIVATOR])
+        {
+            if (binding->output == core->get_active_output() &&
+                binding->value->matches_button({mod_state, ev->button}))
+            {
+                callbacks.push_back(*binding->call.activator);
+            }
+        }
+
         for (auto call : callbacks)
-            (*call) (ev->button, ox, oy);
-    } else
+            call();
+    }
+    else
     {
         count_other_inputs--;
     }
@@ -154,14 +166,11 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
 
     auto mod_state = get_modifiers();
 
-    for (auto& pair : axis_bindings)
+    for (auto& binding : bindings[WF_BINDING_AXIS])
     {
-        auto& binding = pair.second;
-        const auto mod = binding->modifier->as_cached_key().mod;
-
         if (binding->output == core->get_active_output() &&
-            mod_state == mod)
-            callbacks.push_back(binding->call);
+            binding->value->as_cached_key().matches({mod_state, 0}))
+            callbacks.push_back(binding->call.axis);
     }
 
     for (auto call : callbacks)

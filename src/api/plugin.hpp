@@ -16,11 +16,13 @@ extern "C"
 struct signal_data { };
 using signal_callback_t = std::function<void(signal_data*)>;
 
+struct wf_binding; // opaque handle to a binding, can be used to remove it
 using key_callback = std::function<void(uint32_t)>;
 using button_callback = std::function<void(uint32_t, int32_t, int32_t)>; // button, x, y
 using axis_callback = std::function<void(wlr_event_pointer_axis*)>;
 using touch_callback = std::function<void(int32_t, int32_t)>; // x, y
-using touch_gesture_callback = std::function<void(wf_touch_gesture*)>;
+using gesture_callback = std::function<void(wf_touch_gesture*)>;
+using activator_callback = std::function<void()>;
 
 class wayfire_output;
 class wayfire_config;

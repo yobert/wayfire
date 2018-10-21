@@ -56,8 +56,8 @@ class wayfire_output_manager : public wayfire_plugin_t
 
         void fini()
         {
-            output->rem_key(&switch_output);
-            output->rem_key(&switch_output_with_window);
+            output->rem_binding(&switch_output);
+            output->rem_binding(&switch_output_with_window);
         }
 };
 

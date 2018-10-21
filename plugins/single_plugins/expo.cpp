@@ -18,7 +18,7 @@ class wayfire_expo : public wayfire_plugin_t
 {
     private:
         key_callback toggle_cb, press_cb, move_cb;
-        touch_gesture_callback touch_toggle_cb;
+        gesture_callback touch_toggle_cb;
 
         wf_option action_button;
         wf_option background_color, zoom_animation_duration;
@@ -540,8 +540,8 @@ class wayfire_expo : public wayfire_plugin_t
             }
         }
 
-        output->rem_key(&toggle_cb);
-        output->rem_gesture(&touch_toggle_cb);
+        output->rem_binding(&toggle_cb);
+        output->rem_binding(&touch_toggle_cb);
         output->disconnect_signal("output-resized", &resized_cb);
     }
 };

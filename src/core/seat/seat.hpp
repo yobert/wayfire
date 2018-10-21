@@ -9,12 +9,6 @@ extern "C"
 
 #include "output.hpp"
 
-struct wf_callback
-{
-    int id;
-    wayfire_output *output;
-};
-
 struct wf_drag_icon : public wayfire_surface_t
 {
     wlr_drag_icon *icon;

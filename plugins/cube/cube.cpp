@@ -458,7 +458,7 @@ class wayfire_cube : public wayfire_plugin_t
             }
         }
 
-        output->rem_button(&activate);
+        output->rem_binding(&activate);
     }
 };
 

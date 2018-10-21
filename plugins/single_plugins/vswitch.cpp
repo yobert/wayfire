@@ -27,7 +27,7 @@ class vswitch : public wayfire_plugin_t
         key_callback callback_left, callback_right, callback_up, callback_down;
         key_callback callback_win_left, callback_win_right, callback_win_up, callback_win_down;
 
-        touch_gesture_callback gesture_cb;
+        gesture_callback gesture_cb;
 
         std::queue<switch_direction> dirs; // series of moves we have to do
 
@@ -289,17 +289,17 @@ class vswitch : public wayfire_plugin_t
         if (running)
             stop_switch();
 
-        output->rem_key(&callback_left);
-        output->rem_key(&callback_right);
-        output->rem_key(&callback_up);
-        output->rem_key(&callback_down);
+        output->rem_binding(&callback_left);
+        output->rem_binding(&callback_right);
+        output->rem_binding(&callback_up);
+        output->rem_binding(&callback_down);
 
-        output->rem_key(&callback_win_left);
-        output->rem_key(&callback_win_right);
-        output->rem_key(&callback_win_up);
-        output->rem_key(&callback_win_down);
+        output->rem_binding(&callback_win_left);
+        output->rem_binding(&callback_win_right);
+        output->rem_binding(&callback_win_up);
+        output->rem_binding(&callback_win_down);
 
-        output->rem_gesture(&gesture_cb);
+        output->rem_binding(&gesture_cb);
     }
 };
 

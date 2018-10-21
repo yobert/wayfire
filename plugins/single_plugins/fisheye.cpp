@@ -230,7 +230,7 @@ class wayfire_fisheye : public wayfire_plugin_t
                 finalize();
 
             GL_CALL(glDeleteProgram(program));
-            output->rem_key(&toggle_cb);
+            output->rem_binding(&toggle_cb);
         }
 };
 

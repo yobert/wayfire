@@ -128,7 +128,7 @@ class wayfire_invert_screen : public wayfire_plugin_t
                 output->render->rem_post(&hook);
 
             GL_CALL(glDeleteProgram(program));
-            output->rem_key(&toggle_cb);
+            output->rem_binding(&toggle_cb);
         }
 };
 

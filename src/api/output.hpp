@@ -116,27 +116,19 @@ class wayfire_output
         * and which isn't skip_view */
        void refocus(wayfire_view skip_view, uint32_t layers);
 
-       int  add_key(wf_option key, key_callback *);
-       void rem_key(key_callback *);
-       void rem_key(int);
+       wf_binding *add_key(wf_option key, key_callback *);
+       wf_binding *add_axis(wf_option axis, axis_callback *);
+       wf_binding *add_touch(wf_option mod, touch_callback *);
+       wf_binding *add_button(wf_option button, button_callback *);
+       wf_binding *add_gesture(wf_option gesture, gesture_callback *);
+       wf_binding *add_activator(wf_option activator, activator_callback *);
 
-       int  add_axis(wf_option mod, axis_callback *);
-       void rem_axis(axis_callback *);
-       void rem_axis(int);
+       /* remove the given binding, regardless of its type */
+       void rem_binding(wf_binding *binding);
 
-       int  add_button(wf_option button, button_callback *);
-       void rem_button(button_callback*);
-       void rem_button(int);
-
-       int  add_touch(uint32_t mod, touch_callback*);
-       void rem_touch(touch_callback*);
-       void rem_touch(int32_t id);
-
-       /* we take only gesture type and finger count into account,
-        * we send for all possible directions */
-       int add_gesture(wf_option option, touch_gesture_callback* callback);
-       void rem_gesture(touch_gesture_callback*);
-       void rem_gesture(int id);
+       /* remove all the bindings that have the given callback,
+        * regardless of the type (key/button/etc) */
+       void rem_binding(void *callback);
 
        /* send cancel to all active plugins, NOT API */
        void break_active_plugins();

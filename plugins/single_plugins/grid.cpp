@@ -368,7 +368,7 @@ class wayfire_grid : public wayfire_plugin_t
     void fini()
     {
         for (int i = 1; i < 10; i++)
-            output->rem_key(&bindings[i]);
+            output->rem_binding(&bindings[i]);
 
         output->disconnect_signal("view-snap", &snap_cb);
         output->disconnect_signal("view-maximized-request", &maximized_cb);

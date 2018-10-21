@@ -79,7 +79,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     // the modifiers which were used to activate switcher
     uint32_t activating_modifiers = 0;
     key_callback next_view_binding, prev_view_binding;
-    touch_gesture_callback touch_activate;
+    gesture_callback touch_activate;
 
     effect_hook_t damage;
     render_hook_t switcher_renderer;
@@ -744,6 +744,8 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         views.push_back(sv);
     }
+
+    // TODO:!!! fini
 };
 
 extern "C"

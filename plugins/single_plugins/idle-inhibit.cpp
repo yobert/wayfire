@@ -31,7 +31,7 @@ class wayfire_idle_inhibit : public wayfire_plugin_t
         if (!enabled) // enable idle if the plugin is disabled
             toggle(0);
 
-        output->rem_key(&toggle);
+        output->rem_binding(&toggle);
     }
 };
 

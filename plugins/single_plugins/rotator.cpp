@@ -38,10 +38,10 @@ class wayfire_rotator : public wayfire_plugin_t {
 
     void fini()
     {
-        output->rem_key(&up);
-        output->rem_key(&down);
-        output->rem_key(&left);
-        output->rem_key(&right);
+        output->rem_binding(&up);
+        output->rem_binding(&down);
+        output->rem_binding(&left);
+        output->rem_binding(&right);
     }
 };
 
