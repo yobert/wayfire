@@ -2,8 +2,9 @@
 #include <core.hpp>
 #include <linux/input-event-codes.h>
 
-class wayfire_rotator : public wayfire_plugin_t {
-    key_callback up, down, left, right;
+class wayfire_rotator : public wayfire_plugin_t
+{
+    activator_callback up, down, left, right;
 
     public:
     void init(wayfire_config *config) {
@@ -17,23 +18,15 @@ class wayfire_rotator : public wayfire_plugin_t {
         auto left_key  = section->get_option("rotate_left", "<alt> <ctrl> KEY_LEFT");
         auto right_key = section->get_option("rotate_right","<alt> <ctrl> KEY_RIGHT");
 
-        up = [=] (uint32_t) {
-            output->set_transform(WL_OUTPUT_TRANSFORM_NORMAL);
-        };
-        down = [=] (uint32_t) {
-            output->set_transform(WL_OUTPUT_TRANSFORM_180);
-        };
-        left = [=] (uint32_t) {
-            output->set_transform(WL_OUTPUT_TRANSFORM_270);
-        };
-        right = [=] (uint32_t) {
-            output->set_transform(WL_OUTPUT_TRANSFORM_90);
-        };
+        up    = [=] () { output->set_transform(WL_OUTPUT_TRANSFORM_NORMAL); };
+        down  = [=] () { output->set_transform(WL_OUTPUT_TRANSFORM_180); };
+        left  = [=] () { output->set_transform(WL_OUTPUT_TRANSFORM_270); };
+        right = [=] () { output->set_transform(WL_OUTPUT_TRANSFORM_90); };
 
-        output->add_key(up_key,    &up);
-        output->add_key(down_key,  &down);
-        output->add_key(left_key,  &left);
-        output->add_key(right_key, &right);
+        output->add_activator(up_key,    &up);
+        output->add_activator(down_key,  &down);
+        output->add_activator(left_key,  &left);
+        output->add_activator(right_key, &right);
     }
 
     void fini()

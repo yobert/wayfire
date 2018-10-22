@@ -137,7 +137,9 @@ class WayfireSwitcher : public wayfire_plugin_t
                 handle_done();
             }
         };
-        output->add_gesture(new_static_option("edge-swipe down 3"), &touch_activate);
+
+        auto gesture_activator = section->get_option("gesture_toggle", "edge-swipe down 3");
+        output->add_gesture(gesture_activator, &touch_activate);
 
         grab_interface->callbacks.touch.down = [=] (int id, int x, int y) {
             if (id == 0) handle_touch_down(x, y);

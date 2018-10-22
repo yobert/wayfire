@@ -17,8 +17,7 @@
 class wayfire_expo : public wayfire_plugin_t
 {
     private:
-        key_callback toggle_cb, press_cb, move_cb;
-        gesture_callback touch_toggle_cb;
+        activator_callback toggle_cb;
 
         wf_option action_button;
         wf_option background_color, zoom_animation_duration;
@@ -48,7 +47,8 @@ class wayfire_expo : public wayfire_plugin_t
         grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
 
         auto section = config->get_section("expo");
-        auto toggle_key = section->get_option("toggle", "<super> KEY_E");
+        auto toggle_binding = section->get_option("toggle",
+            "<super> KEY_E | pinch in 3");
 
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
         streams.resize(vw);
@@ -66,7 +66,7 @@ class wayfire_expo : public wayfire_plugin_t
 
         delimiter_offset = section->get_option("offset", "10");
 
-        toggle_cb = [=] (uint32_t key) {
+        toggle_cb = [=] () {
             if (!state.active) {
                 activate();
             } else {
@@ -75,16 +75,7 @@ class wayfire_expo : public wayfire_plugin_t
             }
         };
 
-        touch_toggle_cb = [=] (wf_touch_gesture*) {
-            if (state.active)
-                deactivate();
-            else
-                activate();
-        };
-
-        output->add_key(toggle_key, &toggle_cb);
-        output->add_gesture(new_static_option("pinch in 3"), &touch_toggle_cb);
-
+        output->add_activator(toggle_binding, &toggle_cb);
         grab_interface->callbacks.pointer.button = [=] (uint32_t button, uint32_t state)
         {
             if (button != BTN_LEFT)
@@ -541,7 +532,6 @@ class wayfire_expo : public wayfire_plugin_t
         }
 
         output->rem_binding(&toggle_cb);
-        output->rem_binding(&touch_toggle_cb);
         output->disconnect_signal("output-resized", &resized_cb);
     }
 };

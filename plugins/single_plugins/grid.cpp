@@ -203,7 +203,7 @@ class wayfire_grid : public wayfire_plugin_t
         "<alt> <ctrl> KEY_KP8",
         "<alt> <ctrl> KEY_KP9",
     };
-    key_callback bindings[10];
+    activator_callback bindings[10];
     wf_option keys[10];
 
     signal_callback_t snap_cb, maximized_cb, fullscreen_cb;
@@ -223,15 +223,15 @@ class wayfire_grid : public wayfire_plugin_t
         for (int i = 1; i < 10; i++) {
             keys[i] = section->get_option("slot_" + slots[i], default_keys[i]);
 
-            bindings[i] = [=] (uint32_t key) {
+            bindings[i] = [=] () {
                 auto view = output->get_active_view();
                 if (!view || view->role != WF_VIEW_ROLE_TOPLEVEL)
                     return;
 
-                handle_key(view, i);
+                handle_slot(view, i);
             };
 
-            output->add_key(keys[i], &bindings[i]);
+            output->add_activator(keys[i], &bindings[i]);
         }
 
         using namespace std::placeholders;
@@ -245,19 +245,19 @@ class wayfire_grid : public wayfire_plugin_t
         output->connect_signal("view-fullscreen-request", &fullscreen_cb);
     }
 
-    void handle_key(wayfire_view view, int key)
+    void handle_slot(wayfire_view view, int slot)
     {
-        wf_geometry target = get_slot_dimensions(key, output->workspace->get_workarea());
+        wf_geometry target = get_slot_dimensions(slot, output->workspace->get_workarea());
         bool tiled = true;
 
         if (view->maximized && view->get_wm_geometry() == target)
         {
             return;
         }
-        else if (!has_saved_position(view) && key)
+        else if (!has_saved_position(view) && slot)
         {
             ensure_saved_geometry(view)->geometry = view->get_wm_geometry();
-        } else if (has_saved_position(view) && key == 0)
+        } else if (has_saved_position(view) && slot == 0)
         {
             tiled = false;
             target = calculate_restored_geometry(ensure_saved_geometry(view)->geometry);
@@ -322,13 +322,13 @@ class wayfire_grid : public wayfire_plugin_t
     void snap_signal_cb(signal_data *ddata)
     {
         snap_signal *data = static_cast<snap_signal*>(ddata);
-        handle_key(data->view, data->tslot);
+        handle_slot(data->view, data->tslot);
     }
 
     void maximize_signal_cb(signal_data *ddata)
     {
         auto data = static_cast<view_maximized_signal*> (ddata);
-        handle_key(data->view, data->state ? 5 : 0);
+        handle_slot(data->view, data->state ? 5 : 0);
     }
 
     void fullscreen_signal_cb(signal_data *ddata)

@@ -38,7 +38,7 @@ class wayfire_invert_screen : public wayfire_plugin_t
 {
 
     post_hook_t hook;
-    key_callback toggle_cb;
+    activator_callback toggle_cb;
 
     bool active = false;
     GLuint program, posID, uvID;
@@ -55,7 +55,7 @@ class wayfire_invert_screen : public wayfire_plugin_t
             };
 
 
-            toggle_cb = [=] (uint32_t key) {
+            toggle_cb = [=] () {
                 if (active)
                 {
                     output->render->rem_post(&hook);
@@ -82,7 +82,7 @@ class wayfire_invert_screen : public wayfire_plugin_t
             posID = GL_CALL(glGetAttribLocation(program, "position"));
             uvID  = GL_CALL(glGetAttribLocation(program, "uvPosition"));
 
-            output->add_key(toggle_key, &toggle_cb);
+            output->add_activator(toggle_key, &toggle_cb);
         }
 
         void render(uint32_t fb, uint32_t tex, uint32_t target)

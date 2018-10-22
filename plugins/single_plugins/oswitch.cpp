@@ -14,7 +14,7 @@ void next_output_idle_cb(void *data)
 
 class wayfire_output_manager : public wayfire_plugin_t
 {
-    key_callback switch_output, switch_output_with_window;
+    activator_callback switch_output, switch_output_with_window;
 
     public:
         void init(wayfire_config *config)
@@ -27,7 +27,7 @@ class wayfire_output_manager : public wayfire_plugin_t
             auto actkey  = section->get_option("next_output", "<super> KEY_K");
             auto withwin = section->get_option("next_output_with_win", "<super> <shift> KEY_K");
 
-            switch_output = [=] (uint32_t key) {
+            switch_output = [=] () {
                 /* when we switch the output, the oswitch keybinding
                  * may be activated for the next output, which we don't want,
                  * so we postpone the switch */
@@ -36,13 +36,13 @@ class wayfire_output_manager : public wayfire_plugin_t
                 wl_event_loop_add_idle(core->ev_loop, next_output_idle_cb, next);
             };
 
-            switch_output_with_window = [=] (uint32_t key) {
+            switch_output_with_window = [=] () {
                 auto next = core->get_next_output(output);
                 auto view = output->get_active_view();
 
                 if (!view)
                 {
-                    switch_output(key);
+                    switch_output();
                     return;
                 }
 
@@ -50,8 +50,8 @@ class wayfire_output_manager : public wayfire_plugin_t
                 wl_event_loop_add_idle(core->ev_loop, next_output_idle_cb, next);
             };
 
-            output->add_key(actkey, &switch_output);
-            output->add_key(withwin, &switch_output_with_window);
+            output->add_activator(actkey, &switch_output);
+            output->add_activator(withwin, &switch_output_with_window);
         }
 
         void fini()
