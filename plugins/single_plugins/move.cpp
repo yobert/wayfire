@@ -327,7 +327,7 @@ class wayfire_move : public wayfire_plugin_t
                 return;
             }
 
-            stuck_in_slot = !view->maximized;
+            stuck_in_slot = !view->maximized && !view->fullscreen;
             grabbed_geometry = view->get_wm_geometry();
 
             GetTuple(sx, sy, get_input_coords());
@@ -342,9 +342,10 @@ class wayfire_move : public wayfire_plugin_t
 
             start_wobbly(view, sx, sy);
             if (!stuck_in_slot)
-                snap_wobbly(view, view->get_output_geometry());
+                snap_wobbly(view, view->get_bounding_box());
 
             update_multi_output();
+            view->set_moving(true);
         }
 
         void input_pressed(uint32_t state)
@@ -476,7 +477,6 @@ class wayfire_move : public wayfire_plugin_t
             grabbed_geometry = view->get_wm_geometry();
 
             snap_wobbly(view, {}, false);
-            view->set_moving(true);
         }
 
         /* Returns the currently used input coordinates in global compositor space */

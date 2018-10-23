@@ -299,7 +299,17 @@ class wayfire_xwayland_view : public wayfire_view_t
     void move(int x, int y, bool s)
     {
         wayfire_view_t::move(x, y, s);
-        if (!destroyed)
+        if (!destroyed && !in_continuous_move)
+            send_configure();
+    }
+
+    void set_moving(bool moving)
+    {
+        wayfire_view_t::set_moving(moving);
+
+        /* We don't send updates while in continuous move, because that means
+         * too much configure requests. Instead, we set it at the end */
+        if (!in_continuous_move)
             send_configure();
     }
 
