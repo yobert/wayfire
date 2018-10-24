@@ -106,7 +106,7 @@ class wf_wrot : public wayfire_plugin_t
             if (grab_interface->is_grabbed())
                 input_released();
 
-            output->rem_button(&call);
+            output->rem_binding(&call);
         }
 };
 

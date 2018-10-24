@@ -79,7 +79,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     // the modifiers which were used to activate switcher
     uint32_t activating_modifiers = 0;
     key_callback next_view_binding, prev_view_binding;
-    touch_gesture_callback touch_activate;
+    gesture_callback touch_activate;
 
     effect_hook_t damage;
     render_hook_t switcher_renderer;
@@ -127,7 +127,7 @@ class WayfireSwitcher : public wayfire_plugin_t
                 handle_done();
         };
 
-        touch_activate = [=] (wayfire_touch_gesture*) {
+        touch_activate = [=] (wf_touch_gesture*) {
             if (!active)
             {
                 /* We set it to -1 to indicate that the user hasn't done anything yet */
@@ -138,11 +138,8 @@ class WayfireSwitcher : public wayfire_plugin_t
             }
         };
 
-        wayfire_touch_gesture gesture;
-        gesture.type = GESTURE_EDGE_SWIPE;
-        gesture.direction = GESTURE_DIRECTION_DOWN;
-        gesture.finger_count = 3;
-        output->add_gesture(gesture, &touch_activate);
+        auto gesture_activator = section->get_option("gesture_toggle", "edge-swipe down 3");
+        output->add_gesture(gesture_activator, &touch_activate);
 
         grab_interface->callbacks.touch.down = [=] (int id, int x, int y) {
             if (id == 0) handle_touch_down(x, y);
@@ -749,6 +746,8 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         views.push_back(sv);
     }
+
+    // TODO:!!! fini
 };
 
 extern "C"

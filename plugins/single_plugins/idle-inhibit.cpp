@@ -11,27 +11,27 @@ extern "C"
 class wayfire_idle_inhibit : public wayfire_plugin_t
 {
     bool enabled = true;
-    key_callback toggle;
+    activator_callback toggle;
 
     void init(wayfire_config *config)
     {
         auto binding = config->get_section("idle-inhibit")->get_option("toggle", "<super> <shift> KEY_I");
 
-        toggle = [=] (uint32_t)
+        toggle = [=] ()
         {
             enabled = !enabled;
             wlr_idle_set_enabled(core->protocols.idle, NULL, enabled);
         };
 
-        output->add_key(binding, &toggle);
+        output->add_activator(binding, &toggle);
     }
 
     void fini()
     {
         if (!enabled) // enable idle if the plugin is disabled
-            toggle(0);
+            toggle();
 
-        output->rem_key(&toggle);
+        output->rem_binding(&toggle);
     }
 };
 

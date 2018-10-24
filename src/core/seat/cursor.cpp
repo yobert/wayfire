@@ -48,22 +48,34 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         auto output = core->get_output_at(gx, gy);
         core->focus_output(output);
 
-        std::vector<button_callback*> callbacks;
+        GetTuple(ox, oy, core->get_active_output()->get_cursor_position());
+        std::vector<std::function<void()>> callbacks;
 
         auto mod_state = get_modifiers();
-        for (auto& pair : button_bindings)
+        for (auto& binding : bindings[WF_BINDING_BUTTON])
         {
-            auto& binding = pair.second;
-            const auto button = binding->button->as_cached_button();
             if (binding->output == core->get_active_output() &&
-                mod_state == button.mod && ev->button == button.button)
-                callbacks.push_back(binding->call);
+                binding->value->as_cached_button().matches(
+                    {mod_state, ev->button}))
+            {
+                auto callback = binding->call.button;
+                callbacks.push_back([=] () {(*callback) (ev->button, ox, oy);});
+            }
         }
 
-        GetTuple(ox, oy, core->get_active_output()->get_cursor_position());
+        for (auto& binding : bindings[WF_BINDING_ACTIVATOR])
+        {
+            if (binding->output == core->get_active_output() &&
+                binding->value->matches_button({mod_state, ev->button}))
+            {
+                callbacks.push_back(*binding->call.activator);
+            }
+        }
+
         for (auto call : callbacks)
-            (*call) (ev->button, ox, oy);
-    } else
+            call();
+    }
+    else
     {
         count_other_inputs--;
     }
@@ -107,9 +119,7 @@ void input_manager::update_cursor_focus(wayfire_surface_t *focus, int x, int y)
 
 void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 {
-    auto output = core->get_output_at(cursor->x, cursor->y);
-    assert(output);
-
+    GetTuple(x, y, core->get_cursor_position());
     if (input_grabbed() && real_update)
     {
         GetTuple(sx, sy, core->get_active_output()->get_cursor_position());
@@ -118,35 +128,21 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
         return;
     }
 
-    GetTuple(px, py, output->get_cursor_position());
-    int sx, sy;
-    wayfire_surface_t *new_focus = NULL;
-
-    output->workspace->for_each_view(
-        [&] (wayfire_view view)
-        {
-            if (new_focus) return; // we already found a focus surface
-
-            if (core->input->can_focus_surface(view.get())) // make sure focusing this surface isn't disabled
-                new_focus = view->map_input_coordinates(px, py, sx, sy);
-        }, WF_ALL_LAYERS);
-
-    update_cursor_focus(new_focus, sx, sy);
+    int lx, ly;
+    wayfire_surface_t *new_focus = input_surface_at(x, y, lx, ly);
+    update_cursor_focus(new_focus, lx, ly);
 
     auto compositor_surface = wf_compositor_surface_from_surface(new_focus);
     if (compositor_surface)
     {
-        compositor_surface->on_pointer_motion(sx, sy);
-    } else if (real_update)
+        compositor_surface->on_pointer_motion(lx, ly);
+    }
+    else if (real_update)
     {
-        wlr_seat_pointer_notify_motion(core->input->seat, time_msec, sx, sy);
+        wlr_seat_pointer_notify_motion(core->input->seat, time_msec, lx, ly);
     }
 
-    for (auto& icon : drag_icons)
-    {
-        if (icon->is_mapped())
-            icon->update_output_position();
-    }
+    update_drag_icons();
 }
 
 void input_manager::handle_pointer_motion(wlr_event_pointer_motion *ev)
@@ -170,14 +166,11 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
 
     auto mod_state = get_modifiers();
 
-    for (auto& pair : axis_bindings)
+    for (auto& binding : bindings[WF_BINDING_AXIS])
     {
-        auto& binding = pair.second;
-        const auto mod = binding->modifier->as_cached_key().mod;
-
         if (binding->output == core->get_active_output() &&
-            mod_state == mod)
-            callbacks.push_back(binding->call);
+            binding->value->as_cached_key().matches({mod_state, 0}))
+            callbacks.push_back(binding->call.axis);
     }
 
     for (auto call : callbacks)

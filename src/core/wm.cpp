@@ -65,10 +65,11 @@ void wayfire_focus::init(wayfire_config *)
     output->add_button(new_static_option("BTN_LEFT"), &callback);
     touch = [=] (int x, int y)
     {
+        log_info("got binding");
         check_focus_view(core->get_touch_focus());
     };
 
-    output->add_touch(0, &touch);
+    output->add_touch(new_static_option(""), &touch);
 }
 
 void wayfire_handle_focus_parent::focus_view(wayfire_view view)

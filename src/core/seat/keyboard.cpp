@@ -141,17 +141,31 @@ static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
     return true;
 }
 
-std::vector<key_callback*> input_manager::match_keys(uint32_t mod_state, uint32_t key)
+std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state, uint32_t key)
 {
-    std::vector<key_callback*> callbacks;
+    std::vector<std::function<void()>> callbacks;
 
-    for (auto& pair : key_bindings)
+    for (auto& binding : bindings[WF_BINDING_KEY])
     {
-        auto& binding = pair.second;
-        const auto keyb = binding->key->as_cached_key();
-        if (binding->output == core->get_active_output() &&
-            mod_state == keyb.mod && key == keyb.keyval)
-            callbacks.push_back(binding->call);
+        if (binding->value->as_cached_key().matches({mod_state, key}) &&
+            binding->output == core->get_active_output())
+        {
+            /* make sure we don't capture a reference to binding,
+             * because it might get destroyed later */
+            auto callback = binding->call.key;
+            callbacks.push_back([key, callback] () {
+                (*callback) (key);
+            });
+        }
+    }
+
+    for (auto& binding : bindings[WF_BINDING_ACTIVATOR])
+    {
+        if (binding->value->matches_key({mod_state, key}) &&
+            binding->output == core->get_active_output())
+        {
+            callbacks.push_back(*binding->call.activator);
+        }
     }
 
     return callbacks;
@@ -180,7 +194,7 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
     if (mod)
         handle_keyboard_mod(mod, state);
 
-    std::vector<key_callback*> callbacks;
+    std::vector<std::function<void()>> callbacks;
     auto kbd = wlr_seat_get_keyboard(seat);
 
     if (state == WLR_KEY_PRESSED)
@@ -215,7 +229,7 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
     }
 
     for (auto call : callbacks)
-        (*call) (key);
+        call();
 
     return active_grab || !callbacks.empty();
 }

@@ -20,13 +20,39 @@ struct wlr_drag_icon;
 }
 
 struct wf_gesture_recognizer;
-struct key_callback_data;
-struct axis_callback_data;
-struct button_callback_data;
 struct wlr_seat;
 
 struct wf_touch;
 struct wf_keyboard;
+
+enum wf_binding_type
+{
+    WF_BINDING_KEY,
+    WF_BINDING_BUTTON,
+    WF_BINDING_AXIS,
+    WF_BINDING_TOUCH,
+    WF_BINDING_GESTURE,
+    WF_BINDING_ACTIVATOR
+};
+
+struct wf_binding
+{
+    wf_option value;
+    wf_binding_type type;
+    wayfire_output *output;
+
+    union {
+        void *raw;
+        key_callback *key;
+        axis_callback *axis;
+        touch_callback *touch;
+        button_callback *button;
+        gesture_callback *gesture;
+        activator_callback *activator;
+    } call;
+};
+
+using wf_binding_ptr = std::unique_ptr<wf_binding>;
 
 /* TODO: most probably we want to split even more of input_manager's functionality into
  * wf_keyboard, wf_cursor and wf_touch */
@@ -45,25 +71,10 @@ class input_manager
                     touch_down, touch_up, touch_motion;
 
         int gesture_id;
-        struct wf_gesture_listener
-        {
-            wayfire_touch_gesture gesture;
-            touch_gesture_callback* call;
-            wayfire_output *output;
-        };
 
-        struct touch_listener {
-            uint32_t mod;
-            touch_callback* call;
-            wayfire_output *output;
-        };
-
-        std::map<int, int> mods_count;
-        std::map<int, wf_gesture_listener> gesture_listeners;
-        std::map<int, touch_listener> touch_listeners;
-        std::map<int, key_callback_data*> key_bindings;
-        std::map<int, axis_callback_data*> axis_bindings;
-        std::map<int, button_callback_data*> button_bindings;
+        std::map<wf_binding_type, std::vector<std::unique_ptr<wf_binding>>> bindings;
+        using binding_criteria = std::function<bool(wf_binding*)>;
+        void rem_binding(binding_criteria criteria);
 
         bool is_touch_enabled();
 
@@ -72,11 +83,14 @@ class input_manager
 
         void handle_input_destroyed(wlr_input_device *dev);
 
-        void update_cursor_focus(wayfire_surface_t *focus, int x, int y);
-        void update_touch_focus(wayfire_surface_t *focus,
-                                uint32_t time, int id, int x, int y);
-        wayfire_surface_t* update_touch_position(uint32_t time, int id, int x, int y,
-                                                 int &sx, int &sy);
+        // returns the surface under the given global coordinates
+        // if no such surface (return NULL), lx and ly are undefined
+        wayfire_surface_t* input_surface_at(int x, int y,
+            int& lx, int& ly);
+
+        void set_touch_focus(wayfire_surface_t *surface, uint32_t time, int id, int lx, int ly);
+
+        void update_drag_icons();
 
         std::vector<std::unique_ptr<wf_keyboard>> keyboards;
 
@@ -84,7 +98,7 @@ class input_manager
          * This might not work with multiple keyboards */
         bool in_mod_binding = false;
         int count_other_inputs = 0;
-        std::vector<key_callback*> match_keys(uint32_t mods, uint32_t key);
+        std::vector<std::function<void()>> match_keys(uint32_t mods, uint32_t key);
 
     public:
 
@@ -93,6 +107,7 @@ class input_manager
 
         int last_cursor_event_msec;
         void update_cursor_position(uint32_t time_msec, bool real_update = true);
+        void update_cursor_focus(wayfire_surface_t *surface, int lx, int ly);
 
         wl_client *exclusive_client = NULL;
 
@@ -134,30 +149,13 @@ class input_manager
         void handle_touch_motion(uint32_t time, int32_t id, int32_t x, int32_t y);
         void handle_touch_up    (uint32_t time, int32_t id);
 
-        void handle_gesture(wayfire_touch_gesture g);
+        void handle_gesture(wf_touch_gesture g);
 
         void check_touch_bindings(int32_t x, int32_t y);
 
-        int  add_key(wf_option, key_callback *, wayfire_output *output);
-        void rem_key(int);
-        void rem_key(key_callback *callback);
-
-        int  add_axis(wf_option, axis_callback *, wayfire_output *output);
-        void rem_axis(int);
-        void rem_axis(axis_callback * callback);
-
-        int  add_button(wf_option, button_callback *, wayfire_output *output);
-        void rem_button(int);
-        void rem_button(button_callback *callback);
-
-        int  add_touch(uint32_t mod, touch_callback*, wayfire_output *output);
-        void rem_touch(int32_t id);
-        void rem_touch(touch_callback*);
-
-        int add_gesture(const wayfire_touch_gesture& gesture,
-                        touch_gesture_callback* callback, wayfire_output *output);
-        void rem_gesture(int id);
-        void rem_gesture(touch_gesture_callback*);
+        wf_binding* new_binding(wf_binding_type type, wf_option value, wayfire_output *output, void *callback);
+        void rem_binding(void *callback);
+        void rem_binding(wf_binding *binding);
 };
 
 #endif /* end of include guard: INPUT_MANAGER_HPP */

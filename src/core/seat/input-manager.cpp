@@ -1,6 +1,7 @@
 #include <cassert>
 #include <algorithm>
 #include <libinput.h>
+#include <nonstd/make_unique.hpp>
 
 #include <iostream>
 
@@ -16,6 +17,7 @@ extern "C"
 #include "keyboard.hpp"
 #include "cursor.hpp"
 #include "input-manager.hpp"
+#include "workspace-manager.hpp"
 #include "debug.hpp"
 
 bool input_manager::is_touch_enabled()
@@ -126,10 +128,7 @@ input_manager::input_manager()
         if (our_touch)
         {
             for (auto f : our_touch->gesture_recognizer.current)
-            {
-                int x, y;
-                update_touch_position(get_input_time(), f.first, f.second.sx, f.second.sy, x, y);
-            }
+                handle_touch_motion(get_input_time(), f.first, f.second.sx, f.second.sy);
         }
     };
 
@@ -236,6 +235,30 @@ bool input_manager::can_focus_surface(wayfire_surface_t *surface)
     return true;
 }
 
+wayfire_surface_t* input_manager::input_surface_at(int x, int y,
+    int& lx, int& ly)
+{
+    auto output = core->get_output_at(x, y);
+    assert(output);
+
+    auto og = output->get_full_geometry();
+    x -= og.x;
+    y -= og.y;
+
+    wayfire_surface_t *new_focus = nullptr;
+    output->workspace->for_each_view(
+        [&] (wayfire_view view)
+        {
+            if (new_focus) return; // we already found a focus surface
+
+            if (can_focus_surface(view.get())) // make sure focusing this surface isn't disabled
+                new_focus = view->map_input_coordinates(x, y, lx, ly);
+        },
+        WF_ALL_LAYERS);
+
+    return new_focus;
+}
+
 void input_manager::set_exclusive_focus(wl_client *client)
 {
     exclusive_client = client;
@@ -251,161 +274,54 @@ void input_manager::set_exclusive_focus(wl_client *client)
 
 /* add/remove bindings */
 
-static int _last_id = 0;
-#define id_deleter(type) \
-\
-void input_manager::rem_ ##type (int id) \
-{ \
-    auto it = type ## _bindings.find(id); \
-    if (it != type ## _bindings.end()) \
-    { \
-        delete it->second; \
-        type ## _bindings.erase(it); \
-    } \
-}
-
-#define callback_deleter(type) \
-void input_manager::rem_ ##type (type ## _callback *cb) \
-{ \
-    auto it = type ## _bindings.begin(); \
-\
-    while(it != type ## _bindings.end()) \
-    { \
-        if (it->second->call == cb) \
-        { \
-            delete it->second; \
-            it = type ## _bindings.erase(it); \
-        } else \
-            ++it; \
-    } \
-}
-
-int input_manager::add_key(wf_option option, key_callback *call, wayfire_output *output)
+wf_binding* input_manager::new_binding(wf_binding_type type, wf_option value,
+    wayfire_output *output, void *callback)
 {
-    auto kcd = new key_callback_data;
-    kcd->call = call;
-    kcd->output = output;
-    kcd->key = option;
-    kcd->id = ++_last_id;
+    auto binding = nonstd::make_unique<wf_binding>();
 
-    key_bindings[_last_id] = kcd;
-    return _last_id;
+    assert(value && output && callback);
+
+    binding->type = type;
+    binding->value = value;
+    binding->output = output;
+    binding->call.raw = callback;
+
+    auto raw = binding.get();
+    bindings[type].push_back(std::move(binding));
+
+    return raw;
 }
 
-id_deleter(key);
-callback_deleter(key);
-
-int input_manager::add_axis(wf_option option, axis_callback *call, wayfire_output *output)
+void input_manager::rem_binding(binding_criteria criteria)
 {
-    auto acd = new axis_callback_data;
-    acd->call = call;
-    acd->output = output;
-    acd->modifier = option;
-    acd->id = ++_last_id;
-
-    axis_bindings[_last_id] = acd;
-    return _last_id;
+    for(auto& category : bindings)
+    {
+        auto& container = category.second;
+        auto it = container.begin();
+        while (it != container.end())
+        {
+            if (criteria((*it).get())) {
+                it = container.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
 }
 
-id_deleter(axis);
-callback_deleter(axis);
-
-int input_manager::add_button(wf_option option, button_callback *call, wayfire_output *output)
+void input_manager::rem_binding(wf_binding *binding)
 {
-    auto bcd = new button_callback_data;
-    bcd->call = call;
-    bcd->output = output;
-    bcd->button = option;
-    bcd->id = ++_last_id;
-
-    button_bindings[_last_id] = bcd;
-    return _last_id;
+    rem_binding([=] (wf_binding *ptr) { return binding == ptr; });
 }
 
-id_deleter(button);
-callback_deleter(button);
-
-int input_manager::add_touch(uint32_t mods, touch_callback* call, wayfire_output *output)
+void input_manager::rem_binding(void *callback)
 {
-    int sz = 0;
-    if (!touch_listeners.empty())
-        sz = (--touch_listeners.end())->first + 1;
-
-    touch_listeners[sz] = {mods, call, output};
-    return sz;
-}
-
-void input_manager::rem_touch(int id)
-{
-    touch_listeners.erase(id);
-}
-
-void input_manager::rem_touch(touch_callback *tc)
-{
-    std::vector<int> ids;
-    for (const auto& x : touch_listeners)
-        if (x.second.call == tc)
-            ids.push_back(x.first);
-
-    for (auto x : ids)
-        rem_touch(x);
-}
-
-int input_manager::add_gesture(const wayfire_touch_gesture& gesture,
-        touch_gesture_callback *callback, wayfire_output *output)
-{
-    gesture_listeners[gesture_id] = {gesture, callback, output};
-    gesture_id++;
-    return gesture_id - 1;
-}
-
-void input_manager::rem_gesture(int id)
-{
-    gesture_listeners.erase(id);
-}
-
-void input_manager::rem_gesture(touch_gesture_callback *cb)
-{
-    std::vector<int> ids;
-    for (const auto& x : gesture_listeners)
-        if (x.second.call == cb)
-            ids.push_back(x.first);
-
-    for (auto x : ids)
-        rem_gesture(x);
+    rem_binding([=] (wf_binding* ptr) {return ptr->call.raw == callback; });
 }
 
 void input_manager::free_output_bindings(wayfire_output *output)
 {
-    std::vector<int> bindings;
-    for (auto kcd : key_bindings)
-        if (kcd.second->output == output)
-            bindings.push_back(kcd.second->id);
-
-    for (auto x : bindings)
-        rem_key(x);
-
-    bindings.clear();
-    for (auto bcd : button_bindings)
-        if (bcd.second->output == output)
-            bindings.push_back(bcd.second->id);
-
-    for (auto x : bindings)
-        rem_button(x);
-
-    std::vector<int> ids;
-    for (const auto& x : touch_listeners)
-        if (x.second.output == output)
-            ids.push_back(x.first);
-    for (auto x : ids)
-        rem_touch(x);
-
-    ids.clear();
-    for (const auto& x : gesture_listeners)
-        if (x.second.output == output)
-            ids.push_back(x.first);
-    for (auto x : ids)
-        rem_gesture(x);
+    rem_binding([=] (wf_binding* binding) {
+        return binding->output == output;
+    });
 }
-
-

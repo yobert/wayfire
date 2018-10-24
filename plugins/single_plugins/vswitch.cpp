@@ -24,10 +24,10 @@ struct switch_direction
 class vswitch : public wayfire_plugin_t
 {
     private:
-        key_callback callback_left, callback_right, callback_up, callback_down;
-        key_callback callback_win_left, callback_win_right, callback_win_up, callback_win_down;
+        activator_callback callback_left, callback_right, callback_up, callback_down;
+        activator_callback callback_win_left, callback_win_right, callback_win_up, callback_win_down;
 
-        touch_gesture_callback gesture_cb;
+        gesture_callback gesture_cb;
 
         std::queue<switch_direction> dirs; // series of moves we have to do
 
@@ -52,52 +52,37 @@ class vswitch : public wayfire_plugin_t
         grab_interface->name = "vswitch";
         grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
 
-        callback_left  = [=] (uint32_t) { add_direction(-1,  0); };
-        callback_right = [=] (uint32_t) { add_direction( 1,  0); };
-        callback_up    = [=] (uint32_t) { add_direction( 0, -1); };
-        callback_down  = [=] (uint32_t) { add_direction( 0,  1); };
+        callback_left  = [=] () { add_direction(-1,  0); };
+        callback_right = [=] () { add_direction( 1,  0); };
+        callback_up    = [=] () { add_direction( 0, -1); };
+        callback_down  = [=] () { add_direction( 0,  1); };
 
-        callback_win_left  = [=] (uint32_t) { add_direction(-1,  0, get_top_view()); };
-        callback_win_right = [=] (uint32_t) { add_direction( 1,  0, get_top_view()); };
-        callback_win_up    = [=] (uint32_t) { add_direction( 0, -1, get_top_view()); };
-        callback_win_down  = [=] (uint32_t) { add_direction( 0,  1, get_top_view()); };
+        callback_win_left  = [=] () { add_direction(-1,  0, get_top_view()); };
+        callback_win_right = [=] () { add_direction( 1,  0, get_top_view()); };
+        callback_win_up    = [=] () { add_direction( 0, -1, get_top_view()); };
+        callback_win_down  = [=] () { add_direction( 0,  1, get_top_view()); };
 
         auto section   = config->get_section("vswitch");
-        auto key_left  = section->get_option("binding_left",  "<super> KEY_LEFT");
-        auto key_right = section->get_option("binding_right", "<super> KEY_RIGHT");
-        auto key_up    = section->get_option("binding_up",    "<super> KEY_UP");
-        auto key_down  = section->get_option("binding_down",  "<super> KEY_DOWN");
 
-        auto key_win_left  = section->get_option("binding_win_left",  "<super> <shift> KEY_LEFT");
-        auto key_win_right = section->get_option("binding_win_right", "<super> <shift> KEY_RIGHT");
-        auto key_win_up    = section->get_option("binding_win_up",    "<super> <shift> KEY_UP");
-        auto key_win_down  = section->get_option("binding_win_down",  "<super> <shift> KEY_DOWN");
+        auto binding_left  = section->get_option("binding_left",  "<super> KEY_LEFT  | swipe right 4");
+        auto binding_right = section->get_option("binding_right", "<super> KEY_RIGHT | swipe left 4");
+        auto binding_up    = section->get_option("binding_up",    "<super> KEY_UP    | swipe down 4");
+        auto binding_down  = section->get_option("binding_down",  "<super> KEY_DOWN  | swipe up 4");
 
-        output->add_key(key_left,  &callback_left);
-        output->add_key(key_right, &callback_right);
-        output->add_key(key_up, &callback_up);
-        output->add_key(key_down, &callback_down);
+        auto binding_win_left  = section->get_option("binding_win_left",  "<super> <shift> KEY_LEFT");
+        auto binding_win_right = section->get_option("binding_win_right", "<super> <shift> KEY_RIGHT");
+        auto binding_win_up    = section->get_option("binding_win_up",    "<super> <shift> KEY_UP");
+        auto binding_win_down  = section->get_option("binding_win_down",  "<super> <shift> KEY_DOWN");
 
-        output->add_key(key_win_left, &callback_win_left);
-        output->add_key(key_win_right, &callback_win_right);
-        output->add_key(key_win_up, &callback_win_up);
-        output->add_key(key_win_down, &callback_win_down);
+        output->add_activator(binding_left,  &callback_left);
+        output->add_activator(binding_right, &callback_right);
+        output->add_activator(binding_up,    &callback_up);
+        output->add_activator(binding_down,  &callback_down);
 
-        wayfire_touch_gesture activation_gesture;
-        activation_gesture.finger_count = 4;
-        activation_gesture.type = GESTURE_SWIPE;
-
-        gesture_cb = [=] (wayfire_touch_gesture *gesture) {
-             if (gesture->direction & GESTURE_DIRECTION_UP)
-                add_direction(0, 1);
-            if (gesture->direction & GESTURE_DIRECTION_DOWN)
-                add_direction(0, -1);
-            if (gesture->direction & GESTURE_DIRECTION_LEFT)
-                add_direction(1, 0);
-            if (gesture->direction & GESTURE_DIRECTION_RIGHT)
-                add_direction(-1, 0);
-        };
-        output->add_gesture(activation_gesture, &gesture_cb);
+        output->add_activator(binding_win_left,  &callback_win_left);
+        output->add_activator(binding_win_right, &callback_win_right);
+        output->add_activator(binding_win_up,    &callback_win_up);
+        output->add_activator(binding_win_down,  &callback_win_down);
 
         animation_duration = section->get_option("duration", "180");
         duration = wf_duration(animation_duration);
@@ -289,17 +274,17 @@ class vswitch : public wayfire_plugin_t
         if (running)
             stop_switch();
 
-        output->rem_key(&callback_left);
-        output->rem_key(&callback_right);
-        output->rem_key(&callback_up);
-        output->rem_key(&callback_down);
+        output->rem_binding(&callback_left);
+        output->rem_binding(&callback_right);
+        output->rem_binding(&callback_up);
+        output->rem_binding(&callback_down);
 
-        output->rem_key(&callback_win_left);
-        output->rem_key(&callback_win_right);
-        output->rem_key(&callback_win_up);
-        output->rem_key(&callback_win_down);
+        output->rem_binding(&callback_win_left);
+        output->rem_binding(&callback_win_right);
+        output->rem_binding(&callback_win_up);
+        output->rem_binding(&callback_win_down);
 
-        output->rem_gesture(&gesture_cb);
+        output->rem_binding(&gesture_cb);
     }
 };
 

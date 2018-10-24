@@ -6,6 +6,8 @@
 #include "core.hpp"
 #include "output.hpp"
 #include "workspace-manager.hpp"
+#include "compositor-surface.hpp"
+#include "../../view/priv-view.hpp"
 
 constexpr static int MIN_FINGERS = 3;
 constexpr static int MIN_SWIPE_DISTANCE = 100;
@@ -92,7 +94,7 @@ void wf_gesture_recognizer::continue_gesture(int id, int sx, int sy)
 
     if (swipe_dir)
     {
-        wayfire_touch_gesture gesture;
+        wf_touch_gesture gesture;
         gesture.type = GESTURE_SWIPE;
         gesture.finger_count = current.size();
         gesture.direction = swipe_dir;
@@ -151,7 +153,7 @@ void wf_gesture_recognizer::continue_gesture(int id, int sx, int sy)
     bool outward_pinch = (start_sum_dist - sum_dist <= -MIN_PINCH_DISTANCE);
 
     if (inward_pinch || outward_pinch) {
-        wayfire_touch_gesture gesture;
+        wf_touch_gesture gesture;
         gesture.type = GESTURE_PINCH;
         gesture.finger_count = current.size();
         gesture.direction =
@@ -263,82 +265,66 @@ void wf_touch::add_device(wlr_input_device *device)
 }
 
 /* input_manager touch functions */
-void input_manager::update_touch_focus(wayfire_surface_t *surface, uint32_t time, int id, int x, int y)
+void input_manager::set_touch_focus(wayfire_surface_t *surface, uint32_t time, int id, int x, int y)
 {
-    if (surface && !can_focus_surface(surface))
-        return;
+    bool focus_compositor_surface = wf_compositor_surface_from_surface(surface);
+    bool had_focus = wlr_seat_touch_get_point(seat, id);
 
-    if (surface)
-    {
-        wlr_seat_touch_point_focus(seat, surface->surface, time, id, x, y);
-    } else
-    {
-        wlr_seat_touch_point_clear_focus(seat, time, id);
-    }
+    wlr_surface *next_focus = NULL;
+    if (surface && !focus_compositor_surface)
+        next_focus = surface->surface;
 
+    // create a new touch point, we have a valid new focus
+    if (!had_focus && next_focus)
+        wlr_seat_touch_notify_down(seat, next_focus, time, id, x, y);
+    if (had_focus && !next_focus)
+        wlr_seat_touch_notify_up(seat, time, id);
+
+    if (next_focus)
+        wlr_seat_touch_point_focus(seat, next_focus, time, id, x, y);
+
+    /* Manage the touch_focus, we take only the first finger for that */
     if (id == 0)
-        touch_focus = surface;
-}
-
-wayfire_surface_t* input_manager::update_touch_position(uint32_t time, int32_t id, int32_t x, int32_t y, int &sx, int &sy)
-{
-    /* we have got a touch event, so our_touch must have been initialized */
-    assert(our_touch);
-    auto wo = core->get_output_at(x, y);
-    auto og = wo->get_full_geometry();
-
-    x -= og.x;
-    y -= og.y;
-
-    wayfire_surface_t *new_focus = NULL;
-    wo->workspace->for_each_view(
-        [&] (wayfire_view view)
-        {
-            if (new_focus) return; // already found focus
-
-            if (can_focus_surface(view.get()))
-                new_focus = view->map_input_coordinates(x, y, sx, sy);
-        }, WF_ALL_LAYERS);
-
-    update_touch_focus(new_focus, time, id, x, y);
-
-    for (auto& icon : drag_icons)
     {
-        if (icon->is_mapped())
-            icon->update_output_position();
-    }
+        auto compositor_surface = wf_compositor_surface_from_surface(touch_focus);
+        if (compositor_surface)
+            compositor_surface->on_touch_up();
 
-    return new_focus;
+        compositor_surface = wf_compositor_surface_from_surface(surface);
+        if (compositor_surface)
+            compositor_surface->on_touch_down(x, y);
+
+        touch_focus = surface;
+    }
 }
 
 void input_manager::handle_touch_down(uint32_t time, int32_t id, int32_t x, int32_t y)
 {
-    int ox = x, oy = y;
+    in_mod_binding = false;
     auto wo = core->get_output_at(x, y);
-    auto og = wo->get_full_geometry();
-
     core->focus_output(wo);
 
-    ox -= og.x; oy -= og.y;
-    if (!active_grab)
-    {
-        int sx, sy;
-        auto focused = update_touch_position(time, id, x, y, sx, sy);
-        if (focused)
-            wlr_seat_touch_notify_down(seat, focused->surface, time, id, sx, sy);
-    }
-
-    if (id < 1)
-        core->input->check_touch_bindings(ox, oy);
+    auto og = wo->get_full_geometry();
+    int ox = x - og.x;
+    int oy = y - og.y;
 
     if (active_grab)
     {
+        if (id == 0)
+            check_touch_bindings(ox, oy);
+
         if (active_grab->callbacks.touch.down)
             active_grab->callbacks.touch.down(id, ox, oy);
 
         return;
     }
 
+    int lx, ly;
+    auto focus = input_surface_at(x, y, lx, ly);
+    set_touch_focus(focus, time, id, lx, ly);
+    update_drag_icons();
+
+    check_touch_bindings(ox, oy);
 }
 
 void input_manager::handle_touch_up(uint32_t time, int32_t id)
@@ -351,7 +337,7 @@ void input_manager::handle_touch_up(uint32_t time, int32_t id)
         return;
     }
 
-    wlr_seat_touch_notify_up(seat, time, id);
+    set_touch_focus(nullptr, time, id, 0, 0);
 }
 
 void input_manager::handle_touch_motion(uint32_t time, int32_t id, int32_t x, int32_t y)
@@ -366,21 +352,28 @@ void input_manager::handle_touch_motion(uint32_t time, int32_t id, int32_t x, in
         return;
     }
 
-    int sx, sy;
-    update_touch_position(time, id, x, y, sx, sy);
-    wlr_seat_touch_notify_motion(seat, time, id, sx, sy);
+    int lx, ly;
+    auto surface = input_surface_at(x, y, lx, ly);
+    set_touch_focus(surface, time, id, lx, ly);
+    wlr_seat_touch_notify_motion(seat, time, id, lx, ly);
+
+    update_drag_icons();
+
+    auto compositor_surface = wf_compositor_surface_from_surface(touch_focus);
+    if (id == 0 && compositor_surface)
+        compositor_surface->on_touch_motion(lx, ly);
 }
 
 void input_manager::check_touch_bindings(int x, int y)
 {
     uint32_t mods = get_modifiers();
     std::vector<touch_callback*> calls;
-    for (auto listener : touch_listeners)
+    for (auto& binding : bindings[WF_BINDING_TOUCH])
     {
-        if (listener.second.mod == mods &&
-                listener.second.output == core->get_active_output())
+        if (binding->value->as_cached_key().matches({mods, 0}) &&
+            binding->output == core->get_active_output())
         {
-            calls.push_back(listener.second.call);
+            calls.push_back(binding->call.touch);
         }
     }
 
@@ -388,16 +381,32 @@ void input_manager::check_touch_bindings(int x, int y)
         (*call)(x, y);
 }
 
-void input_manager::handle_gesture(wayfire_touch_gesture g)
+void input_manager::handle_gesture(wf_touch_gesture g)
 {
-    for (const auto& listener : gesture_listeners)
+    std::vector<std::function<void()>> callbacks;
+
+    for (auto& binding : bindings[WF_BINDING_GESTURE])
     {
-        if (listener.second.gesture.type == g.type &&
-            listener.second.gesture.finger_count == g.finger_count &&
-            core->get_active_output() == listener.second.output)
+        if (binding->output == core->get_active_output() &&
+            binding->value->as_cached_gesture().matches(g))
         {
-            (*listener.second.call)(&g);
+            auto call = binding->call.gesture;
+            callbacks.push_back([=, &g] () {
+                (*call) (&g);
+            });
         }
     }
+
+    for (auto& binding : bindings[WF_BINDING_ACTIVATOR])
+    {
+        if (binding->output == core->get_active_output() &&
+            binding->value->matches_gesture(g))
+        {
+            callbacks.push_back(*binding->call.activator);
+        }
+    }
+
+    for (auto call : callbacks)
+        call();
 }
 

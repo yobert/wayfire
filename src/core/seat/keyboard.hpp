@@ -31,10 +31,4 @@ struct wf_keyboard
     ~wf_keyboard();
 };
 
-struct key_callback_data : wf_callback
-{
-    key_callback *call;
-    wf_option key;
-};
-
 #endif /* end of include guard: KEYBOARD_HPP */

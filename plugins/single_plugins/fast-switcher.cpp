@@ -171,7 +171,7 @@ class wayfire_fast_switcher : public wayfire_plugin_t
         if (active)
             switch_terminate();
 
-        output->rem_key(&init_binding);
+        output->rem_binding(&init_binding);
     }
 };
 

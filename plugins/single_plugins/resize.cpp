@@ -51,7 +51,7 @@ class wayfire_resize : public wayfire_plugin_t {
 
 
         output->add_button(button, &activate_binding);
-        output->add_touch(button->as_button().mod, &touch_activate_binding);
+        output->add_touch(new_static_option("<super>"), &touch_activate_binding);
 
         grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t state)
         {
@@ -263,8 +263,8 @@ class wayfire_resize : public wayfire_plugin_t {
         if (grab_interface->is_grabbed())
             input_pressed(WLR_BUTTON_RELEASED);
 
-        output->rem_button(&activate_binding);
-        output->rem_touch(&touch_activate_binding);
+        output->rem_binding(&activate_binding);
+        output->rem_binding(&touch_activate_binding);
 
         output->disconnect_signal("resize-request", &resize_request);
         output->disconnect_signal("detach-view", &view_destroyed);

@@ -743,80 +743,50 @@ void wayfire_output::break_active_plugins()
 
 /* simple wrappers for core->input, as it isn't exposed to plugins */
 
-int wayfire_output::add_key(wf_option key, key_callback* callback)
+wf_binding *wayfire_output::add_key(wf_option key, key_callback *callback)
 {
-    return core->input->add_key(key, callback, this);
+    return core->input->new_binding(WF_BINDING_KEY, key, this, callback);
 }
 
-void wayfire_output::rem_key(key_callback* callback)
+wf_binding *wayfire_output::add_axis(wf_option axis, axis_callback *callback)
 {
-    core->input->rem_key(callback);
+    return core->input->new_binding(WF_BINDING_AXIS, axis, this, callback);
 }
 
-void wayfire_output::rem_key(int callback)
+wf_binding *wayfire_output::add_touch(wf_option mod, touch_callback *callback)
 {
-    core->input->rem_key(callback);
+    return core->input->new_binding(WF_BINDING_TOUCH, mod, this, callback);
 }
 
-int wayfire_output::add_axis(wf_option mod, axis_callback* callback)
+wf_binding *wayfire_output::add_button(wf_option button,
+    button_callback *callback)
 {
-    return core->input->add_axis(mod, callback, this);
+    return core->input->new_binding(WF_BINDING_BUTTON, button,
+        this, callback);
 }
 
-void wayfire_output::rem_axis(axis_callback* callback)
+wf_binding *wayfire_output::add_gesture(wf_option gesture,
+    gesture_callback *callback)
 {
-    core->input->rem_axis(callback);
+    return core->input->new_binding(WF_BINDING_GESTURE, gesture,
+        this, callback);
 }
 
-void wayfire_output::rem_axis(int callback)
+wf_binding *wayfire_output::add_activator(wf_option activator,
+    activator_callback *callback)
 {
-    core->input->rem_axis(callback);
+    return core->input->new_binding(WF_BINDING_ACTIVATOR, activator,
+        this, callback);
 }
 
-int wayfire_output::add_button(wf_option button, button_callback* callback)
+void wayfire_output::rem_binding(wf_binding *binding)
 {
-    return core->input->add_button(button, callback, this);
+    core->input->rem_binding(binding);
 }
 
-void wayfire_output::rem_button(button_callback* callback)
+void wayfire_output::rem_binding(void *callback)
 {
-    core->input->rem_button(callback);
-}
-
-void wayfire_output::rem_button(int callback)
-{
-    core->input->rem_button(callback);
-}
-
-int wayfire_output::add_touch(uint32_t mod, touch_callback* callback)
-{
-    return core->input->add_touch(mod, callback, this);
-}
-
-void wayfire_output::rem_touch(touch_callback *call)
-{
-    core->input->rem_touch(call);
-}
-
-void wayfire_output::rem_touch(int32_t id)
-{
-    core->input->rem_touch(id);
-}
-
-int wayfire_output::add_gesture(const wayfire_touch_gesture& gesture,
-                                touch_gesture_callback* callback)
-{
-    return core->input->add_gesture(gesture, callback, this);
-}
-
-void wayfire_output::rem_gesture(touch_gesture_callback *callback)
-{
-    core->input->rem_gesture(callback);
-}
-
-void wayfire_output::rem_gesture(int id)
-{
-    core->input->rem_gesture(id);
+    core->input->rem_binding(callback);
 }
 
 uint32_t wf_all_layers_not_below(uint32_t layer)

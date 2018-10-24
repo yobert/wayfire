@@ -101,7 +101,7 @@ class wayfire_fisheye : public wayfire_plugin_t
 {
 
     post_hook_t hook;
-    key_callback toggle_cb;
+    activator_callback toggle_cb;
     wf_duration duration;
     float target_zoom;
     bool active, hook_set;
@@ -124,7 +124,7 @@ class wayfire_fisheye : public wayfire_plugin_t
                 render(fb, tex, target);
             };
 
-            toggle_cb = [=] (uint32_t key)
+            toggle_cb = [=] ()
             {
                     if (active)
                     {
@@ -165,7 +165,7 @@ class wayfire_fisheye : public wayfire_plugin_t
             duration = wf_duration(new_static_option("700"));
             duration.start(0, 0); // so that the first value we get is correct
 
-            output->add_key(toggle_key, &toggle_cb);
+            output->add_activator(toggle_key, &toggle_cb);
         }
 
         void render(uint32_t fb, uint32_t tex, uint32_t target)
@@ -230,7 +230,7 @@ class wayfire_fisheye : public wayfire_plugin_t
                 finalize();
 
             GL_CALL(glDeleteProgram(program));
-            output->rem_key(&toggle_cb);
+            output->rem_binding(&toggle_cb);
         }
 };
 

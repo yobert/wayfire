@@ -8,7 +8,7 @@
 
 class wayfire_command : public wayfire_plugin_t
 {
-    std::vector<key_callback> cmds;
+    std::vector<activator_callback> cmds;
 
     public:
 
@@ -32,20 +32,17 @@ class wayfire_command : public wayfire_plugin_t
             auto binding = "binding_" + num;
 
             auto comvalue = section->get_option(command, "")->as_string();
-            auto key = section->get_option(binding, "none");
+            auto activator = section->get_option(binding, "none");
 
-            if (!key->as_key().valid() || command == "")
-                continue;
-
-            cmds[i++] = [=] (uint32_t key) { core->run(comvalue.c_str()); };
-            output->add_key(key, &cmds[i - 1]);
+            cmds[i++] = [=] () { core->run(comvalue.c_str()); };
+            output->add_activator(activator, &cmds[i - 1]);
         }
     }
 
     void clear_bindings()
     {
         for (size_t i = 0; i < cmds.size(); i++)
-            output->rem_key(&cmds[i]);
+            output->rem_binding(&cmds[i]);
 
         cmds.clear();
     }
