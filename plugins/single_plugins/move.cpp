@@ -22,8 +22,8 @@ class wayfire_move : public wayfire_plugin_t
     // while waiting, unsnapped = false
 
     int slot;
-    wf_geometry initial_geometry;
-    wf_point initial_cursor;
+    wf_geometry grabbed_geometry;
+    wf_point grab_start;
 
     public:
         void init(wayfire_config *config)
@@ -33,7 +33,7 @@ class wayfire_move : public wayfire_plugin_t
 
             auto section = config->get_section("move");
             wf_option button = section->get_option("activate", "<alt> BTN_LEFT");
-            activate_binding = [=] (uint32_t, int x, int y)
+            activate_binding = [=] (uint32_t, int, int)
             {
                 is_using_touch = false;
                 was_client_request = false;
@@ -41,7 +41,7 @@ class wayfire_move : public wayfire_plugin_t
                 auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
 
                 if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
-                    initiate(view, x, y);
+                    initiate(view);
             };
 
             touch_activate_binding = [=] (int32_t sx, int32_t sy)
@@ -52,7 +52,7 @@ class wayfire_move : public wayfire_plugin_t
                 auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
 
                 if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
-                    initiate(view, sx, sy);
+                    initiate(view);
             };
 
             output->add_button(button, &activate_binding);
@@ -80,13 +80,13 @@ class wayfire_move : public wayfire_plugin_t
 
             grab_interface->callbacks.pointer.motion = [=] (int x, int y)
             {
-                input_motion(x, y);
+                handle_input_motion();
             };
 
             grab_interface->callbacks.touch.motion = [=] (int32_t id, int32_t sx, int32_t sy)
             {
                 if (id > 0) return;
-                input_motion(sx, sy);
+                handle_input_motion();
             };
 
             grab_interface->callbacks.touch.up = [=] (int32_t id)
@@ -121,28 +121,21 @@ class wayfire_move : public wayfire_plugin_t
             if (!view)
                 return;
 
-            int sx, sy;
-
             GetTuple(tx, ty, core->get_touch_position(0));
             if (tx != wayfire_core::invalid_coordinate &&
                 ty != wayfire_core::invalid_coordinate)
             {
-                sx = tx;
-                sy = ty;
                 is_using_touch = true;
             } else
             {
-                GetTuple(px, py, core->get_cursor_position());
-                sx = px;
-                sy = py;
                 is_using_touch = false;
             }
 
             was_client_request = true;
-            initiate(view, sx, sy);
+            initiate(view);
         }
 
-        void initiate(wayfire_view view, int sx, int sy)
+        void initiate(wayfire_view view)
         {
             if (!view || view->destroyed)
                 return;
@@ -164,8 +157,10 @@ class wayfire_move : public wayfire_plugin_t
             }
 
             unsnapped = !view->maximized;
-            initial_geometry = view->get_wm_geometry();
-            initial_cursor = {sx, sy};
+            grabbed_geometry = view->get_wm_geometry();
+
+            GetTuple(sx, sy, get_input_coords());
+            grab_start = {sx, sy};
 
             output->bring_to_front(view);
             if (enable_snap)
@@ -240,63 +235,84 @@ class wayfire_move : public wayfire_plugin_t
                 return 0;
         }
 
-        void input_motion(int x, int y)
+        /* The input has moved enough so we remove the view from its slot */
+        void unsnap()
         {
+            unsnapped = 1;
+            if (view->fullscreen)
+                view->fullscreen_request(view->get_output(), false);
+            if (view->maximized)
+                view->maximize_request(false);
+
+            /* view geometry might change after unmaximize/unfullscreen, so update position */
+            grabbed_geometry = view->get_wm_geometry();
+
+            snap_wobbly(view, {}, false);
+            view->set_moving(true);
+        }
+
+        /* Returns the currently used input coordinates in global compositor space */
+        std::tuple<int, int> get_global_input_coords()
+        {
+            if (is_using_touch) {
+                return core->get_touch_position(0);
+            } else {
+                return core->get_cursor_position();
+            }
+        }
+
+        /* Returns the currently used input coordinates in output-local space */
+        std::tuple<int, int> get_input_coords()
+        {
+            GetTuple(gx, gy, get_global_input_coords());
+            auto og = output->get_full_geometry();
+
+            return std::tuple<int, int> {gx - og.x, gy - og.y};
+        }
+
+        /* Moves the view to another output and sends a move request */
+        void move_to_output(wayfire_output *new_output)
+        {
+            move_request_signal req;
+            req.view = view;
+
+            auto old_g = output->get_full_geometry();
+            auto new_g = new_output->get_full_geometry();
+            auto wm_g = view->get_wm_geometry();
+
+            view->move(wm_g.x + old_g.x - new_g.x, wm_g.y + old_g.y - new_g.y, false);
+            view->set_moving(false);
+
+            core->move_view_to_output(view, new_output);
+            core->focus_output(new_output);
+
+            new_output->emit_signal("move-request", &req);
+        }
+
+        void handle_input_motion()
+        {
+            GetTuple(x, y, get_input_coords());
+
             move_wobbly(view, x, y);
 
-            int dx = x - initial_cursor.x;
-            int dy = y - initial_cursor.y;
+            int dx = x - grab_start.x;
+            int dy = y - grab_start.y;
 
-            if (std::sqrt(dx * dx + dy * dy) >= snap_off_threshold->as_cached_int() && !unsnapped && enable_snap_off->as_int())
+            if (std::sqrt(dx * dx + dy * dy) >= snap_off_threshold->as_cached_int() &&
+                !unsnapped && enable_snap_off->as_int())
             {
-                unsnapped = 1;
-                if (view->fullscreen)
-                    view->fullscreen_request(view->get_output(), false);
-                if (view->maximized)
-                    view->maximize_request(false);
-
-
-                /* view geometry might change after unmaximize/unfullscreen, so update position */
-                initial_geometry = view->get_wm_geometry();
-
-                snap_wobbly(view, {}, false);
-                view->set_moving(true);
+                unsnap();
             }
 
             if (!unsnapped)
                 return;
 
-            view->move(initial_geometry.x + dx, initial_geometry.y + dy);
+            view->move(grabbed_geometry.x + dx, grabbed_geometry.y + dy);
 
-            std::tuple<int, int> global_input;
-            if (is_using_touch) {
-                global_input = core->get_touch_position(0);
-            } else {
-                global_input = core->get_cursor_position();
-            }
-
-            GetTuple(global_x, global_y, global_input);
+            GetTuple(global_x, global_y, get_global_input_coords());
             auto target_output = core->get_output_at(global_x, global_y);
-
             if (target_output != output)
-            {
-                move_request_signal req;
-                req.view = view;
-
-                auto old_g = output->get_full_geometry();
-                auto new_g = target_output->get_full_geometry();
-                auto wm_g = view->get_wm_geometry();
-
-                view->move(wm_g.x + old_g.x - new_g.x, wm_g.y + old_g.y - new_g.y, false);
-                view->set_moving(false);
-
-                core->move_view_to_output(view, target_output);
-
-                core->focus_output(target_output);
-                target_output->emit_signal("move-request", &req);
-
-                return;
-            }
+                return move_to_output(target_output);
 
             /* TODO: possibly show some visual indication */
             if (enable_snap)
