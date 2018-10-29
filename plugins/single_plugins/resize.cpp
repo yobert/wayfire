@@ -12,19 +12,20 @@ extern "C"
 
 #include "../wobbly/wobbly-signal.hpp"
 
-class wayfire_resize : public wayfire_plugin_t {
+class wayfire_resize : public wayfire_plugin_t
+{
     signal_callback_t resize_request, view_destroyed;
 
     button_callback activate_binding;
     touch_callback touch_activate_binding;
+
     wayfire_view view;
 
-    bool was_client_request;
-    int initial_x, initial_y;
-    int initial_width, initial_height;
+    bool was_client_request, is_using_touch;
+    wf_point grab_start;
+    wf_geometry grabbed_geometry;
 
     uint32_t edges;
-    bool set_wobbly = false;
 
     public:
     void init(wayfire_config *config)
@@ -32,23 +33,28 @@ class wayfire_resize : public wayfire_plugin_t {
         grab_interface->name = "resize";
         grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY | WF_ABILITY_GRAB_INPUT;
 
-        auto button = (*config)["resize"]->get_option("activate", "<super> BTN_LEFT");
-        activate_binding = [=] (uint32_t, int x, int y)
+        auto button = config->get_section("resize")
+            ->get_option("activate", "<super> BTN_LEFT");
+
+        activate_binding = [=] (uint32_t, int, int)
         {
             auto focus = core->get_cursor_focus();
             auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+
+            is_using_touch = false;
             was_client_request = false;
-            initiate(view, x, y);
+            initiate(view);
         };
 
         touch_activate_binding = [=] (int32_t sx, int32_t sy)
         {
             auto focus = core->get_touch_focus();
             auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
-            was_client_request = false;
-            initiate(view, sx, sy);
-        };
 
+            is_using_touch = true;
+            was_client_request = false;
+            initiate(view);
+        };
 
         output->add_button(button, &activate_binding);
         output->add_touch(new_static_option("<super>"), &touch_activate_binding);
@@ -64,9 +70,9 @@ class wayfire_resize : public wayfire_plugin_t {
             input_pressed(state);
         };
 
-        grab_interface->callbacks.pointer.motion = [=] (int x, int y)
+        grab_interface->callbacks.pointer.motion = [=] (int, int)
         {
-            input_motion(x, y);
+            input_motion();
         };
 
         grab_interface->callbacks.touch.up = [=] (int32_t id)
@@ -75,10 +81,10 @@ class wayfire_resize : public wayfire_plugin_t {
                 input_pressed(WLR_BUTTON_RELEASED);
         };
 
-        grab_interface->callbacks.touch.motion = [=] (int32_t id, int32_t sx, int32_t sy)
+        grab_interface->callbacks.touch.motion = [=] (int32_t id, int32_t, int32_t)
         {
             if (id == 0)
-                input_motion(sx, sy);
+                input_motion();
         };
 
         grab_interface->callbacks.cancel = [=] ()
@@ -112,28 +118,63 @@ class wayfire_resize : public wayfire_plugin_t {
         if (!view)
             return;
 
-        int sx, sy;
-
         GetTuple(tx, ty, core->get_touch_position(0));
         if (tx != wayfire_core::invalid_coordinate &&
             ty != wayfire_core::invalid_coordinate)
         {
-            sx = tx;
-            sy = ty;
+            is_using_touch = true;
         } else
         {
-            GetTuple(px, py, core->get_cursor_position());
-            sx = px;
-            sy = py;
+            is_using_touch = false;
         }
 
         was_client_request = true;
-        initiate(view, sx, sy, request->edges);
+        initiate(view, request->edges);
     }
 
-    void initiate(wayfire_view view, int sx, int sy, uint32_t forced_edges = 0)
+    /* Returns the currently used input coordinates in global compositor space */
+    std::tuple<int, int> get_global_input_coords()
     {
-        set_wobbly = false;
+        if (is_using_touch) {
+            return core->get_touch_position(0);
+        } else {
+            return core->get_cursor_position();
+        }
+    }
+
+    /* Returns the currently used input coordinates in output-local space */
+    std::tuple<int, int> get_input_coords()
+    {
+        GetTuple(gx, gy, get_global_input_coords());
+        auto og = output->get_full_geometry();
+
+        return std::tuple<int, int> {gx - og.x, gy - og.y};
+    }
+
+    /* Calculate resize edges, grab starts at (sx, sy), view's geometry is vg */
+    uint32_t calculate_edges(wf_geometry vg, int sx, int sy)
+    {
+        int view_x = sx - vg.x;
+        int view_y = sx - vg.y;
+
+        uint32_t edges = 0;
+        if (view_x < vg.width / 2) {
+            edges |= WLR_EDGE_LEFT;
+        } else {
+            edges |= WLR_EDGE_RIGHT;
+        }
+
+        if (view_y < vg.height / 2) {
+            edges |= WLR_EDGE_TOP;
+        } else {
+            edges |= WLR_EDGE_BOTTOM;
+        }
+
+        return edges;
+    }
+
+    void initiate(wayfire_view view, uint32_t forced_edges = 0)
+    {
         if (!view || view->role == WF_VIEW_ROLE_SHELL_VIEW || view->destroyed)
             return;
 
@@ -149,38 +190,14 @@ class wayfire_resize : public wayfire_plugin_t {
             return;
         }
 
-        initial_x = sx;
-        initial_y = sy;
+        GetTuple(sx, sy, get_input_coords());
+        grab_start = {sx, sy};
+        grabbed_geometry = view->get_wm_geometry();
 
-        auto wm = view->get_wm_geometry();
-        initial_width = wm.width;
-        initial_height = wm.height;
+        this->edges = forced_edges ?: calculate_edges(grabbed_geometry,
+            sx, sy);
 
-        if (forced_edges == 0)
-        {
-            auto vg = view->get_wm_geometry();
-
-            int view_x = initial_x - vg.x;
-            int view_y = initial_y - vg.y;
-
-            edges = 0;
-            if (view_x < vg.width / 2) {
-                edges |= WLR_EDGE_LEFT;
-            } else {
-                edges |= WLR_EDGE_RIGHT;
-            }
-
-            if (view_y < vg.height / 2) {
-                edges |= WLR_EDGE_TOP;
-            } else {
-                edges |= WLR_EDGE_BOTTOM;
-            }
-        } else {
-            edges = forced_edges;
-        }
-
-        if ((edges & WLR_EDGE_LEFT) ||
-            (edges & WLR_EDGE_TOP))
+        if ((edges & WLR_EDGE_LEFT) || (edges & WLR_EDGE_TOP))
             view->set_moving(true);
 
         view->set_resizing(true, edges);
@@ -192,6 +209,7 @@ class wayfire_resize : public wayfire_plugin_t {
 
         if (edges == 0) /* simply deactivate */
             input_pressed(WL_POINTER_BUTTON_STATE_RELEASED);
+
         this->view = view;
 
         auto og = view->get_output_geometry();
@@ -227,12 +245,13 @@ class wayfire_resize : public wayfire_plugin_t {
         }
     }
 
-    void input_motion(int sx, int sy)
+    void input_motion()
     {
-        int dx = sx - initial_x;
-        int dy = sy - initial_y;
-        int width = initial_width;
-        int height = initial_height;
+        GetTuple(ix, iy, get_input_coords());
+        int dx = ix - grab_start.x;
+        int dy = iy - grab_start.y;
+        int width = grabbed_geometry.width;
+        int height = grabbed_geometry.height;
 
         if (edges & WLR_EDGE_LEFT)
             width -= dx;
