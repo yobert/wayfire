@@ -50,6 +50,7 @@ void input_manager::handle_new_input(wlr_input_device *dev)
     if (!cursor)
         create_seat();
 
+    log_info("handle new input: %s, default mapping: %s", dev->name, dev->output_name);
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
         keyboards.push_back(std::unique_ptr<wf_keyboard> (new wf_keyboard(dev, core->config)));
 
@@ -74,7 +75,8 @@ void input_manager::handle_new_input(wlr_input_device *dev)
         configure_input_device(wlr_libinput_get_device_handle(dev));
 
     auto section = core->config->get_section(nonull(dev->name));
-    auto mapped_output = section->get_option("output", nonull(dev->output_name))->raw_value;
+    auto mapped_output = section->get_option("output",
+        nonull(dev->output_name))->as_string();
 
     auto wo = core->get_output(mapped_output);
     if (wo)
