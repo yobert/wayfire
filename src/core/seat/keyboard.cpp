@@ -126,6 +126,22 @@ wf_keyboard::~wf_keyboard()
 }
 
 /* input manager things */
+
+void input_manager::set_keyboard_focus(wlr_surface *surface, wlr_seat *seat)
+{
+    auto kbd = wlr_seat_get_keyboard(seat);
+    /* Don't focus if we have an active grab */
+    if (kbd != NULL && !active_grab)
+    {
+        wlr_seat_keyboard_notify_enter(seat, surface, kbd->keycodes,
+            kbd->num_keycodes, &kbd->modifiers);
+    } else
+    {
+        wlr_seat_keyboard_notify_enter(seat, surface, NULL, 0, NULL);
+    }
+}
+
+
 static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
 {
     if (!session)

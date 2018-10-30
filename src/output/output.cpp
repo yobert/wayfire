@@ -516,19 +516,6 @@ void wayfire_output::bring_to_front(wayfire_view v) {
     v->damage();
 }
 
-void wayfire_output::set_keyboard_focus(wlr_surface *surface, wlr_seat *seat)
-{
-    auto kbd = wlr_seat_get_keyboard(seat);
-    if (kbd != NULL) {
-        wlr_seat_keyboard_notify_enter(seat, surface,
-                                       kbd->keycodes, kbd->num_keycodes,
-                                       &kbd->modifiers);                                                                                                            
-    } else
-    {
-        wlr_seat_keyboard_notify_enter(seat, surface, NULL, 0, NULL);
-    }
-}
-
 /* sets the "active" view and gives it keyboard focus
  *
  * It maintains two different classes of "active views"
@@ -563,13 +550,13 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
     active_view = v;
     if (active_view)
     {
-        set_keyboard_focus(active_view->get_keyboard_focus_surface(), seat);
+        core->input->set_keyboard_focus(active_view->get_keyboard_focus_surface(), seat);
 
         if (!refocus)
             active_view->activate(true);
     } else
     {
-        set_keyboard_focus(NULL, seat);
+        core->input->set_keyboard_focus(NULL, seat);
     }
 
     if (!active_view || active_view->role == WF_VIEW_ROLE_TOPLEVEL)

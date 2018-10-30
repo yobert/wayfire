@@ -101,9 +101,6 @@ class wayfire_output : public wf_object_base
        void attach_view(wayfire_view v);
        void detach_view(wayfire_view v);
 
-       /* TODO: unexport, or move to input_manager */
-       void set_keyboard_focus(wlr_surface *surface, wlr_seat *seat);
-
        /* sets keyboard focus and active_view */
        void set_active_view(wayfire_view v, wlr_seat *seat = nullptr);
 

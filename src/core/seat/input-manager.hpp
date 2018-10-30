@@ -125,6 +125,8 @@ class input_manager
         void update_capabilities();
         void set_cursor(wlr_seat_pointer_request_set_cursor_event *ev);
 
+        void set_keyboard_focus(wlr_surface *surface, wlr_seat *seat);
+
         bool grab_input(wayfire_grab_interface);
         void ungrab_input();
         bool input_grabbed();

@@ -167,7 +167,7 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
     mods.depressed = 0;
     wlr_seat_keyboard_send_modifiers(seat, &mods);
 
-    iface->output->set_keyboard_focus(NULL, seat);
+    set_keyboard_focus(NULL, seat);
     update_cursor_focus(nullptr, 0, 0);
     core->set_cursor("default");
     return true;
