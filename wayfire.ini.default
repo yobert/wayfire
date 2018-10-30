@@ -147,7 +147,20 @@ toggle = <super>
 # necessary for aero-snap functionality of the move plugin
 [grid]
 duration = 332.000000
+
+# how to animate. Possible values: none, simple, wobbly
 type = simple
+
+# configure keybindings for particular slots
+slot_bl = <ctrl> <alt> KEY_KP1
+slot_b  = <ctrl> <alt> KEY_KP2
+slot_br = <ctrl> <alt> KEY_KP3
+slot_l  = <ctrl> <alt> KEY_KP4
+slot_c  = <ctrl> <alt> KEY_KP5
+slot_r  = <ctrl> <alt> KEY_KP6
+slot_tl = <ctrl> <alt> KEY_KP7
+slot_t  = <ctrl> <alt> KEY_KP8
+slot_tr = <ctrl> <alt> KEY_KP9
 
 # move windows around
 [move]
