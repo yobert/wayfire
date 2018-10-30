@@ -215,3 +215,8 @@ toggle = <super> <shift> KEY_I
 # doesn't work very well with some other plugins
 [wrot]
 activate = <alt> BTN_RIGHT
+
+# Default decorations around Xwayland windows
+[decoration]
+# can also be monospace, etc.
+font = serif

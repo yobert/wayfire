@@ -3,6 +3,6 @@
 
 #include <view.hpp>
 
-void init_view(wayfire_view view);
+void init_view(wayfire_view view, wf_option font);
 
 #endif /* end of include guard: DECO_SUBSURFACE_HPP */

@@ -28,7 +28,7 @@ const int titlebar_thickness = 30;
 const int resize_edge_threshold = 5;
 const int normal_thickness = resize_edge_threshold;
 
-GLuint get_text_texture(int width, int height, std::string text)
+GLuint get_text_texture(int width, int height, std::string text, std::string cairo_font)
 {
     const auto format = CAIRO_FORMAT_ARGB32;
     auto surface = cairo_image_surface_create(format, width, height);
@@ -38,7 +38,8 @@ GLuint get_text_texture(int width, int height, std::string text)
     const float font_size = height * font_scale;
 
     // render text
-    cairo_select_font_face(cr, "serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_select_font_face(cr, cairo_font.c_str(), CAIRO_FONT_SLANT_NORMAL,
+        CAIRO_FONT_WEIGHT_NORMAL);
     cairo_set_source_rgba(cr, 1, 1, 1, 1);
 
     cairo_set_font_size(cr, font_size);
@@ -69,6 +70,7 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
     int titlebar = titlebar_thickness;
 
     wayfire_view view;
+    wf_option font_option;
     signal_callback_t title_set;
 
     protected:
@@ -85,8 +87,9 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
         }
 
     public:
-        simple_decoration_surface(wayfire_view view)
+        simple_decoration_surface(wayfire_view view, wf_option font)
         {
+            this->font_option = font;
             this->view = view;
             title_set = [=] (signal_data *data)
             {
@@ -146,7 +149,10 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
             wlr_render_quad_with_matrix(core->renderer, active ? border_color : border_color_inactive, matrix);
 
             if (tex == (uint)-1)
-                tex = get_text_texture(geometry.width, titlebar, view->get_title());
+            {
+                tex = get_text_texture(geometry.width, titlebar,
+                    view->get_title(), font_option->as_string());
+            }
 
             auto ortho = glm::ortho(0.0f, 1.0f * fb.width, 1.0f * fb.height, 0.0f);
 
@@ -357,9 +363,9 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
         };
 };
 
-void init_view(wayfire_view view)
+void init_view(wayfire_view view, wf_option font)
 {
-    auto surf = new simple_decoration_surface(view);
+    auto surf = new simple_decoration_surface(view, font);
     view->set_decoration(surf);
     view->damage();
 }
