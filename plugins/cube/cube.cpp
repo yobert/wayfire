@@ -4,14 +4,19 @@
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
 #include <animation.hpp>
+#include <nonstd/make_unique.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <linux/input-event-codes.h>
 #include <config.h>
 
-#define COEFF_DELTA_NEAR 0.89567f
-#define COEFF_DELTA_FAR  2.00000f
+#define Z_OFFSET_NEAR 0.89567f
+#define Z_OFFSET_FAR  2.00000f
+
+#define ZOOM_MAX 10.0f
+#define ZOOM_MIN 0.1f
+
 
 #ifdef USE_GLES32
 #include <GLES3/gl32.h>
@@ -20,22 +25,18 @@
 class wayfire_cube : public wayfire_plugin_t
 {
     button_callback activate;
-    wf_option act_button;
+    render_hook_t renderer;
 
-    std::vector<wf_workspace_stream*> streams;
+    std::vector<std::unique_ptr<wf_workspace_stream>> streams;
 
     wf_option XVelocity, YVelocity, ZVelocity;
 
-    float MaxFactor = 10;
+    float side_angle;
+    /* the Z camera distance so that (-1, 1) is mapped to the whole screen
+     * for the given FOV */
+    float identity_z_offset;
 
-    float angle;      // angle between sides
-    float offset;     // horizontal rotation angle
-    float offsetVert; // vertical rotation angle
-    float zoomFactor = 1.0;
-
-    int px, py;
-
-    render_hook_t renderer;
+    wf_point grab_pos;
 
     struct {
         GLuint id = -1;
@@ -47,13 +48,11 @@ class wayfire_cube : public wayfire_plugin_t
 #endif
     } program;
 
-    struct duple { float start, end; };
-
     struct
     {
-        wf_transition offset_y, offset_z, rotation;
+        wf_transition offset_y {0, 0}, offset_z {0, 0}, rotation {0, 0}, zoom{1, 1};
 #ifdef USE_GLES32
-        wf_transition ease_deformation;
+        wf_transition ease_deformation{0, 0};
 #endif
 
         bool in_exit, active = false;
@@ -61,12 +60,12 @@ class wayfire_cube : public wayfire_plugin_t
 
     wf_duration duration;
 
+
+
     glm::mat4 vp, model, view, project;
-    float coeff;
 
 #ifdef USE_GLES32
     wf_option use_light, use_deform;
-    float current_ease;
 #endif
 
     wf_option background_color;
@@ -80,19 +79,21 @@ class wayfire_cube : public wayfire_plugin_t
 
         auto section = config->get_section("cube");
 
-        XVelocity  = section->get_option("speed_spin_horiz", "0.01");
-        YVelocity  = section->get_option("speed_spin_vert",  "0.01");
+        XVelocity  = section->get_option("speed_spin_horiz", "0.1");
+        YVelocity  = section->get_option("speed_spin_vert",  "0.1");
         ZVelocity  = section->get_option("speed_zoom",       "0.05");
 
         duration = wf_duration(section->get_option("initial_animation", "350"));
+        duration.start();
+
         background_color = section->get_option("background", "0 0 0 1");
 
-        act_button = section->get_option("activate", "<alt> <ctrl> BTN_LEFT");
-        activate = [=] (uint32_t, int32_t x, int32_t y) {
-            initiate(x, y);
+        auto button = section->get_option("activate", "<alt> <ctrl> BTN_LEFT");
+        activate = [=] (uint32_t, int32_t, int32_t) {
+            initiate();
         };
 
-        output->add_button(act_button, &activate);
+        output->add_button(button, &activate);
 
         grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t s)
         {
@@ -100,9 +101,9 @@ class wayfire_cube : public wayfire_plugin_t
                 input_released();
         };
 
-        grab_interface->callbacks.pointer.motion = [=] (int32_t x, int32_t y)
+        grab_interface->callbacks.pointer.motion = [=] (int32_t, int32_t)
         {
-            pointer_moved(x, y);
+            pointer_moved();
         };
 
         grab_interface->callbacks.pointer.axis = [=] (
@@ -123,8 +124,10 @@ class wayfire_cube : public wayfire_plugin_t
 #endif
 
         auto vw = std::get<0>(output->workspace->get_workspace_grid_size());
-        angle = 2 * M_PI / float(vw);
-        coeff = 0.5 / std::tan(angle / 2);
+        side_angle = 2 * M_PI / float(vw);
+        identity_z_offset = 0.5 / std::tan(side_angle / 2);
+        animation.offset_z = {identity_z_offset + Z_OFFSET_NEAR,
+            identity_z_offset + Z_OFFSET_NEAR};
 
         renderer = [=] (uint32_t fb) {render(fb);};
     }
@@ -212,20 +215,19 @@ class wayfire_cube : public wayfire_plugin_t
         }
 
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
-        (void) vh;
+        (void) vh; // silence compiler warning
 
         streams.resize(vw);
-
-
-        for(int i = 0; i < vw; i++) {
-            streams[i] = new wf_workspace_stream;
+        for(int i = 0; i < vw; i++)
+        {
+            streams[i] = nonstd::make_unique<wf_workspace_stream>();
             streams[i]->fbuff = streams[i]->tex = -1;
         }
 
         project = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
     }
 
-    void initiate(int x, int y)
+    void initiate()
     {
         if (!animation.active)
         {
@@ -239,36 +241,28 @@ class wayfire_cube : public wayfire_plugin_t
         animation.in_exit = false;
         animation.active = true;
 
-        offset = 0;
-        offsetVert = 0;
-        zoomFactor = 1;
-        duration.start();
-        animation.in_exit = false;
-        animation.offset_z = {coeff + COEFF_DELTA_NEAR, coeff + COEFF_DELTA_FAR};
+        animation.rotation = {duration.progress(animation.rotation), 0};
+        animation.offset_y = {duration.progress(animation.offset_y), 0};
+        animation.offset_z = {duration.progress(animation.offset_z),
+            identity_z_offset + Z_OFFSET_FAR};
+        animation.zoom = {duration.progress(animation.zoom), 1};
         animation.ease_deformation = {0, 1};
+
+        duration.start();
 
         if (update_animation())
             schedule_next_frame();
 
-        px = x;
-        py = y;
+        GetTuple(px, py, output->get_cursor_position());
+        grab_pos = {px, py};
     }
 
     bool update_animation()
     {
-        float z_offset = duration.progress(animation.offset_z);
-        current_ease = duration.progress(animation.ease_deformation);
-
-        /* also update rotation and Y offset */
-        if (animation.in_exit)
-        {
-            offsetVert = duration.progress(animation.offset_y);
-            offset = duration.progress(animation.rotation);
-        }
-
-        view = glm::lookAt(glm::vec3(0., offsetVert, z_offset),
-                glm::vec3(0., 0., 0.),
-                glm::vec3(0., 1., 0.));
+        view = glm::lookAt(glm::vec3(0., duration.progress(animation.offset_y),
+                duration.progress(animation.offset_z)),
+            glm::vec3(0., 0., 0.),
+            glm::vec3(0., 1., 0.));
 
         return duration.running();
     }
@@ -289,9 +283,9 @@ class wayfire_cube : public wayfire_plugin_t
         for(size_t i = 0; i < streams.size(); i++) {
             if (!streams[i]->running) {
                 streams[i]->ws = std::make_tuple(i, vy);
-                output->render->workspace_stream_start(streams[i]);
+                output->render->workspace_stream_start(streams[i].get());
             } else {
-                output->render->workspace_stream_update(streams[i]);
+                output->render->workspace_stream_update(streams[i].get());
             }
         }
 
@@ -302,9 +296,9 @@ class wayfire_cube : public wayfire_plugin_t
         OpenGL::use_device_viewport();
         GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_fb));
 
+        float zoom_factor = duration.progress(animation.zoom);
         glm::mat4 scale_matrix = glm::scale(glm::mat4(1.0),
-                glm::vec3(1. / zoomFactor, 1. / zoomFactor,
-                    1. / zoomFactor));
+                glm::vec3(1. / zoom_factor, 1. / zoom_factor, 1. / zoom_factor));
 
         vp = output->render->get_target_framebuffer().transform *
             project * view * scale_matrix;
@@ -314,7 +308,8 @@ class wayfire_cube : public wayfire_plugin_t
         {
             GL_CALL(glUniform1i(program.defID, *use_deform));
             GL_CALL(glUniform1i(program.lightID, *use_light));
-            GL_CALL(glUniform1f(program.easeID, current_ease));
+            GL_CALL(glUniform1f(program.easeID,
+                    duration.progress(animation.ease_deformation)));
         }
 
         GLfloat vertexData[] = {
@@ -355,9 +350,11 @@ class wayfire_cube : public wayfire_plugin_t
             GL_CALL(glActiveTexture(GL_TEXTURE0));
 
             model = glm::rotate(glm::mat4(1.0),
-                    float(i) * angle + offset, glm::vec3(0, 1, 0));
-            model = glm::translate(model, glm::vec3(0, 0, coeff));
-           GL_CALL(glUniformMatrix4fv(program.modelID, 1, GL_FALSE, &model[0][0]));
+                float(i) * side_angle + float(duration.progress(animation.rotation)),
+                glm::vec3(0, 1, 0));
+
+            model = glm::translate(model, glm::vec3(0, 0, identity_z_offset));
+            GL_CALL(glUniformMatrix4fv(program.modelID, 1, GL_FALSE, &model[0][0]));
 
            if (tessellation_support)
            {
@@ -385,19 +382,22 @@ class wayfire_cube : public wayfire_plugin_t
     {
         int size = streams.size();
 
-        float dx = -(offset) / angle;
+        float dx = -duration.progress(animation.rotation) / side_angle;
         int dvx = std::floor(dx + 0.5);
 
         GetTuple(vx, vy, output->workspace->get_current_workspace());
         int nvx = (vx + (dvx % size) + size) % size;
         output->workspace->set_workspace(std::make_tuple(nvx, vy));
 
-        duration.start();
+
         animation.in_exit = true;
-        animation.offset_z = {coeff + COEFF_DELTA_FAR, coeff + COEFF_DELTA_NEAR};
-        animation.offset_y = {offsetVert, 0};
-        animation.rotation = {offset + 1.0f * dvx * angle, 0};
-        animation.ease_deformation = {1, 0};
+        animation.zoom = {duration.progress(animation.zoom), 1.0};
+        animation.offset_z = {duration.progress(animation.offset_z), identity_z_offset + Z_OFFSET_NEAR};
+        animation.offset_y = {duration.progress(animation.offset_y), 0};
+        animation.rotation = {duration.progress(animation.rotation) + 1.0f * dvx * side_angle, 0};
+        animation.ease_deformation = {duration.progress(animation.ease_deformation), 0};
+
+        duration.start();
 
         update_animation();
         schedule_next_frame();
@@ -413,32 +413,52 @@ class wayfire_cube : public wayfire_plugin_t
 
         auto size = streams.size();
         for (uint i = 0; i < size; i++)
-            output->render->workspace_stream_stop(streams[i]);
+            output->render->workspace_stream_stop(streams[i].get());
     }
 
-    void pointer_moved(int x, int y)
+    void pointer_moved()
     {
+        GetTuple(cx, cy, output->get_cursor_position());
         if (animation.in_exit)
             return;
 
-        int xdiff = x - px;
-        int ydiff = y - py;
-        offset += xdiff * XVelocity->as_cached_double();
-        offsetVert += ydiff * YVelocity->as_cached_double();
-        px = x, py = y;
+        int xdiff = grab_pos.x - cx;
+        int ydiff = grab_pos.y - cy;
 
+        animation.zoom = {duration.progress(animation.zoom), animation.zoom.end};
+
+        float current_off_y = duration.progress(animation.offset_y);
+        animation.offset_y = {current_off_y, current_off_y - ydiff * YVelocity->as_cached_double()} ;
+        animation.offset_z = {duration.progress(animation.offset_z), animation.offset_z.end};
+
+        float current_rotation = duration.progress(animation.rotation);
+        animation.rotation = {current_rotation,
+            current_rotation - xdiff * XVelocity->as_cached_double()};
+
+        animation.ease_deformation = {duration.progress(animation.ease_deformation),
+            animation.ease_deformation.end};
+
+        duration.start();
+
+        grab_pos = {cx, cy};
         schedule_next_frame();
     }
 
     void pointer_scrolled(double amount)
     {
-        zoomFactor += amount * ZVelocity->as_cached_double();
+        animation.offset_y = {duration.progress(animation.offset_y), animation.offset_y.end} ;
+        animation.offset_z = {duration.progress(animation.offset_z), animation.offset_z.end};
+        animation.rotation = {duration.progress(animation.rotation), animation.rotation.end};
+        animation.ease_deformation = {duration.progress(animation.ease_deformation), animation.ease_deformation.end};
 
-        if (zoomFactor > MaxFactor)
-            zoomFactor = MaxFactor;
+        float target_zoom = duration.progress(animation.zoom);
+        float start_zoom = target_zoom;
 
-        if (zoomFactor <= 0.1)
-            zoomFactor = 0.1;
+        target_zoom +=  std::min(std::pow(target_zoom, 1.5f), ZOOM_MAX) * amount * ZVelocity->as_cached_double();
+        target_zoom = std::min(std::max(target_zoom, ZOOM_MIN), ZOOM_MAX);
+        animation.zoom = {start_zoom, target_zoom};
+
+        duration.start();
 
         schedule_next_frame();
     }
