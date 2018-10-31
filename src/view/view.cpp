@@ -484,8 +484,16 @@ void wayfire_view_t::take_snapshot()
         int(buffer_geometry.height * scale) != offscreen_buffer.fb_height ||
         offscreen_buffer.fb_scale != scale)
     {
+        // scale/size changed, invalidate offscreen buffer
+        last_offscreen_buffer_age = -1;
         offscreen_buffer.fini();
     }
+
+    /* Nothing has changed, the last buffer is still valid */
+    if (buffer_age <= last_offscreen_buffer_age)
+        return;
+
+    last_offscreen_buffer_age = buffer_age;
 
     offscreen_buffer.fb_scale = scale;
     if (!offscreen_buffer.valid())

@@ -63,6 +63,8 @@ class wayfire_surface_t
 {
     /* TODO: maybe some functions don't need to be virtual? */
     protected:
+        // number of commits to this surface or any child since the surface was created
+        int64_t buffer_age = 0;
 
         wl_listener committed, destroy, new_sub;
         virtual void for_each_surface_recursive(wf_surface_iterator_callback callback,
@@ -205,6 +207,9 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
             bool valid();
 
         } offscreen_buffer;
+
+        // the last buffer_age of this view for which the buffer was made
+        int64_t last_offscreen_buffer_age = -1;
 
         struct transform_t
         {

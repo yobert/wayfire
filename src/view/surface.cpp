@@ -321,6 +321,14 @@ void wayfire_surface_t::commit()
          * a frame callback */
         output->render->schedule_redraw();
     }
+
+    buffer_age++;
+    auto parent = this->parent_surface;
+    while (parent)
+    {
+        parent->buffer_age++;
+        parent = parent->parent_surface;
+    }
 }
 
 void wayfire_surface_t::set_output(wayfire_output *out)
