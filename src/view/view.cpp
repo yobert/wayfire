@@ -874,21 +874,24 @@ void wayfire_view_t::destroy()
     dec_keep_count();
 }
 
-void wayfire_view_t::set_toplevel_parent(wayfire_view parent)
+void wayfire_view_t::set_toplevel_parent(wayfire_view new_parent)
 {
-    if (parent == this->parent)
+    /* Nothing changed */
+    if (new_parent == parent)
         return;
 
+    /* Erase from the old parent */
     if (parent)
-    {
-        parent->children.push_back(self());
-    } else
     {
         auto it = std::remove(this->parent->children.begin(), this->parent->children.end(), self());
         this->parent->children.erase(it, this->parent->children.end());
     }
 
-    this->parent = parent;
+    /* Add in the list of the new parent */
+    if (new_parent)
+        new_parent->children.push_back(self());
+
+    parent = new_parent;
 
     /* if the view isn't mapped, then it will be positioned properly in map() */
     if (is_mapped())
