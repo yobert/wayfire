@@ -51,7 +51,7 @@ void wayfire_view_t::set_output(wayfire_output *wo)
 
 wayfire_view wayfire_view_t::self()
 {
-    return core->find_view((wayfire_surface_t*) this);
+    return wayfire_view(this);
 }
 
 bool wayfire_view_t::is_visible()
@@ -469,9 +469,14 @@ void wayfire_view_t::offscreen_buffer_t::fini()
     fbo = tex = -1;
 }
 
+bool wayfire_view_t::can_take_snapshot()
+{
+    return get_buffer();
+}
+
 void wayfire_view_t::take_snapshot()
 {
-    if (!get_buffer())
+    if (!can_take_snapshot())
         return;
 
     auto buffer_geometry = get_untransformed_bounding_box();
@@ -524,7 +529,7 @@ void wayfire_view_t::take_snapshot()
 void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
 {
     in_paint = true;
-    if (transforms.size())
+    if (has_transformer())
     {
         pixman_region32_t fb_region;
         if (damage == NULL)

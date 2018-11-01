@@ -380,6 +380,7 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         virtual void render_fb(pixman_region32_t* damage, wf_framebuffer framebuffer);
 
         bool has_snapshot = false;
+        virtual bool can_take_snapshot();
         virtual void take_snapshot();
 };
 

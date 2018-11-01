@@ -20,6 +20,7 @@ wayfire_sources = ['main.cpp',
                    'view/xwayland.cpp',
                    'view/layer-shell.cpp',
                    'view/view-3d.cpp',
+                   'view/compositor-view.cpp',
 
                    'output/plugin-loader.cpp',
                    'output/output.cpp',

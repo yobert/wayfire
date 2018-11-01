@@ -6,6 +6,7 @@
 #include "signal-definitions.hpp"
 #include "render-manager.hpp"
 #include "workspace-manager.hpp"
+#include "compositor-view.hpp"
 #include "wayfire-shell.hpp"
 #include "../core/seat/input-manager.hpp"
 
@@ -550,7 +551,7 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
     active_view = v;
     if (active_view)
     {
-        core->input->set_keyboard_focus(active_view->get_keyboard_focus_surface(), seat);
+        core->input->set_keyboard_focus(active_view, seat);
 
         if (!refocus)
             active_view->activate(true);
@@ -574,7 +575,8 @@ void wayfire_output::focus_view(wayfire_view v, wlr_seat *seat)
 
     if (v && v->is_mapped())
     {
-        if (v->get_keyboard_focus_surface())
+        if (v->get_keyboard_focus_surface() ||
+            interactive_view_from_view(v.get()))
         {
             set_active_view(v, seat);
             bring_to_front(v);
