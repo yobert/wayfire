@@ -158,7 +158,6 @@ class wf_wobbly : public wf_view_transformer_t
     bool has_active_grab = false;
     int grab_x = 0, grab_y = 0;
 
-    wlr_box last_boundingbox;
     wf_geometry snapped_geometry;
     uint32_t last_frame;
 
@@ -169,7 +168,6 @@ class wf_wobbly : public wf_view_transformer_t
         this->view = view;
         model = nonstd::make_unique<wobbly_surface> ();
         auto g = view->get_bounding_box();
-        last_boundingbox = g;
 
         model->x = g.x;
         model->y = g.y;
@@ -236,8 +234,10 @@ class wf_wobbly : public wf_view_transformer_t
     void update_model()
     {
         view->damage();
+
+        auto bbox = view->get_bounding_box("wobbly");
         if (snapped_geometry.width <= 0)
-            resize(last_boundingbox.width, last_boundingbox.height);
+            resize(bbox.width, bbox.height);
 
         auto now = get_time();
         wobbly_prepare_paint(model.get(), now - last_frame);
@@ -251,7 +251,7 @@ class wf_wobbly : public wf_view_transformer_t
         if (snapped_geometry.width <= 0 && !has_active_grab)
         {
             auto wm = view->get_wm_geometry();
-            view->move(model->x + wm.x - last_boundingbox.x, model->y + wm.y - last_boundingbox.y, false);
+            view->move(model->x + wm.x - bbox.x, model->y + wm.y - bbox.y, false);
         }
 
         if (!has_active_grab && model->synced)
@@ -261,7 +261,6 @@ class wf_wobbly : public wf_view_transformer_t
     virtual void render_with_damage(uint32_t src_tex, wlr_box src_box,
                             wlr_box scissor_box, const wf_framebuffer& target_fb)
     {
-        last_boundingbox = src_box;
         target_fb.bind();
         target_fb.scissor(scissor_box);
 
@@ -384,8 +383,6 @@ class wf_wobbly : public wf_view_transformer_t
         int dx = wm.x - old_geometry.x;
         int dy = wm.y - old_geometry.y;
         translate(dx, dy);
-        last_boundingbox.x += dx;
-        last_boundingbox.y += dy;
     }
 
     virtual ~wf_wobbly()
