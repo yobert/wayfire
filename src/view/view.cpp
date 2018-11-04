@@ -137,7 +137,7 @@ void wayfire_view_t::resize(int w, int h, bool send_signal)
 
 wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx, int& sy)
 {
-    if (!is_mapped())
+    if (!_is_mapped || !is_mapped())
         return nullptr;
 
     wayfire_surface_t *ret = NULL;
@@ -167,6 +167,14 @@ wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx
         });
 
     return ret;
+}
+
+wlr_surface *wayfire_view_t::get_keyboard_focus_surface()
+{
+    if (_is_mapped)
+        return surface;
+
+    return NULL;
 }
 
 void wayfire_view_t::set_geometry(wf_geometry g)
@@ -741,6 +749,7 @@ void wayfire_view_t::reposition_relative_to_parent()
 
 void wayfire_view_t::map(wlr_surface *surface)
 {
+    _is_mapped = true;
     wayfire_surface_t::map(surface);
 
     if (role == WF_VIEW_ROLE_TOPLEVEL && !parent && !maximized && !fullscreen)
@@ -777,6 +786,8 @@ void emit_view_unmap(wayfire_view view)
 
 void wayfire_view_t::unmap()
 {
+    _is_mapped = false;
+
     if (parent)
         set_toplevel_parent(nullptr);
 

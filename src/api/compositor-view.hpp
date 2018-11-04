@@ -29,7 +29,7 @@ class wayfire_compositor_view_t : virtual public wayfire_compositor_surface_t, v
 
     public:
 
-        virtual bool is_mapped() { return map_state; }
+        virtual bool is_mapped() { return _is_mapped; }
         virtual void send_frame_done(const timespec& now) {}
 
         /* override this if you want to get pointer events or to stop input passthrough */
@@ -67,7 +67,6 @@ class wayfire_compositor_view_t : virtual public wayfire_compositor_surface_t, v
 
         virtual void get_child_offset(int &x, int &y) { x = y = 0;}
 
-        bool map_state = false;
         virtual void map();
         virtual void map(wlr_surface *surface) {map();}
         virtual void unmap();

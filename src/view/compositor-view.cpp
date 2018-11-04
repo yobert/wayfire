@@ -30,25 +30,24 @@ wf_geometry wayfire_compositor_view_t::get_wm_geometry()
 
 void wayfire_compositor_view_t::map()
 {
-    if (map_state)
+    if (_is_mapped)
         return;
+    _is_mapped = true;
 
     output->attach_view(self());
     emit_view_map(self());
     emit_map_state_change(this);
-
-    map_state = true;
 }
 
 void wayfire_compositor_view_t::unmap()
 {
-    if (!map_state)
+    if (!_is_mapped)
         return;
 
     if (output)
         emit_view_unmap(self());
 
-    map_state = false;
+    _is_mapped = false;
 
     if (output)
         emit_map_state_change(this);
