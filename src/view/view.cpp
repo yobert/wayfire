@@ -435,6 +435,8 @@ void wayfire_view_t::damage(const wlr_box& box)
     {
         output->render->damage(damage_box);
     }
+
+    emit_signal("damaged-region", nullptr);
 }
 
 void wayfire_view_t::offscreen_buffer_t::init(int w, int h)
@@ -515,6 +517,7 @@ void wayfire_view_t::take_snapshot()
     wlr_renderer_end(core->renderer);
 
     wlr_fb_attribs fb;
+    fb.fb = offscreen_buffer.fbo;
     fb.width = offscreen_buffer.fb_width;
     fb.height = offscreen_buffer.fb_height;
 
@@ -708,6 +711,7 @@ void emit_view_map(wayfire_view view)
     map_view_signal data;
     data.view = view;
     view->get_output()->emit_signal("map-view", &data);
+    view->emit_signal("map", &data);
     emit_map_state_change(view.get());
 }
 
@@ -766,7 +770,9 @@ void emit_view_unmap(wayfire_view view)
 {
     unmap_view_signal data;
     data.view = view;
+
     view->get_output()->emit_signal("unmap-view", &data);
+    view->emit_signal("unmap", &data);
 }
 
 void wayfire_view_t::unmap()
@@ -779,6 +785,7 @@ void wayfire_view_t::unmap()
         c->set_toplevel_parent(nullptr);
 
     log_info("unmap %s %s %p", get_title().c_str(), get_app_id().c_str(), this);
+
     if (output)
         emit_view_unmap(self());
 

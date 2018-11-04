@@ -55,11 +55,10 @@ class wayfire_cvtest : public wayfire_plugin_t
 
         void test()
         {
-            auto cv = new test_view;
+            auto cv = new wayfire_mirror_view_t(output->get_top_view());
+
             auto v = std::unique_ptr<wayfire_view_t>{cv};
             core->add_view(std::move(v));
-
-            cv->set_geometry({100, 100, 100, 100});
             cv->map();
         }
 };

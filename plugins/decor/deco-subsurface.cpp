@@ -195,13 +195,7 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
         {
             GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb.fb));
             auto obox = get_output_geometry();
-
-            wlr_fb_attribs attribs;
-            attribs.width = output->handle->width;
-            attribs.height = output->handle->height;
-            attribs.transform = output->handle->transform;
-
-            render_pixman(attribs, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
+            render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
         }
 
         /* all input events coordinates are surface-local */

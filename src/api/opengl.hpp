@@ -42,7 +42,9 @@ struct wf_framebuffer
 {
     GLuint tex = -1, fb = -1;
     wf_geometry geometry = {0, 0, 0, 0};
+
     glm::mat4 transform = glm::mat4(1.0);
+    uint32_t wl_transform = WL_OUTPUT_TRANSFORM_NORMAL;
 
     uint32_t viewport_width, viewport_height;
 

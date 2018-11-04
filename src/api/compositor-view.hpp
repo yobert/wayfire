@@ -77,4 +77,33 @@ class wayfire_compositor_view_t : virtual public wayfire_compositor_surface_t, v
         virtual void commit() {assert(false); }
 };
 
+/* A special type of compositor view - mirror view.
+ * It takes another view and has the same size & contents, plus it "inherits"
+ * all the transforms of the original view. However, it can have additional transforms,
+ * be on another output, etc.
+ *
+ * The lifetime of a mirrored view isn't longer than that of the real view:
+ * once the base view gets unmapped, this one is automatically unmapped as well */
+class wayfire_mirror_view_t : public wayfire_compositor_view_t
+{
+    signal_callback_t base_view_unmapped, base_view_damaged;
+
+    protected:
+    virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
+    virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage);
+    wayfire_view original_view;
+
+    public:
+    wayfire_mirror_view_t(wayfire_view original_view);
+
+    virtual bool can_take_snapshot();
+    virtual void take_snapshot();
+
+    virtual wf_point get_output_position();
+    virtual wf_geometry get_output_geometry();
+    virtual wf_geometry get_wm_geometry();
+
+    virtual wayfire_view get_original_view() { return original_view; }
+};
+
 #endif /* end of include guard: COMPOSITOR_VIEW_HPP */

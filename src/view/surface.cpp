@@ -407,8 +407,10 @@ void wayfire_surface_t::_wlr_render_box(const wlr_fb_attribs& fb, int x, int y, 
                            0, projection);
 
     wlr_renderer_begin(core->renderer, fb.width, fb.height);
+
     auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
     wlr_render_texture_with_matrix(core->renderer, get_buffer()->texture, matrix, alpha);
+
 
 #ifdef WAYFIRE_GRAPHICS_DEBUG
     float scissor_proj[9];
@@ -455,11 +457,5 @@ void wayfire_surface_t::render_fb(pixman_region32_t *damage, wf_framebuffer fb)
 
     GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb.fb));
     auto obox = get_output_geometry();
-
-    wlr_fb_attribs attribs;
-    attribs.width = output->handle->width;
-    attribs.height = output->handle->height;
-    attribs.transform = output->handle->transform;
-
-    render_pixman(attribs, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
+    render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
 }

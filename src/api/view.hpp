@@ -84,6 +84,10 @@ class wayfire_surface_t
 
         struct wlr_fb_attribs
         {
+            wlr_fb_attribs();
+            wlr_fb_attribs(const wf_framebuffer& source);
+
+            uint32_t fb;
             int width, height;
             wl_output_transform transform = WL_OUTPUT_TRANSFORM_NORMAL;
         };
@@ -382,6 +386,9 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         bool has_snapshot = false;
         virtual bool can_take_snapshot();
         virtual void take_snapshot();
+
+        /* NOT API */
+        int64_t get_buffer_age() { return buffer_age; }
 };
 
 wayfire_view wl_surface_to_wayfire_view(wl_resource *surface);
