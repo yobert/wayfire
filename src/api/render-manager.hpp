@@ -58,6 +58,7 @@ class render_manager
 
         bool dirty_context = true;
         void load_context();
+        void release_context();
 
         bool draw_overlay_panel = true;
 
@@ -94,7 +95,7 @@ class render_manager
         void init_default_streams();
 
     public:
-        static OpenGL::context_t *ctx;
+        OpenGL::context_t *ctx;
 
         render_manager(wayfire_output *o);
         ~render_manager();
