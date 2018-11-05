@@ -48,6 +48,6 @@ static wayfire_compositor_surface_t *wf_compositor_surface_from_surface(wayfire_
     return dynamic_cast<wayfire_compositor_surface_t*> (surface);
 }
 
-/* TODO: implement compositor views - needs a real use-case */
+void emit_map_state_change(wayfire_surface_t *surface);
 
 #endif /* end of include guard: COMPOSITOR_SURFACE_HPP */

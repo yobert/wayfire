@@ -103,7 +103,6 @@ wayfire_mirror_view_t::wayfire_mirror_view_t(wayfire_view original_view)
     this->original_view = original_view;
 
     base_view_unmapped = [=] (signal_data*) {
-        this->original_view = nullptr;
         unmap();
         destroy();
     };
@@ -190,4 +189,12 @@ wf_geometry wayfire_mirror_view_t::get_wm_geometry()
     geometry.height = bbox.height;
 
     return geometry;
+}
+
+void wayfire_mirror_view_t::unmap()
+{
+    original_view->disconnect_signal("damaged-region", &base_view_damaged);
+
+    original_view = nullptr;
+    wayfire_compositor_view_t::unmap();
 }

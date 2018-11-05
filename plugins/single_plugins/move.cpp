@@ -3,10 +3,61 @@
 #include <view.hpp>
 #include <workspace-manager.hpp>
 #include <render-manager.hpp>
+#include <compositor-view.hpp>
+
 #include <linux/input.h>
 #include <signal-definitions.hpp>
+
 #include "snap_signal.hpp"
 #include "../wobbly/wobbly-signal.hpp"
+
+class wf_move_mirror_view : public wayfire_mirror_view_t
+{
+    int _dx, _dy;
+    public:
+        wf_move_mirror_view(wayfire_view view, int dx, int dy) :
+            wayfire_mirror_view_t(view), _dx(dx), _dy(dy) { }
+
+    virtual wf_point get_output_position()
+    {
+        if (!original_view)
+            return {geometry.x, geometry.y};
+
+        geometry = original_view->get_bounding_box() + wf_point{_dx, _dy};
+        return {geometry.x, geometry.y};
+    }
+
+    virtual wf_geometry get_output_geometry()
+    {
+        if (original_view)
+            geometry = original_view->get_bounding_box() + wf_point{_dx, _dy};
+        return geometry;
+    }
+
+    virtual wf_geometry get_wm_geometry()
+    {
+        if (original_view)
+            geometry = original_view->get_bounding_box() + wf_point{_dx, _dy};
+        return geometry;
+    }
+
+    virtual void map()
+    {
+        _is_mapped = true;
+        output->attach_view(self());
+        emit_map_state_change(this);
+    }
+
+    virtual void unmap()
+    {
+        _is_mapped = false;
+
+        original_view->disconnect_signal("damaged-region", &base_view_damaged);
+        original_view = nullptr;
+
+        emit_map_state_change(this);
+    }
+};
 
 class wayfire_move : public wayfire_plugin_t
 {
@@ -18,8 +69,8 @@ class wayfire_move : public wayfire_plugin_t
     wf_option enable_snap, enable_snap_off, snap_threshold, snap_off_threshold;
     bool is_using_touch;
     bool was_client_request;
-    bool unsnapped = false; // if the view was maximized or snapped, we wait a little bit before moving the view
-    // while waiting, unsnapped = false
+
+    bool stuck_in_slot = false;
 
     int slot;
     wf_geometry grabbed_geometry;
@@ -156,7 +207,7 @@ class wayfire_move : public wayfire_plugin_t
                 return;
             }
 
-            unsnapped = !view->maximized;
+            stuck_in_slot = !view->maximized;
             grabbed_geometry = view->get_wm_geometry();
 
             GetTuple(sx, sy, get_input_coords());
@@ -170,10 +221,8 @@ class wayfire_move : public wayfire_plugin_t
             output->render->auto_redraw(true);
 
             start_wobbly(view, sx, sy);
-            if (!unsnapped)
+            if (!stuck_in_slot)
                 snap_wobbly(view, view->get_output_geometry());
-
-            core->set_cursor("grabbing");
         }
 
         void input_pressed(uint32_t state)
@@ -185,60 +234,73 @@ class wayfire_move : public wayfire_plugin_t
             output->deactivate_plugin(grab_interface);
             output->render->auto_redraw(false);
 
-            if (view)
+            /* The view was moved to another output or was destroyed,
+             * we don't have to do anything more */
+            if (!view)
+                return;
+
+            end_wobbly(view);
+            view->set_moving(false);
+
+            /* Delete any mirrors we have left */
+            delete_mirror_views();
+
+            /* Don't do snapping, etc for shell views */
+            if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
+                return;
+
+
+            /* Snap the view */
+            if (enable_snap && slot != 0)
             {
-                if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
-                    return;
-
-                end_wobbly(view);
-
-                view->set_moving(false);
-                if (enable_snap && slot != 0)
-                {
-                    snap_signal data;
-                    data.view = view;
-                    data.tslot = (slot_type)slot;
-                    output->emit_signal("view-snap", &data);
-                }
+                snap_signal data;
+                data.view = view;
+                data.tslot = (slot_type)slot;
+                output->emit_signal("view-snap", &data);
             }
         }
 
+        /* Calculate the slot to which the view would be snapped if the input
+         * is released at output-local coordinates (x, y) */
         int calc_slot(int x, int y)
         {
             auto g = output->workspace->get_workarea();
-
             if (!point_inside({x, y}, output->get_relative_geometry()))
                 return 0;
 
-            bool is_left = x - g.x <= snap_threshold->as_cached_int();
-            bool is_right = g.x + g.width - x <= snap_threshold->as_cached_int();
-            bool is_top = y - g.y < snap_threshold->as_cached_int();
-            bool is_bottom = g.x + g.height - y < snap_threshold->as_cached_int();
+            int threshold = snap_threshold->as_cached_int();
 
-            if (is_left && is_top)
-                return SLOT_TL;
-            else if (is_left && is_bottom)
-                return SLOT_BL;
-            else if (is_left)
-                return SLOT_LEFT;
-            else if (is_right && is_top)
-                return SLOT_TR;
-            else if (is_right && is_bottom)
-                return SLOT_BR;
-            else if (is_right)
-                return SLOT_RIGHT;
-            else if (is_top)
-                return SLOT_CENTER;
-            else if (is_bottom)
-                return SLOT_BOTTOM;
-            else
-                return 0;
+            bool is_left = x - g.x <= threshold;
+            bool is_right = g.x + g.width - x <= threshold;
+            bool is_top = y - g.y < threshold;
+            bool is_bottom = g.x + g.height - y < threshold;
+
+            int slot = 1;
+            if (is_top) {
+                slot += 6; // top slots are 7, 8, 9
+            } else if (!is_bottom) { // one of 4, 5, 6
+                slot += 3;
+            }
+
+            if (is_right) {
+                slot += 2; // one of 3, 6, 9
+            } else if (!is_left) {
+                slot += 1;
+            }
+
+            if (slot == 5) // in the center, no snap
+                slot = 0;
+
+            if (slot == 8) // maximize is drag to top
+                slot = 5;
+
+            return slot;
         }
 
         /* The input has moved enough so we remove the view from its slot */
         void unsnap()
         {
-            unsnapped = 1;
+            stuck_in_slot = 1;
             if (view->fullscreen)
                 view->fullscreen_request(view->get_output(), false);
             if (view->maximized)
@@ -289,6 +351,92 @@ class wayfire_move : public wayfire_plugin_t
             new_output->emit_signal("move-request", &req);
         }
 
+        struct wf_move_output_state : public wf_custom_data_t
+        {
+            wayfire_view view;
+        };
+
+        std::string get_data_name()
+        {
+            return "wf-move-" + output->to_string();
+        }
+
+        /* Destroys all mirror views created by this plugin */
+        void delete_mirror_views()
+        {
+            core->for_each_output([=] (wayfire_output *wo)
+            {
+                if (!wo->has_data(get_data_name()))
+                    return;
+
+                auto data = wo->get_data<wf_move_output_state> (
+                    get_data_name());
+
+                data->view->unmap();
+                data->view->destroy();
+
+                wo->erase_data(get_data_name());
+            });
+        }
+
+        /* Creates a new mirror view on output wo if it doesn't exist already */
+        void ensure_mirror_view(wayfire_output *wo)
+        {
+            if (wo->has_data(get_data_name()))
+                return;
+
+            auto base_output = output->get_full_geometry();
+            auto mirror_output = wo->get_full_geometry();
+
+            auto mirror = new wf_move_mirror_view(view, base_output.x - mirror_output.x,
+                base_output.y - mirror_output.y);
+
+            core->add_view(std::unique_ptr<wayfire_view_t> (mirror));
+
+            auto wo_state = wo->get_data_safe<wf_move_output_state> (get_data_name());
+            wo_state->view = mirror->self();
+
+            mirror->set_output(wo);
+            mirror->map();
+        }
+
+        /* Update the view position, with respect to the multi-output configuration
+         *
+         * Views in wayfire are visible on only a single output. However, when the user
+         * moves the view between outputs, it is desirable to temporarily show the view
+         * on all outputs whose boundaries it crosses. We emulate this behavior by creating
+         * mirror views of the view being moved, while fading them in and out when needed */
+        void update_multi_output()
+        {
+            /* The mouse isn't on our output anymore -> transfer ownership of
+             * the move operation to the other output where the input currently is */
+            GetTuple(global_x, global_y, get_global_input_coords());
+            auto target_output = core->get_output_at(global_x, global_y);
+            if (target_output != output)
+            {
+                /* The move plugin on the next output will create new mirror views */
+                delete_mirror_views();
+                move_to_output(target_output);
+                return;
+            }
+
+            auto current_og = output->get_full_geometry();
+            auto current_geometry = view->get_bounding_box() + wf_point{current_og.x, current_og.y};
+
+            core->for_each_output([=] (wayfire_output *wo)
+            {
+                if (wo == output) // skip the same output
+                    return;
+
+                auto og = output->get_full_geometry();
+
+                /* A view is visible on the other output as well */
+                if (rect_intersect(og, current_geometry))
+                    ensure_mirror_view(wo);
+            });
+        }
+
+
         void handle_input_motion()
         {
             GetTuple(x, y, get_input_coords());
@@ -299,23 +447,20 @@ class wayfire_move : public wayfire_plugin_t
             int dy = y - grab_start.y;
 
             if (std::sqrt(dx * dx + dy * dy) >= snap_off_threshold->as_cached_int() &&
-                !unsnapped && enable_snap_off->as_int())
+                !stuck_in_slot && enable_snap_off->as_int())
             {
                 unsnap();
             }
 
-            if (!unsnapped)
+            if (!stuck_in_slot)
                 return;
 
             view->move(grabbed_geometry.x + dx, grabbed_geometry.y + dy);
 
-            GetTuple(global_x, global_y, get_global_input_coords());
-            auto target_output = core->get_output_at(global_x, global_y);
-            if (target_output != output)
-                return move_to_output(target_output);
+            update_multi_output();
 
             /* TODO: possibly show some visual indication */
-            if (enable_snap)
+            if (enable_snap->as_cached_int())
                 slot = calc_slot(x, y);
         }
 

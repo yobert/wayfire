@@ -21,7 +21,7 @@ static wayfire_compositor_interactive_view *interactive_view_from_view(wayfire_v
 /* a base class for writing compositor views
  *
  * It can be used by plugins to create views with compositor-generated content */
-class wayfire_compositor_view_t : virtual public wayfire_compositor_surface_t, virtual public wayfire_view_t
+class wayfire_compositor_view_t : public wayfire_compositor_surface_t, public wayfire_view_t
 {
     protected:
         /* Implement _wlr_render_box to get something on screen */
@@ -85,9 +85,9 @@ class wayfire_compositor_view_t : virtual public wayfire_compositor_surface_t, v
  * once the base view gets unmapped, this one is automatically unmapped as well */
 class wayfire_mirror_view_t : public wayfire_compositor_view_t
 {
+    protected:
     signal_callback_t base_view_unmapped, base_view_damaged;
 
-    protected:
     virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
     virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage);
     wayfire_view original_view;
@@ -102,7 +102,12 @@ class wayfire_mirror_view_t : public wayfire_compositor_view_t
     virtual wf_geometry get_output_geometry();
     virtual wf_geometry get_wm_geometry();
 
+    virtual void unmap();
+
     virtual wayfire_view get_original_view() { return original_view; }
 };
+
+void emit_view_map(wayfire_view view);
+void emit_view_unmap(wayfire_view view);
 
 #endif /* end of include guard: COMPOSITOR_VIEW_HPP */

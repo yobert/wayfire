@@ -1,8 +1,14 @@
 #ifndef SNAP_SIGNAL
 #define SNAP_SIGNAL
 
+/* A private signal, currently shared by move & grid
+ *
+ * It is used to provide autosnap functionality for the move plugin,
+ * by reusing grid's abilities */
+
 #include <view.hpp>
 
+/* The "slot" where the view should be snapped */
 enum slot_type {
     SLOT_BL     = 1,
     SLOT_BOTTOM = 2,
@@ -15,7 +21,16 @@ enum slot_type {
     SLOT_TR     = 9,
 };
 
-struct snap_signal : public signal_data {
+/* Query the dimensions of the given slot */
+struct snap_query_signal : public signal_data
+{
+    slot_type slot;
+    wf_geometry out_geometry;
+};
+
+/* Do snap the view to the given slot */
+struct snap_signal : public signal_data
+{
     wayfire_view view;
     slot_type tslot;
 };
