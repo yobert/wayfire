@@ -48,9 +48,15 @@ class wf_move_mirror_view : public wayfire_mirror_view_t
         emit_map_state_change(this);
     }
 
+    bool show_animation = false;
     virtual void unmap()
     {
         _is_mapped = false;
+        damage();
+
+        /* We emit unmap signal so that the animate plugin can hook it up */
+        if (show_animation)
+            emit_view_unmap(self());
 
         original_view->disconnect_signal("damaged-region", &base_view_damaged);
         original_view = nullptr;
@@ -223,6 +229,8 @@ class wayfire_move : public wayfire_plugin_t
             start_wobbly(view, sx, sy);
             if (!stuck_in_slot)
                 snap_wobbly(view, view->get_output_geometry());
+
+            update_multi_output();
         }
 
         void input_pressed(uint32_t state)
@@ -242,8 +250,8 @@ class wayfire_move : public wayfire_plugin_t
             end_wobbly(view);
             view->set_moving(false);
 
-            /* Delete any mirrors we have left */
-            delete_mirror_views();
+            /* Delete any mirrors we have left, showing an animation */
+            delete_mirror_views(true);
 
             /* Don't do snapping, etc for shell views */
             if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
@@ -353,7 +361,7 @@ class wayfire_move : public wayfire_plugin_t
 
         struct wf_move_output_state : public wf_custom_data_t
         {
-            wayfire_view view;
+            nonstd::observer_ptr<wf_move_mirror_view> view;
         };
 
         std::string get_data_name()
@@ -362,7 +370,7 @@ class wayfire_move : public wayfire_plugin_t
         }
 
         /* Destroys all mirror views created by this plugin */
-        void delete_mirror_views()
+        void delete_mirror_views(bool show_animation)
         {
             core->for_each_output([=] (wayfire_output *wo)
             {
@@ -372,6 +380,7 @@ class wayfire_move : public wayfire_plugin_t
                 auto data = wo->get_data<wf_move_output_state> (
                     get_data_name());
 
+                data->view->show_animation = show_animation;
                 data->view->unmap();
                 data->view->destroy();
 
@@ -394,7 +403,7 @@ class wayfire_move : public wayfire_plugin_t
             core->add_view(std::unique_ptr<wayfire_view_t> (mirror));
 
             auto wo_state = wo->get_data_safe<wf_move_output_state> (get_data_name());
-            wo_state->view = mirror->self();
+            wo_state->view = nonstd::make_observer(mirror);
 
             mirror->set_output(wo);
             mirror->map();
@@ -415,7 +424,7 @@ class wayfire_move : public wayfire_plugin_t
             if (target_output != output)
             {
                 /* The move plugin on the next output will create new mirror views */
-                delete_mirror_views();
+                delete_mirror_views(false);
                 move_to_output(target_output);
                 return;
             }
@@ -435,7 +444,6 @@ class wayfire_move : public wayfire_plugin_t
                     ensure_mirror_view(wo);
             });
         }
-
 
         void handle_input_motion()
         {

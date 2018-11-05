@@ -143,6 +143,11 @@ void wayfire_mirror_view_t::take_snapshot()
     if (!offscreen_buffer.valid())
         offscreen_buffer.init(scaled_width, scaled_height);
 
+    auto buffer_geometry = get_untransformed_bounding_box();
+    offscreen_buffer.output_x = buffer_geometry.x;
+    offscreen_buffer.output_y = buffer_geometry.y;
+    offscreen_buffer.fb_scale = scale;
+
     GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, offscreen_buffer.fbo));
     wlr_renderer_begin(core->renderer, offscreen_buffer.fb_width, offscreen_buffer.fb_height);
     wlr_renderer_scissor(core->renderer, NULL);
@@ -160,7 +165,6 @@ void wayfire_mirror_view_t::take_snapshot()
 
     original_view->render_fb(NULL, fb);
 }
-
 
 wf_point wayfire_mirror_view_t::get_output_position()
 {

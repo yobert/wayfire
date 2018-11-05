@@ -20,6 +20,8 @@ extern "C"
 
 #include "view/priv-view.hpp"
 
+OpenGL::context_t *render_manager::ctx;
+
 struct wf_output_damage
 {
     pixman_region32_t frame_damage;
@@ -142,12 +144,6 @@ void render_manager::load_context()
     init_default_streams();
 }
 
-void render_manager::release_context()
-{
-    OpenGL::release_context(ctx);
-    dirty_context = true;
-}
-
 render_manager::~render_manager()
 {
     wl_list_remove(&frame_listener.link);
@@ -158,7 +154,6 @@ render_manager::~render_manager()
         wl_event_source_remove(idle_damage_source);
 
     pixman_region32_fini(&frame_damage);
-    release_context();
 }
 
 void render_manager::damage(const wlr_box& box)
