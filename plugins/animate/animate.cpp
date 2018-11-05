@@ -41,7 +41,10 @@ struct animation_hook
         output = view->get_output();
 
         if (close_animation)
+        {
+            view->inc_keep_count();
             view->take_snapshot();
+        }
 
         view->damage();
         base = dynamic_cast<animation_base*> (new animation_type());
@@ -147,9 +150,6 @@ class wayfire_animation : public wayfire_plugin_t {
         /* TODO: check if this is really needed */
         if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
             return;
-
-        if (close_animation->as_string() != "none")
-            view->inc_keep_count();
 
         if (open_animation->as_string() == "fade")
             new animation_hook<fade_animation, false>(view, duration);
