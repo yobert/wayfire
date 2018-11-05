@@ -372,6 +372,7 @@ class wf_wobbly : public wf_view_transformer_t
     void translate(int dx, int dy)
     {
         wobbly_translate(model.get(), dx, dy);
+        wobbly_add_geometry(model.get());
     }
 
     void destroy_self()
