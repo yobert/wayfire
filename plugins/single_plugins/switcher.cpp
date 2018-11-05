@@ -568,6 +568,11 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         transform->color[3] = duration.progress(sv.attribs.alpha);
         sv.view->render_fb(NULL, output->render->get_target_framebuffer());
+
+        transform->translation = glm::mat4();
+        transform->scaling = glm::mat4();
+        transform->rotation = glm::mat4();
+        transform->color[3] = 1.0;
     }
 
     void render_output(uint32_t fb)
