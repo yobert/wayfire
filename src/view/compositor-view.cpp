@@ -195,10 +195,16 @@ wf_geometry wayfire_mirror_view_t::get_wm_geometry()
     return geometry;
 }
 
-void wayfire_mirror_view_t::unmap()
+void wayfire_mirror_view_t::unset_original_view()
 {
     original_view->disconnect_signal("damaged-region", &base_view_damaged);
+    original_view->disconnect_signal("unmap", &base_view_unmapped);
 
     original_view = nullptr;
+}
+
+void wayfire_mirror_view_t::unmap()
+{
+    unset_original_view();
     wayfire_compositor_view_t::unmap();
 }

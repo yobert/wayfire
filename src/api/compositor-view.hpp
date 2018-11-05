@@ -90,7 +90,10 @@ class wayfire_mirror_view_t : public wayfire_compositor_view_t
 
     virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
     virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage);
+
     wayfire_view original_view;
+    /* sets original_view to NULL and removes signal handlers */
+    void unset_original_view();
 
     public:
     wayfire_mirror_view_t(wayfire_view original_view);

@@ -58,9 +58,7 @@ class wf_move_mirror_view : public wayfire_mirror_view_t
         if (show_animation)
             emit_view_unmap(self());
 
-        original_view->disconnect_signal("damaged-region", &base_view_damaged);
-        original_view = nullptr;
-
+        unset_original_view();
         emit_map_state_change(this);
     }
 };
