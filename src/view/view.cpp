@@ -44,9 +44,15 @@ std::string wayfire_view_t::to_string() const
 
 void wayfire_view_t::set_output(wayfire_output *wo)
 {
+    _output_signal data;
+    data.output = output;
+
     wayfire_surface_t::set_output(wo);
     if (decoration)
         decoration->set_output(wo);
+
+    if (wo != data.output)
+        emit_signal("set-output", &data);
 }
 
 wayfire_view wayfire_view_t::self()
@@ -117,7 +123,10 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
     damage();
 
     if (send_signal)
+    {
         output->emit_signal("view-geometry-changed", &data);
+        emit_signal("geometry-changed", &data);
+    }
 }
 
 void wayfire_view_t::resize(int w, int h, bool send_signal)
@@ -132,7 +141,10 @@ void wayfire_view_t::resize(int w, int h, bool send_signal)
     damage();
 
     if (send_signal)
+    {
         output->emit_signal("view-geometry-changed", &data);
+        emit_signal("geometry-changed", &data);
+    }
 }
 
 wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx, int& sy)

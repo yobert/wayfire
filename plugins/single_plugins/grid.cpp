@@ -74,7 +74,7 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
         this->tiled = tiled;
 
         auto type = animation_type->as_string();
-        if (output->is_plugin_active("wobbly") || !is_active)
+        if (view->get_transformer("wobbly") || !is_active)
             type = "wobbly";
 
         if (type == "none")

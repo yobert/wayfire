@@ -350,7 +350,12 @@ class wayfire_move : public wayfire_plugin_t
             auto new_g = new_output->get_full_geometry();
             auto wm_g = view->get_wm_geometry();
 
-            view->move(wm_g.x + old_g.x - new_g.x, wm_g.y + old_g.y - new_g.y, false);
+            int dx = old_g.x - new_g.x;
+            int dy = old_g.y - new_g.y;
+
+            view->move(wm_g.x + dx, wm_g.y + dy, true);
+            translate_wobbly(view, dx, dy);
+
             view->set_moving(false);
 
             core->move_view_to_output(view, new_output);
