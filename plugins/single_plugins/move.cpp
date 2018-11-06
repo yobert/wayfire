@@ -1,9 +1,11 @@
 #include <output.hpp>
 #include <core.hpp>
 #include <view.hpp>
+#include <animation.hpp>
 #include <workspace-manager.hpp>
 #include <render-manager.hpp>
 #include <compositor-view.hpp>
+#include <debug.hpp>
 
 #include <linux/input.h>
 #include <signal-definitions.hpp>
@@ -63,8 +65,114 @@ class wf_move_mirror_view : public wayfire_mirror_view_t
     }
 };
 
-class wf_move_snap_preview : public wayfire_compositor_view_t
+struct move_snap_preview_animation
 {
+    wf_geometry start_geometry, end_geometry;
+    wf_transition alpha;
+};
+
+class wf_move_snap_preview : public wayfire_color_rect_view_t
+{
+    effect_hook_t pre_paint;
+
+    const wf_color base_color = {0.5, 0.5, 1, 0.5};
+    const wf_color base_border = {0.25, 0.25, 0.5, 0.8};
+    const int base_border_w = 3;
+
+    public:
+    wf_duration duration;
+    move_snap_preview_animation animation;
+
+    wf_move_snap_preview(wf_geometry start_geometry)
+    {
+        animation.start_geometry = animation.end_geometry = start_geometry;
+        animation.alpha = {0, 1};
+
+        duration = wf_duration{new_static_option("200")};
+        pre_paint = [=] () { update_animation(); };
+        output->render->add_effect(&pre_paint, WF_OUTPUT_EFFECT_PRE);
+
+        set_color(base_color);
+        set_border_color(base_border);
+        set_border(base_border_w);
+    }
+
+    virtual void map()
+    {
+        if (_is_mapped)
+            return;
+        _is_mapped = true;
+
+        output->attach_view(self());
+        emit_map_state_change(this);
+    }
+
+    void set_target_geometry(wf_geometry target, float alpha = -1)
+    {
+        animation.start_geometry.x = duration.progress(
+            animation.start_geometry.x, animation.end_geometry.x);
+        animation.start_geometry.y = duration.progress(
+            animation.start_geometry.y, animation.end_geometry.y);
+        animation.start_geometry.width = duration.progress(
+            animation.start_geometry.width, animation.end_geometry.width);
+        animation.start_geometry.height = duration.progress(
+            animation.start_geometry.height, animation.end_geometry.height);
+
+        if (alpha == -1)
+            alpha = animation.alpha.end;
+        animation.alpha = {duration.progress(animation.alpha), alpha};
+
+        animation.end_geometry = target;
+        duration.start();
+    }
+
+    void update_animation()
+    {
+        wf_geometry current;
+        current.x = duration.progress(animation.start_geometry.x,
+            animation.end_geometry.x);
+        current.y = duration.progress(animation.start_geometry.y,
+            animation.end_geometry.y);
+        current.width = duration.progress(animation.start_geometry.width,
+            animation.end_geometry.width);
+        current.height = duration.progress(animation.start_geometry.height,
+            animation.end_geometry.height);
+
+        if (current != geometry)
+            set_geometry(current);
+
+
+        auto alpha = duration.progress(animation.alpha);
+
+        log_info("update %d,%d %dx%d, %.2f", current.x, current.y, current.width, current.height, alpha);
+        if (base_color.a * alpha != _color.a)
+        {
+            _color.a = alpha * base_color.a;
+            _border_color.a = alpha * base_border.a;
+
+            set_color(_color);
+            set_border_color(_border_color);
+        }
+
+        /* The end of unmap animation, just exit */
+        if (!duration.running() && animation.alpha.end <= 0.01)
+        {
+            log_info("unmap");
+            unmap();
+            destroy();
+        }
+    }
+
+    virtual void unmap()
+    {
+        if (!_is_mapped)
+            return;
+
+        _is_mapped = false;
+        output->render->rem_effect(&pre_paint, WF_OUTPUT_EFFECT_PRE);
+
+        emit_map_state_change(this);
+    }
 };
 
 class wayfire_move : public wayfire_plugin_t
@@ -80,7 +188,11 @@ class wayfire_move : public wayfire_plugin_t
 
     bool stuck_in_slot = false;
 
-    int slot;
+    struct {
+        nonstd::observer_ptr<wf_move_snap_preview> preview;
+        int slot_id = 0;
+    } slot;
+
     wf_geometry grabbed_geometry;
     wf_point grab_start;
 
@@ -223,7 +335,7 @@ class wayfire_move : public wayfire_plugin_t
 
             output->bring_to_front(view);
             if (enable_snap)
-                slot = 0;
+                slot.slot_id = 0;
 
             this->view = view;
             output->render->auto_redraw(true);
@@ -259,15 +371,18 @@ class wayfire_move : public wayfire_plugin_t
             if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
                 return;
 
-
             /* Snap the view */
-            if (enable_snap && slot != 0)
+            if (enable_snap && slot.slot_id != 0)
             {
                 snap_signal data;
                 data.view = view;
-                data.tslot = (slot_type)slot;
+                data.tslot = (slot_type)slot.slot_id;
                 output->emit_signal("view-snap", &data);
+
+                /* Update slot, will hide the preview as well */
+                update_slot(0);
             }
+
         }
 
         /* Calculate the slot to which the view would be snapped if the input
@@ -305,6 +420,47 @@ class wayfire_move : public wayfire_plugin_t
                 slot = 5;
 
             return slot;
+        }
+
+        void update_slot(int new_slot_id)
+        {
+            /* No changes in the slot, just return */
+            if (slot.slot_id == new_slot_id)
+                return;
+
+            /* Destroy previous preview */
+            if (slot.preview)
+            {
+                GetTuple(ix, iy, get_input_coords());
+                slot.preview->set_target_geometry({ix, iy, 1, 1}, 0);
+                slot.preview = nullptr;
+            }
+
+            slot.slot_id = new_slot_id;
+
+            /* Show a preview overlay */
+            if (new_slot_id)
+            {
+                snap_query_signal query;
+                query.slot = (slot_type)new_slot_id;
+                query.out_geometry = {0, 0, -1, -1};
+                output->emit_signal("query-snap-geometry", &query);
+
+                /* Unknown slot geometry, can't show a preview */
+                if (query.out_geometry.width <= 0 || query.out_geometry.height <= 0)
+                    return;
+
+                GetTuple(ix, iy, get_input_coords());
+                auto preview = new wf_move_snap_preview({ix, iy, 1, 1});
+
+                core->add_view(std::unique_ptr<wayfire_view_t> (preview));
+
+                preview->set_output(output);
+                preview->set_target_geometry(query.out_geometry, 1);
+                preview->map();
+
+                slot.preview = nonstd::make_observer(preview);
+            }
         }
 
         /* The input has moved enough so we remove the view from its slot */
@@ -476,7 +632,7 @@ class wayfire_move : public wayfire_plugin_t
 
             /* TODO: possibly show some visual indication */
             if (enable_snap->as_cached_int())
-                slot = calc_slot(x, y);
+                update_slot(calc_slot(x, y));
         }
 
         void fini()
