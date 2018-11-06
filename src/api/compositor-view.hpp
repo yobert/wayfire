@@ -44,7 +44,7 @@ class wayfire_compositor_view_t : public wayfire_compositor_surface_t, public wa
         virtual wf_point get_output_position();
         virtual wf_geometry get_output_geometry();
         virtual wf_geometry get_wm_geometry();
-        virtual void set_geometry(wf_geometry g) {wayfire_view_t::geometry = g;}
+        virtual void set_geometry(wf_geometry g);
 
         virtual void activate(bool active) {}
         virtual void close();
@@ -108,6 +108,29 @@ class wayfire_mirror_view_t : public wayfire_compositor_view_t
     virtual void unmap();
 
     virtual wayfire_view get_original_view() { return original_view; }
+};
+
+/* A specialization of wayfire_compositor_view_t
+ * Provides a simple view which is a colored rectangle with a border */
+class wayfire_color_rect_view_t : public wayfire_compositor_view_t
+{
+    void _render_rect(float projection[9], int x, int y, int w, int h,
+        const wf_color& color);
+
+    protected:
+        wf_color _color;
+        wf_color _border_color;
+        int border;
+
+        virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
+
+    public:
+        wayfire_color_rect_view_t();
+
+        /* The color settings accept non-premultiplied alpha */
+        virtual void set_color(wf_color color);
+        virtual void set_border_color(wf_color border);
+        virtual void set_border(int width);
 };
 
 void emit_view_map(wayfire_view view);

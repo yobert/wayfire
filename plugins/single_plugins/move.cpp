@@ -63,6 +63,10 @@ class wf_move_mirror_view : public wayfire_mirror_view_t
     }
 };
 
+class wf_move_snap_preview : public wayfire_compositor_view_t
+{
+};
+
 class wayfire_move : public wayfire_plugin_t
 {
     signal_callback_t move_request, view_destroyed;
