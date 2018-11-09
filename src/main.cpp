@@ -62,29 +62,50 @@ static int handle_config_updated(int fd, uint32_t mask, void *data)
     return 1;
 }
 
-
-static const EGLint default_attribs[] =
-{
-    EGL_RED_SIZE, 1,
-    EGL_GREEN_SIZE, 1,
-    EGL_BLUE_SIZE, 1,
-    EGL_ALPHA_SIZE, 1,
-    EGL_DEPTH_SIZE, 1,
-    EGL_NONE
+std::map<EGLint, EGLint> default_attribs = {
+    {EGL_RED_SIZE, 1},
+    {EGL_GREEN_SIZE, 1},
+    {EGL_BLUE_SIZE, 1},
+    {EGL_DEPTH_SIZE, 1},
 };
 
+/* Merge the default config and the config we need */
+static std::vector<EGLint> generate_config_attribs(EGLint *renderer_attribs)
+{
+    std::vector<EGLint> attribs;
+
+    /* See what we have in the default config */
+    for (auto i = renderer_attribs; i != NULL && *i != EGL_NONE; i++)
+    {
+        /* We will override this value later */
+        if (default_attribs.count(*i))
+        {
+            ++i;
+            continue;
+        }
+
+        attribs.push_back(*i);
+        i++;
+        attribs.push_back(*i);
+    }
+
+    /* Then pack all values we want */
+    for (auto &p : default_attribs)
+    {
+        attribs.push_back(p.first);
+        attribs.push_back(p.second);
+    }
+
+    attribs.push_back(EGL_NONE);
+    return attribs;
+}
+
 wlr_renderer *add_egl_depth_renderer(wlr_egl *egl, EGLenum platform,
-                                     void *remote, EGLint *attr, EGLint visual)
+                                     void *remote, EGLint *_r_attr, EGLint visual)
 {
     bool r;
-    if (!attr)
-    {
-        r = wlr_egl_init(egl, platform,
-                          remote, (EGLint*) default_attribs, visual);
-    } else
-    {
-        r = wlr_egl_init(egl, platform, remote, attr, visual);
-    }
+    auto attribs = generate_config_attribs(_r_attr);
+    r = wlr_egl_init(egl, platform, remote, attribs.data(), visual);
 
     if (!r)
     {
@@ -101,20 +122,6 @@ wlr_renderer *add_egl_depth_renderer(wlr_egl *egl, EGLenum platform,
     }
 
     return renderer;
-}
-
-extern "C"
-{
-    void __cyg_profile_func_enter (void *this_fn,
-                               void *call_site)
-    {
-        fprintf(stderr, "profile enter %p", call_site);
-    }
-void __cyg_profile_func_exit  (void *this_fn,
-                               void *call_site)
-{
-        fprintf(stderr, "profile exit %p", call_site);
-}
 }
 
 int main(int argc, char *argv[])
