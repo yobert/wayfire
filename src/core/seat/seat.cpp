@@ -138,47 +138,61 @@ void input_manager::create_seat()
     wl_signal_add(&seat->events.new_drag_icon, &new_drag_icon);
 }
 
-/* TODO: possibly add more input options which aren't available right now */
-namespace device_config
+wf_input_device::config_t wf_input_device::config;
+void wf_input_device::config_t::load(wayfire_config *config)
 {
-    int touchpad_tap_enabled;
-    int touchpad_dwl_enabled;
-    int touchpad_natural_scroll_enabled;
-
-    std::string drm_device;
-
-    wayfire_config *config;
-
-    void load(wayfire_config *conf)
-    {
-        config = conf;
-
-        auto section = (*config)["input"];
-        touchpad_tap_enabled            = *section->get_option("tap_to_click", "1");
-        touchpad_dwl_enabled            = *section->get_option("disable_while_typing", "0");
-        touchpad_natural_scroll_enabled = *section->get_option("naturall_scroll", "0");
-
-        drm_device = (*config)["core"]->get_option("drm_device", "default")->raw_value;
-    }
+    auto section = (*config)["input"];
+    touchpad_tap_enabled            = section->get_option("tap_to_click", "1");
+    touchpad_dwt_enabled            = section->get_option("disable_while_typing", "0");
+    touchpad_natural_scroll_enabled = section->get_option("natural_scroll", "0");
 }
 
-void configure_input_device(libinput_device *device)
+static void handle_device_destroy_cb(wl_listener *listener, void*)
 {
-    assert(device);
-    /* we are configuring a touchpad */
-    if (libinput_device_config_tap_get_finger_count(device) > 0)
-    {
-        libinput_device_config_tap_set_enabled(device,
-                device_config::touchpad_tap_enabled ?
-                    LIBINPUT_CONFIG_TAP_ENABLED : LIBINPUT_CONFIG_TAP_DISABLED);
-        libinput_device_config_dwt_set_enabled(device,
-                device_config::touchpad_dwl_enabled ?
-                LIBINPUT_CONFIG_DWT_ENABLED : LIBINPUT_CONFIG_DWT_DISABLED);
+    wf_input_device::wlr_wrapper *wrapper = wl_container_of(listener, wrapper, destroy);
+    core->input->handle_input_destroyed(wrapper->self->device);
+}
 
-        if (libinput_device_config_scroll_has_natural_scroll(device) > 0)
+wf_input_device::wf_input_device(wlr_input_device *dev)
+{
+    device = dev;
+    update_options();
+
+    _wrapper.self = this;
+    _wrapper.destroy.notify = handle_device_destroy_cb;
+
+    wl_signal_add(&dev->events.destroy, &_wrapper.destroy);
+}
+
+wf_input_device::~wf_input_device()
+{
+    wl_list_remove(&_wrapper.destroy.link);
+}
+
+void wf_input_device::update_options()
+{
+    /* We currently support options only for libinput devices */
+    if (!wlr_input_device_is_libinput(device))
+        return;
+
+    auto dev = wlr_libinput_get_device_handle(device);
+    assert(dev);
+
+    /* we are configuring a touchpad */
+    if (libinput_device_config_tap_get_finger_count(dev) > 0)
+    {
+        libinput_device_config_tap_set_enabled(dev,
+            config.touchpad_tap_enabled->as_cached_int() ?
+            LIBINPUT_CONFIG_TAP_ENABLED : LIBINPUT_CONFIG_TAP_DISABLED);
+
+        libinput_device_config_dwt_set_enabled(dev,
+            config.touchpad_dwt_enabled->as_cached_int() ?
+            LIBINPUT_CONFIG_DWT_ENABLED : LIBINPUT_CONFIG_DWT_DISABLED);
+
+        if (libinput_device_config_scroll_has_natural_scroll(dev) > 0)
         {
-            libinput_device_config_scroll_set_natural_scroll_enabled(device,
-                    device_config::touchpad_natural_scroll_enabled);
+            libinput_device_config_scroll_set_natural_scroll_enabled(dev,
+                    (bool)config.touchpad_natural_scroll_enabled->as_cached_int());
         }
     }
 }

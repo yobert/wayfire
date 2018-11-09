@@ -58,9 +58,6 @@ using wf_binding_ptr = std::unique_ptr<wf_binding>;
  * wf_keyboard, wf_cursor and wf_touch */
 class input_manager
 {
-    friend void handle_new_input_cb       (wl_listener*, void*);
-    friend void handle_keyboard_destroy_cb(wl_listener*, void*);
-
     private:
         wayfire_grab_interface active_grab = nullptr;
         bool session_active = true;
@@ -69,6 +66,8 @@ class input_manager
                     button, motion, motion_absolute, axis,
                     request_set_cursor,
                     touch_down, touch_up, touch_motion;
+
+        signal_callback_t config_updated;
 
         int gesture_id;
 
@@ -81,8 +80,6 @@ class input_manager
         void create_seat();
         void create_cursor();
 
-        void handle_input_destroyed(wlr_input_device *dev);
-
         // returns the surface under the given global coordinates
         // if no such surface (return NULL), lx and ly are undefined
         wayfire_surface_t* input_surface_at(int x, int y,
@@ -93,6 +90,7 @@ class input_manager
         void update_drag_icons();
 
         std::vector<std::unique_ptr<wf_keyboard>> keyboards;
+        std::vector<std::unique_ptr<wf_input_device>> input_devices;
 
         /* TODO: move this in a wf_keyboard struct,
          * This might not work with multiple keyboards */
@@ -105,7 +103,10 @@ class input_manager
     public:
 
         input_manager();
+        ~input_manager();
+
         void handle_new_input(wlr_input_device *dev);
+        void handle_input_destroyed(wlr_input_device *dev);
 
         int last_cursor_event_msec;
         void update_cursor_position(uint32_t time_msec, bool real_update = true);

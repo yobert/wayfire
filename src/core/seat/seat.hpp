@@ -21,11 +21,28 @@ struct wf_drag_icon : public wayfire_surface_t
     void damage(const wlr_box& rect);
 };
 
-namespace device_config
+struct wf_input_device
 {
-    void load(wayfire_config *conf);
-};
+    wlr_input_device *device;
+    wf_input_device(wlr_input_device* dev);
+    ~wf_input_device();
 
-void configure_input_device(libinput_device *device);
+    struct wlr_wrapper {
+        wl_listener destroy;
+        wf_input_device* self;
+    } _wrapper;
+
+    void update_options();
+
+    static struct config_t
+    {
+        wf_option touchpad_tap_enabled;
+        wf_option touchpad_dwt_enabled;
+        wf_option touchpad_natural_scroll_enabled;
+
+        void load(wayfire_config *config);
+    } config;
+
+};
 
 #endif /* end of include guard: SEAT_HPP */

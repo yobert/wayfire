@@ -126,7 +126,7 @@ static void handle_input_inhibit_deactivated(wl_listener*, void*)
 void wayfire_core::init(wayfire_config *conf)
 {
     configure(conf);
-    device_config::load(conf);
+    wf_input_device::config.load(conf);
 
     protocols.data_device = wlr_data_device_manager_create(display);
     wlr_renderer_init_wl_display(renderer, display);
