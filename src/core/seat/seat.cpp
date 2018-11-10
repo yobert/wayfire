@@ -106,7 +106,7 @@ static void handle_new_drag_icon_cb(wl_listener*, void *data)
 static void handle_request_set_cursor(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_seat_pointer_request_set_cursor_event*> (data);
-    core->input->set_cursor(ev);
+    core->input->cursor->set_cursor(ev);
 }
 
 void input_manager::update_drag_icons()
@@ -118,18 +118,9 @@ void input_manager::update_drag_icons()
     }
 }
 
-void input_manager::set_cursor(wlr_seat_pointer_request_set_cursor_event *ev)
-{
-    auto focused_surface = ev->seat_client->seat->pointer_state.focused_surface;
-    auto client = focused_surface ? wl_resource_get_client(focused_surface->resource) : NULL;
-
-    if (ev->surface && client == ev->seat_client->client && !input_grabbed())
-        wlr_cursor_set_surface(cursor, ev->surface, ev->hotspot_x, ev->hotspot_y);
-}
-
 void input_manager::create_seat()
 {
-    create_cursor();
+    cursor = nonstd::make_unique<wf_cursor> ();
 
     request_set_cursor.notify = handle_request_set_cursor;
     wl_signal_add(&seat->events.request_set_cursor, &request_set_cursor);

@@ -58,7 +58,7 @@ void input_manager::handle_new_input(wlr_input_device *dev)
 
     if (dev->type == WLR_INPUT_DEVICE_POINTER)
     {
-        wlr_cursor_attach_input_device(cursor, dev);
+        cursor->attach_device(dev);
         pointer_count++;
     }
 
@@ -66,7 +66,7 @@ void input_manager::handle_new_input(wlr_input_device *dev)
     {
         touch_count++;
         if (!our_touch)
-            our_touch = std::unique_ptr<wf_touch> (new wf_touch(cursor));
+            our_touch = std::unique_ptr<wf_touch> (new wf_touch(cursor->cursor));
 
         our_touch->add_device(dev);
     }
@@ -77,7 +77,7 @@ void input_manager::handle_new_input(wlr_input_device *dev)
 
     auto wo = core->get_output(mapped_output);
     if (wo)
-        wlr_cursor_map_input_to_output(cursor, dev, wo->handle);
+        wlr_cursor_map_input_to_output(cursor->cursor, dev, wo->handle);
 
     update_capabilities();
 }
@@ -100,7 +100,7 @@ void input_manager::handle_input_destroyed(wlr_input_device *dev)
 
     if (dev->type == WLR_INPUT_DEVICE_POINTER)
     {
-        wlr_cursor_detach_input_device(cursor, dev);
+        cursor->detach_device(dev);
         pointer_count--;
     }
 
@@ -195,8 +195,7 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
 static void idle_update_cursor(void *data)
 {
     auto input = (input_manager*) data;
-    // TODO: use CLOCK_MONOTONIC instead of last_cursor_event_msec
-    input->update_cursor_position(input->last_cursor_event_msec, false);
+    input->update_cursor_position(get_input_time(), false);
 }
 
 void input_manager::ungrab_input()

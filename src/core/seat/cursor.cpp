@@ -37,7 +37,6 @@ static void handle_pointer_axis_cb(wl_listener*, void *data)
 
 void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
 {
-    core->input->last_cursor_event_msec = ev->time_msec;
     in_mod_binding = false;
 
     if (ev->state == WLR_BUTTON_PRESSED)
@@ -147,21 +146,18 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 
 void input_manager::handle_pointer_motion(wlr_event_pointer_motion *ev)
 {
-    core->input->last_cursor_event_msec = ev->time_msec;
-    wlr_cursor_move(cursor, ev->device, ev->delta_x, ev->delta_y);
+    wlr_cursor_move(cursor->cursor, ev->device, ev->delta_x, ev->delta_y);
     update_cursor_position(ev->time_msec);
 }
 
 void input_manager::handle_pointer_motion_absolute(wlr_event_pointer_motion_absolute *ev)
 {
-    core->input->last_cursor_event_msec = ev->time_msec;
-    wlr_cursor_warp_absolute(cursor, ev->device, ev->x, ev->y);
+    wlr_cursor_warp_absolute(cursor->cursor, ev->device, ev->x, ev->y);
     update_cursor_position(ev->time_msec);;
 }
 
 void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
 {
-    core->input->last_cursor_event_msec = ev->time_msec;
     std::vector<axis_callback*> callbacks;
 
     auto mod_state = get_modifiers();
@@ -190,28 +186,14 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
                                  ev->delta, ev->delta_discrete, ev->source);
 }
 
-void input_manager::create_cursor()
+
+wf_cursor::wf_cursor()
 {
     cursor = wlr_cursor_create();
 
     wlr_cursor_attach_output_layout(cursor, core->output_layout);
     wlr_cursor_map_to_output(cursor, NULL);
     wlr_cursor_warp(cursor, NULL, cursor->x, cursor->y);
-
-    const char *theme_ptr;
-    auto theme = core->config->get_section("input")->get_option("cursor_theme", "default")->as_string();
-    if (theme == "default")
-    {
-        theme_ptr = NULL;
-    } else
-    {
-        theme_ptr = theme.c_str();
-    }
-
-    xcursor = wlr_xcursor_manager_create(theme_ptr, 24);
-    wlr_xcursor_manager_load(xcursor, 1);
-
-    core->set_cursor("default");
 
     button.notify             = handle_pointer_button_cb;
     motion.notify             = handle_pointer_motion_cb;
@@ -222,5 +204,68 @@ void input_manager::create_cursor()
     wl_signal_add(&cursor->events.motion, &motion);
     wl_signal_add(&cursor->events.motion_absolute, &motion_absolute);
     wl_signal_add(&cursor->events.axis, &axis);
+
+    init_xcursor();
+
+    config_reloaded = [=] (signal_data*) {
+        init_xcursor();
+    };
+
+    core->connect_signal("reload-config", &config_reloaded);
+}
+
+void wf_cursor::init_xcursor()
+{
+    auto section = core->config->get_section("input");
+
+    auto theme = section->get_option("cursor_theme", "default")->as_string();
+    auto size = section->get_option("cursor_size", "24");
+
+    auto theme_ptr = (theme == "default") ? NULL : theme.c_str();
+
+    if (xcursor)
+        wlr_xcursor_manager_destroy(xcursor);
+
+    xcursor = wlr_xcursor_manager_create(theme_ptr, size->as_int());
+    wlr_xcursor_manager_load(xcursor, 1);
+
+    set_cursor("default");
+}
+
+void wf_cursor::attach_device(wlr_input_device *device)
+{
+    wlr_cursor_attach_input_device(cursor, device);
+}
+
+void wf_cursor::detach_device(wlr_input_device *device)
+{
+    wlr_cursor_detach_input_device(cursor, device);
+}
+
+void wf_cursor::set_cursor(std::string name)
+{
+    if (name == "default")
+        name = "left_ptr";
+
+    wlr_xcursor_manager_set_cursor_image(xcursor, name.c_str(), cursor);
+}
+
+void wf_cursor::set_cursor(wlr_seat_pointer_request_set_cursor_event *ev)
+{
+    auto focused_surface = ev->seat_client->seat->pointer_state.focused_surface;
+    auto client = focused_surface ? wl_resource_get_client(focused_surface->resource) : NULL;
+
+    if (client == ev->seat_client->client && !core->input->input_grabbed())
+        wlr_cursor_set_surface(cursor, ev->surface, ev->hotspot_x, ev->hotspot_y);
+}
+
+wf_cursor::~wf_cursor()
+{
+    wl_list_remove(&button.link);
+    wl_list_remove(&motion.link);
+    wl_list_remove(&motion_absolute.link);
+    wl_list_remove(&axis.link);
+
+    core->disconnect_signal("reload-config", &config_reloaded);
 }
 
