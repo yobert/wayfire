@@ -603,6 +603,19 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
                                    sw, sh);
     }
 
+
+    OpenGL::render_begin();
+    stream->buffer.allocate(output->handle->width, output->handle->height);
+
+    auto fb = get_target_framebuffer();
+    fb.fb = (stream->buffer.fb == 0) ? default_buffer.fb : stream->buffer.fb;
+    fb.tex = (stream->buffer.tex == 0) ? default_buffer.tex : stream->buffer.tex;
+
+    {
+        wf_stream_signal data(&ws_damage, fb);
+        emit_signal("workspace-stream-pre", &data);
+    }
+
     auto views = output->workspace->get_views_on_workspace(stream->ws, WF_ALL_LAYERS, false);
 
     struct damaged_surface_t
@@ -740,16 +753,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     std::swap(wayfire_view_transform::global_scale, scale);
     std::swap(wayfire_view_transform::global_translate, translate);
     */
-    OpenGL::render_begin();
-    stream->buffer.allocate(output->handle->width, output->handle->height);
-
-    auto fb = get_target_framebuffer();
-    fb.fb = (stream->buffer.fb == 0) ? default_buffer.fb : stream->buffer.fb;
-    fb.tex = (stream->buffer.tex == 0) ? default_buffer.tex : stream->buffer.tex;
-    log_info("stream to %d", fb.fb);
-    fb.bind();
-
-
+    OpenGL::render_begin(fb);
     int n_rect;
     auto rects = pixman_region32_rectangles(&ws_damage, &n_rect);
     for (int i = 0; i < n_rect; i++)
@@ -773,6 +777,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
    // std::swap(wayfire_view_transform::global_scale, scale);
    // std::swap(wayfire_view_transform::global_translate, translate);
+
     pixman_region32_fini(&ws_damage);
 
     if (!renderer)
@@ -782,6 +787,11 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             if (icon->is_mapped())
                 icon->set_output(nullptr);
         }
+    }
+
+    {
+        wf_stream_signal data(NULL, fb);
+        emit_signal("workspace-stream-post", &data);
     }
 }
 

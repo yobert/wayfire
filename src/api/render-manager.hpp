@@ -3,8 +3,22 @@
 
 #include "plugin.hpp"
 #include "opengl.hpp"
+#include "object.hpp"
 #include <vector>
 #include <pixman.h>
+
+/* Emitted whenever a workspace stream is being started or stopped */
+struct wf_stream_signal : public signal_data
+{
+    wf_stream_signal(pixman_region32_t *damage, const wf_framebuffer& _fb)
+        : raw_damage(damage), fb(_fb) { }
+
+    /* Raw damage can be adjusted by the signal handlers
+     * It is guaranteed to be non-null for the workspace-stream-pre signal
+     * and to be null for workspace-stream-post signal */
+    pixman_region32_t *raw_damage;
+    const wf_framebuffer& fb;
+};
 
 /* Workspace streams are used if you need to continuously render a workspace
  * to a texture, for example if you call texture_from_viewport at every frame */
@@ -38,9 +52,8 @@ using post_hook_t = std::function<void(const wf_framebuffer_base& source,
 using render_hook_t = std::function<void(const wf_framebuffer& fb)>;
 
 struct wf_output_damage;
-class render_manager
+class render_manager : public wf_signal_provider_t
 {
-
     friend void redraw_idle_cb(void *data);
     friend void damage_idle_cb(void *data);
     friend void frame_cb (wl_listener*, void *data);
