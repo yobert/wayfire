@@ -16,20 +16,9 @@ class wf_custom_data_t {
     virtual ~wf_custom_data_t() {};
 };
 
-class wf_object_base
+class wf_signal_provider_t
 {
     public:
-    /* Get a human-readable description of the object */
-    std::string to_string() const
-    {
-        return std::to_string(get_id());
-    }
-
-    /* Get the ID of the object. Each object has a unique ID */
-    uint32_t get_id() const
-    {
-        return object_id;
-    }
 
     /* Register a callback to be called whenever the given signal is emitted */
     void connect_signal(std::string name, signal_callback_t* callback)
@@ -54,6 +43,25 @@ class wf_object_base
 
         for (auto call : callbacks)
             call(data);
+    }
+
+    private:
+    std::unordered_map<std::string, std::vector<signal_callback_t*>> signals;
+};
+
+class wf_object_base : public wf_signal_provider_t
+{
+    public:
+    /* Get a human-readable description of the object */
+    std::string to_string() const
+    {
+        return std::to_string(get_id());
+    }
+
+    /* Get the ID of the object. Each object has a unique ID */
+    uint32_t get_id() const
+    {
+        return object_id;
     }
 
     /* Retrieve custom data stored with the given name. If no such
@@ -129,10 +137,7 @@ class wf_object_base
     }
 
     uint32_t object_id;
-
-    std::unordered_map<std::string, std::vector<signal_callback_t*>> signals;
     std::unordered_map<std::string, std::unique_ptr<wf_custom_data_t>> data;
 };
-
 
 #endif /* end of include guard: OBJECT_HPP */
