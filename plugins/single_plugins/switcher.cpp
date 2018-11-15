@@ -466,6 +466,15 @@ class WayfireSwitcher : public wayfire_plugin_t
 
     void dearrange()
     {
+        /* When we have just 2 views on the workspace, we have 2 copies
+         * of the unfocused view. When dearranging those copies, they overlap.
+         * If the view is translucent, this means that the view gets darker than
+         * it really is.  * To circumvent this, we just fade out one of the copies */
+        wayfire_view fading_view = nullptr;
+        if (count_different_active_views() == 2)
+            fading_view = get_unfocused_view();
+
+
         for (auto& sv : views)
         {
             sv.attribs.off_x = {duration.progress(sv.attribs.off_x), 0};
@@ -477,6 +486,13 @@ class WayfireSwitcher : public wayfire_plugin_t
 
             sv.attribs.rotation = {duration.progress(sv.attribs.rotation), 0};
             sv.attribs.alpha    = {duration.progress(sv.attribs.alpha), 1.0};
+
+            if (sv.view == fading_view)
+            {
+                sv.attribs.alpha.end = 0.0;
+                // make sure we don't fade out the other unfocused view instance as well
+                fading_view = nullptr;
+            }
         }
 
         background_dim_duration.start(background_dim_duration.progress(), 1);
@@ -552,6 +568,11 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         transform->color[3] = duration.progress(sv.attribs.alpha);
         sv.view->render_fb(NULL, output->render->get_target_framebuffer());
+
+        transform->translation = glm::mat4();
+        transform->scaling = glm::mat4();
+        transform->rotation = glm::mat4();
+        transform->color[3] = 1.0;
     }
 
     void render_output(uint32_t fb)

@@ -6,6 +6,7 @@
 #include "signal-definitions.hpp"
 #include "render-manager.hpp"
 #include "workspace-manager.hpp"
+#include "compositor-view.hpp"
 #include "wayfire-shell.hpp"
 #include "../core/seat/input-manager.hpp"
 
@@ -276,6 +277,7 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
     {
         auto view = get_signaled_view(data);
 
+        log_info("unmapped view %p, active is %p", view.get(), active_view.get());
         if (view == active_view)
             refocus(active_view, workspace->get_view_layer(view));
     };
@@ -295,7 +297,8 @@ void wayfire_output::refocus(wayfire_view skip_view, uint32_t layers)
 
     for (auto v : views)
     {
-        if (v != skip_view && v->is_mapped())
+        if (v != skip_view && v->is_mapped() &&
+            v->get_keyboard_focus_surface())
         {
             next_focus = v;
             break;
@@ -535,6 +538,7 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
         seat = core->get_current_seat();
 
     bool refocus = (active_view == v);
+    log_info("set active view %p", v.get());
 
     /* don't deactivate view if the next focus is not a toplevel */
     if (v == nullptr || v->role == WF_VIEW_ROLE_TOPLEVEL)
@@ -550,7 +554,7 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
     active_view = v;
     if (active_view)
     {
-        core->input->set_keyboard_focus(active_view->get_keyboard_focus_surface(), seat);
+        core->input->set_keyboard_focus(active_view, seat);
 
         if (!refocus)
             active_view->activate(true);
@@ -574,7 +578,8 @@ void wayfire_output::focus_view(wayfire_view v, wlr_seat *seat)
 
     if (v && v->is_mapped())
     {
-        if (v->get_keyboard_focus_surface())
+        if (v->get_keyboard_focus_surface() ||
+            interactive_view_from_view(v.get()))
         {
             set_active_view(v, seat);
             bring_to_front(v);

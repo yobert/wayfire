@@ -84,6 +84,10 @@ class wayfire_surface_t
 
         struct wlr_fb_attribs
         {
+            wlr_fb_attribs();
+            wlr_fb_attribs(const wf_framebuffer& source);
+
+            uint32_t fb;
             int width, height;
             wl_output_transform transform = WL_OUTPUT_TRANSFORM_NORMAL;
         };
@@ -175,8 +179,14 @@ enum wf_view_role
 class wayfire_view_t : public wayfire_surface_t, public wf_object_base
 {
     friend void surface_destroyed_cb(wl_listener*, void *data);
-
     protected:
+
+        /* Whether this view is really mapped
+         *
+         * The only time when this is different from is_mapped() is when the view
+         * is about to be unmapped. In this case we no longer have a valid keyboard
+         * focus for this view, but the view is still "mapped", e.g. visible */
+        bool _is_mapped = false;
 
         /* those two point to the same object. Two fields are used to avoid
          * constant casting to and from types */
@@ -291,7 +301,9 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
          * returns the (sub)surface under the cursor or NULL iff the cursor is outside of the view
          * TODO: it should be overwritable by plugins which deform the view */
         virtual wayfire_surface_t *map_input_coordinates(int cursor_x, int cursor_y, int &sx, int &sy);
-        virtual wlr_surface *get_keyboard_focus_surface() { return surface; };
+
+        /* Returns the wlr_surface which should receive focus if this view is activated */
+        virtual wlr_surface *get_keyboard_focus_surface();
 
         virtual void set_geometry(wf_geometry g);
 
@@ -380,7 +392,11 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         virtual void render_fb(pixman_region32_t* damage, wf_framebuffer framebuffer);
 
         bool has_snapshot = false;
+        virtual bool can_take_snapshot();
         virtual void take_snapshot();
+
+        /* NOT API */
+        int64_t get_buffer_age() { return buffer_age; }
 };
 
 wayfire_view wl_surface_to_wayfire_view(wl_resource *surface);

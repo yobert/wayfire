@@ -44,14 +44,20 @@ std::string wayfire_view_t::to_string() const
 
 void wayfire_view_t::set_output(wayfire_output *wo)
 {
+    _output_signal data;
+    data.output = output;
+
     wayfire_surface_t::set_output(wo);
     if (decoration)
         decoration->set_output(wo);
+
+    if (wo != data.output)
+        emit_signal("set-output", &data);
 }
 
 wayfire_view wayfire_view_t::self()
 {
-    return core->find_view((wayfire_surface_t*) this);
+    return wayfire_view(this);
 }
 
 bool wayfire_view_t::is_visible()
@@ -117,7 +123,10 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
     damage();
 
     if (send_signal)
+    {
         output->emit_signal("view-geometry-changed", &data);
+        emit_signal("geometry-changed", &data);
+    }
 }
 
 void wayfire_view_t::resize(int w, int h, bool send_signal)
@@ -132,12 +141,15 @@ void wayfire_view_t::resize(int w, int h, bool send_signal)
     damage();
 
     if (send_signal)
+    {
         output->emit_signal("view-geometry-changed", &data);
+        emit_signal("geometry-changed", &data);
+    }
 }
 
 wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx, int& sy)
 {
-    if (!is_mapped())
+    if (!_is_mapped || !is_mapped())
         return nullptr;
 
     wayfire_surface_t *ret = NULL;
@@ -167,6 +179,14 @@ wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx
         });
 
     return ret;
+}
+
+wlr_surface *wayfire_view_t::get_keyboard_focus_surface()
+{
+    if (_is_mapped)
+        return surface;
+
+    return NULL;
 }
 
 void wayfire_view_t::set_geometry(wf_geometry g)
@@ -435,6 +455,8 @@ void wayfire_view_t::damage(const wlr_box& box)
     {
         output->render->damage(damage_box);
     }
+
+    emit_signal("damaged-region", nullptr);
 }
 
 void wayfire_view_t::offscreen_buffer_t::init(int w, int h)
@@ -469,9 +491,14 @@ void wayfire_view_t::offscreen_buffer_t::fini()
     fbo = tex = -1;
 }
 
+bool wayfire_view_t::can_take_snapshot()
+{
+    return get_buffer();
+}
+
 void wayfire_view_t::take_snapshot()
 {
-    if (!get_buffer())
+    if (!can_take_snapshot())
         return;
 
     auto buffer_geometry = get_untransformed_bounding_box();
@@ -510,6 +537,7 @@ void wayfire_view_t::take_snapshot()
     wlr_renderer_end(core->renderer);
 
     wlr_fb_attribs fb;
+    fb.fb = offscreen_buffer.fbo;
     fb.width = offscreen_buffer.fb_width;
     fb.height = offscreen_buffer.fb_height;
 
@@ -524,7 +552,7 @@ void wayfire_view_t::take_snapshot()
 void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
 {
     in_paint = true;
-    if (transforms.size())
+    if (has_transformer())
     {
         pixman_region32_t fb_region;
         if (damage == NULL)
@@ -703,6 +731,7 @@ void emit_view_map(wayfire_view view)
     map_view_signal data;
     data.view = view;
     view->get_output()->emit_signal("map-view", &data);
+    view->emit_signal("map", &data);
     emit_map_state_change(view.get());
 }
 
@@ -732,6 +761,7 @@ void wayfire_view_t::reposition_relative_to_parent()
 
 void wayfire_view_t::map(wlr_surface *surface)
 {
+    _is_mapped = true;
     wayfire_surface_t::map(surface);
 
     if (role == WF_VIEW_ROLE_TOPLEVEL && !parent && !maximized && !fullscreen)
@@ -761,11 +791,15 @@ void emit_view_unmap(wayfire_view view)
 {
     unmap_view_signal data;
     data.view = view;
+
     view->get_output()->emit_signal("unmap-view", &data);
+    view->emit_signal("unmap", &data);
 }
 
 void wayfire_view_t::unmap()
 {
+    _is_mapped = false;
+
     if (parent)
         set_toplevel_parent(nullptr);
 
@@ -774,6 +808,7 @@ void wayfire_view_t::unmap()
         c->set_toplevel_parent(nullptr);
 
     log_info("unmap %s %s %p", get_title().c_str(), get_app_id().c_str(), this);
+
     if (output)
         emit_view_unmap(self());
 

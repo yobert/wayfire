@@ -74,7 +74,7 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
         this->tiled = tiled;
 
         auto type = animation_type->as_string();
-        if (output->is_plugin_active("wobbly") || !is_active)
+        if (view->get_transformer("wobbly") || !is_active)
             type = "wobbly";
 
         if (type == "none")
@@ -177,7 +177,7 @@ class wayfire_grid : public wayfire_plugin_t
     activator_callback bindings[10];
     wf_option keys[10];
 
-    signal_callback_t snap_cb, maximized_cb, fullscreen_cb;
+    signal_callback_t snap_cb, snap_query_cb, maximized_cb, fullscreen_cb;
 
     wf_option animation_duration, animation_type;
 
@@ -208,6 +208,15 @@ class wayfire_grid : public wayfire_plugin_t
         using namespace std::placeholders;
         snap_cb = std::bind(std::mem_fn(&wayfire_grid::snap_signal_cb), this, _1);
         output->connect_signal("view-snap", &snap_cb);
+
+        snap_query_cb = [=] (signal_data *data) {
+            auto query = static_cast<snap_query_signal*> (data);
+            assert(query);
+
+            query->out_geometry = get_slot_dimensions(query->slot,
+                output->workspace->get_workarea());
+        };
+        output->connect_signal("query-snap-geometry", &snap_query_cb);
 
         maximized_cb = std::bind(std::mem_fn(&wayfire_grid::maximize_signal_cb), this, _1);
         output->connect_signal("view-maximized-request", &maximized_cb);
@@ -352,6 +361,7 @@ class wayfire_grid : public wayfire_plugin_t
             output->rem_binding(&bindings[i]);
 
         output->disconnect_signal("view-snap", &snap_cb);
+        output->disconnect_signal("query-snap-geometry", &snap_query_cb);
         output->disconnect_signal("view-maximized-request", &maximized_cb);
         output->disconnect_signal("view-fullscreen-request", &fullscreen_cb);
         output->disconnect_signal("output-resized", &output_resized_cb);

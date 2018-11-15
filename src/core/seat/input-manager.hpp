@@ -100,6 +100,8 @@ class input_manager
         int count_other_inputs = 0;
         std::vector<std::function<void()>> match_keys(uint32_t mods, uint32_t key);
 
+        wayfire_view keyboard_focus;
+
     public:
 
         input_manager();
@@ -125,7 +127,7 @@ class input_manager
         void update_capabilities();
         void set_cursor(wlr_seat_pointer_request_set_cursor_event *ev);
 
-        void set_keyboard_focus(wlr_surface *surface, wlr_seat *seat);
+        void set_keyboard_focus(wayfire_view view, wlr_seat *seat);
 
         bool grab_input(wayfire_grab_interface);
         void ungrab_input();

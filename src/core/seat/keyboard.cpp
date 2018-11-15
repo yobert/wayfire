@@ -10,6 +10,7 @@ extern "C"
 #include "keyboard.hpp"
 #include "core.hpp"
 #include "input-manager.hpp"
+#include "compositor-view.hpp"
 
 
 void handle_keyboard_destroy_cb(wl_listener *listener, void*)
@@ -127,9 +128,19 @@ wf_keyboard::~wf_keyboard()
 
 /* input manager things */
 
-void input_manager::set_keyboard_focus(wlr_surface *surface, wlr_seat *seat)
+void input_manager::set_keyboard_focus(wayfire_view view, wlr_seat *seat)
 {
     auto kbd = wlr_seat_get_keyboard(seat);
+
+    auto surface = view ? view->get_keyboard_focus_surface() : NULL;
+    auto iv = interactive_view_from_view(view.get());
+    auto oiv = interactive_view_from_view(keyboard_focus.get());
+
+    if (oiv)
+        oiv->handle_keyboard_leave();
+    if (iv)
+        iv->handle_keyboard_enter();
+
     /* Don't focus if we have an active grab */
     if (kbd != NULL && !active_grab)
     {
@@ -139,6 +150,8 @@ void input_manager::set_keyboard_focus(wlr_surface *surface, wlr_seat *seat)
     {
         wlr_seat_keyboard_notify_enter(seat, surface, NULL, 0, NULL);
     }
+
+    keyboard_focus = view;
 }
 
 
@@ -246,6 +259,9 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
 
     for (auto call : callbacks)
         call();
+
+    auto iv = interactive_view_from_view(keyboard_focus.get());
+    if (iv) iv->handle_key(key, state);
 
     return active_grab || !callbacks.empty();
 }

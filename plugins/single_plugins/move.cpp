@@ -1,12 +1,179 @@
 #include <output.hpp>
 #include <core.hpp>
 #include <view.hpp>
+#include <animation.hpp>
 #include <workspace-manager.hpp>
 #include <render-manager.hpp>
+#include <compositor-view.hpp>
+#include <debug.hpp>
+
 #include <linux/input.h>
 #include <signal-definitions.hpp>
+
 #include "snap_signal.hpp"
 #include "../wobbly/wobbly-signal.hpp"
+
+class wf_move_mirror_view : public wayfire_mirror_view_t
+{
+    int _dx, _dy;
+    public:
+        wf_move_mirror_view(wayfire_view view, int dx, int dy) :
+            wayfire_mirror_view_t(view), _dx(dx), _dy(dy) { }
+
+    virtual wf_point get_output_position()
+    {
+        if (!original_view)
+            return {geometry.x, geometry.y};
+
+        geometry = original_view->get_bounding_box() + wf_point{_dx, _dy};
+        return {geometry.x, geometry.y};
+    }
+
+    virtual wf_geometry get_output_geometry()
+    {
+        if (original_view)
+            geometry = original_view->get_bounding_box() + wf_point{_dx, _dy};
+        return geometry;
+    }
+
+    virtual wf_geometry get_wm_geometry()
+    {
+        if (original_view)
+            geometry = original_view->get_bounding_box() + wf_point{_dx, _dy};
+        return geometry;
+    }
+
+    virtual void map()
+    {
+        _is_mapped = true;
+        output->attach_view(self());
+        emit_map_state_change(this);
+    }
+
+    bool show_animation = false;
+    virtual void unmap()
+    {
+        _is_mapped = false;
+        damage();
+
+        /* We emit unmap signal so that the animate plugin can hook it up */
+        if (show_animation)
+            emit_view_unmap(self());
+
+        unset_original_view();
+        emit_map_state_change(this);
+    }
+};
+
+struct move_snap_preview_animation
+{
+    wf_geometry start_geometry, end_geometry;
+    wf_transition alpha;
+};
+
+class wf_move_snap_preview : public wayfire_color_rect_view_t
+{
+    effect_hook_t pre_paint;
+
+    const wf_color base_color = {0.5, 0.5, 1, 0.5};
+    const wf_color base_border = {0.25, 0.25, 0.5, 0.8};
+    const int base_border_w = 3;
+
+    public:
+    wf_duration duration;
+    move_snap_preview_animation animation;
+
+    wf_move_snap_preview(wf_geometry start_geometry)
+    {
+        animation.start_geometry = animation.end_geometry = start_geometry;
+        animation.alpha = {0, 1};
+
+        duration = wf_duration{new_static_option("200")};
+        pre_paint = [=] () { update_animation(); };
+        output->render->add_effect(&pre_paint, WF_OUTPUT_EFFECT_PRE);
+
+        set_color(base_color);
+        set_border_color(base_border);
+        set_border(base_border_w);
+    }
+
+    virtual void map()
+    {
+        if (_is_mapped)
+            return;
+        _is_mapped = true;
+
+        output->attach_view(self());
+        emit_map_state_change(this);
+    }
+
+    void set_target_geometry(wf_geometry target, float alpha = -1)
+    {
+        animation.start_geometry.x = duration.progress(
+            animation.start_geometry.x, animation.end_geometry.x);
+        animation.start_geometry.y = duration.progress(
+            animation.start_geometry.y, animation.end_geometry.y);
+        animation.start_geometry.width = duration.progress(
+            animation.start_geometry.width, animation.end_geometry.width);
+        animation.start_geometry.height = duration.progress(
+            animation.start_geometry.height, animation.end_geometry.height);
+
+        if (alpha == -1)
+            alpha = animation.alpha.end;
+        animation.alpha = {duration.progress(animation.alpha), alpha};
+
+        animation.end_geometry = target;
+        duration.start();
+    }
+
+    void update_animation()
+    {
+        wf_geometry current;
+        current.x = duration.progress(animation.start_geometry.x,
+            animation.end_geometry.x);
+        current.y = duration.progress(animation.start_geometry.y,
+            animation.end_geometry.y);
+        current.width = duration.progress(animation.start_geometry.width,
+            animation.end_geometry.width);
+        current.height = duration.progress(animation.start_geometry.height,
+            animation.end_geometry.height);
+
+        if (current != geometry)
+            set_geometry(current);
+
+
+        auto alpha = duration.progress(animation.alpha);
+
+        log_info("update %d,%d %dx%d, %.2f", current.x, current.y, current.width, current.height, alpha);
+        if (base_color.a * alpha != _color.a)
+        {
+            _color.a = alpha * base_color.a;
+            _border_color.a = alpha * base_border.a;
+
+            set_color(_color);
+            set_border_color(_border_color);
+        }
+
+        /* The end of unmap animation, just exit */
+        if (!duration.running() && animation.alpha.end <= 0.01)
+        {
+            log_info("unmap");
+            unmap();
+            destroy();
+        }
+    }
+
+    virtual void unmap()
+    {
+        if (!_is_mapped)
+            return;
+
+        _is_mapped = false;
+        output->render->rem_effect(&pre_paint, WF_OUTPUT_EFFECT_PRE);
+
+        emit_map_state_change(this);
+    }
+};
 
 class wayfire_move : public wayfire_plugin_t
 {
@@ -18,12 +185,16 @@ class wayfire_move : public wayfire_plugin_t
     wf_option enable_snap, enable_snap_off, snap_threshold, snap_off_threshold;
     bool is_using_touch;
     bool was_client_request;
-    bool unsnapped = false; // if the view was maximized or snapped, we wait a little bit before moving the view
-    // while waiting, unsnapped = false
 
-    int slot;
-    wf_geometry initial_geometry;
-    wf_point initial_cursor;
+    bool stuck_in_slot = false;
+
+    struct {
+        nonstd::observer_ptr<wf_move_snap_preview> preview;
+        int slot_id = 0;
+    } slot;
+
+    wf_geometry grabbed_geometry;
+    wf_point grab_start;
 
     public:
         void init(wayfire_config *config)
@@ -33,7 +204,7 @@ class wayfire_move : public wayfire_plugin_t
 
             auto section = config->get_section("move");
             wf_option button = section->get_option("activate", "<alt> BTN_LEFT");
-            activate_binding = [=] (uint32_t, int x, int y)
+            activate_binding = [=] (uint32_t, int, int)
             {
                 is_using_touch = false;
                 was_client_request = false;
@@ -41,7 +212,7 @@ class wayfire_move : public wayfire_plugin_t
                 auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
 
                 if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
-                    initiate(view, x, y);
+                    initiate(view);
             };
 
             touch_activate_binding = [=] (int32_t sx, int32_t sy)
@@ -52,7 +223,7 @@ class wayfire_move : public wayfire_plugin_t
                 auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
 
                 if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
-                    initiate(view, sx, sy);
+                    initiate(view);
             };
 
             output->add_button(button, &activate_binding);
@@ -80,13 +251,13 @@ class wayfire_move : public wayfire_plugin_t
 
             grab_interface->callbacks.pointer.motion = [=] (int x, int y)
             {
-                input_motion(x, y);
+                handle_input_motion();
             };
 
             grab_interface->callbacks.touch.motion = [=] (int32_t id, int32_t sx, int32_t sy)
             {
                 if (id > 0) return;
-                input_motion(sx, sy);
+                handle_input_motion();
             };
 
             grab_interface->callbacks.touch.up = [=] (int32_t id)
@@ -121,28 +292,21 @@ class wayfire_move : public wayfire_plugin_t
             if (!view)
                 return;
 
-            int sx, sy;
-
             GetTuple(tx, ty, core->get_touch_position(0));
             if (tx != wayfire_core::invalid_coordinate &&
                 ty != wayfire_core::invalid_coordinate)
             {
-                sx = tx;
-                sy = ty;
                 is_using_touch = true;
             } else
             {
-                GetTuple(px, py, core->get_cursor_position());
-                sx = px;
-                sy = py;
                 is_using_touch = false;
             }
 
             was_client_request = true;
-            initiate(view, sx, sy);
+            initiate(view);
         }
 
-        void initiate(wayfire_view view, int sx, int sy)
+        void initiate(wayfire_view view)
         {
             if (!view || view->destroyed)
                 return;
@@ -163,22 +327,24 @@ class wayfire_move : public wayfire_plugin_t
                 return;
             }
 
-            unsnapped = !view->maximized;
-            initial_geometry = view->get_wm_geometry();
-            initial_cursor = {sx, sy};
+            stuck_in_slot = !view->maximized;
+            grabbed_geometry = view->get_wm_geometry();
+
+            GetTuple(sx, sy, get_input_coords());
+            grab_start = {sx, sy};
 
             output->bring_to_front(view);
             if (enable_snap)
-                slot = 0;
+                slot.slot_id = 0;
 
             this->view = view;
             output->render->auto_redraw(true);
 
             start_wobbly(view, sx, sy);
-            if (!unsnapped)
+            if (!stuck_in_slot)
                 snap_wobbly(view, view->get_output_geometry());
 
-            core->set_cursor("grabbing");
+            update_multi_output();
         }
 
         void input_pressed(uint32_t state)
@@ -190,117 +356,283 @@ class wayfire_move : public wayfire_plugin_t
             output->deactivate_plugin(grab_interface);
             output->render->auto_redraw(false);
 
-            if (view)
+            /* The view was moved to another output or was destroyed,
+             * we don't have to do anything more */
+            if (!view)
+                return;
+
+            end_wobbly(view);
+            view->set_moving(false);
+
+            /* Delete any mirrors we have left, showing an animation */
+            delete_mirror_views(true);
+
+            /* Don't do snapping, etc for shell views */
+            if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
+                return;
+
+            /* Snap the view */
+            if (enable_snap && slot.slot_id != 0)
             {
-                if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
-                    return;
+                snap_signal data;
+                data.view = view;
+                data.tslot = (slot_type)slot.slot_id;
+                output->emit_signal("view-snap", &data);
 
-                end_wobbly(view);
-
-                view->set_moving(false);
-                if (enable_snap && slot != 0)
-                {
-                    snap_signal data;
-                    data.view = view;
-                    data.tslot = (slot_type)slot;
-                    output->emit_signal("view-snap", &data);
-                }
+                /* Update slot, will hide the preview as well */
+                update_slot(0);
             }
+
         }
 
+        /* Calculate the slot to which the view would be snapped if the input
+         * is released at output-local coordinates (x, y) */
         int calc_slot(int x, int y)
         {
             auto g = output->workspace->get_workarea();
-
             if (!point_inside({x, y}, output->get_relative_geometry()))
                 return 0;
 
-            bool is_left = x - g.x <= snap_threshold->as_cached_int();
-            bool is_right = g.x + g.width - x <= snap_threshold->as_cached_int();
-            bool is_top = y - g.y < snap_threshold->as_cached_int();
-            bool is_bottom = g.x + g.height - y < snap_threshold->as_cached_int();
+            int threshold = snap_threshold->as_cached_int();
 
-            if (is_left && is_top)
-                return SLOT_TL;
-            else if (is_left && is_bottom)
-                return SLOT_BL;
-            else if (is_left)
-                return SLOT_LEFT;
-            else if (is_right && is_top)
-                return SLOT_TR;
-            else if (is_right && is_bottom)
-                return SLOT_BR;
-            else if (is_right)
-                return SLOT_RIGHT;
-            else if (is_top)
-                return SLOT_CENTER;
-            else if (is_bottom)
-                return SLOT_BOTTOM;
-            else
-                return 0;
+            bool is_left = x - g.x <= threshold;
+            bool is_right = g.x + g.width - x <= threshold;
+            bool is_top = y - g.y < threshold;
+            bool is_bottom = g.x + g.height - y < threshold;
+
+            int slot = 1;
+            if (is_top) {
+                slot += 6; // top slots are 7, 8, 9
+            } else if (!is_bottom) { // one of 4, 5, 6
+                slot += 3;
+            }
+
+            if (is_right) {
+                slot += 2; // one of 3, 6, 9
+            } else if (!is_left) {
+                slot += 1;
+            }
+
+            if (slot == 5) // in the center, no snap
+                slot = 0;
+
+            if (slot == 8) // maximize is drag to top
+                slot = 5;
+
+            return slot;
         }
 
-        void input_motion(int x, int y)
+        void update_slot(int new_slot_id)
         {
-            move_wobbly(view, x, y);
-
-            int dx = x - initial_cursor.x;
-            int dy = y - initial_cursor.y;
-
-            if (std::sqrt(dx * dx + dy * dy) >= snap_off_threshold->as_cached_int() && !unsnapped && enable_snap_off->as_int())
-            {
-                unsnapped = 1;
-                if (view->fullscreen)
-                    view->fullscreen_request(view->get_output(), false);
-                if (view->maximized)
-                    view->maximize_request(false);
-
-
-                /* view geometry might change after unmaximize/unfullscreen, so update position */
-                initial_geometry = view->get_wm_geometry();
-
-                snap_wobbly(view, {}, false);
-                view->set_moving(true);
-            }
-
-            if (!unsnapped)
+            /* No changes in the slot, just return */
+            if (slot.slot_id == new_slot_id)
                 return;
 
-            view->move(initial_geometry.x + dx, initial_geometry.y + dy);
-
-            std::tuple<int, int> global_input;
-            if (is_using_touch) {
-                global_input = core->get_touch_position(0);
-            } else {
-                global_input = core->get_cursor_position();
+            /* Destroy previous preview */
+            if (slot.preview)
+            {
+                GetTuple(ix, iy, get_input_coords());
+                slot.preview->set_target_geometry({ix, iy, 1, 1}, 0);
+                slot.preview = nullptr;
             }
 
-            GetTuple(global_x, global_y, global_input);
-            auto target_output = core->get_output_at(global_x, global_y);
+            slot.slot_id = new_slot_id;
 
+            /* Show a preview overlay */
+            if (new_slot_id)
+            {
+                snap_query_signal query;
+                query.slot = (slot_type)new_slot_id;
+                query.out_geometry = {0, 0, -1, -1};
+                output->emit_signal("query-snap-geometry", &query);
+
+                /* Unknown slot geometry, can't show a preview */
+                if (query.out_geometry.width <= 0 || query.out_geometry.height <= 0)
+                    return;
+
+                GetTuple(ix, iy, get_input_coords());
+                auto preview = new wf_move_snap_preview({ix, iy, 1, 1});
+
+                core->add_view(std::unique_ptr<wayfire_view_t> (preview));
+
+                preview->set_output(output);
+                preview->set_target_geometry(query.out_geometry, 1);
+                preview->map();
+
+                slot.preview = nonstd::make_observer(preview);
+            }
+        }
+
+        /* The input has moved enough so we remove the view from its slot */
+        void unsnap()
+        {
+            stuck_in_slot = 1;
+            if (view->fullscreen)
+                view->fullscreen_request(view->get_output(), false);
+            if (view->maximized)
+                view->maximize_request(false);
+
+            /* view geometry might change after unmaximize/unfullscreen, so update position */
+            grabbed_geometry = view->get_wm_geometry();
+
+            snap_wobbly(view, {}, false);
+            view->set_moving(true);
+        }
+
+        /* Returns the currently used input coordinates in global compositor space */
+        std::tuple<int, int> get_global_input_coords()
+        {
+            if (is_using_touch) {
+                return core->get_touch_position(0);
+            } else {
+                return core->get_cursor_position();
+            }
+        }
+
+        /* Returns the currently used input coordinates in output-local space */
+        std::tuple<int, int> get_input_coords()
+        {
+            GetTuple(gx, gy, get_global_input_coords());
+            auto og = output->get_full_geometry();
+
+            return std::tuple<int, int> {gx - og.x, gy - og.y};
+        }
+
+        /* Moves the view to another output and sends a move request */
+        void move_to_output(wayfire_output *new_output)
+        {
+            move_request_signal req;
+            req.view = view;
+
+            auto old_g = output->get_full_geometry();
+            auto new_g = new_output->get_full_geometry();
+            auto wm_g = view->get_wm_geometry();
+
+            int dx = old_g.x - new_g.x;
+            int dy = old_g.y - new_g.y;
+
+            view->move(wm_g.x + dx, wm_g.y + dy, true);
+            translate_wobbly(view, dx, dy);
+
+            view->set_moving(false);
+
+            core->move_view_to_output(view, new_output);
+            core->focus_output(new_output);
+
+            new_output->emit_signal("move-request", &req);
+        }
+
+        struct wf_move_output_state : public wf_custom_data_t
+        {
+            nonstd::observer_ptr<wf_move_mirror_view> view;
+        };
+
+        std::string get_data_name()
+        {
+            return "wf-move-" + output->to_string();
+        }
+
+        /* Destroys all mirror views created by this plugin */
+        void delete_mirror_views(bool show_animation)
+        {
+            core->for_each_output([=] (wayfire_output *wo)
+            {
+                if (!wo->has_data(get_data_name()))
+                    return;
+
+                auto data = wo->get_data<wf_move_output_state> (
+                    get_data_name());
+
+                data->view->show_animation = show_animation;
+                data->view->unmap();
+                data->view->destroy();
+
+                wo->erase_data(get_data_name());
+            });
+        }
+
+        /* Creates a new mirror view on output wo if it doesn't exist already */
+        void ensure_mirror_view(wayfire_output *wo)
+        {
+            if (wo->has_data(get_data_name()))
+                return;
+
+            auto base_output = output->get_full_geometry();
+            auto mirror_output = wo->get_full_geometry();
+
+            auto mirror = new wf_move_mirror_view(view, base_output.x - mirror_output.x,
+                base_output.y - mirror_output.y);
+
+            core->add_view(std::unique_ptr<wayfire_view_t> (mirror));
+
+            auto wo_state = wo->get_data_safe<wf_move_output_state> (get_data_name());
+            wo_state->view = nonstd::make_observer(mirror);
+
+            mirror->set_output(wo);
+            mirror->map();
+        }
+
+        /* Update the view position, with respect to the multi-output configuration
+         *
+         * Views in wayfire are visible on only a single output. However, when the user
+         * moves the view between outputs, it is desirable to temporarily show the view
+         * on all outputs whose boundaries it crosses. We emulate this behavior by creating
+         * mirror views of the view being moved, while fading them in and out when needed */
+        void update_multi_output()
+        {
+            /* The mouse isn't on our output anymore -> transfer ownership of
+             * the move operation to the other output where the input currently is */
+            GetTuple(global_x, global_y, get_global_input_coords());
+            auto target_output = core->get_output_at(global_x, global_y);
             if (target_output != output)
             {
-                move_request_signal req;
-                req.view = view;
-
-                auto old_g = output->get_full_geometry();
-                auto new_g = target_output->get_full_geometry();
-                auto wm_g = view->get_wm_geometry();
-
-                view->move(wm_g.x + old_g.x - new_g.x, wm_g.y + old_g.y - new_g.y, false);
-                view->set_moving(false);
-
-                core->move_view_to_output(view, target_output);
-
-                core->focus_output(target_output);
-                target_output->emit_signal("move-request", &req);
-
+                /* The move plugin on the next output will create new mirror views */
+                delete_mirror_views(false);
+                move_to_output(target_output);
                 return;
             }
 
+            auto current_og = output->get_full_geometry();
+            auto current_geometry = view->get_bounding_box() + wf_point{current_og.x, current_og.y};
+
+            core->for_each_output([=] (wayfire_output *wo)
+            {
+                if (wo == output) // skip the same output
+                    return;
+
+                auto og = output->get_full_geometry();
+
+                /* A view is visible on the other output as well */
+                if (rect_intersect(og, current_geometry))
+                    ensure_mirror_view(wo);
+            });
+        }
+
+        void handle_input_motion()
+        {
+            GetTuple(x, y, get_input_coords());
+
+            move_wobbly(view, x, y);
+
+            int dx = x - grab_start.x;
+            int dy = y - grab_start.y;
+
+            if (std::sqrt(dx * dx + dy * dy) >= snap_off_threshold->as_cached_int() &&
+                !stuck_in_slot && enable_snap_off->as_int())
+            {
+                unsnap();
+            }
+
+            if (!stuck_in_slot)
+                return;
+
+            view->move(grabbed_geometry.x + dx, grabbed_geometry.y + dy);
+
+            update_multi_output();
+
             /* TODO: possibly show some visual indication */
-            if (enable_snap)
-                slot = calc_slot(x, y);
+            if (enable_snap->as_cached_int())
+                update_slot(calc_slot(x, y));
         }
 
         void fini()

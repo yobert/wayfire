@@ -388,6 +388,8 @@ void wayfire_unmanaged_xwayland_view::commit()
 
 void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
 {
+    _is_mapped = true;
+
     /* move to the output where our center is
      * FIXME: this is a bad idea, because a dropdown menu might get sent to
      * an incorrect output. However, no matter how we calculate the real
@@ -436,6 +438,8 @@ void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
 
 void wayfire_unmanaged_xwayland_view::unmap()
 {
+    _is_mapped = false;
+
     if (wlr_xwayland_or_surface_wants_focus(xw))
         emit_view_unmap(self());
 
@@ -518,7 +522,7 @@ wlr_surface *wayfire_unmanaged_xwayland_view::get_keyboard_focus_surface()
 {
     if (!wlr_xwayland_or_surface_wants_focus(xw))
         return nullptr;
-    return surface;
+    return wayfire_view_t::get_keyboard_focus_surface();
 }
 
 void wayfire_unmanaged_xwayland_view::destroy()

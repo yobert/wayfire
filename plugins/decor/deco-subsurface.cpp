@@ -64,7 +64,7 @@ GLuint get_text_texture(int width, int height, std::string text, std::string cai
     return tex;
 }
 
-class simple_decoration_surface : public wayfire_compositor_surface_t, public wf_decorator_frame_t
+class simple_decoration_surface : public wayfire_compositor_subsurface_t, public wf_decorator_frame_t
 {
     int thickness = normal_thickness;
     int titlebar = titlebar_thickness;
@@ -103,7 +103,7 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
             if (this->output)
                 this->output->disconnect_signal("view-title-changed", &title_set);
 
-            wayfire_compositor_surface_t::set_output(next_output);
+            wayfire_compositor_subsurface_t::set_output(next_output);
 
             if (this->output)
                 this->output->connect_signal("view-title-changed", &title_set);
@@ -195,13 +195,7 @@ class simple_decoration_surface : public wayfire_compositor_surface_t, public wf
         {
             GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb.fb));
             auto obox = get_output_geometry();
-
-            wlr_fb_attribs attribs;
-            attribs.width = output->handle->width;
-            attribs.height = output->handle->height;
-            attribs.transform = output->handle->transform;
-
-            render_pixman(attribs, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
+            render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
         }
 
         /* all input events coordinates are surface-local */

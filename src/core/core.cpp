@@ -22,6 +22,7 @@ extern "C"
 #include "core.hpp"
 #include "signal-definitions.hpp"
 #include "workspace-manager.hpp"
+#include "render-manager.hpp"
 #include "seat/input-manager.hpp"
 #include "seat/input-inhibit.hpp"
 #include "seat/touch.hpp"
@@ -330,6 +331,10 @@ void wayfire_core::remove_output(wayfire_output *output)
         uninhibit_output(output);
 
     delete output;
+
+    /* Make sure we have a bound context */
+    for (auto& wo : outputs)
+        OpenGL::bind_context(wo.second->render->ctx);
 }
 
 void wayfire_core::refocus_active_output_active_view()

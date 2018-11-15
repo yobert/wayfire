@@ -157,8 +157,8 @@ render_manager::~render_manager()
     if (idle_damage_source)
         wl_event_source_remove(idle_damage_source);
 
-    pixman_region32_fini(&frame_damage);
     release_context();
+    pixman_region32_fini(&frame_damage);
 }
 
 void render_manager::damage(const wlr_box& box)
@@ -182,6 +182,7 @@ wf_framebuffer render_manager::get_target_framebuffer() const
 {
     wf_framebuffer fb;
     fb.geometry = output->get_relative_geometry();
+    fb.wl_transform = output->get_transform();
     fb.transform = get_output_matrix_from_transform(output->get_transform());
     fb.fb = default_fb;
     fb.viewport_width = output->handle->width;
@@ -332,6 +333,7 @@ void render_manager::paint()
 
     if (dirty_context)
         load_context();
+    OpenGL::bind_context(ctx);
 
     if (renderer)
     {

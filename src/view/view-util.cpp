@@ -155,3 +155,14 @@ wlr_box wlr_box_from_pixman_box(const pixman_box32_t& box)
 
     return d;
 }
+
+wayfire_view_t::wlr_fb_attribs::wlr_fb_attribs() { }
+
+wayfire_view_t::wlr_fb_attribs::wlr_fb_attribs(const wf_framebuffer& fb)
+{
+    this->width = fb.viewport_width;
+    this->height = fb.viewport_height;
+    this->fb = fb.fb;
+    this->transform = (wl_output_transform) fb.wl_transform;
+}
+
