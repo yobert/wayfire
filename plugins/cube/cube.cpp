@@ -120,7 +120,7 @@ class wayfire_cube : public wayfire_plugin_t
 
 #ifdef USE_GLES32
         use_light  = section->get_option("light", "1");
-        use_deform = section->get_option("deform", "1");
+        use_deform = section->get_option("deform", "0");
 #endif
 
         auto vw = std::get<0>(output->workspace->get_workspace_grid_size());
@@ -446,6 +446,9 @@ class wayfire_cube : public wayfire_plugin_t
 
     void pointer_scrolled(double amount)
     {
+        if (animation.in_exit)
+            return;
+
         animation.offset_y = {duration.progress(animation.offset_y), animation.offset_y.end} ;
         animation.offset_z = {duration.progress(animation.offset_z), animation.offset_z.end};
         animation.rotation = {duration.progress(animation.rotation), animation.rotation.end};
