@@ -12,13 +12,6 @@ extern "C"
 #include "input-manager.hpp"
 #include "compositor-view.hpp"
 
-
-void handle_keyboard_destroy_cb(wl_listener *listener, void*)
-{
-    wf_keyboard::listeners *lss = wl_container_of(listener, lss, destroy);
-    core->input->handle_input_destroyed(lss->keyboard->device);
-}
-
 static void handle_keyboard_key_cb(wl_listener* listener, void *data)
 {
     auto ev = static_cast<wlr_event_keyboard_key*> (data);
@@ -62,26 +55,12 @@ wf_keyboard::wf_keyboard(wlr_input_device *dev, wayfire_config *config)
     repeat_rate  = section->get_option("kb_repeat_rate", "40");
     repeat_delay = section->get_option("kb_repeat_delay", "400");
 
-    keyboard_options_updated = [=] () {
-        reload_input_options();
-    };
-
-    model->add_updated_handler(&keyboard_options_updated);
-    rules->add_updated_handler(&keyboard_options_updated);
-    layout->add_updated_handler(&keyboard_options_updated);
-    variant->add_updated_handler(&keyboard_options_updated);
-    options->add_updated_handler(&keyboard_options_updated);
-    repeat_rate->add_updated_handler(&keyboard_options_updated);
-    repeat_delay->add_updated_handler(&keyboard_options_updated);
-
     lss.keyboard = this;
     lss.key.notify      = handle_keyboard_key_cb;
     lss.modifier.notify = handle_keyboard_mod_cb;
-    lss.destroy.notify  = handle_keyboard_destroy_cb;
 
     wl_signal_add(&dev->keyboard->events.key,       &lss.key);
     wl_signal_add(&dev->keyboard->events.modifiers, &lss.modifier);
-    wl_signal_add(&dev->events.destroy,             &lss.destroy);
 
     reload_input_options();
     wlr_seat_set_keyboard(core->get_current_seat(), dev);
@@ -115,16 +94,7 @@ void wf_keyboard::reload_input_options()
                                  repeat_delay->as_int());
 }
 
-wf_keyboard::~wf_keyboard()
-{
-    model->rem_updated_handler(&keyboard_options_updated);
-    rules->rem_updated_handler(&keyboard_options_updated);
-    layout->rem_updated_handler(&keyboard_options_updated);
-    variant->rem_updated_handler(&keyboard_options_updated);
-    options->rem_updated_handler(&keyboard_options_updated);
-    repeat_rate->rem_updated_handler(&keyboard_options_updated);
-    repeat_delay->rem_updated_handler(&keyboard_options_updated);
-}
+wf_keyboard::~wf_keyboard() { }
 
 /* input manager things */
 

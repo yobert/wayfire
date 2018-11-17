@@ -51,12 +51,14 @@ void input_manager::handle_new_input(wlr_input_device *dev)
         create_seat();
 
     log_info("handle new input: %s, default mapping: %s", dev->name, dev->output_name);
+    input_devices.push_back(nonstd::make_unique<wf_input_device> (dev));
+
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
-        keyboards.push_back(std::unique_ptr<wf_keyboard> (new wf_keyboard(dev, core->config)));
+        keyboards.push_back(nonstd::make_unique<wf_keyboard> (dev, core->config));
 
     if (dev->type == WLR_INPUT_DEVICE_POINTER)
     {
-        wlr_cursor_attach_input_device(cursor, dev);
+        cursor->attach_device(dev);
         pointer_count++;
     }
 
@@ -64,15 +66,10 @@ void input_manager::handle_new_input(wlr_input_device *dev)
     {
         touch_count++;
         if (!our_touch)
-            our_touch = std::unique_ptr<wf_touch> (new wf_touch(cursor));
-
-        log_info("has touch devi with output %s", dev->output_name);
+            our_touch = std::unique_ptr<wf_touch> (new wf_touch(cursor->cursor));
 
         our_touch->add_device(dev);
     }
-
-    if (wlr_input_device_is_libinput(dev))
-        configure_input_device(wlr_libinput_get_device_handle(dev));
 
     auto section = core->config->get_section(nonull(dev->name));
     auto mapped_output = section->get_option("output",
@@ -80,14 +77,19 @@ void input_manager::handle_new_input(wlr_input_device *dev)
 
     auto wo = core->get_output(mapped_output);
     if (wo)
-        wlr_cursor_map_input_to_output(cursor, dev, wo->handle);
+        wlr_cursor_map_input_to_output(cursor->cursor, dev, wo->handle);
 
     update_capabilities();
 }
 
 void input_manager::handle_input_destroyed(wlr_input_device *dev)
 {
-    log_info("add new input: %s", dev->name);
+    log_info("remove input: %s", dev->name);
+
+    auto it = std::remove_if(input_devices.begin(), input_devices.end(),
+        [=] (const std::unique_ptr<wf_input_device>& idev) { return idev->device == dev; });
+    input_devices.erase(it, input_devices.end());
+
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
     {
         auto it = std::remove_if(keyboards.begin(), keyboards.end(),
@@ -98,7 +100,7 @@ void input_manager::handle_input_destroyed(wlr_input_device *dev)
 
     if (dev->type == WLR_INPUT_DEVICE_POINTER)
     {
-        wlr_cursor_detach_input_device(cursor, dev);
+        cursor->detach_device(dev);
         pointer_count--;
     }
 
@@ -134,11 +136,26 @@ input_manager::input_manager()
         }
     };
 
+    config_updated = [=] (signal_data *)
+    {
+        for (auto& dev : input_devices)
+            dev->update_options();
+        for (auto& kbd : keyboards)
+            kbd->reload_input_options();
+    };
+
+    core->connect_signal("reload-config", &config_updated);
+
     /*
 
     session_listener.notify = session_signal_handler;
     wl_signal_add(&core->ec->session_signal, &session_listener);
     */
+}
+
+input_manager::~input_manager()
+{
+    core->disconnect_signal("reload-config", &config_updated);
 }
 
 uint32_t input_manager::get_modifiers()
@@ -178,8 +195,7 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
 static void idle_update_cursor(void *data)
 {
     auto input = (input_manager*) data;
-    // TODO: use CLOCK_MONOTONIC instead of last_cursor_event_msec
-    input->update_cursor_position(input->last_cursor_event_msec, false);
+    input->update_cursor_position(get_input_time(), false);
 }
 
 void input_manager::ungrab_input()
@@ -193,11 +209,6 @@ void input_manager::ungrab_input()
      * the client, which shouldn't happen (at the time of the event, there was
      * still an active input grab) */
     wl_event_loop_add_idle(core->ev_loop, idle_update_cursor, this);
-
-    /*
-    if (is_touch_enabled())
-        gr->end_grab();
-        */
 }
 
 bool input_manager::input_grabbed()

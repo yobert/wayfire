@@ -62,12 +62,12 @@ class wayfire_command : public wayfire_plugin_t
             setup_bindings_from_config(core->config);
         };
 
-        output->connect_signal("reload-config", &reload_config);
+        core->connect_signal("reload-config", &reload_config);
     }
 
     void fini()
     {
-        output->disconnect_signal("reload-config", &reload_config);
+        core->disconnect_signal("reload-config", &reload_config);
         clear_bindings();
     }
 };

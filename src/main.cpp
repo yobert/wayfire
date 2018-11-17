@@ -57,8 +57,7 @@ static int handle_config_updated(int fd, uint32_t mask, void *data)
     read(fd, buf, INOT_BUF_SIZE);
     reload_config(fd);
 
-    core->for_each_output([] (wayfire_output *wo)
-                          { wo->emit_signal("reload-config", nullptr); });
+    core->emit_signal("reload-config", nullptr);
     return 1;
 }
 

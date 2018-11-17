@@ -126,7 +126,7 @@ static void handle_input_inhibit_deactivated(wl_listener*, void*)
 void wayfire_core::init(wayfire_config *conf)
 {
     configure(conf);
-    device_config::load(conf);
+    wf_input_device::config.load(conf);
 
     protocols.data_device = wlr_data_device_manager_create(display);
     wlr_renderer_init_wl_display(renderer, display);
@@ -213,18 +213,14 @@ static void output_destroyed_callback(wl_listener *, void *data)
 
 void wayfire_core::set_cursor(std::string name)
 {
-    if (name == "default")
-        name = "left_ptr";
-
-    if (input->cursor)
-        wlr_xcursor_manager_set_cursor_image(input->xcursor, name.c_str(), input->cursor);
+    input->cursor->set_cursor(name);
 }
 
 const int wayfire_core::invalid_coordinate;
 std::tuple<int, int> wayfire_core::get_cursor_position()
 {
     if (input->cursor)
-        return std::tuple<int, int> (input->cursor->x, input->cursor->y);
+        return std::tuple<int, int> (input->cursor->cursor->x, input->cursor->cursor->y);
     else
         return std::tuple<int, int> (invalid_coordinate, invalid_coordinate);
 }

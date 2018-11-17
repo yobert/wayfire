@@ -18,13 +18,12 @@ struct wf_keyboard
     /* so that we can safely use wl_container_of */
     struct listeners
     {
-        wl_listener key, modifier, destroy;
+        wl_listener key, modifier;
         wf_keyboard *keyboard;
     } lss;
 
     wf_option model, variant, layout, options, rules;
     wf_option repeat_rate, repeat_delay;
-    wf_option_callback keyboard_options_updated;
 
     wf_keyboard(wlr_input_device *keyboard, wayfire_config *config);
     void reload_input_options();

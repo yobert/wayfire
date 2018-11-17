@@ -269,8 +269,6 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
     set_initial_position();
 
     render = new render_manager(this);
-
-    core->set_cursor("default");
     plugin = new plugin_manager(this, c);
 
     unmap_view_cb = [=] (signal_data *data)
