@@ -239,6 +239,13 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
 
         uint32_t edges = 0;
 
+        /* Save the last bounding box on each commit.
+         * When the view resizes, some transforms may change the bounding box in such a way that
+         * we can't really calculate damage */
+        wf_geometry last_bounding_box {0, 0, 0, 0};
+
+        /* Same as damage(), but don't transform box */
+        void damage_raw(const wlr_box& box);
     public:
 
         /* these represent toplevel relations, children here are transient windows,

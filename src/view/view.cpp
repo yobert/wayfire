@@ -87,6 +87,7 @@ bool wayfire_view_t::update_size()
     int width = surface->current.width, height = surface->current.height;
     if (geometry.width != width || geometry.height != height)
     {
+        damage_raw(last_bounding_box);
         adjust_anchored_edge(width, height);
         wayfire_view_t::resize(width, height, true);
     }
@@ -127,6 +128,8 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
         output->emit_signal("view-geometry-changed", &data);
         emit_signal("geometry-changed", &data);
     }
+
+    last_bounding_box = get_bounding_box();
 }
 
 void wayfire_view_t::resize(int w, int h, bool send_signal)
@@ -404,36 +407,12 @@ wf_geometry wayfire_view_t::get_wm_geometry()
         return geometry;
 }
 
-void wayfire_view_t::damage(const wlr_box& box)
+void wayfire_view_t::damage_raw(const wlr_box& box)
 {
-    if (!output)
-        return;
-
-    auto wm_geometry = get_wm_geometry();
-
-    wlr_box damage_box;
-
-    if (transforms.size())
-    {
-        auto real_box = box;
-        real_box.x -= wm_geometry.x;
-        real_box.y -= wm_geometry.y;
-
-        pixman_region32_union_rect(&offscreen_buffer.cached_damage,
-                                   &offscreen_buffer.cached_damage,
-                                   real_box.x, real_box.y,
-                                   real_box.width, real_box.height);
-
-        /* TODO: damage only the bounding box of region */
-        damage_box = get_output_box_from_box(transform_region(box), output->handle->scale);
-    } else
-    {
-        damage_box = get_output_box_from_box(box, output->handle->scale);
-    }
+    auto damage_box = get_output_box_from_box(box, output->handle->scale);
 
     /* shell views are visible in all workspaces. That's why we must apply
      * their damage to all workspaces as well */
-
     if (role == WF_VIEW_ROLE_SHELL_VIEW)
     {
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
@@ -457,6 +436,28 @@ void wayfire_view_t::damage(const wlr_box& box)
     }
 
     emit_signal("damaged-region", nullptr);
+}
+
+void wayfire_view_t::damage(const wlr_box& box)
+{
+    if (!output)
+        return;
+
+    if (!has_transformer())
+        return damage_raw(box);
+
+    auto wm_geometry = get_wm_geometry();
+
+    auto real_box = box;
+    real_box.x -= wm_geometry.x;
+    real_box.y -= wm_geometry.y;
+
+    pixman_region32_union_rect(&offscreen_buffer.cached_damage,
+        &offscreen_buffer.cached_damage,
+        real_box.x, real_box.y,
+        real_box.width, real_box.height);
+
+    damage_raw(transform_region(box));
 }
 
 void wayfire_view_t::offscreen_buffer_t::init(int w, int h)
@@ -890,6 +891,8 @@ void wayfire_view_t::commit()
      * case the next commit(here) needs to still have access to the gravity */
     if (!in_continuous_resize)
         edges = 0;
+
+    this->last_bounding_box = get_bounding_box();
 }
 
 void wayfire_view_t::damage()

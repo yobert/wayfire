@@ -294,7 +294,7 @@ void wayfire_surface_t::apply_surface_damage(int x, int y)
 
     pixman_region32_t dmg;
     pixman_region32_init(&dmg);
-    pixman_region32_copy(&dmg, &surface->buffer_damage);
+    pixman_region32_copy(&dmg, &surface->current.surface_damage);
 
     wl_output_transform transform = wlr_output_transform_invert(surface->current.transform);
     wlr_region_transform(&dmg, &dmg, transform, surface->current.buffer_width, surface->current.buffer_height);
