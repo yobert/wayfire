@@ -95,11 +95,15 @@ class wayfire_mirror_view_t : public wayfire_compositor_view_t
     /* sets original_view to NULL and removes signal handlers */
     void unset_original_view();
 
+    virtual wf_geometry get_untransformed_bounding_box();
+
     public:
     wayfire_mirror_view_t(wayfire_view original_view);
+    virtual ~wayfire_mirror_view_t();
 
     virtual bool can_take_snapshot();
     virtual void take_snapshot();
+    virtual void render_fb(pixman_region32_t* damage, wf_framebuffer fb);
 
     virtual wf_point get_output_position();
     virtual wf_geometry get_output_geometry();

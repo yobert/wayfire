@@ -17,8 +17,8 @@ class wf_move_mirror_view : public wayfire_mirror_view_t
 {
     int _dx, _dy;
     public:
-        wf_move_mirror_view(wayfire_view view, int dx, int dy) :
-            wayfire_mirror_view_t(view), _dx(dx), _dy(dy) { }
+    wf_move_mirror_view(wayfire_view view, int dx, int dy) :
+        wayfire_mirror_view_t(view), _dx(dx), _dy(dy) { }
 
     virtual wf_point get_output_position()
     {
@@ -50,7 +50,11 @@ class wf_move_mirror_view : public wayfire_mirror_view_t
         emit_map_state_change(this);
     }
 
-    bool show_animation = false;
+    /* By default show animation. If move doesn't want it, it will reset this flag.
+     * Plus, we wantn to show animation if the view itself is destroyed (and in this
+     * case unmap comes not from move, but from the mirror-view implementation) */
+    bool show_animation = true;
+
     virtual void unmap()
     {
         _is_mapped = false;
@@ -60,7 +64,6 @@ class wf_move_mirror_view : public wayfire_mirror_view_t
         if (show_animation)
             emit_view_unmap(self());
 
-        unset_original_view();
         emit_map_state_change(this);
     }
 };
@@ -143,8 +146,6 @@ class wf_move_snap_preview : public wayfire_color_rect_view_t
 
 
         auto alpha = duration.progress(animation.alpha);
-
-        log_info("update %d,%d %dx%d, %.2f", current.x, current.y, current.width, current.height, alpha);
         if (base_color.a * alpha != _color.a)
         {
             _color.a = alpha * base_color.a;
@@ -157,7 +158,6 @@ class wf_move_snap_preview : public wayfire_color_rect_view_t
         /* The end of unmap animation, just exit */
         if (!duration.running() && animation.alpha.end <= 0.01)
         {
-            log_info("unmap");
             unmap();
             destroy();
         }
@@ -532,24 +532,46 @@ class wayfire_move : public wayfire_plugin_t
             return "wf-move-" + output->to_string();
         }
 
+        /* Delete the mirror view on the given output.
+         * If the view hasn't been unmapped yet, then do so. */
+        void delete_mirror_view_from_output(wayfire_output *wo,
+            bool show_animation, bool already_unmapped)
+        {
+            if (!wo->has_data(get_data_name()))
+                return;
+
+            auto view = wo->get_data<wf_move_output_state> (get_data_name())->view;
+            /* We erase so early so that in case of already_unmapped == false,
+             * we don't do this again for the unmap signal which will be triggered
+             * by our view->unmap() call */
+            wo->erase_data(get_data_name());
+
+            view->show_animation = show_animation;
+            if (!already_unmapped)
+            {
+                view->unmap();
+                view->destroy();
+            }
+
+            wo->erase_data(get_data_name());
+        }
+
         /* Destroys all mirror views created by this plugin */
         void delete_mirror_views(bool show_animation)
         {
             core->for_each_output([=] (wayfire_output *wo)
             {
-                if (!wo->has_data(get_data_name()))
-                    return;
-
-                auto data = wo->get_data<wf_move_output_state> (
-                    get_data_name());
-
-                data->view->show_animation = show_animation;
-                data->view->unmap();
-                data->view->destroy();
-
-                wo->erase_data(get_data_name());
+                delete_mirror_view_from_output(wo,
+                    show_animation, false);
             });
         }
+
+        signal_callback_t handle_mirror_view_unmapped = [=] (signal_data* data)
+        {
+            auto view = get_signaled_view(data);
+            delete_mirror_view_from_output(view->get_output(), true, true);
+            view->disconnect_signal("unmap", &handle_mirror_view_unmapped);
+        };
 
         /* Creates a new mirror view on output wo if it doesn't exist already */
         void ensure_mirror_view(wayfire_output *wo)
@@ -570,6 +592,8 @@ class wayfire_move : public wayfire_plugin_t
 
             mirror->set_output(wo);
             mirror->map();
+
+            mirror->connect_signal("unmap", &handle_mirror_view_unmapped);
         }
 
         /* Update the view position, with respect to the multi-output configuration
