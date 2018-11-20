@@ -295,7 +295,7 @@ void wayfire_core::remove_output(wayfire_output *output)
 
     /* first move each desktop view(e.g windows) to another output */
     std::vector<wayfire_view> views;
-    output->workspace->for_each_view_reverse([&views] (wayfire_view view) { views.push_back(view); }, WF_WM_LAYERS);
+    output->workspace->for_each_view_reverse([&views] (wayfire_view view) { views.push_back(view); }, WF_MIDDLE_LAYERS);
 
     for (auto& view : views)
         output->detach_view(view);

@@ -255,7 +255,7 @@ static void handle_output_layout_changed(wl_listener*, void *)
         {
             auto wm = view->get_wm_geometry();
             view->move(wm.x, wm.y, false);
-        }, WF_LAYER_WORKSPACE);
+        }, WF_WM_LAYERS);
     });
 }
 
@@ -490,7 +490,7 @@ void wayfire_output::detach_view(wayfire_view v)
 
     wayfire_view next = nullptr;
     auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(),
-                                                   WF_WM_LAYERS, true);
+                                                   WF_MIDDLE_LAYERS, true);
     for (auto wview : views)
     {
         if (wview->is_mapped())
@@ -615,7 +615,7 @@ wayfire_view wayfire_output::get_view_at_point(int x, int y)
             if (chosen == nullptr)
                 chosen = v;
         }
-    }, WF_WM_LAYERS);
+    }, WF_ALL_LAYERS);
 
     return chosen;
 }

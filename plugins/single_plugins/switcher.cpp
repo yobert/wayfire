@@ -216,6 +216,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     /* When switcher is done and starts animating towards end */
     void handle_done()
     {
+        cleanup_expired();
         dearrange();
         grab_interface->ungrab();
     }
@@ -250,7 +251,8 @@ class WayfireSwitcher : public wayfire_plugin_t
             handle_done();
     }
 
-    /* Sets up basic hooks needed while switcher works and/or displays animations */
+    /* Sets up basic hooks needed while switcher works and/or displays animations.
+     * Also lower any fullscreen views that are active */
     bool init_switcher()
     {
         if (!output->activate_plugin(grab_interface))
@@ -410,7 +412,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     std::vector<wayfire_view> get_workspace_views() const
     {
         auto all_views = output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), WF_LAYER_WORKSPACE, true);
+            output->workspace->get_current_workspace(), WF_WM_LAYERS, true);
 
         decltype(all_views) mapped_views;
         for (auto view : all_views)
@@ -506,6 +508,12 @@ class WayfireSwitcher : public wayfire_plugin_t
             output->workspace->get_current_workspace(), WF_BELOW_LAYERS, false);
     }
 
+    std::vector<wayfire_view> get_overlay_views() const
+    {
+        return output->workspace->get_views_on_workspace(
+            output->workspace->get_current_workspace(), WF_ABOVE_LAYERS, false);
+    }
+
     void dim_background(float dim)
     {
         for (auto view : get_background_views())
@@ -596,6 +604,9 @@ class WayfireSwitcher : public wayfire_plugin_t
             render_view(*it);
             ++it;
         }
+
+        for (auto view : get_overlay_views())
+            view->render_fb(NULL, output->render->get_target_framebuffer());
 
         if (!duration.running())
         {

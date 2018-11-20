@@ -433,7 +433,7 @@ void render_manager::post_paint()
     } else
     {
         auto views = output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), WF_WM_LAYERS, false);
+            output->workspace->get_current_workspace(), WF_MIDDLE_LAYERS, false);
 
         for (auto v : views)
             send_frame_done(v);

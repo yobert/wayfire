@@ -22,8 +22,6 @@ using wf_layer_container = std::list<wayfire_view>;
 
 class viewport_manager : public workspace_manager
 {
-    static const int TOTAL_WF_LAYERS = 6;
-
     struct custom_viewport_layer_data_t : public wf_custom_data_t
     {
         uint32_t layer = 0;
@@ -39,7 +37,7 @@ class viewport_manager : public workspace_manager
         wayfire_output *output;
         wf_geometry output_geometry;
 
-        wf_layer_container layers[TOTAL_WF_LAYERS];
+        wf_layer_container layers[WF_TOTAL_LAYERS];
 
         inline int layer_index_from_mask(uint32_t layer_mask) const
         { return __builtin_ctz(layer_mask); }
@@ -70,7 +68,14 @@ class viewport_manager : public workspace_manager
         void for_each_view(view_callback_proc_t call, uint32_t layers_mask);
         void for_each_view_reverse(view_callback_proc_t call, uint32_t layers_mask);
 
+        /* Directly move the view to the given layer */
+        void _add_view_to_layer(wayfire_view view, uint32_t layer);
+
+        /* The difference to the previous function is that this one will adjust
+         * the fullscreen layer if necessary */
         void add_view_to_layer(wayfire_view view, uint32_t layer);
+
+
         uint32_t get_view_layer(wayfire_view view);
 
         wf_workspace_implementation* get_implementation(std::tuple<int, int>);
@@ -155,14 +160,19 @@ void viewport_manager::remove_from_layer(wayfire_view view, uint32_t layer)
     layer_container.erase(it, layer_container.end());
 }
 
-void viewport_manager::add_view_to_layer(wayfire_view view, uint32_t layer)
+void viewport_manager::_add_view_to_layer(wayfire_view view, uint32_t layer)
 {
     /* make sure it is a valid layer */
-    assert(layer == 0 || layer == uint32_t(-1) || (__builtin_popcount(layer) == 1 && layer <= WF_LAYER_LOCK));
+    assert(layer == 0 || layer == uint32_t(-1) ||
+        (__builtin_popcount(layer) == 1 && layer < (1 << WF_TOTAL_LAYERS)));
+
     log_info("add to layer %d", layer);
 
     view->damage();
+
     auto& current_layer = _get_view_layer(view);
+
+    /* Just remove from layer */
     if (layer == 0)
     {
         if (current_layer)
@@ -172,15 +182,13 @@ void viewport_manager::add_view_to_layer(wayfire_view view, uint32_t layer)
         return;
     }
 
-    if (current_layer == layer)
-        return;
-
     if (layer == (uint32_t)-1 && current_layer == 0)
     {
         log_error ("trying to bring_to_front a view without a layer!");
         return;
     }
 
+    /* -1 means bring to front */
     if (layer == (uint32_t)-1)
         layer = current_layer;
 
@@ -191,6 +199,53 @@ void viewport_manager::add_view_to_layer(wayfire_view view, uint32_t layer)
     layer_container.push_front(view);
     current_layer = layer;
     view->damage();
+}
+
+void viewport_manager::add_view_to_layer(wayfire_view view, uint32_t layer)
+{
+    uint32_t real_layer = layer;
+    if (real_layer == (uint32_t)-1)
+        real_layer = get_view_layer(view);
+
+    bool view_in_middle_layers = (real_layer & WF_MIDDLE_LAYERS);
+    /* To focus view is fullscreen, go straight for the fullscreen layer */
+    if (view->fullscreen && view_in_middle_layers)
+        return _add_view_to_layer(view, WF_LAYER_FULLSCREEN);
+
+    /* If we bring to front a view which isn't fullscreen, lower the fs layer */
+    if (!view->fullscreen && view_in_middle_layers)
+    {
+        auto views = get_views_on_workspace(get_current_workspace(),
+            WF_LAYER_FULLSCREEN, true);
+
+        auto it = views.rbegin();
+        while (it != views.rend())
+        {
+            _add_view_to_layer(*it, WF_LAYER_WORKSPACE);
+            ++it;
+        }
+
+        return _add_view_to_layer(view, layer);
+    }
+
+    /* Maybe we remove a view and the one below it is fullscreen */
+    if (layer == 0 && (get_view_layer(view) & WF_MIDDLE_LAYERS))
+    {
+        /* Remove it from the list */
+        _add_view_to_layer(view, layer);
+
+        auto views = get_views_on_workspace(get_current_workspace(),
+            WF_LAYER_WORKSPACE, true);
+
+        if (views.size() && views[0]->fullscreen)
+            _add_view_to_layer(views[0], WF_LAYER_FULLSCREEN);
+
+        return;
+    }
+
+    /* Special cases which may need adjusting the fullscreen layer are over.
+     * Simply change the view layer */
+    _add_view_to_layer(view, layer);
 }
 
 uint32_t viewport_manager::get_view_layer(wayfire_view view)
@@ -221,7 +276,7 @@ void viewport_manager::for_each_view(view_callback_proc_t call, uint32_t layers_
 {
     std::vector<wayfire_view> views;
 
-    for (int i = TOTAL_WF_LAYERS - 1; i >= 0; i--)
+    for (int i = WF_TOTAL_LAYERS - 1; i >= 0; i--)
     {
         if ((1 << i) & layers_mask)
             for (auto v : layers[i])
@@ -236,7 +291,7 @@ void viewport_manager::for_each_view_reverse(view_callback_proc_t call, uint32_t
 {
     std::vector<wayfire_view> views;
 
-    for (int i = TOTAL_WF_LAYERS - 1; i >= 0; i--)
+    for (int i = WF_TOTAL_LAYERS - 1; i >= 0; i--)
     {
         if ((1 << i) & layers_mask)
             for (auto v : layers[i])
@@ -283,7 +338,7 @@ void viewport_manager::set_workspace(std::tuple<int, int> nPos)
 
     if (nx == vx && ny == vy)
     {
-        auto views = get_views_on_workspace(std::make_tuple(vx, vy), WF_WM_LAYERS, true);
+        auto views = get_views_on_workspace(std::make_tuple(vx, vy), WF_MIDDLE_LAYERS, true);
         if (views.size() >= 1)
             output->focus_view(views[0]);
         return;
@@ -295,7 +350,7 @@ void viewport_manager::set_workspace(std::tuple<int, int> nPos)
 
     for_each_view([=] (wayfire_view v) {
         v->move(v->get_wm_geometry().x + dx, v->get_wm_geometry().y + dy);
-    }, WF_WM_LAYERS);
+    }, WF_MIDDLE_LAYERS);
 
     output->render->schedule_redraw();
 
@@ -313,7 +368,7 @@ void viewport_manager::set_workspace(std::tuple<int, int> nPos)
     output->focus_view(nullptr);
     /* we iterate through views on current viewport from bottom to top
      * that way we ensure that they will be focused befor all others */
-    auto views = get_views_on_workspace(std::make_tuple(vx, vy), WF_WM_LAYERS, true);
+    auto views = get_views_on_workspace(std::make_tuple(vx, vy), WF_MIDDLE_LAYERS, true);
     auto it = views.rbegin();
     while(it != views.rend()) {
         if ((*it)->is_mapped() && !(*it)->destroyed)
@@ -331,7 +386,7 @@ viewport_manager::get_views_on_workspace(std::tuple<int, int> vp,
 
     std::vector<wayfire_view> views;
 
-    for (int i = 5; i >= 0; i--)
+    for (int i = WF_TOTAL_LAYERS - 1; i >= 0; i--)
     {
         if ((1 << i) & layers_mask)
         {
@@ -459,7 +514,7 @@ void viewport_manager::reflow_reserved_areas()
 
             view->set_geometry(new_geometry);
         }
-    }, WF_WM_LAYERS);
+    }, WF_MIDDLE_LAYERS);
 }
 
 void viewport_manager::update_output_geometry()
@@ -480,13 +535,13 @@ void viewport_manager::update_output_geometry()
 
             view->set_geometry({int(px * new_w), int(py * new_h),
 			    int(pw * new_w), int(ph * new_h)});
-    }, WF_WM_LAYERS);
+    }, WF_MIDDLE_LAYERS);
     output_geometry = output->get_relative_geometry();
 }
 
 void viewport_manager::check_lower_panel_layer(int base)
 {
-    auto views = get_views_on_workspace(get_current_workspace(), WF_WM_LAYERS, true);
+    auto views = get_views_on_workspace(get_current_workspace(), WF_MIDDLE_LAYERS, true);
 
     int cnt_fullscreen = base;
     for (auto v : views)

@@ -299,6 +299,23 @@ void wayfire_view_t::set_fullscreen(bool full)
 
     if (frame)
         frame->notify_view_fullscreened();
+
+    if (fullscreen && output)
+    {
+        if (saved_layer == 0)
+            saved_layer = output->workspace->get_view_layer(self());
+
+        /* Will trigger raising to fullscreen layer in workspace-manager */
+        output->bring_to_front(self());
+    }
+
+    if (!fullscreen && output &&
+        output->workspace->get_view_layer(self()) == WF_LAYER_FULLSCREEN)
+    {
+        output->workspace->add_view_to_layer(self(),
+            saved_layer == 0 ? WF_LAYER_WORKSPACE : saved_layer);
+        saved_layer = 0;
+    }
 }
 
 void wayfire_view_t::activate(bool active)
