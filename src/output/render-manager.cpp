@@ -363,11 +363,19 @@ void render_manager::paint()
     }
 
     run_effects(effects[WF_OUTPUT_EFFECT_OVERLAY]);
+
     if (post_effects.size())
     {
         pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0,
                                    output->handle->width, output->handle->height);
+    }
 
+    OpenGL::render_begin(get_target_framebuffer());
+    wlr_output_render_software_cursors(output->handle, &swap_damage);
+    OpenGL::render_end();
+
+    if (post_effects.size())
+    {
         GLuint last_fb = default_fb, last_tex = default_tex;
         for (auto post : post_effects)
         {
