@@ -83,7 +83,6 @@ void wayfire_compositor_view_t::render_fb(pixman_region32_t *damage, wf_framebuf
     if (has_transformer())
         return wayfire_view_t::render_fb(damage, fb);
 
-    GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb.fb));
     auto obox = get_output_geometry();
     render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
 }
@@ -184,12 +183,10 @@ void wayfire_mirror_view_t::take_snapshot()
     offscreen_buffer.output_y = buffer_geometry.y;
     offscreen_buffer.fb_scale = scale;
 
-    GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, offscreen_buffer.fbo));
-    wlr_renderer_begin(core->renderer, offscreen_buffer.fb_width, offscreen_buffer.fb_height);
-    wlr_renderer_scissor(core->renderer, NULL);
-    float clear_color[] = {0, 0, 0, 0};
-    wlr_renderer_clear(core->renderer, clear_color);
-    wlr_renderer_end(core->renderer);
+    OpenGL::render_begin(offscreen_buffer.fb_width, offscreen_buffer.fb_height,
+        offscreen_buffer.fbo);
+    OpenGL::clear({0, 0, 0, 0});
+    OpenGL::render_end();
 
     wf_framebuffer fb;
     fb.fb = offscreen_buffer.fbo;
@@ -271,7 +268,7 @@ void wayfire_color_rect_view_t::_wlr_render_box(const wlr_fb_attribs& fb, int x,
     float projection[9];
     wlr_matrix_projection(projection, fb.width, fb.height, fb.transform);
 
-    wlr_renderer_begin(core->renderer, fb.width, fb.height);
+    OpenGL::render_begin(fb.width, fb.height, fb.fb);
     auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
 
     /* Draw the border, making sure border parts don't overlap, otherwise
@@ -294,7 +291,7 @@ void wayfire_color_rect_view_t::_wlr_render_box(const wlr_fb_attribs& fb, int x,
         geometry.width - 2 * border, geometry.height - 2 * border,
         _color);
 
-    wlr_renderer_end(core->renderer);
+    OpenGL::render_end();
 }
 
 wayfire_color_rect_view_t::wayfire_color_rect_view_t()

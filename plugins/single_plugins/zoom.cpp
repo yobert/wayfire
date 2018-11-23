@@ -86,11 +86,12 @@ class wayfire_zoom_screen : public wayfire_plugin_t
             const float x1 = x * scale;
             const float y1 = y * scale;
 
+            OpenGL::render_begin(output->render->get_target_framebuffer());
             GL_CALL(glBindFramebuffer(GL_READ_FRAMEBUFFER, fb));
             GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target));
 
             GL_CALL(glBlitFramebuffer(x1, y1, x1 + tw, y1 + th, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR));
-            GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+            OpenGL::render_end();
 
             if (!duration.running() && current_zoom - 1 <= 0.01)
             {

@@ -294,14 +294,10 @@ void wayfire_surface_t::apply_surface_damage(int x, int y)
 
     pixman_region32_t dmg;
     pixman_region32_init(&dmg);
-    pixman_region32_copy(&dmg, &surface->current.surface_damage);
+    wlr_surface_get_effective_damage(surface, &dmg);
 
-    wl_output_transform transform = wlr_output_transform_invert(surface->current.transform);
-    wlr_region_transform(&dmg, &dmg, transform, surface->current.buffer_width, surface->current.buffer_height);
-    float scale = 1.0 / (float)surface->current.scale;
-    wlr_region_scale(&dmg, &dmg, scale);
-
-    if (surface->current.scale != 1 || surface->current.scale != output->handle->scale)
+    if (surface->current.scale != 1 ||
+        surface->current.scale != output->handle->scale)
         wlr_region_expand(&dmg, &dmg, 1);
 
     pixman_region32_translate(&dmg, x, y);
@@ -406,11 +402,9 @@ void wayfire_surface_t::_wlr_render_box(const wlr_fb_attribs& fb, int x, int y, 
     wlr_matrix_project_box(matrix, &geometry, wlr_output_transform_invert(surface->current.transform),
                            0, projection);
 
-    wlr_renderer_begin(core->renderer, fb.width, fb.height);
-
+    OpenGL::render_begin(fb.width, fb.height, fb.fb);
     auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
     wlr_render_texture_with_matrix(core->renderer, get_buffer()->texture, matrix, alpha);
-
 
 #ifdef WAYFIRE_GRAPHICS_DEBUG
     float scissor_proj[9];
@@ -420,7 +414,7 @@ void wayfire_surface_t::_wlr_render_box(const wlr_fb_attribs& fb, int x, int y, 
     wlr_render_rect(core->renderer, &scissor, col, scissor_proj);
 #endif
 
-    wlr_renderer_end(core->renderer);
+    OpenGL::render_end();
 }
 
 void wayfire_surface_t::_render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage)
@@ -455,7 +449,6 @@ void wayfire_surface_t::render_fb(pixman_region32_t *damage, wf_framebuffer fb)
     if (!is_mapped() || !wlr_surface_has_buffer(surface))
         return;
 
-    GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb.fb));
     auto obox = get_output_geometry();
     render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
 }

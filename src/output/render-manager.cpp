@@ -315,25 +315,21 @@ void render_manager::paint()
     pixman_region32_t swap_damage;
     pixman_region32_init(&swap_damage);
 
-    int w, h;
-    wlr_output_transformed_resolution(output->handle, &w, &h);
-
-    auto rr = wlr_backend_get_renderer(core->backend);
-    wlr_renderer_begin(rr, output->handle->width, output->handle->height);
-
-    if (runtime_config.damage_debug)
+        if (runtime_config.damage_debug)
     {
         pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0,
                               output->handle->width, output->handle->height);
 
-        float color[] = {1, 1, 0, 1};
-        wlr_renderer_scissor(core->renderer, NULL);
-        wlr_renderer_clear(core->renderer, color);
+        OpenGL::render_begin(output->handle->width, output->handle->height, 0);
+        OpenGL::clear({1, 1, 0, 1});
+        OpenGL::render_end();
     }
 
+    OpenGL::render_begin(get_target_framebuffer());
     if (dirty_context)
         load_context();
     OpenGL::bind_context(ctx);
+    OpenGL::render_end();
 
     if (renderer)
     {
@@ -343,7 +339,10 @@ void render_manager::paint()
         /* TODO: let custom renderers specify what they want to repaint... */
     } else
     {
+        int w, h;
+        wlr_output_transformed_resolution(output->handle, &w, &h);
         pixman_region32_intersect_rect(&frame_damage, &frame_damage, 0, 0, w, h);
+
         if (pixman_region32_not_empty(&frame_damage))
         {
             pixman_region32_copy(&swap_damage, &frame_damage);
@@ -360,13 +359,10 @@ void render_manager::paint()
             {
                 workspace_stream_update(current_ws_stream);
             }
-        } else
-        {
         }
     }
 
     run_effects(effects[WF_OUTPUT_EFFECT_OVERLAY]);
-    wlr_renderer_scissor(rr, NULL);
     if (post_effects.size())
     {
         pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0,
@@ -384,22 +380,14 @@ void render_manager::paint()
         assert(last_fb == 0 && last_tex == 0);
     }
 
-    wlr_renderer_scissor(rr, NULL);
-
     if (output_inhibit)
     {
-        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
-        GL_CALL(glClearColor(0, 0, 0, 1));
-        GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+        OpenGL::render_begin(output->handle->width, output->handle->height, 0);
+        OpenGL::clear({0, 0, 0, 1});
+        OpenGL::render_end();
     }
 
-    wlr_renderer_end(rr);
-
-    if (renderer)
-        output_damage->swap_buffers(&repaint_started, &swap_damage);
-    else
-        output_damage->swap_buffers(&repaint_started, &swap_damage);
-
+    output_damage->swap_buffers(&repaint_started, &swap_damage);
     pixman_region32_fini(&swap_damage);
     post_paint();
 }
@@ -774,29 +762,23 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     std::swap(wayfire_view_transform::global_translate, translate);
     */
 
-    wlr_renderer_begin(core->renderer, output->handle->width, output->handle->height);
+    auto fb = get_target_framebuffer();
+    fb.fb = (stream->fbuff == 0 ? default_fb : stream->fbuff);
+    fb.tex = (stream->fbuff == 0 ? default_tex : stream->tex);
+
+    OpenGL::render_begin(fb);
 
     int n_rect;
     auto rects = pixman_region32_rectangles(&ws_damage, &n_rect);
-    GL_CALL(glClearColor(0, 0, 0, 1));
-
-    uint32_t target_buffer = (stream->fbuff == 0 ? default_fb : stream->fbuff);
-    uint32_t target_tex = (stream->fbuff == 0 ? default_tex : stream->tex);
-    GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_buffer));
     for (int i = 0; i < n_rect; i++)
     {
         wlr_box damage = wlr_box_from_pixman_box(rects[i]);
         auto box = get_scissor_box(output, damage);
 
         wlr_renderer_scissor(core->renderer, &box);
-        GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+        OpenGL::clear({0, 0, 0, 1}, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
-
-    wlr_renderer_end(core->renderer);
-
-    auto fb = get_target_framebuffer();
-    fb.fb = target_buffer;
-    fb.tex = target_tex;
+    OpenGL::render_end();
 
     auto rev_it = to_render.rbegin();
     while(rev_it != to_render.rend())
@@ -811,8 +793,6 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
    // std::swap(wayfire_view_transform::global_scale, scale);
    // std::swap(wayfire_view_transform::global_translate, translate);
-
-    GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
     pixman_region32_fini(&ws_damage);
 
     if (!renderer)

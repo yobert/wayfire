@@ -483,13 +483,9 @@ void wayfire_view_t::offscreen_buffer_t::init(int w, int h)
     fb_width = w;
     fb_height = h;
 
-    GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
-    GL_CALL(glViewport(0, 0, fb_width, fb_height));
-
-    wlr_renderer_scissor(core->renderer, NULL);
-
-    GL_CALL(glClearColor(0, 0, 0, 0));
-    GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+    OpenGL::render_begin(fb_width, fb_height, fbo);
+    OpenGL::clear({0, 0, 0, 0});
+    OpenGL::render_end();
 }
 
 bool wayfire_view_t::offscreen_buffer_t::valid()
@@ -502,8 +498,11 @@ void wayfire_view_t::offscreen_buffer_t::fini()
     if (!valid())
         return;
 
-    glDeleteFramebuffers(1, &fbo);
-    glDeleteTextures(1, &tex);
+    /* We don't care about viewport size */
+    OpenGL::render_begin();
+    GL_CALL(glDeleteFramebuffers(1, &fbo));
+    GL_CALL(glDeleteTextures(1, &tex));
+    OpenGL::render_end();
 
     fb_width = fb_height = 0;
     fbo = tex = -1;
@@ -547,12 +546,10 @@ void wayfire_view_t::take_snapshot()
         //pixman_region32_init(&offscreen_buffer.cached_damage);
     }
 
-    GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, offscreen_buffer.fbo));
-    wlr_renderer_begin(core->renderer, offscreen_buffer.fb_width, offscreen_buffer.fb_height);
-    wlr_renderer_scissor(core->renderer, NULL);
-    float clear_color[] = {0, 0, 0, 0};
-    wlr_renderer_clear(core->renderer, clear_color);
-    wlr_renderer_end(core->renderer);
+    OpenGL::render_begin(offscreen_buffer.fb_width, offscreen_buffer.fb_height,
+        offscreen_buffer.fbo);
+    OpenGL::clear({0, 0, 0, 0});
+    OpenGL::render_end();
 
     wlr_fb_attribs fb;
     fb.fb = offscreen_buffer.fbo;
@@ -563,8 +560,6 @@ void wayfire_view_t::take_snapshot()
     {
         surface->render_pixman(fb, x - buffer_geometry.x, y - buffer_geometry.y, NULL);
     }, true);
-
-    GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 }
 
 void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
@@ -604,7 +599,10 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
             fb.geometry = tbox;
             fb.viewport_width = tbox.width;
             fb.viewport_height = tbox.height;
-            fb.clear();
+
+            OpenGL::render_begin(fb);
+            OpenGL::clear({0, 0, 0, 0});
+            OpenGL::render_end();
 
             tr->transform->render_with_damage(last_tex, obox, {0, 0, tbox.width, tbox.height}, fb);
             last_tex = fb.tex;
@@ -622,12 +620,16 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
             (*it)->transform->render_with_damage(last_tex, obox, sbox, fb);
 
 #ifdef WAYFIRE_GRAPHICS_DEBUG
+            OpenGL::render_begin(fb);
+
             float proj[9];
             wlr_matrix_projection(proj, fb.viewport_width, fb.viewport_height,
-                                  WL_OUTPUT_TRANSFORM_NORMAL);
+                WL_OUTPUT_TRANSFORM_NORMAL);
 
             float col[4] = {0, 0.0, 0.2, 0.5};
             wlr_render_rect(core->renderer, &sbox, col, proj);
+
+            OpenGL::render_end();
 #endif
         }
 

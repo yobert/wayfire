@@ -51,14 +51,16 @@ class wf_system_fade
             auto geometry = output->get_relative_geometry();
             geometry = get_output_box_from_box(geometry, output->handle->scale);
 
+            OpenGL::render_begin(output->render->get_target_framebuffer());
+
             float matrix[9];
             wlr_matrix_project_box(matrix, &geometry,
                                    WL_OUTPUT_TRANSFORM_NORMAL,
                                    0, output->handle->transform_matrix);
 
-            wlr_renderer_scissor(core->renderer, NULL);
             wlr_render_quad_with_matrix(core->renderer, color, matrix);
 
+            OpenGL::render_end();
             if (!duration.running())
                 finish();
         }

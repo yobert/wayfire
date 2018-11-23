@@ -95,7 +95,7 @@ class FireTransformer : public wf_view_transformer_t
                                     wlr_box scissor_box,
                                     const wf_framebuffer& target_fb)
     {
-        target_fb.bind();
+        OpenGL::render_begin(target_fb);
         target_fb.scissor(scissor_box);
 
         // render view
@@ -118,7 +118,9 @@ class FireTransformer : public wf_view_transformer_t
 
         auto translate = glm::translate(glm::mat4(1.0),
                                         {src_box.x, src_box.y, 0});
-        ps.render(target_fb.transform * ortho * translate);
+
+        ps.render(target_fb.transform * ortho * translate); // will reset the gl program
+        OpenGL::render_end();
     }
 };
 

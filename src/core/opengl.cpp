@@ -298,13 +298,14 @@ namespace OpenGL
         auto status = GL_CALL(glCheckFramebufferStatus(GL_FRAMEBUFFER));
         if (status != GL_FRAMEBUFFER_COMPLETE)
             log_error("failed to initialize framebuffer");
+
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
     }
 
     void prepare_framebuffer_size(int w, int h,
                                   GLuint &fbuff, GLuint &texture,
                                   float scale_x, float scale_y)
     {
-        log_info("new fb %d %d %u %u", w, h, fbuff, texture);
         GL_CALL(glGenFramebuffers(1, &fbuff));
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fbuff));
 
@@ -324,36 +325,41 @@ namespace OpenGL
                 texture, 0));
 
         auto status = GL_CALL(glCheckFramebufferStatus(GL_FRAMEBUFFER));
-
-        log_info("gl::: !!!! %d %d",
-                 glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
         if (status != GL_FRAMEBUFFER_COMPLETE)
             log_error("failed to initialize framebuffer");
-        else
-            log_error("initialized framebuffer %u with attachment %u", fbuff, texture);
-    }
-
-
-    GLuint duplicate_texture(GLuint tex, int w, int h)
-    {
-        GLuint dst_tex = -1;
-
-        GLuint dst_fbuff = -1, src_fbuff = -1;
-
-        prepare_framebuffer(dst_fbuff, dst_tex);
-        GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h,
-                    0, GL_RGBA, GL_UNSIGNED_BYTE, 0));
-
-        prepare_framebuffer(src_fbuff, tex);
-
-        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst_fbuff));
-        GL_CALL(glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR));
 
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
+    }
 
-        GL_CALL(glDeleteFramebuffers(1, &dst_fbuff));
-        GL_CALL(glDeleteFramebuffers(1, &src_fbuff));
-        return dst_tex;
+    void render_begin()
+    {
+        /* No real reason for 10, 10, 0 but it doesn't matter */
+        render_begin(10, 10, 0);
+    }
+
+    void render_begin(const wf_framebuffer& fb)
+    {
+        render_begin(fb.viewport_width, fb.viewport_height, fb.fb);
+    }
+
+    void render_begin(int32_t viewport_width, int32_t viewport_height, uint32_t fb)
+    {
+        wlr_renderer_begin(core->renderer, viewport_width, viewport_height);
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fb));
+    }
+
+    void clear(wf_color col, uint32_t mask)
+    {
+        GL_CALL(glClearColor(col.r, col.g, col.b, col.a));
+        GL_CALL(glClear(mask));
+    }
+
+    void render_end()
+    {
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+        wlr_renderer_scissor(core->renderer, NULL);
+        wlr_renderer_end(core->renderer);
     }
 }
 
@@ -386,16 +392,6 @@ void wf_framebuffer::scissor(wlr_box box) const
                       box.width, box.height));
 }
 
-void wf_framebuffer::clear() const
-{
-    GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb));
-    GL_CALL(glViewport(0, 0, geometry.width, geometry.height));
-    wlr_renderer_scissor(core->renderer, NULL);
-
-    GL_CALL(glClearColor(0, 0, 0, 0));
-    GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
-}
-
 void wf_framebuffer::release()
 {
     if (fb == uint32_t(-1))
@@ -407,7 +403,6 @@ void wf_framebuffer::release()
     fb = -1;
     tex = -1;
 }
-
 
 #define WF_PI 3.141592f
 

@@ -4,6 +4,8 @@
 #include <GLES3/gl3.h>
 #include <GLES3/gl3ext.h>
 
+#include <config.hpp>
+
 extern "C"
 {
 #include <wlr/types/wlr_box.h>
@@ -52,7 +54,6 @@ struct wf_framebuffer
     void init(int w, int h);
     void bind() const;
     void scissor(wlr_box box) const;
-    void clear() const;
     void release();
 };
 
@@ -70,9 +71,24 @@ namespace OpenGL
         int32_t width, height;
     };
 
+    /* "Begin" rendering to the given framebuffer and the given viewport.
+     * All rendering operations should happen between render_begin and render_end, because
+     * that's the only time we're guaranteed we have a valid GLES context
+     *
+     * The other functions below assume they are called between render_begin()
+     * and render_end() */
+    void render_begin(); // use if you just want to bind GL context but won't draw
+    void render_begin(const wf_framebuffer& fb);
+    void render_begin(int32_t viewport_width, int32_t viewport_height, uint32_t fb = 0);
+
+    /* Resets bound framebuffer and scissor box */
+    void render_end();
+
     wf_geometry get_device_viewport();
     /* simply calls glViewport() with the geometry from get_device_viewport() */
     void use_device_viewport();
+
+    void clear(wf_color color, uint32_t mask = GL_COLOR_BUFFER_BIT);
 
     context_t* create_gles_context(wayfire_output *output, const char *shader_src_path);
     void bind_context(context_t* ctx);
@@ -89,8 +105,6 @@ namespace OpenGL
 
     void render_texture(GLuint tex, const gl_geometry& g,
                         const gl_geometry& texg, uint32_t bits);
-
-    GLuint duplicate_texture(GLuint source_tex, int w, int h);
 
     GLuint load_shader(const char *path, GLuint type);
     GLuint compile_shader(const char *src, GLuint type);

@@ -143,7 +143,7 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
             float matrix[9];
             wlr_matrix_project_box(matrix, &geometry, WL_OUTPUT_TRANSFORM_NORMAL, 0, projection);
 
-            wlr_renderer_begin(core->renderer, fb.width, fb.height);
+            OpenGL::render_begin(fb.width, fb.height, fb.fb);
             auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
 
             wlr_render_quad_with_matrix(core->renderer, active ? border_color : border_color_inactive, matrix);
@@ -165,7 +165,8 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
             OpenGL::use_default_program();
             OpenGL::render_transformed_texture(tex, gg, {}, ortho, {1, 1, 1, 1}, TEXTURE_TRANSFORM_INVERT_Y);
 
-            wlr_renderer_end(core->renderer);
+            GL_CALL(glUseProgram(0));
+            OpenGL::render_end();
         }
 
         virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t* damage)
@@ -193,7 +194,6 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
 
         virtual void render_fb(pixman_region32_t* damage, wf_framebuffer fb)
         {
-            GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb.fb));
             auto obox = get_output_geometry();
             render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
         }

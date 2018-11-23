@@ -109,6 +109,31 @@ class wayfire_fisheye : public wayfire_plugin_t
 
     GLuint program, posID, mouseID, resID, radiusID, zoomID;
 
+    void load_program()
+    {
+        OpenGL::render_begin();
+
+        auto vs = OpenGL::compile_shader(vertex_shader, GL_VERTEX_SHADER);
+        auto fs = OpenGL::compile_shader(fragment_shader, GL_FRAGMENT_SHADER);
+
+        program = GL_CALL(glCreateProgram());
+        GL_CALL(glAttachShader(program, vs));
+        GL_CALL(glAttachShader(program, fs));
+        GL_CALL(glLinkProgram(program));
+
+        /* won't be really deleted until program is deleted as well */
+        GL_CALL(glDeleteShader(vs));
+        GL_CALL(glDeleteShader(fs));
+
+        posID = GL_CALL(glGetAttribLocation(program, "position"));
+        mouseID  = GL_CALL(glGetUniformLocation(program, "u_mouse"));
+        resID  = GL_CALL(glGetUniformLocation(program, "u_resolution"));
+        radiusID  = GL_CALL(glGetUniformLocation(program, "u_radius"));
+        zoomID  = GL_CALL(glGetUniformLocation(program, "u_zoom"));
+
+        OpenGL::render_end();
+    }
+
     public:
         void init(wayfire_config *config)
         {
@@ -143,29 +168,12 @@ class wayfire_fisheye : public wayfire_plugin_t
                         }
                     }
             };
+            output->add_activator(toggle_key, &toggle_cb);
 
-            auto vs = OpenGL::compile_shader(vertex_shader, GL_VERTEX_SHADER);
-            auto fs = OpenGL::compile_shader(fragment_shader, GL_FRAGMENT_SHADER);
-
-            program = GL_CALL(glCreateProgram());
-            GL_CALL(glAttachShader(program, vs));
-            GL_CALL(glAttachShader(program, fs));
-            GL_CALL(glLinkProgram(program));
-
-            /* won't be really deleted until program is deleted as well */
-            GL_CALL(glDeleteShader(vs));
-            GL_CALL(glDeleteShader(fs));
-
-            posID = GL_CALL(glGetAttribLocation(program, "position"));
-            mouseID  = GL_CALL(glGetUniformLocation(program, "u_mouse"));
-            resID  = GL_CALL(glGetUniformLocation(program, "u_resolution"));
-            radiusID  = GL_CALL(glGetUniformLocation(program, "u_radius"));
-            zoomID  = GL_CALL(glGetUniformLocation(program, "u_zoom"));
+            load_program();
 
             duration = wf_duration(new_static_option("700"));
             duration.start(0, 0); // so that the first value we get is correct
-
-            output->add_activator(toggle_key, &toggle_cb);
         }
 
         void render(uint32_t fb, uint32_t tex, uint32_t target)
@@ -175,10 +183,6 @@ class wayfire_fisheye : public wayfire_plugin_t
             box = output_transform_box(output, box);
             x = box.x;
             y = box.y;
-
-            GL_CALL(glUseProgram(program));
-            GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
-            GL_CALL(glActiveTexture(GL_TEXTURE0));
 
             static const float vertexData[] = {
                 -1.0f, -1.0f,
@@ -190,21 +194,25 @@ class wayfire_fisheye : public wayfire_plugin_t
             auto current_zoom = duration.progress();
             target_zoom = zoom->as_double();
 
-            glUniform2f(mouseID, x, y);
-            glUniform2f(resID, output->handle->width, output->handle->height);
-            glUniform1f(radiusID, radius->as_double());
-            glUniform1f(zoomID, current_zoom);
+            OpenGL::render_begin(output->render->get_target_framebuffer());
+
+            GL_CALL(glUseProgram(program));
+            GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
+            GL_CALL(glActiveTexture(GL_TEXTURE0));
+
+            GL_CALL(glUniform2f(mouseID, x, y));
+            GL_CALL(glUniform2f(resID, output->handle->width, output->handle->height));
+            GL_CALL(glUniform1f(radiusID, radius->as_double()));
+            GL_CALL(glUniform1f(zoomID, current_zoom));
 
             GL_CALL(glVertexAttribPointer(posID, 2, GL_FLOAT, GL_FALSE, 0, vertexData));
             GL_CALL(glEnableVertexAttribArray(posID));
 
-            GL_CALL(glDisable(GL_BLEND));
             GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target));
             GL_CALL(glDrawArrays (GL_TRIANGLE_FAN, 0, 4));
-            GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
             GL_CALL(glDisableVertexAttribArray(posID));
-            GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
+
+            OpenGL::render_end();
 
             if (active)
             {
@@ -229,7 +237,10 @@ class wayfire_fisheye : public wayfire_plugin_t
             if (hook_set)
                 finalize();
 
+            OpenGL::render_begin();
             GL_CALL(glDeleteProgram(program));
+            OpenGL::render_end();
+
             output->rem_binding(&toggle_cb);
         }
 };

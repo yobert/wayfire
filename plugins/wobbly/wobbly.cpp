@@ -52,7 +52,7 @@ void main()
             return;
 
         /* viewport dimensions don't matter really, we just care to get the proper GL context */
-        wlr_renderer_begin(core->renderer, 10, 10);
+        OpenGL::render_begin();
 
         auto vs = OpenGL::compile_shader(vertex_source, GL_VERTEX_SHADER);
         auto fs = OpenGL::compile_shader(frag_source, GL_FRAGMENT_SHADER);
@@ -69,19 +69,20 @@ void main()
         GL_CALL(glDeleteShader(vs));
         GL_CALL(glDeleteShader(fs));
 
-        wlr_renderer_end(core->renderer);
+        OpenGL::render_end();
     }
 
     void destroy_program()
     {
         if (--times_loaded == 0)
         {
-            wlr_renderer_begin(core->renderer, 10, 10);
+            OpenGL::render_begin();
             GL_CALL(glDeleteProgram(program));
-            wlr_renderer_end(core->renderer);
+            OpenGL::render_end();
         }
     }
 
+    /* Requires bound opengl context */
     void render_triangles(GLuint tex, glm::mat4 mat, float *pos, float *uv, int cnt)
     {
         GL_CALL(glUseProgram(program));
@@ -267,7 +268,7 @@ class wf_wobbly : public wf_view_transformer_t
     virtual void render_with_damage(uint32_t src_tex, wlr_box src_box,
                             wlr_box scissor_box, const wf_framebuffer& target_fb)
     {
-        target_fb.bind();
+        OpenGL::render_begin(target_fb);
         target_fb.scissor(scissor_box);
 
         auto ortho = glm::ortho(1.0f * target_fb.geometry.x, 1.0f * target_fb.geometry.x + 1.0f * target_fb.geometry.width,
@@ -325,6 +326,8 @@ class wf_wobbly : public wf_view_transformer_t
         wobbly_graphics::render_triangles(src_tex, target_fb.transform * ortho,
                                           vert.data(), uv.data(),
                                           model->x_cells * model->y_cells * 2);
+
+        OpenGL::render_end();
     }
 
     void start_grab(int x, int y)

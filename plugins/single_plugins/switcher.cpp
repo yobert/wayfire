@@ -585,13 +585,9 @@ class WayfireSwitcher : public wayfire_plugin_t
 
     void render_output(uint32_t fb)
     {
-        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb));
-        OpenGL::use_device_viewport();
-
-        wlr_renderer_scissor(core->renderer, NULL);
-
-        GL_CALL(glClearColor(0.0, 0.0, 0.0, 1.0));
-        GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+        OpenGL::render_begin(output->render->get_target_framebuffer());
+        OpenGL::clear({0, 0, 0, 1});
+        OpenGL::render_end();
 
         dim_background(background_dim_duration.progress());
         for (auto view : get_background_views())
@@ -615,8 +611,6 @@ class WayfireSwitcher : public wayfire_plugin_t
             if (!active)
                 deinit_switcher();
         }
-
-        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
     }
 
     /* delete all views matching the given criteria, skipping the first "start" views */
