@@ -43,9 +43,6 @@ void wayfire_core::configure(wayfire_config *config)
 
     vwidth  = *section->get_option("vwidth", "3");
     vheight = *section->get_option("vheight", "3");
-
-    shadersrc   = section->get_option("shadersrc", INSTALL_PREFIX "/share/wayfire/shaders")->as_string();
-    run_panel   = section->get_option("run_panel", "1")->as_int();
 }
 
 static void handle_output_layout_changed(wl_listener*, void *)
@@ -172,6 +169,8 @@ void wayfire_core::init(wayfire_config *conf)
 #ifdef BUILD_WITH_IMAGEIO
     image_io::init();
 #endif
+
+    OpenGL::init();
 }
 
 void refocus_idle_cb(void *data)
@@ -327,10 +326,6 @@ void wayfire_core::remove_output(wayfire_output *output)
         uninhibit_output(output);
 
     delete output;
-
-    /* Make sure we have a bound context */
-    for (auto& wo : outputs)
-        OpenGL::bind_context(wo.second->render->ctx);
 }
 
 void wayfire_core::refocus_active_output_active_view()

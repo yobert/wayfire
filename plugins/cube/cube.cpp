@@ -129,7 +129,7 @@ class wayfire_cube : public wayfire_plugin_t
         animation.offset_z = {identity_z_offset + Z_OFFSET_NEAR,
             identity_z_offset + Z_OFFSET_NEAR};
 
-        renderer = [=] (uint32_t fb) {render(fb);};
+        renderer = [=] (const wf_framebuffer& dest) {render(dest);};
 
         OpenGL::render_begin(output->render->get_target_framebuffer());
         load_program();
@@ -223,10 +223,7 @@ class wayfire_cube : public wayfire_plugin_t
 
         streams.resize(vw);
         for(int i = 0; i < vw; i++)
-        {
             streams[i] = nonstd::make_unique<wf_workspace_stream>();
-            streams[i]->fbuff = streams[i]->tex = -1;
-        }
 
         project = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
     }
@@ -271,7 +268,7 @@ class wayfire_cube : public wayfire_plugin_t
         return duration.running();
     }
 
-    void render(uint32_t target_fb)
+    void render(const wf_framebuffer& dest)
     {
         GetTuple(vx, vy, output->workspace->get_current_workspace());
         for(size_t i = 0; i < streams.size(); i++) {
@@ -283,7 +280,7 @@ class wayfire_cube : public wayfire_plugin_t
             }
         }
 
-        OpenGL::render_begin(output->render->get_target_framebuffer());
+        OpenGL::render_begin(dest);
         OpenGL::clear(background_color->as_cached_color(),
             GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -334,7 +331,7 @@ class wayfire_cube : public wayfire_plugin_t
         for(size_t i = 0; i < streams.size(); i++)
         {
             int index = (vx + i) % streams.size();
-            GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index]->tex));
+            GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index]->buffer.tex));
             GL_CALL(glActiveTexture(GL_TEXTURE0));
 
             model = glm::rotate(glm::mat4(1.0),
@@ -459,15 +456,10 @@ class wayfire_cube : public wayfire_plugin_t
         if (output->is_plugin_active(grab_interface->name))
             terminate();
 
-        auto size = streams.size();
-        for (uint i = 0; i < size; i++)
-        {
-            if (streams[i]->fbuff != uint32_t(-1))
-            {
-                GL_CALL(glDeleteFramebuffers(1, &streams[i]->fbuff));
-                GL_CALL(glDeleteTextures(1, &streams[i]->tex));
-            }
-        }
+        OpenGL::render_begin();
+        for (size_t i = 0; i < streams.size(); i++)
+            streams[i]->buffer.release();
+        OpenGL::render_end();
 
         output->rem_binding(&activate);
     }

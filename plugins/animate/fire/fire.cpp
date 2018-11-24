@@ -102,8 +102,6 @@ class FireTransformer : public wf_view_transformer_t
         auto ortho = glm::ortho(1.0f * target_fb.geometry.x, 1.0f * target_fb.geometry.x + 1.0f * target_fb.geometry.width,
                                 1.0f * target_fb.geometry.y + 1.0f * target_fb.geometry.height, 1.0f * target_fb.geometry.y);
 
-        OpenGL::use_default_program();
-
         float x = src_box.x, y = src_box.y, w = src_box.width, h = src_box.height;
         gl_geometry src_geometry = {x, y, x + w, y + h * progress_line};
 

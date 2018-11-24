@@ -73,9 +73,9 @@ class wayfire_invert_screen : public wayfire_plugin_t
         auto section = config->get_section("invert");
         auto toggle_key = section->get_option("toggle", "<super> KEY_I");
 
-        hook = [=] (uint32_t fb, uint32_t tex, uint32_t target)
-        {
-            render(fb, tex, target);
+        hook = [=] (const wf_framebuffer_base& source,
+            const wf_framebuffer_base& destination) {
+            render(source, destination);
         };
 
 
@@ -95,7 +95,8 @@ class wayfire_invert_screen : public wayfire_plugin_t
         output->add_activator(toggle_key, &toggle_cb);
     }
 
-    void render(uint32_t fb, uint32_t tex, uint32_t target)
+    void render(const wf_framebuffer_base& source,
+        const wf_framebuffer_base& destination)
     {
         static const float vertexData[] = {
             -1.0f, -1.0f,
@@ -111,10 +112,10 @@ class wayfire_invert_screen : public wayfire_plugin_t
             0.0f, 1.0f
         };
 
-        OpenGL::render_begin(output->render->get_target_framebuffer());
+        OpenGL::render_begin(destination);
 
         GL_CALL(glUseProgram(program));
-        GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, source.tex));
         GL_CALL(glActiveTexture(GL_TEXTURE0));
 
         GL_CALL(glVertexAttribPointer(posID, 2, GL_FLOAT, GL_FALSE, 0, vertexData));
@@ -124,7 +125,6 @@ class wayfire_invert_screen : public wayfire_plugin_t
         GL_CALL(glEnableVertexAttribArray(uvID));
 
         GL_CALL(glDisable(GL_BLEND));
-        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target));
         GL_CALL(glDrawArrays (GL_TRIANGLE_FAN, 0, 4));
 
         GL_CALL(glEnable(GL_BLEND));
@@ -132,6 +132,7 @@ class wayfire_invert_screen : public wayfire_plugin_t
         GL_CALL(glDisableVertexAttribArray(posID));
         GL_CALL(glDisableVertexAttribArray(uvID));
         GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
+        GL_CALL(glUseProgram(0));
 
         OpenGL::render_end();
     }

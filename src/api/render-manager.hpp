@@ -6,14 +6,12 @@
 #include <vector>
 #include <pixman.h>
 
-namespace OpenGL { struct context_t; }
-
 /* Workspace streams are used if you need to continuously render a workspace
  * to a texture, for example if you call texture_from_viewport at every frame */
 struct wf_workspace_stream
 {
     std::tuple<int, int> ws;
-    uint fbuff, tex;
+    wf_framebuffer_base buffer;
     bool running = false;
 
     float scale_x, scale_y;
@@ -30,15 +28,14 @@ enum wf_output_effect_type
 /* effect hooks are called after main rendering */
 using effect_hook_t = std::function<void()>;
 
-/* post hooks are used for postprocessing. the first two params
- * are the source framebuffer and the source texture, and the third
- * is the target fbo which you should write to */
-using post_hook_t = std::function<void(uint32_t, uint32_t, uint32_t)>;
+/* post hooks are used for postprocessing effects.
+ * They can take the output image and modify it as they want */
+using post_hook_t = std::function<void(const wf_framebuffer_base& source,
+    const wf_framebuffer_base& destination)>;
 
 /* render hooks are used when a plugin requests to draw the whole desktop on their own
- * example plugin is cube. The parameter they take is the target framebuffer */
-using render_hook_t = std::function<void(uint32_t)>;
-
+ * example plugin is cube. Rendering must happen to the indicated framebuffer */
+using render_hook_t = std::function<void(const wf_framebuffer& fb)>;
 
 struct wf_output_damage;
 class render_manager
@@ -56,12 +53,6 @@ class render_manager
 
         signal_callback_t output_resized;
 
-        bool dirty_context = true;
-        void load_context();
-        void release_context();
-
-        bool draw_overlay_panel = true;
-
         pixman_region32_t frame_damage;
         std::unique_ptr<wf_output_damage> output_damage;
 
@@ -78,7 +69,7 @@ class render_manager
         using post_container_t = std::vector<wf_post_effect*>;
         post_container_t post_effects;
 
-        uint32_t default_fb = 0, default_tex = 0;
+        wf_framebuffer_base default_buffer;
 
         int constant_redraw = 0;
         int output_inhibit = 0;
@@ -95,8 +86,6 @@ class render_manager
         void init_default_streams();
 
     public:
-        OpenGL::context_t *ctx;
-
         render_manager(wayfire_output *o);
         ~render_manager();
 
@@ -107,7 +96,6 @@ class render_manager
          * to undo, call auto_redraw(false) as much times as auto_redraw(true) was called */
         void auto_redraw(bool redraw);
         void schedule_redraw();
-        void set_hide_overlay_panels(bool set);
 
         void add_inhibit(bool add);
 

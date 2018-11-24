@@ -160,7 +160,7 @@ class wayfire_surface_t
         virtual void  render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t* damage);
 
         /* render the surface to the given fb */
-        virtual void render_fb(pixman_region32_t* damage, wf_framebuffer fb);
+        virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& fb);
 
         /* iterate all (sub) surfaces, popups, etc. in top-most order
          * for example, first popups, then subsurfaces, then main surface
@@ -206,19 +206,14 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         uint32_t id;
         virtual void damage(const wlr_box& box);
 
-        struct offscreen_buffer_t
+        struct offscreen_buffer_t : public wf_framebuffer_base
         {
-            uint32_t fbo = -1, tex = -1;
             /* used to store output_geometry when the view has been destroyed */
             int32_t output_x = 0, output_y = 0;
-            int32_t fb_width = 0, fb_height = 0;
             float fb_scale = 1;
+
             pixman_region32_t cached_damage;
-
-            void init(int w, int h);
-            void fini();
             bool valid();
-
         } offscreen_buffer;
 
         // the last buffer_age of this view for which the buffer was made
@@ -399,7 +394,7 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
 
         bool has_transformer();
 
-        virtual void render_fb(pixman_region32_t* damage, wf_framebuffer framebuffer);
+        virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& framebuffer);
 
         bool has_snapshot = false;
         virtual bool can_take_snapshot();

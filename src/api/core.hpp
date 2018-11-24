@@ -78,6 +78,7 @@ class wayfire_core : public wf_object_base
         wl_display *display;
         wl_event_loop *ev_loop;
         wlr_backend *backend;
+        wlr_egl *egl;
         wlr_renderer *renderer;
         wlr_output_layout *output_layout;
         wlr_compositor *compositor;

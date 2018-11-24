@@ -162,8 +162,8 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
             gg.x2 = geometry.x + geometry.width;
             gg.y2 = geometry.y + titlebar;
 
-            OpenGL::use_default_program();
-            OpenGL::render_transformed_texture(tex, gg, {}, ortho, {1, 1, 1, 1}, TEXTURE_TRANSFORM_INVERT_Y);
+            OpenGL::render_transformed_texture(tex, gg, {}, ortho, {1, 1, 1, 1},
+                TEXTURE_TRANSFORM_INVERT_Y);
 
             GL_CALL(glUseProgram(0));
             OpenGL::render_end();
@@ -192,7 +192,7 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
             pixman_region32_fini(&frame_region);
         }
 
-        virtual void render_fb(pixman_region32_t* damage, wf_framebuffer fb)
+        virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& fb)
         {
             auto obox = get_output_geometry();
             render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);

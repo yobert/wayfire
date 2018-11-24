@@ -275,8 +275,8 @@ wf_geometry wayfire_view_t::get_untransformed_bounding_box()
     return {
         offscreen_buffer.output_x,
         offscreen_buffer.output_y,
-        (int32_t)(offscreen_buffer.fb_width / output->handle->scale + 0.99),
-        (int32_t)(offscreen_buffer.fb_height / output->handle->scale + 0.99)
+        (int32_t)(offscreen_buffer.viewport_width / output->handle->scale + 0.99),
+        (int32_t)(offscreen_buffer.viewport_height / output->handle->scale + 0.99)
     };
 }
 
@@ -477,35 +477,9 @@ void wayfire_view_t::damage(const wlr_box& box)
     damage_raw(transform_region(box));
 }
 
-void wayfire_view_t::offscreen_buffer_t::init(int w, int h)
-{
-    OpenGL::prepare_framebuffer_size(w, h, fbo, tex);
-    fb_width = w;
-    fb_height = h;
-
-    OpenGL::render_begin(fb_width, fb_height, fbo);
-    OpenGL::clear({0, 0, 0, 0});
-    OpenGL::render_end();
-}
-
 bool wayfire_view_t::offscreen_buffer_t::valid()
 {
-    return fbo != (uint32_t)-1;
-}
-
-void wayfire_view_t::offscreen_buffer_t::fini()
-{
-    if (!valid())
-        return;
-
-    /* We don't care about viewport size */
-    OpenGL::render_begin();
-    GL_CALL(glDeleteFramebuffers(1, &fbo));
-    GL_CALL(glDeleteTextures(1, &tex));
-    OpenGL::render_end();
-
-    fb_width = fb_height = 0;
-    fbo = tex = -1;
+    return fb != (uint32_t)-1;
 }
 
 bool wayfire_view_t::can_take_snapshot()
@@ -524,13 +498,12 @@ void wayfire_view_t::take_snapshot()
     offscreen_buffer.output_y = buffer_geometry.y;
 
     float scale = output->handle->scale;
-    if (int(buffer_geometry.width  * scale) != offscreen_buffer.fb_width ||
-        int(buffer_geometry.height * scale) != offscreen_buffer.fb_height ||
+    if (int(buffer_geometry.width  * scale) != offscreen_buffer.viewport_width ||
+        int(buffer_geometry.height * scale) != offscreen_buffer.viewport_height ||
         offscreen_buffer.fb_scale != scale)
     {
         // scale/size changed, invalidate offscreen buffer
         last_offscreen_buffer_age = -1;
-        offscreen_buffer.fini();
     }
 
     /* Nothing has changed, the last buffer is still valid */
@@ -539,22 +512,17 @@ void wayfire_view_t::take_snapshot()
 
     last_offscreen_buffer_age = buffer_age;
 
+    OpenGL::render_begin();
+    offscreen_buffer.allocate(buffer_geometry.width * scale, buffer_geometry.height * scale);
     offscreen_buffer.fb_scale = scale;
-    if (!offscreen_buffer.valid())
-    {
-        offscreen_buffer.init(buffer_geometry.width * scale, buffer_geometry.height * scale);
-        //pixman_region32_init(&offscreen_buffer.cached_damage);
-    }
-
-    OpenGL::render_begin(offscreen_buffer.fb_width, offscreen_buffer.fb_height,
-        offscreen_buffer.fbo);
+    offscreen_buffer.bind();
     OpenGL::clear({0, 0, 0, 0});
     OpenGL::render_end();
 
     wlr_fb_attribs fb;
-    fb.fb = offscreen_buffer.fbo;
-    fb.width = offscreen_buffer.fb_width;
-    fb.height = offscreen_buffer.fb_height;
+    fb.fb = offscreen_buffer.fb;
+    fb.width = offscreen_buffer.viewport_width;
+    fb.height = offscreen_buffer.viewport_height;
 
     for_each_surface([=] (wayfire_surface_t *surface, int x, int y)
     {
@@ -562,7 +530,7 @@ void wayfire_view_t::take_snapshot()
     }, true);
 }
 
-void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
+void wayfire_view_t::render_fb(pixman_region32_t* damage, const wf_framebuffer& fb)
 {
     in_paint = true;
     if (has_transformer())
@@ -578,8 +546,8 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
         take_snapshot();
 
         wf_geometry obox = get_untransformed_bounding_box();
-        obox.width = offscreen_buffer.fb_width / offscreen_buffer.fb_scale;
-        obox.height = offscreen_buffer.fb_height / offscreen_buffer.fb_scale;
+        obox.width = offscreen_buffer.viewport_width / offscreen_buffer.fb_scale;
+        obox.height = offscreen_buffer.viewport_height / offscreen_buffer.fb_scale;
 
         auto it = transforms.begin();
 
@@ -590,17 +558,11 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
             auto& fb = tr->fb;
 
             auto tbox = tr->transform->get_bounding_box(obox, obox);
-            if (fb.geometry.width != tbox.width || fb.geometry.height != tbox.height)
-            {
-                fb.release();
-                fb.init(tbox.width, tbox.height);
-            }
 
+            OpenGL::render_begin();
+            fb.allocate(tbox.width, tbox.height); // resize if needed
             fb.geometry = tbox;
-            fb.viewport_width = tbox.width;
-            fb.viewport_height = tbox.height;
-
-            OpenGL::render_begin(fb);
+            fb.bind(); // bind buffer to clear
             OpenGL::clear({0, 0, 0, 0});
             OpenGL::render_end();
 

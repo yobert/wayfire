@@ -33,7 +33,7 @@ class wf_view_transformer_t
                                         wlr_box scissor_box,
                                         const wf_framebuffer& target_fb) = 0;
 
-        virtual ~wf_view_transformer_t() {log_info("destoryed"); }
+        virtual ~wf_view_transformer_t() {}
 };
 
 enum

@@ -143,10 +143,11 @@ void wf_2D_view::render_with_damage(uint32_t src_tex,
 
     auto transform = fb.transform * ortho * translate * rotate;
 
-    fb.bind();
+    OpenGL::render_begin(fb);
     fb.scissor(scissor_box);
     OpenGL::render_transformed_texture(src_tex, quad.geometry, {},
                                        transform, {1.0f, 1.0f, 1.0f, alpha});
+    OpenGL::render_end();
 }
 
 const float wf_3D_view::fov = PI/4;
@@ -201,9 +202,6 @@ void wf_3D_view::render_with_damage(uint32_t       src_tex,
                                     wlr_box        scissor_box,
                                     const wf_framebuffer& fb)
 {
-    fb.bind();
-    fb.scissor(scissor_box);
-
     auto quad = center_geometry(fb.geometry, src_box, get_center(src_box));
 
     auto transform = calculate_total_transform();
@@ -215,6 +213,10 @@ void wf_3D_view::render_with_damage(uint32_t       src_tex,
                             });
 
     transform = fb.transform * scale * translate * transform;
+
+    OpenGL::render_begin(fb);
+    fb.scissor(scissor_box);
     OpenGL::render_transformed_texture(src_tex, quad.geometry, {},
                                        transform, color);
+    OpenGL::render_end();
 }

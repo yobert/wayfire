@@ -38,7 +38,6 @@ class wayfire_expo : public wayfire_plugin_t
         std::tuple<int, int> move_started_ws;
 
         std::vector<std::vector<wf_workspace_stream*>> streams;
-        signal_callback_t resized_cb;
 
     public:
     void init(wayfire_config *config)
@@ -56,7 +55,6 @@ class wayfire_expo : public wayfire_plugin_t
         for (int i = 0; i < vw; i++) {
             for (int j = 0;j < vh; j++) {
                 streams[i].push_back(new wf_workspace_stream);
-                streams[i][j]->tex = streams[i][j]->fbuff = -1;
                 streams[i][j]->ws = std::make_tuple(i, j);
             }
         }
@@ -115,19 +113,7 @@ class wayfire_expo : public wayfire_plugin_t
             finalize_and_exit();
         };
 
-        renderer = [=] (uint32_t fb) { render(fb); };
-        resized_cb = [=] (signal_data*) {
-            for (int i = 0; i < vw; i++) {
-                for (int j = 0; j < vh; j++) {
-                    GL_CALL(glDeleteTextures(1, &streams[i][j]->tex));
-                    GL_CALL(glDeleteFramebuffers(1, &streams[i][j]->fbuff));
-                    streams[i][j]->tex = streams[i][j]->fbuff = -1;
-                }
-            }
-        };
-
-        output->connect_signal("output-resized", &resized_cb);
-
+        renderer = [=] (const wf_framebuffer& buffer) { render(buffer); };
         background_color = section->get_option("background", "0 0 0 1");
     }
 
@@ -355,7 +341,7 @@ class wayfire_expo : public wayfire_plugin_t
         }
     }
 
-    void render(uint32_t target_fb)
+    void render(const wf_framebuffer &fb)
     {
         update_streams();
 
@@ -368,11 +354,9 @@ class wayfire_expo : public wayfire_plugin_t
         auto scale     = glm::scale(matrix, glm::vec3(render_params.scale_x, render_params.scale_y, 1));
         matrix = translate * scale;
 
-        OpenGL::render_begin(output->render->get_target_framebuffer());
+        OpenGL::render_begin(fb);
         OpenGL::clear(background_color->as_cached_color());
-
-        auto vp_geometry = OpenGL::get_device_viewport();
-        output->render->get_target_framebuffer().scissor(vp_geometry);
+        fb.scissor(fb.geometry);
 
         for(int j = 0; j < vh; j++)
         {
@@ -394,9 +378,8 @@ class wayfire_expo : public wayfire_plugin_t
                 texg.x2 = streams[i][j]->scale_x;
                 texg.y2 = streams[i][j]->scale_y;
 
-                OpenGL::render_transformed_texture(streams[i][j]->tex, out_geometry, texg, matrix,
-                        glm::vec4(1), TEXTURE_TRANSFORM_USE_DEVCOORD |
-                        TEXTURE_USE_TEX_GEOMETRY | TEXTURE_TRANSFORM_INVERT_Y);
+                OpenGL::render_transformed_texture(streams[i][j]->buffer.tex, out_geometry, texg, matrix,
+                        glm::vec4(1), TEXTURE_USE_TEX_GEOMETRY | TEXTURE_TRANSFORM_INVERT_Y);
             }
         }
 
@@ -501,22 +484,15 @@ class wayfire_expo : public wayfire_plugin_t
         if (state.active)
             finalize_and_exit();
 
+        OpenGL::render_begin();
         for (auto& row : streams)
         {
             for (auto& stream: row)
-            {
-                if (stream->fbuff != uint32_t(-1))
-                {
-                    if (stream->running)
-                        output->render->workspace_stream_stop(stream);
-                    GL_CALL(glDeleteFramebuffers(1, &stream->fbuff));
-                    GL_CALL(glDeleteTextures(1, &stream->tex));
-                }
-            }
+                stream->buffer.release();
         }
+        OpenGL::render_end();
 
         output->rem_binding(&toggle_cb);
-        output->disconnect_signal("output-resized", &resized_cb);
     }
 };
 

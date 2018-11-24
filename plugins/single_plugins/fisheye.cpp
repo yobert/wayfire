@@ -144,9 +144,8 @@ class wayfire_fisheye : public wayfire_plugin_t
 
             target_zoom = zoom->as_double();
 
-            hook = [=] (uint32_t fb, uint32_t tex, uint32_t target)
-            {
-                render(fb, tex, target);
+            hook = [=] (const wf_framebuffer_base& source, const wf_framebuffer_base& dest) {
+                render(source, dest);
             };
 
             toggle_cb = [=] ()
@@ -176,7 +175,8 @@ class wayfire_fisheye : public wayfire_plugin_t
             duration.start(0, 0); // so that the first value we get is correct
         }
 
-        void render(uint32_t fb, uint32_t tex, uint32_t target)
+        void render(const wf_framebuffer_base& source,
+            const wf_framebuffer_base& dest)
         {
             GetTuple(x, y, output->get_cursor_position());
             wlr_box box = {x, y, 1, 1};
@@ -194,10 +194,12 @@ class wayfire_fisheye : public wayfire_plugin_t
             auto current_zoom = duration.progress();
             target_zoom = zoom->as_double();
 
-            OpenGL::render_begin(output->render->get_target_framebuffer());
+            OpenGL::render_begin(dest);
+
+            log_info("doing from %d %d to %d %d", source.fb, source.tex, dest.fb, dest.tex);
 
             GL_CALL(glUseProgram(program));
-            GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
+            GL_CALL(glBindTexture(GL_TEXTURE_2D, source.tex));
             GL_CALL(glActiveTexture(GL_TEXTURE0));
 
             GL_CALL(glUniform2f(mouseID, x, y));
@@ -208,9 +210,9 @@ class wayfire_fisheye : public wayfire_plugin_t
             GL_CALL(glVertexAttribPointer(posID, 2, GL_FLOAT, GL_FALSE, 0, vertexData));
             GL_CALL(glEnableVertexAttribArray(posID));
 
-            GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target));
             GL_CALL(glDrawArrays (GL_TRIANGLE_FAN, 0, 4));
             GL_CALL(glDisableVertexAttribArray(posID));
+            GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
 
             OpenGL::render_end();
 

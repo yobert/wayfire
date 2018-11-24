@@ -28,13 +28,11 @@ class wayfire_compositor_view_t : public wayfire_compositor_surface_t, public wa
         virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor) { assert(false); }
 
     public:
-
         virtual bool is_mapped() { return _is_mapped; }
         virtual void send_frame_done(const timespec& now) {}
 
         /* override this if you want to get pointer events or to stop input passthrough */
         virtual bool accepts_input(int32_t sx, int32_t sy) { return false; }
-
 
     public:
         wayfire_compositor_view_t();
@@ -57,7 +55,7 @@ class wayfire_compositor_view_t : public wayfire_compositor_surface_t, public wa
         virtual bool should_be_decorated() { return false; }
 
         /* Usually compositor view implementations don't need to override this */
-        virtual void render_fb(pixman_region32_t* damage, wf_framebuffer fb);
+        virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& fb);
 
         /* NON-API functions which don't have a meaning for compositor views */
         virtual bool update_size() { assert(false); }
@@ -103,7 +101,7 @@ class wayfire_mirror_view_t : public wayfire_compositor_view_t
 
     virtual bool can_take_snapshot();
     virtual void take_snapshot();
-    virtual void render_fb(pixman_region32_t* damage, wf_framebuffer fb);
+    virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& fb);
 
     virtual wf_point get_output_position();
     virtual wf_geometry get_output_geometry();

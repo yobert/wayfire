@@ -104,6 +104,7 @@ void frame_cb (wl_listener*, void *data)
 render_manager::render_manager(wayfire_output *o)
 {
     output = o;
+    default_buffer.tex = default_buffer.fb = 0;
 
     /* TODO: do we really need a unique_ptr? */
     output_damage = std::unique_ptr<wf_output_damage>(new wf_output_damage(output->handle));
@@ -114,38 +115,24 @@ render_manager::render_manager(wayfire_output *o)
 
     pixman_region32_init(&frame_damage);
 
+    init_default_streams();
     schedule_redraw();
 }
 
 void render_manager::init_default_streams()
 {
-    GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
-    output_streams.resize(vw);
-
-    for (int i = 0; i < vw; i++) {
-        for (int j = 0; j < vh; j++) {
+    /* We use core->vwidth/vheight directly because it is likely workspace_manager
+     * hasn't been initialized yet */
+    output_streams.resize(core->vwidth);
+    for (int i = 0; i < core->vwidth; i++)
+    {
+        for (int j = 0; j < core->vheight; j++)
+        {
             output_streams[i].push_back(wf_workspace_stream{});
-            output_streams[i][j].tex = output_streams[i][j].fbuff = 0;
+            output_streams[i][j].buffer.fb = output_streams[i][j].buffer.tex = 0;
             output_streams[i][j].ws = std::make_tuple(i, j);
         }
     }
-}
-
-void render_manager::load_context()
-{
-    ctx = OpenGL::create_gles_context(output, core->shadersrc.c_str());
-    OpenGL::bind_context(ctx);
-
-    dirty_context = false;
-    output->emit_signal("reload-gl", nullptr);
-
-    init_default_streams();
-}
-
-void render_manager::release_context()
-{
-    OpenGL::release_context(ctx);
-    dirty_context = true;
 }
 
 render_manager::~render_manager()
@@ -157,7 +144,12 @@ render_manager::~render_manager()
     if (idle_damage_source)
         wl_event_source_remove(idle_damage_source);
 
-    release_context();
+    for (auto& row : output_streams)
+    {
+        for (auto& stream : row)
+            stream.buffer.release();
+    }
+
     pixman_region32_fini(&frame_damage);
 }
 
@@ -184,7 +176,8 @@ wf_framebuffer render_manager::get_target_framebuffer() const
     fb.geometry = output->get_relative_geometry();
     fb.wl_transform = output->get_transform();
     fb.transform = get_output_matrix_from_transform(output->get_transform());
-    fb.fb = default_fb;
+    fb.fb = default_buffer.fb;
+    fb.tex = default_buffer.tex;
     fb.viewport_width = output->handle->width;
     fb.viewport_height = output->handle->height;
 
@@ -275,11 +268,6 @@ void render_manager::set_renderer(render_hook_t rh)
     renderer = rh;
 }
 
-void render_manager::set_hide_overlay_panels(bool set)
-{
-    draw_overlay_panel = !set;
-}
-
 static inline int64_t timespec_to_msec(const struct timespec *a) {
      return (int64_t)a->tv_sec * 1000 + a->tv_nsec / 1000000;
 }
@@ -288,7 +276,9 @@ struct render_manager::wf_post_effect
 {
     post_hook_t *hook;
     bool to_remove = false;
-    GLuint target_fbo = 0, target_tex = 0;
+    wf_framebuffer_base buffer;
+
+    wf_post_effect() {buffer.fb = buffer.tex = 0;}
 };
 
 void render_manager::paint()
@@ -312,10 +302,17 @@ void render_manager::paint()
         return;
     }
 
+    OpenGL::bind_output(output);
+    log_info("frame");
+
+    OpenGL::render_begin();
+    default_buffer.allocate(output->handle->width, output->handle->height);
+    OpenGL::render_end();
+
     pixman_region32_t swap_damage;
     pixman_region32_init(&swap_damage);
 
-        if (runtime_config.damage_debug)
+    if (runtime_config.damage_debug)
     {
         pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0,
                               output->handle->width, output->handle->height);
@@ -325,15 +322,9 @@ void render_manager::paint()
         OpenGL::render_end();
     }
 
-    OpenGL::render_begin(get_target_framebuffer());
-    if (dirty_context)
-        load_context();
-    OpenGL::bind_context(ctx);
-    OpenGL::render_end();
-
     if (renderer)
     {
-        renderer(default_fb);
+        renderer(get_target_framebuffer());
         pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0,
                               output->handle->width, output->handle->height);
         /* TODO: let custom renderers specify what they want to repaint... */
@@ -376,16 +367,20 @@ void render_manager::paint()
 
     if (post_effects.size())
     {
-        GLuint last_fb = default_fb, last_tex = default_tex;
+        auto last_buffer = &default_buffer;
         for (auto post : post_effects)
         {
-            (*post->hook)(last_fb, last_tex, post->target_fbo);
+            OpenGL::render_begin();
+            /* Make sure we have the correct resolution, in case the output was resized */
+            post->buffer.allocate(output->handle->width, output->handle->height);
+            OpenGL::render_end();
 
-            last_fb = post->target_fbo;
-            last_tex = post->target_tex;
+            log_info("render from %d to %d", last_buffer->fb, post->buffer.fb);
+            (*post->hook)(*last_buffer, post->buffer);
+            last_buffer = &post->buffer;
         }
 
-        assert(last_fb == 0 && last_tex == 0);
+        assert(last_buffer->fb == 0 && last_buffer->tex == 0);
     }
 
     if (output_inhibit)
@@ -395,6 +390,7 @@ void render_manager::paint()
         OpenGL::render_end();
     }
 
+    OpenGL::unbind_output(output);
     output_damage->swap_buffers(&repaint_started, &swap_damage);
     pixman_region32_fini(&swap_damage);
     post_paint();
@@ -464,20 +460,19 @@ void render_manager::rem_effect(const effect_hook_t *hook, wf_output_effect_type
 
 void render_manager::add_post(post_hook_t* hook)
 {
-    auto last_fb = &default_fb, last_tex = &default_tex;
-
+    auto buffer = &default_buffer;
     if (!post_effects.empty())
-    {
-        last_fb  = &post_effects.back()->target_fbo;
-        last_tex = &post_effects.back()->target_tex;
-    }
+        buffer = &post_effects.back()->buffer;
 
-    *last_fb = *last_tex = -1;
-    OpenGL::prepare_framebuffer(*last_fb, *last_tex);
+    buffer->reset();
+    buffer->allocate(output->handle->width, output->handle->height);
     damage(NULL);
 
     auto new_hook = new wf_post_effect;
     new_hook->hook = hook;
+    new_hook->buffer.fb = new_hook->buffer.tex = 0;
+    /* Just resize the framebuffer, to match real size */
+    new_hook->buffer.allocate(output->handle->width, output->handle->height);
 
     post_effects.push_back(new_hook);
 }
@@ -489,12 +484,7 @@ void render_manager::_rem_post(wf_post_effect *post)
     {
         if ((*it) == post)
         {
-            if ((*it)->target_fbo != 0)
-            {
-                GL_CALL(glDeleteFramebuffers(1, &(*it)->target_fbo));
-                GL_CALL(glDeleteTextures(1, &(*it)->target_tex));
-            }
-
+            (*it)->buffer.release();
             delete *it;
             it = post_effects.erase(it);
         } else
@@ -503,19 +493,14 @@ void render_manager::_rem_post(wf_post_effect *post)
         }
     }
 
-    auto last_fb = &default_fb, last_tex = &default_tex;
+    auto buffer = &default_buffer;
     if (!post_effects.empty())
-    {
-        last_fb  = &post_effects.back()->target_fbo;
-        last_tex = &post_effects.back()->target_tex;
-    }
+        buffer = &post_effects.back()->buffer;
 
-    if (last_fb != 0)
+    if (buffer->fb != 0)
     {
-        GL_CALL(glDeleteFramebuffers(1, last_fb));
-        GL_CALL(glDeleteTextures(1, last_tex));
-
-        *last_fb = *last_tex = 0;
+        buffer->release();
+        buffer->fb = buffer->tex = 0;
     }
 
     damage(NULL);
@@ -550,11 +535,6 @@ void render_manager::workspace_stream_start(wf_workspace_stream *stream)
     stream->running = true;
     stream->scale_x = stream->scale_y = 1;
 
-    OpenGL::bind_context(output->render->ctx);
-
-    if (stream->fbuff == (uint)-1 || stream->tex == (uint)-1)
-        OpenGL::prepare_framebuffer(stream->fbuff, stream->tex);
-
     GetTuple(vx, vy, stream->ws);
     GetTuple(cx, cy, output->workspace->get_current_workspace());
 
@@ -575,7 +555,6 @@ void render_manager::workspace_stream_start(wf_workspace_stream *stream)
 void render_manager::workspace_stream_update(wf_workspace_stream *stream,
                                              float scale_x, float scale_y)
 {
-    OpenGL::bind_context(output->render->ctx);
     auto g = output->get_relative_geometry();
 
     GetTuple(x, y, stream->ws);
@@ -604,6 +583,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
                 sw, sh);
     }
 
+    log_info("update stream %d %d", stream->buffer.fb, stream->buffer.tex);
     /* we don't have to update anything */
     if (!pixman_region32_not_empty(&ws_damage))
     {
@@ -769,21 +749,22 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     std::swap(wayfire_view_transform::global_scale, scale);
     std::swap(wayfire_view_transform::global_translate, translate);
     */
+    OpenGL::render_begin();
+    stream->buffer.allocate(output->handle->width, output->handle->height);
 
     auto fb = get_target_framebuffer();
-    fb.fb = (stream->fbuff == 0 ? default_fb : stream->fbuff);
-    fb.tex = (stream->fbuff == 0 ? default_tex : stream->tex);
+    fb.fb = (stream->buffer.fb == 0) ? default_buffer.fb : stream->buffer.fb;
+    fb.tex = (stream->buffer.tex == 0) ? default_buffer.tex : stream->buffer.tex;
+    log_info("stream to %d", fb.fb);
+    fb.bind();
 
-    OpenGL::render_begin(fb);
 
     int n_rect;
     auto rects = pixman_region32_rectangles(&ws_damage, &n_rect);
     for (int i = 0; i < n_rect; i++)
     {
         wlr_box damage = wlr_box_from_pixman_box(rects[i]);
-        auto box = get_scissor_box(output, damage);
-
-        wlr_renderer_scissor(core->renderer, &box);
+        fb.scissor(get_scissor_box(output, damage));
         OpenGL::clear({0, 0, 0, 1}, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
     OpenGL::render_end();
@@ -819,5 +800,3 @@ void render_manager::workspace_stream_stop(wf_workspace_stream *stream)
 }
 
 /* End render_manager */
-
-

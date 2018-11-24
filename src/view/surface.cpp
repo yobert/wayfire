@@ -444,7 +444,7 @@ void wayfire_surface_t::render_pixman(const wlr_fb_attribs& fb, int x, int y, pi
     pixman_region32_fini(&full_region);
 }
 
-void wayfire_surface_t::render_fb(pixman_region32_t *damage, wf_framebuffer fb)
+void wayfire_surface_t::render_fb(pixman_region32_t *damage, const wf_framebuffer& fb)
 {
     if (!is_mapped() || !wlr_surface_has_buffer(surface))
         return;
