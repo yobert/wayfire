@@ -436,15 +436,19 @@ void wayfire_view_t::damage_raw(const wlr_box& box)
         GetTuple(vx, vy, output->workspace->get_current_workspace());
         GetTuple(sw, sh, output->get_screen_size());
 
+        /* Damage only the visible region of the shell view.
+         * This prevents hidden panels from spilling damage onto other workspaces */
+        wlr_box ws_box = get_output_box_from_box({0, 0, sw, sh}, output->handle->scale),
+                visible_damage;
+        wlr_box_intersection(&damage_box, &ws_box, &visible_damage);
+
         for (int i = 0; i < vw; i++)
         {
             for (int j = 0; j < vh; j++)
             {
-                int dx = (i - vx) * sw;
-                int dy = (j - vy) * sh;
-
-                auto local_box = damage_box + wf_point{dx, dy};
-                output->render->damage(local_box);
+                const int dx = (i - vx) * ws_box.width;
+                const int dy = (j - vy) * ws_box.height;
+                output->render->damage(visible_damage + wf_point{dx, dy});
             }
         }
     } else
