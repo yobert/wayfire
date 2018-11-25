@@ -30,6 +30,7 @@ class wayfire_compositor_view_t : public wayfire_compositor_surface_t, public wa
     public:
         virtual bool is_mapped() { return _is_mapped; }
         virtual void send_frame_done(const timespec& now) {}
+        virtual void subtract_opaque(pixman_region32_t* region, int x, int y) {}
 
         /* override this if you want to get pointer events or to stop input passthrough */
         virtual bool accepts_input(int32_t sx, int32_t sy) { return false; }

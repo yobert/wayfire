@@ -123,6 +123,10 @@ class wayfire_surface_t
         virtual bool accepts_input(int32_t sx, int32_t sy);
         virtual void send_frame_done(const timespec& now);
 
+        /* Subtract the opaque region of the surface from region, supposing
+         * the surface is positioned at (x, y) */
+        virtual void subtract_opaque(pixman_region32_t* region, int x, int y);
+
         virtual wl_client *get_client();
 
         virtual bool is_mapped();

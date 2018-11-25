@@ -138,6 +138,24 @@ bool wayfire_surface_t::accepts_input(int32_t sx, int32_t sy)
     return wlr_surface_point_accepts_input(surface, sx, sy);
 }
 
+void wayfire_surface_t::subtract_opaque(pixman_region32_t *region, int x, int y)
+{
+    if (!surface)
+        return;
+
+    pixman_region32_t opaque;
+    pixman_region32_init(&opaque);
+
+    pixman_region32_copy(&opaque, &surface->current.opaque);
+    pixman_region32_translate(&opaque, x, y);
+    wlr_region_scale(&opaque, &opaque, output->handle->scale);
+    if (output->handle->scale != (float)surface->current.scale)
+        wlr_region_expand(&opaque, &opaque, -1); // remove the effect of ceiling
+
+    pixman_region32_subtract(region, region, &opaque);
+    pixman_region32_fini(&opaque);
+}
+
 wl_client* wayfire_surface_t::get_client()
 {
     if (surface)
