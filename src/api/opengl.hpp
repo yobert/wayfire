@@ -87,8 +87,31 @@ struct wf_framebuffer : public wf_framebuffer_base
 {
     wf_geometry geometry = {0, 0, 0, 0};
 
-    glm::mat4 transform = glm::mat4(1.0);
     uint32_t wl_transform = WL_OUTPUT_TRANSFORM_NORMAL;
+    float scale = 1.0;
+
+    /* Indicates if the framebuffer has other transform than indicated
+     * by scale and wl_transform */
+    bool has_nonstandard_transform = false;
+
+    /* Transform contains output rotation, and possibly
+     * other framebuffer transformations, if has_nonstandard_transform is set */
+    glm::mat4 transform = glm::mat4(1.0);
+
+    /* The functions below to convert between coordinate systems don't need a
+     * bound OpenGL context */
+    /* Get the box after applying the framebuffer scale */
+    wlr_box damage_box_from_geometry_box(wlr_box box) const;
+
+    /* Get the projection of the given box onto the framebuffer.
+     * The given box is in output-local coordinates, i.e the same coordinate
+     * space as views */
+    wlr_box framebuffer_box_from_geometry_box(wlr_box box) const;
+
+    /* Get the projection of the given box onto the framebuffer.
+     * The given box is in damage coordinates, e.g relative to the output's
+     * framebuffer before rotation */
+    wlr_box framebuffer_box_from_damage_box(wlr_box box) const;
 };
 
 namespace OpenGL

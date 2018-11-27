@@ -206,7 +206,6 @@ namespace OpenGL
 
         wlr_renderer_begin(core->renderer, viewport_width, viewport_height);
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fb));
-        log_info("binding %dx%d, fb: %d", viewport_width, viewport_height, fb);
     }
 
     void clear(wf_color col, uint32_t mask)
@@ -230,7 +229,6 @@ bool wf_framebuffer_base::allocate(int width, int height)
     {
         first_allocate = true;
         GL_CALL(glGenFramebuffers(1, &fb));
-        log_info("alloc fb %d", fb);
     }
 
     if (tex == (uint32_t)-1)
@@ -239,21 +237,18 @@ bool wf_framebuffer_base::allocate(int width, int height)
         first_allocate = true;
         GL_CALL(glGenTextures(1, &tex));
         GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
-        log_info("alloc tex %d", tex);
         GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
         GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
         GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
         GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
     }
 
-    log_info("first allocate %d, %dx%d", first_allocate, width, height);
     bool is_resize = false;
     /* Special case: fb = 0. This occurs in the default workspace streams, we don't resize anything */
     if (fb != 0)
     {
         if (first_allocate || width != viewport_width || height != viewport_height)
         {
-            log_info("is resize");
             is_resize = true;
             GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
             GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
@@ -263,7 +258,6 @@ bool wf_framebuffer_base::allocate(int width, int height)
 
     if (first_allocate)
     {
-        log_info("set attachemt %d -> %d", tex, fb);
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fb));
         GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
         GL_CALL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -282,8 +276,6 @@ bool wf_framebuffer_base::allocate(int width, int height)
 
     viewport_width = width;
     viewport_height = height;
-
-    log_info("set size to %d %d", viewport_width, viewport_height);
 
     GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
     GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
@@ -333,7 +325,6 @@ void wf_framebuffer_base::scissor(wlr_box box) const
 
 void wf_framebuffer_base::release()
 {
-    log_info("release %d %d", fb, tex);
     if (fb != uint32_t(-1) && fb != 0)
         GL_CALL(glDeleteFramebuffers(1, &fb));
     if (tex != uint32_t(-1) && (fb != 0 || tex != 0))
@@ -347,6 +338,45 @@ void wf_framebuffer_base::reset()
     fb = -1;
     tex = -1;
     viewport_width = viewport_height = 0;
+}
+
+wlr_box wf_framebuffer::framebuffer_box_from_damage_box(wlr_box box) const
+{
+    if (has_nonstandard_transform)
+    {
+        // TODO: unimplemented, but also unused for now
+        log_error("unimplemented reached: framebuffer_box_from_geometry_box"
+            " with has_nonstandard_transform");
+        return {0, 0, 0, 0};
+    }
+
+    int width = viewport_width, height = viewport_height;
+    if (wl_transform & 1)
+        std::swap(width, height);
+
+    wlr_box result = box;
+    wl_output_transform transform =
+        wlr_output_transform_invert((wl_output_transform)wl_transform);
+
+   // log_info("got %d,%d %dx%d, %d", box.x, box.y, box.width, box.height, wl_transform);
+    wlr_box_transform(&box, transform, width, height, &result);
+  //  log_info("tr %d,%d %dx%d", box.x, box.y, box.width, box.height);
+    return result;
+}
+
+wlr_box wf_framebuffer::damage_box_from_geometry_box(wlr_box box) const
+{
+    box.x = std::floor(box.x * scale);
+    box.y = std::floor(box.y * scale);
+    box.width = std::ceil(box.width * scale);
+    box.height = std::ceil(box.height * scale);
+
+    return box;
+}
+
+wlr_box wf_framebuffer::framebuffer_box_from_geometry_box(wlr_box box) const
+{
+    return framebuffer_box_from_damage_box(damage_box_from_geometry_box(box));
 }
 
 #define WF_PI 3.141592f

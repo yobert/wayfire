@@ -23,7 +23,7 @@ class wayfire_compositor_subsurface_t : public wayfire_surface_t, public wayfire
 {
     protected:
         virtual void damage(const wlr_box& box) { assert(false); }
-        virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor) { assert(false); }
+        virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor) { assert(false); }
 
     public:
         wayfire_compositor_subsurface_t() {}

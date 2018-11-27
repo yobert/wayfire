@@ -356,7 +356,7 @@ class wayfire_expo : public wayfire_plugin_t
 
         OpenGL::render_begin(fb);
         OpenGL::clear(background_color->as_cached_color());
-        fb.scissor(fb.geometry);
+        fb.scissor(fb.framebuffer_box_from_geometry_box(fb.geometry));
 
         for(int j = 0; j < vh; j++)
         {

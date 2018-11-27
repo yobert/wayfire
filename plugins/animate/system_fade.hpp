@@ -49,7 +49,8 @@ class wf_system_fade
             float color[4] = {0, 0, 0, (float)duration.progress()};
 
             auto geometry = output->get_relative_geometry();
-            geometry = get_output_box_from_box(geometry, output->handle->scale);
+            geometry = output->render->get_target_framebuffer()
+                .damage_box_from_geometry_box(geometry);
 
             OpenGL::render_begin(output->render->get_target_framebuffer());
 

@@ -137,29 +137,31 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
 
         GLuint tex = -1;
 
-        virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor)
+        virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor)
         {
             wlr_box geometry {x, y, width, height};
-            geometry = get_output_box_from_box(geometry, output->handle->scale);
+            geometry = fb.damage_box_from_geometry_box(geometry);
 
             float projection[9];
-            wlr_matrix_projection(projection, fb.width, fb.height, fb.transform);
+            wlr_matrix_projection(projection, fb.viewport_width, fb.viewport_height,
+                (wl_output_transform)fb.wl_transform);
 
             float matrix[9];
             wlr_matrix_project_box(matrix, &geometry, WL_OUTPUT_TRANSFORM_NORMAL, 0, projection);
 
-            OpenGL::render_begin(fb.width, fb.height, fb.fb);
-            auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
+            OpenGL::render_begin(fb);
+            fb.scissor(scissor);
 
             wlr_render_quad_with_matrix(core->renderer, active ? border_color : border_color_inactive, matrix);
 
             if (tex == (uint)-1)
             {
-                tex = get_text_texture(geometry.width, titlebar,
+                tex = get_text_texture(geometry.width * fb.scale, titlebar,
                     view->get_title(), font_option->as_string());
             }
 
-            auto ortho = glm::ortho(0.0f, 1.0f * fb.width, 1.0f * fb.height, 0.0f);
+            auto ortho = glm::ortho(0.0f, 1.0f * fb.geometry.width,
+                1.0f * fb.geometry.height, 0.0f);
 
             gl_geometry gg;
             gg.x1 = geometry.x;
@@ -167,16 +169,16 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
             gg.x2 = geometry.x + geometry.width;
             gg.y2 = geometry.y + titlebar;
 
-            OpenGL::render_transformed_texture(tex, gg, {}, ortho, {1, 1, 1, 1},
+            OpenGL::render_transformed_texture(tex, gg, {}, fb.transform * ortho, {1, 1, 1, 1},
                 TEXTURE_TRANSFORM_INVERT_Y);
 
             GL_CALL(glUseProgram(0));
             OpenGL::render_end();
         }
 
-        virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t* damage)
+        virtual void _render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t* damage)
         {
-            const float scale = output->handle->scale;
+            const float scale = fb.scale;
 
             pixman_region32_t frame_region;
             pixman_region32_init(&frame_region);
@@ -200,7 +202,7 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
         virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& fb)
         {
             auto obox = get_output_geometry();
-            render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
+            render_pixman(fb, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
         }
 
         /* all input events coordinates are surface-local */

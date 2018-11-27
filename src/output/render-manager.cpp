@@ -176,6 +176,7 @@ wf_framebuffer render_manager::get_target_framebuffer() const
     fb.geometry = output->get_relative_geometry();
     fb.wl_transform = output->get_transform();
     fb.transform = get_output_matrix_from_transform(output->get_transform());
+    fb.scale = output->handle->scale;
     fb.fb = default_buffer.fb;
     fb.tex = default_buffer.tex;
     fb.viewport_width = output->handle->width;
@@ -638,10 +639,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
         {
             auto ds = damaged_surface(new damaged_surface_t);
 
-            auto bbox = view->get_bounding_box();
-
-            bbox = bbox + wf_point{-view_dx, -view_dy};
-            bbox = get_output_box_from_box(bbox, output->handle->scale);
+            auto bbox = view->get_bounding_box() + wf_point{-view_dx, -view_dy};
+            bbox = fb.damage_box_from_geometry_box(bbox);
 
             pixman_region32_init_rect(&ds->damage,
                                       bbox.x, bbox.y, bbox.width, bbox.height);
@@ -676,8 +675,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             obox.x = x;
             obox.y = y;
 
-            obox = get_output_box_from_box(obox, output->handle->scale);
-
+            obox = fb.damage_box_from_geometry_box(obox);
             pixman_region32_init_rect(&ds->damage,
                                       obox.x, obox.y,
                                       obox.width, obox.height);
@@ -759,7 +757,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     for (int i = 0; i < n_rect; i++)
     {
         wlr_box damage = wlr_box_from_pixman_box(rects[i]);
-        fb.scissor(get_scissor_box(output, damage));
+        fb.scissor(fb.framebuffer_box_from_damage_box(damage));
         OpenGL::clear({0, 0, 0, 1}, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
     OpenGL::render_end();

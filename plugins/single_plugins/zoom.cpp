@@ -74,7 +74,8 @@ class wayfire_zoom_screen : public wayfire_plugin_t
 
             /* get rotation & scale */
             wlr_box box = {x, y, 1, 1};
-            box = output_transform_box(output, box);
+            box = output->render->get_target_framebuffer().
+                framebuffer_box_from_geometry_box(box);
 
             x = box.x;
             y = h - box.y;

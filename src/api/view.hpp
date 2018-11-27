@@ -32,17 +32,6 @@ wf_point operator + (const wf_point& a, const wf_geometry& b);
 wf_geometry operator + (const wf_geometry &a, const wf_point& b);
 wf_point operator - (const wf_point& a);
 
-/* scale box */
-wf_geometry get_output_box_from_box(const wlr_box& box, float scale);
-
-/* rotate box */
-wlr_box get_scissor_box(wayfire_output *output, const wlr_box& box);
-wlr_box get_scissor_box(uint32_t fb_width, uint32_t fb_height, uint32_t transform,
-                        const wlr_box& box);
-
-/* scale + rotate */
-wlr_box output_transform_box(wayfire_output *output, const wlr_box& box);
-
 bool point_inside(wf_point point, wf_geometry rect);
 bool rect_intersect(wf_geometry screen, wf_geometry win);
 
@@ -82,18 +71,8 @@ class wayfire_surface_t
 
         void apply_surface_damage(int x, int y);
 
-        struct wlr_fb_attribs
-        {
-            wlr_fb_attribs();
-            wlr_fb_attribs(const wf_framebuffer& source);
-
-            uint32_t fb;
-            int width, height;
-            wl_output_transform transform = WL_OUTPUT_TRANSFORM_NORMAL;
-        };
-
-        virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
-        virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage);
+        virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor);
+        virtual void _render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t *damage);
 
         static std::map<std::string, int> shrink_constraints;
         static int maximal_shrink_constraint;
@@ -169,7 +148,7 @@ class wayfire_surface_t
         virtual void set_output(wayfire_output*);
 
         /* NOT API */
-        virtual void  render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t* damage);
+        virtual void  render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t* damage);
 
         /* render the surface to the given fb */
         virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& fb);
@@ -218,12 +197,8 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         uint32_t id;
         virtual void damage(const wlr_box& box);
 
-        struct offscreen_buffer_t : public wf_framebuffer_base
+        struct offscreen_buffer_t : public wf_framebuffer
         {
-            /* used to store output_geometry when the view has been destroyed */
-            int32_t output_x = 0, output_y = 0;
-            float fb_scale = 1;
-
             pixman_region32_t cached_damage;
             bool valid();
         } offscreen_buffer;

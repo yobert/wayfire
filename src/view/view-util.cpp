@@ -27,17 +27,6 @@ bool operator != (const wf_geometry& a, const wf_geometry& b)
     return !(a == b);
 }
 
-wf_geometry get_output_box_from_box(const wf_geometry& g, float scale)
-{
-    wf_geometry r;
-    r.x = std::floor(g.x * scale);
-    r.y = std::floor(g.y * scale);
-    r.width = std::ceil(g.width * scale);
-    r.height = std::ceil(g.height * scale);
-
-    return r;
-}
-
 wf_point operator + (const wf_point& a, const wf_point& b)
 {
     return {a.x + b.x, a.y + b.y};
@@ -120,31 +109,6 @@ wayfire_view wl_surface_to_wayfire_view(wl_resource *resource)
     return core->find_view(wf_surface_from_void(handle));
 }
 
-wlr_box get_scissor_box(wayfire_output *output, const wlr_box& box)
-{
-    return get_scissor_box(output->handle->width, output->handle->height,
-                           output->handle->transform, box);
-}
-
-wlr_box get_scissor_box(uint32_t fb_width, uint32_t fb_height, uint32_t fb_transform,
-                        const wlr_box& box)
-{
-    if (fb_transform & 1)
-        std::swap(fb_width, fb_height);
-
-    wlr_box result = box;
-    wl_output_transform transform =
-        wlr_output_transform_invert((wl_output_transform)fb_transform);
-
-    wlr_box_transform(&box, transform, fb_width, fb_height, &result);
-    return result;
-}
-
-wlr_box output_transform_box(wayfire_output *output, const wlr_box &box)
-{
-    return get_scissor_box(output, get_output_box_from_box(box, output->handle->scale));
-}
-
 wlr_box wlr_box_from_pixman_box(const pixman_box32_t& box)
 {
     wlr_box d;
@@ -155,14 +119,3 @@ wlr_box wlr_box_from_pixman_box(const pixman_box32_t& box)
 
     return d;
 }
-
-wayfire_view_t::wlr_fb_attribs::wlr_fb_attribs() { }
-
-wayfire_view_t::wlr_fb_attribs::wlr_fb_attribs(const wf_framebuffer& fb)
-{
-    this->width = fb.viewport_width;
-    this->height = fb.viewport_height;
-    this->fb = fb.fb;
-    this->transform = (wl_output_transform) fb.wl_transform;
-}
-

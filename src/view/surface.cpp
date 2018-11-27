@@ -428,28 +428,30 @@ void wayfire_surface_t::for_each_surface(wf_surface_iterator_callback call, bool
     for_each_surface_recursive(call, pos.x, pos.y, reverse);
 }
 
-void wayfire_surface_t::_wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor)
+void wayfire_surface_t::_wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor)
 {
     if (!get_buffer())
         return;
 
     wlr_box geometry {x, y, surface->current.width, surface->current.height};
-    geometry = get_output_box_from_box(geometry, output->handle->scale);
+    geometry = fb.damage_box_from_geometry_box(geometry);
 
     float projection[9];
-    wlr_matrix_projection(projection, fb.width, fb.height, fb.transform);
+    wlr_matrix_projection(projection, fb.viewport_width, fb.viewport_height,
+        (wl_output_transform)fb.wl_transform);
 
     float matrix[9];
     wlr_matrix_project_box(matrix, &geometry, wlr_output_transform_invert(surface->current.transform),
                            0, projection);
 
-    OpenGL::render_begin(fb.width, fb.height, fb.fb);
+    OpenGL::render_begin(fb);
     auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
     wlr_render_texture_with_matrix(core->renderer, get_buffer()->texture, matrix, alpha);
 
 #ifdef WAYFIRE_GRAPHICS_DEBUG
     float scissor_proj[9];
-    wlr_matrix_projection(scissor_proj, fb.width, fb.height, WL_OUTPUT_TRANSFORM_NORMAL);
+    wlr_matrix_projection(scissor_proj, fb.viewport_width, fb.viewport_height,
+        WL_OUTPUT_TRANSFORM_NORMAL);
 
     float col[4] = {0, 0.2, 0, 0.5};
     wlr_render_rect(core->renderer, &scissor, col, scissor_proj);
@@ -458,7 +460,7 @@ void wayfire_surface_t::_wlr_render_box(const wlr_fb_attribs& fb, int x, int y, 
     OpenGL::render_end();
 }
 
-void wayfire_surface_t::_render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage)
+void wayfire_surface_t::_render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t *damage)
 {
     int n_rect;
     auto rects = pixman_region32_rectangles(damage, &n_rect);
@@ -466,20 +468,17 @@ void wayfire_surface_t::_render_pixman(const wlr_fb_attribs& fb, int x, int y, p
     for (int i = 0; i < n_rect; i++)
     {
         auto rect = wlr_box_from_pixman_box(rects[i]);
-        auto box = get_scissor_box(fb.width, fb.height, fb.transform, rect);
-        _wlr_render_box(fb, x, y, box);
+        _wlr_render_box(fb, x, y, fb.framebuffer_box_from_damage_box(rect));
     }
 }
 
-void wayfire_surface_t::render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage)
+void wayfire_surface_t::render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t *damage)
 {
     if (damage)
         return _render_pixman(fb, x, y, damage);
 
     pixman_region32_t full_region;
-
-//    auto box = get_output_box_from_box({x, y, geometry.width, geometry.height}, output->handle->scale);
-    pixman_region32_init_rect(&full_region, 0, 0, fb.width, fb.height);
+    pixman_region32_init_rect(&full_region, 0, 0, fb.viewport_width, fb.viewport_height);
 
     _render_pixman(fb, x, y, &full_region);
     pixman_region32_fini(&full_region);
@@ -491,5 +490,5 @@ void wayfire_surface_t::render_fb(pixman_region32_t *damage, const wf_framebuffe
         return;
 
     auto obox = get_output_geometry();
-    render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
+    render_pixman(fb, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
 }

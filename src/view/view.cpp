@@ -118,7 +118,7 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
     data.view = self();
     data.old_geometry = wm;
 
-    damage();
+    damage(last_bounding_box);
     geometry.x = x + opos.x - wm.x;
     geometry.y = y + opos.y - wm.y;
     damage();
@@ -285,12 +285,7 @@ wf_geometry wayfire_view_t::get_untransformed_bounding_box()
         return bbox;
     }
 
-    return {
-        offscreen_buffer.output_x,
-        offscreen_buffer.output_y,
-        (int32_t)(offscreen_buffer.viewport_width / output->handle->scale + 0.99),
-        (int32_t)(offscreen_buffer.viewport_height / output->handle->scale + 0.99)
-    };
+    return offscreen_buffer.geometry;
 }
 
 wf_geometry wayfire_view_t::get_bounding_box()
@@ -439,7 +434,8 @@ wf_geometry wayfire_view_t::get_wm_geometry()
 
 void wayfire_view_t::damage_raw(const wlr_box& box)
 {
-    auto damage_box = get_output_box_from_box(box, output->handle->scale);
+    auto damage_box = output->render->get_target_framebuffer().
+        damage_box_from_geometry_box(box);
 
     /* shell views are visible in all workspaces. That's why we must apply
      * their damage to all workspaces as well */
@@ -451,8 +447,9 @@ void wayfire_view_t::damage_raw(const wlr_box& box)
 
         /* Damage only the visible region of the shell view.
          * This prevents hidden panels from spilling damage onto other workspaces */
-        wlr_box ws_box = get_output_box_from_box({0, 0, sw, sh}, output->handle->scale),
-                visible_damage;
+        wlr_box ws_box = output->render->get_target_framebuffer().
+            damage_box_from_geometry_box({0, 0, sw, sh});
+        wlr_box visible_damage;
         wlr_box_intersection(&damage_box, &ws_box, &visible_damage);
 
         for (int i = 0; i < vw; i++)
@@ -510,14 +507,12 @@ void wayfire_view_t::take_snapshot()
         return;
 
     auto buffer_geometry = get_untransformed_bounding_box();
-
-    offscreen_buffer.output_x = buffer_geometry.x;
-    offscreen_buffer.output_y = buffer_geometry.y;
+    offscreen_buffer.geometry = buffer_geometry;
 
     float scale = output->handle->scale;
     if (int(buffer_geometry.width  * scale) != offscreen_buffer.viewport_width ||
         int(buffer_geometry.height * scale) != offscreen_buffer.viewport_height ||
-        offscreen_buffer.fb_scale != scale)
+        offscreen_buffer.scale != scale)
     {
         // scale/size changed, invalidate offscreen buffer
         last_offscreen_buffer_age = -1;
@@ -531,19 +526,15 @@ void wayfire_view_t::take_snapshot()
 
     OpenGL::render_begin();
     offscreen_buffer.allocate(buffer_geometry.width * scale, buffer_geometry.height * scale);
-    offscreen_buffer.fb_scale = scale;
+    offscreen_buffer.scale = scale;
     offscreen_buffer.bind();
     OpenGL::clear({0, 0, 0, 0});
     OpenGL::render_end();
 
-    wlr_fb_attribs fb;
-    fb.fb = offscreen_buffer.fb;
-    fb.width = offscreen_buffer.viewport_width;
-    fb.height = offscreen_buffer.viewport_height;
-
     for_each_surface([=] (wayfire_surface_t *surface, int x, int y)
     {
-        surface->render_pixman(fb, x - buffer_geometry.x, y - buffer_geometry.y, NULL);
+        surface->render_pixman(offscreen_buffer, x - buffer_geometry.x,
+            y - buffer_geometry.y, NULL);
     }, true);
 }
 
@@ -563,8 +554,8 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, const wf_framebuffer& 
         take_snapshot();
 
         wf_geometry obox = get_untransformed_bounding_box();
-        obox.width = offscreen_buffer.viewport_width / offscreen_buffer.fb_scale;
-        obox.height = offscreen_buffer.viewport_height / offscreen_buffer.fb_scale;
+        obox.width = offscreen_buffer.geometry.width;
+        obox.height = offscreen_buffer.geometry.height;
 
         auto it = transforms.begin();
 
@@ -596,9 +587,7 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, const wf_framebuffer& 
         for (int i = 0; i < n_rect; i++)
         {
             auto box = wlr_box_from_pixman_box(rects[i]);
-            auto sbox = get_scissor_box(output, box);
-
-            wlr_renderer_scissor(core->renderer, NULL);
+            auto sbox = fb.framebuffer_box_from_damage_box(box);
             (*it)->transform->render_with_damage(last_tex, obox, sbox, fb);
 
 #ifdef WAYFIRE_GRAPHICS_DEBUG

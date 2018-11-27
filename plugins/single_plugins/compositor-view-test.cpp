@@ -16,18 +16,19 @@ extern "C"
 class test_view : public wayfire_compositor_view_t, public wayfire_compositor_interactive_view
 {
     public:
-        virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor)
+        virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor)
         {
             wlr_box g {x, y, geometry.width, geometry.height};
-            geometry = get_output_box_from_box(g, output->handle->scale);
+            geometry = fb.damage_box_from_geometry_box(g);
 
             float projection[9];
-            wlr_matrix_projection(projection, fb.width, fb.height, fb.transform);
+            wlr_matrix_projection(projection, fb.viewport_width, fb.viewport_height,
+                (wl_output_transform)fb.wl_transform);
 
             float matrix[9];
             wlr_matrix_project_box(matrix, &g, WL_OUTPUT_TRANSFORM_NORMAL, 0, projection);
 
-            OpenGL::render_begin(fb.width, fb.height, fb.fb);
+            OpenGL::render_begin(fb);
             auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
 
             float color[] = {1.0f, 0.0, 1.0f, 1.0f};

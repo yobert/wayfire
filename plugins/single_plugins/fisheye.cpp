@@ -180,7 +180,8 @@ class wayfire_fisheye : public wayfire_plugin_t
         {
             GetTuple(x, y, output->get_cursor_position());
             wlr_box box = {x, y, 1, 1};
-            box = output_transform_box(output, box);
+            box = output->render->get_target_framebuffer().
+                framebuffer_box_from_geometry_box(box);
             x = box.x;
             y = box.y;
 

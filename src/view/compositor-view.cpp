@@ -84,17 +84,17 @@ void wayfire_compositor_view_t::render_fb(pixman_region32_t *damage, const wf_fr
         return wayfire_view_t::render_fb(damage, fb);
 
     auto obox = get_output_geometry();
-    render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
+    render_pixman(fb, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
 }
 
-void wayfire_mirror_view_t::_wlr_render_box(const wlr_fb_attribs& fb,
+void wayfire_mirror_view_t::_wlr_render_box(const wf_framebuffer& fb,
         int x, int y, const wlr_box& scissor)
 {
     /* Do nothing, we draw in _render_pixman */
     assert(false);
 }
 
-void wayfire_mirror_view_t::_render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage)
+void wayfire_mirror_view_t::_render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t *damage)
 {
     assert(original_view);
     original_view->render_pixman(fb, x, y, damage);
@@ -176,9 +176,8 @@ void wayfire_mirror_view_t::take_snapshot()
     int scaled_width = scale * obox.width;
     int scaled_height = scale * obox.height;
 
-    offscreen_buffer.output_x = buffer_geometry.x;
-    offscreen_buffer.output_y = buffer_geometry.y;
-    offscreen_buffer.fb_scale = scale;
+    offscreen_buffer.geometry = buffer_geometry;
+    offscreen_buffer.scale = scale;
 
     OpenGL::render_begin();
     offscreen_buffer.allocate(scaled_width, scaled_height);
@@ -247,11 +246,11 @@ void wayfire_mirror_view_t::unmap()
     wayfire_compositor_view_t::unmap();
 }
 
-void wayfire_color_rect_view_t::_render_rect(float projection[9],
-    int x, int y, int w, int h, const wf_color& color)
+void wayfire_color_rect_view_t::_render_rect(const wf_framebuffer& fb,
+    float projection[9], int x, int y, int w, int h, const wf_color& color)
 {
     wlr_box render_geometry_unscaled {x, y, w, h};
-    wlr_box render_geometry = output_transform_box(output,
+    wlr_box render_geometry = fb.damage_box_from_geometry_box(
         render_geometry_unscaled);
 
     float matrix[9];
@@ -261,31 +260,32 @@ void wayfire_color_rect_view_t::_render_rect(float projection[9],
     wlr_render_quad_with_matrix(core->renderer, col, matrix);
 }
 
-void wayfire_color_rect_view_t::_wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor)
+void wayfire_color_rect_view_t::_wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor)
 {
     float projection[9];
-    wlr_matrix_projection(projection, fb.width, fb.height, fb.transform);
+    wlr_matrix_projection(projection, fb.viewport_width, fb.viewport_height,
+        (wl_output_transform)fb.wl_transform);
 
-    OpenGL::render_begin(fb.width, fb.height, fb.fb);
+    OpenGL::render_begin(fb);
     auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
 
     /* Draw the border, making sure border parts don't overlap, otherwise
      * we will get wrong corners if border has alpha != 1.0 */
     // top
-    _render_rect(projection, x, y, geometry.width, border,
+    _render_rect(fb, projection, x, y, geometry.width, border,
         _border_color);
     // bottom
-    _render_rect(projection, x, y + geometry.height - border,
+    _render_rect(fb, projection, x, y + geometry.height - border,
         geometry.width, border, _border_color);
     // left
-    _render_rect(projection, x, y + border, border, geometry.height - 2 * border,
+    _render_rect(fb, projection, x, y + border, border, geometry.height - 2 * border,
         _border_color);
     // right
-    _render_rect(projection, x + geometry.width - border, y + border, border,
+    _render_rect(fb, projection, x + geometry.width - border, y + border, border,
         geometry.height - 2 * border, _border_color);
 
     /* Draw the inside of the rect */
-    _render_rect(projection, x + border, y + border,
+    _render_rect(fb, projection, x + border, y + border,
         geometry.width - 2 * border, geometry.height - 2 * border,
         _color);
 

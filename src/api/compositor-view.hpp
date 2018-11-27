@@ -25,7 +25,7 @@ class wayfire_compositor_view_t : public wayfire_compositor_surface_t, public wa
 {
     protected:
         /* Implement _wlr_render_box to get something on screen */
-        virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor) { assert(false); }
+        virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor) { assert(false); }
 
     public:
         virtual bool is_mapped() { return _is_mapped; }
@@ -87,8 +87,8 @@ class wayfire_mirror_view_t : public wayfire_compositor_view_t
     protected:
     signal_callback_t base_view_unmapped, base_view_damaged;
 
-    virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
-    virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage);
+    virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor);
+    virtual void _render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t *damage);
 
     wayfire_view original_view;
     /* sets original_view to NULL and removes signal handlers */
@@ -117,15 +117,15 @@ class wayfire_mirror_view_t : public wayfire_compositor_view_t
  * Provides a simple view which is a colored rectangle with a border */
 class wayfire_color_rect_view_t : public wayfire_compositor_view_t
 {
-    void _render_rect(float projection[9], int x, int y, int w, int h,
-        const wf_color& color);
+    void _render_rect(const wf_framebuffer& fb, float projection[9],
+        int x, int y, int w, int h, const wf_color& color);
 
     protected:
         wf_color _color;
         wf_color _border_color;
         int border;
 
-        virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
+        virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor);
 
     public:
         wayfire_color_rect_view_t();
