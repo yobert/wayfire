@@ -138,6 +138,20 @@ bool wayfire_surface_t::accepts_input(int32_t sx, int32_t sy)
     return wlr_surface_point_accepts_input(surface, sx, sy);
 }
 
+int wayfire_surface_t::maximal_shrink_constraint = 0;
+std::map<std::string, int> wayfire_surface_t::shrink_constraints;
+void wayfire_surface_t::set_opaque_shrink_constraint(std::string name, int value)
+{
+    shrink_constraints[name] = value;
+
+    maximal_shrink_constraint = 0;
+    for (auto& constr : shrink_constraints)
+    {
+        maximal_shrink_constraint =
+            std::max(maximal_shrink_constraint, constr.second);
+    }
+}
+
 void wayfire_surface_t::subtract_opaque(pixman_region32_t *region, int x, int y)
 {
     if (!surface)
@@ -149,8 +163,15 @@ void wayfire_surface_t::subtract_opaque(pixman_region32_t *region, int x, int y)
     pixman_region32_copy(&opaque, &surface->current.opaque);
     pixman_region32_translate(&opaque, x, y);
     wlr_region_scale(&opaque, &opaque, output->handle->scale);
+    /* wlr_region_scale() uses std::ceil/std::floor, so the resulting region
+     * encompasses the opaque region. However, in the case of opaque region, we
+     * don't want any pixels that aren't actually opaque. So in case of different scales,
+     * we just shrink by 1 to compensate for the ceil/floor discrepancy */
+    int ceil_factor = 0;
     if (output->handle->scale != (float)surface->current.scale)
-        wlr_region_expand(&opaque, &opaque, -1); // remove the effect of ceiling
+        ceil_factor = 1;
+
+    wlr_region_expand(&opaque, &opaque, -maximal_shrink_constraint - ceil_factor);
 
     pixman_region32_subtract(region, region, &opaque);
     pixman_region32_fini(&opaque);

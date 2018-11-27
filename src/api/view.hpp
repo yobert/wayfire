@@ -95,6 +95,8 @@ class wayfire_surface_t
         virtual void _wlr_render_box(const wlr_fb_attribs& fb, int x, int y, const wlr_box& scissor);
         virtual void _render_pixman(const wlr_fb_attribs& fb, int x, int y, pixman_region32_t *damage);
 
+        static std::map<std::string, int> shrink_constraints;
+        static int maximal_shrink_constraint;
     public:
         /* NOT API */
         wayfire_surface_t *parent_surface;
@@ -126,6 +128,12 @@ class wayfire_surface_t
         /* Subtract the opaque region of the surface from region, supposing
          * the surface is positioned at (x, y) */
         virtual void subtract_opaque(pixman_region32_t* region, int x, int y);
+
+        /* Enforces the opaque region be shrunk by the amount of pixels
+         * If multiple plugins request this, the highest constraint is selected,
+         * i.e the most shrinking */
+        static void set_opaque_shrink_constraint(
+            std::string constraint_name, int value);
 
         virtual wl_client *get_client();
 
@@ -310,6 +318,11 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
          * returns the (sub)surface under the cursor or NULL iff the cursor is outside of the view
          * TODO: it should be overwritable by plugins which deform the view */
         virtual wayfire_surface_t *map_input_coordinates(int cursor_x, int cursor_y, int &sx, int &sy);
+
+        /* Subtract the opaque region of the surface from region, supposing
+         * the surface is positioned at (x, y) */
+        virtual void subtract_opaque(pixman_region32_t* region, int x, int y);
+
 
         /* Returns the wlr_surface which should receive focus if this view is activated */
         virtual wlr_surface *get_keyboard_focus_surface();

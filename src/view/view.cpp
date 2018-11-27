@@ -184,6 +184,19 @@ wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx
     return ret;
 }
 
+void wayfire_view_t::subtract_opaque(pixman_region32_t *region, int x, int y)
+{
+    int saved_shrink_constraint = maximal_shrink_constraint;
+
+    /* Fullscreen views take up the whole screen, so plugins can't request
+     * padding for them (nothing below is visible) */
+    if (this->fullscreen)
+        maximal_shrink_constraint = 0;
+
+    wayfire_surface_t::subtract_opaque(region, x, y);
+    maximal_shrink_constraint = saved_shrink_constraint;
+}
+
 wlr_surface *wayfire_view_t::get_keyboard_focus_surface()
 {
     if (_is_mapped)
