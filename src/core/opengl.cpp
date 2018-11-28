@@ -168,12 +168,6 @@ namespace OpenGL
             coordData[6] = texg.x1; coordData[7] = texg.y1;
         }
 
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-
         GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
         GL_CALL(glActiveTexture(GL_TEXTURE0));
 
@@ -185,6 +179,8 @@ namespace OpenGL
 
         GL_CALL(glUniformMatrix4fv(program.mvpID, 1, GL_FALSE, &model[0][0]));
         GL_CALL(glUniform4fv(program.colorID, 1, &color[0]));
+
+        GL_CALL(glEnable(GL_BLEND));
         GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
         GL_CALL(glDrawArrays(GL_TRIANGLE_FAN, 0, 4));
 
@@ -244,8 +240,8 @@ bool wf_framebuffer_base::allocate(int width, int height)
         GL_CALL(glGenTextures(1, &tex));
         GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
         log_info("alloc tex %d", tex);
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
         GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
         GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
     }
