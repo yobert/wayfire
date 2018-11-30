@@ -84,7 +84,7 @@ void wf_drag_icon::damage(const wlr_box& box)
     core->for_each_output([=] (wayfire_output *output)
     {
         auto output_geometry = output->get_full_geometry();
-        if (rect_intersect(output_geometry, box))
+        if (output_geometry & box)
         {
             auto local = box;
             local.x -= output_geometry.x;

@@ -6,7 +6,6 @@
 #include <render-manager.hpp>
 #include <signal-definitions.hpp>
 #include <nonstd/make_unique.hpp>
-#include <pixman-1/pixman.h>
 #include <opengl.hpp>
 #include <list>
 #include <algorithm>
@@ -269,7 +268,7 @@ bool viewport_manager::view_visible_on(wayfire_view view, std::tuple<int, int> v
     if (view->has_transformer())
         return view->intersects_region(g);
     else
-        return rect_intersect(g, view->get_wm_geometry());
+        return g & view->get_wm_geometry();
 }
 
 void viewport_manager::for_each_view(view_callback_proc_t call, uint32_t layers_mask)
@@ -392,7 +391,8 @@ viewport_manager::get_views_on_workspace(std::tuple<int, int> vp,
         {
             for (auto v : layers[i])
             {
-                if (wm_only && rect_intersect(output->get_relative_geometry(), v->get_wm_geometry()))
+                if (wm_only &&
+                    (output->get_relative_geometry() & v->get_wm_geometry()))
                 {
                     views.push_back(v);
                 }

@@ -5,6 +5,7 @@
 #include <GLES3/gl3ext.h>
 
 #include <config.hpp>
+#include <util.hpp>
 #include <nonstd/noncopyable.hpp>
 
 extern "C"
@@ -75,6 +76,10 @@ struct wf_framebuffer_base : public noncopyable_t
     /* Reset the framebuffer, WITHOUT freeing resources.
      * There is no need to call reset() after release() */
     void reset();
+
+    /* Returns a region which corresponds to the scissor that needs to be set
+     * to redraw the whole framebuffer */
+    wf_region get_scissor_region() const;
 
     private:
     void copy_state(wf_framebuffer_base&& other);

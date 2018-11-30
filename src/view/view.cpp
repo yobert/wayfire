@@ -34,7 +34,6 @@ wayfire_view_t::wayfire_view_t()
     : wayfire_surface_t (NULL)
 {
     set_output(core->get_active_output());
-    pixman_region32_init(&offscreen_buffer.cached_damage);
 }
 
 std::string wayfire_view_t::to_string() const
@@ -184,7 +183,7 @@ wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx
     return ret;
 }
 
-void wayfire_view_t::subtract_opaque(pixman_region32_t *region, int x, int y)
+void wayfire_view_t::subtract_opaque(wf_region& region, int x, int y)
 {
     int saved_shrink_constraint = maximal_shrink_constraint;
 
@@ -245,13 +244,13 @@ bool wayfire_view_t::intersects_region(const wlr_box& region)
 {
     /* fallback to the whole transformed boundingbox, if it exists */
     if (!is_mapped())
-        return rect_intersect(region, get_bounding_box());
+        return region & get_bounding_box();
 
     bool result = false;
     for_each_surface([=, &result] (wayfire_surface_t* surface, int, int)
     {
         auto box = transform_region(surface->get_output_geometry());
-        result = result || rect_intersect(region, box);
+        result = result || (region & box);
     });
 
     return result;
@@ -443,12 +442,10 @@ void wayfire_view_t::damage_raw(const wlr_box& box)
     {
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
         GetTuple(vx, vy, output->workspace->get_current_workspace());
-        GetTuple(sw, sh, output->get_screen_size());
 
         /* Damage only the visible region of the shell view.
          * This prevents hidden panels from spilling damage onto other workspaces */
-        wlr_box ws_box = output->render->get_target_framebuffer().
-            damage_box_from_geometry_box({0, 0, sw, sh});
+        wlr_box ws_box = output->render->get_damage_box();
         wlr_box visible_damage;
         wlr_box_intersection(&damage_box, &ws_box, &visible_damage);
 
@@ -483,11 +480,7 @@ void wayfire_view_t::damage(const wlr_box& box)
     real_box.x -= wm_geometry.x;
     real_box.y -= wm_geometry.y;
 
-    pixman_region32_union_rect(&offscreen_buffer.cached_damage,
-        &offscreen_buffer.cached_damage,
-        real_box.x, real_box.y,
-        real_box.width, real_box.height);
-
+    offscreen_buffer.cached_damage |= real_box;
     damage_raw(transform_region(box));
 }
 
@@ -531,26 +524,19 @@ void wayfire_view_t::take_snapshot()
     OpenGL::clear({0, 0, 0, 0});
     OpenGL::render_end();
 
+    auto full_region = offscreen_buffer.get_scissor_region();
     for_each_surface([=] (wayfire_surface_t *surface, int x, int y)
     {
-        surface->render_pixman(offscreen_buffer, x - buffer_geometry.x,
-            y - buffer_geometry.y, NULL);
+        surface->simple_render(offscreen_buffer,
+            x - buffer_geometry.x, y - buffer_geometry.y, full_region);
     }, true);
 }
 
-void wayfire_view_t::render_fb(pixman_region32_t* damage, const wf_framebuffer& fb)
+void wayfire_view_t::render_fb(const wf_region& damaged_region, const wf_framebuffer& fb)
 {
     in_paint = true;
     if (has_transformer())
     {
-        pixman_region32_t fb_region;
-        if (damage == NULL)
-        {
-            pixman_region32_init_rect(&fb_region, 0, 0,
-                fb.viewport_width, fb.viewport_height);
-            damage = &fb_region;
-        }
-
         take_snapshot();
 
         wf_geometry obox = get_untransformed_bounding_box();
@@ -582,11 +568,9 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, const wf_framebuffer& 
             ++it;
         }
 
-        int n_rect;
-        auto rects = pixman_region32_rectangles(damage, &n_rect);
-        for (int i = 0; i < n_rect; i++)
+        for (auto& rect : damaged_region)
         {
-            auto box = wlr_box_from_pixman_box(rects[i]);
+            auto box = wlr_box_from_pixman_box(rect);
             auto sbox = fb.framebuffer_box_from_damage_box(box);
             (*it)->transform->render_with_damage(last_tex, obox, sbox, fb);
 
@@ -605,12 +589,9 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, const wf_framebuffer& 
         }
 
         cleanup_transforms();
-
-        if (damage == &fb_region)
-            pixman_region32_fini(&fb_region);
     } else
     {
-        wayfire_surface_t::render_fb(damage, fb);
+        wayfire_surface_t::render_fb(damaged_region, fb);
     }
     in_paint = false;
 }
@@ -942,7 +923,6 @@ void wayfire_view_t::set_toplevel_parent(wayfire_view new_parent)
 
 wayfire_view_t::~wayfire_view_t()
 {
-    pixman_region32_fini(&offscreen_buffer.cached_damage);
 }
 
 void emit_title_changed(wayfire_view view)

@@ -22,14 +22,13 @@ extern "C"
 
 struct wf_output_damage
 {
-    pixman_region32_t frame_damage;
+    wf_region frame_damage;
     wlr_output *output;
     wlr_output_damage *damage_manager;
 
     wf_output_damage(wlr_output *output)
     {
         this->output = output;
-        pixman_region32_init(&frame_damage);
         damage_manager = wlr_output_damage_create(output);
     }
 
@@ -42,47 +41,45 @@ struct wf_output_damage
 
     void add(const wlr_box& box)
     {
-        pixman_region32_union_rect(&frame_damage, &frame_damage,
-                                   box.x, box.y, box.width, box.height);
+        frame_damage |= box;
 
         auto sbox = box;
         wlr_output_damage_add_box(damage_manager, &sbox);
         schedule_repaint();
     }
 
-    void add(pixman_region32_t *region)
+    void add(const wf_region& region)
     {
-        pixman_region32_union(&frame_damage, &frame_damage, region);
-        wlr_output_damage_add(damage_manager, region);
+        frame_damage |= region;
+        wlr_output_damage_add(damage_manager,
+            const_cast<wf_region&> (region).to_pixman());
         schedule_repaint();
     }
 
-    bool make_current(pixman_region32_t *out_damage, bool& need_swap)
+    bool make_current(wf_region& out_damage, bool& need_swap)
     {
-        auto r = wlr_output_damage_make_current(damage_manager, &need_swap, out_damage);
+        auto r = wlr_output_damage_make_current(damage_manager, &need_swap,
+            out_damage.to_pixman());
         if (r)
         {
-            pixman_region32_t regular;
-
             int w, h;
             wlr_output_transformed_resolution(output, &w, &h);
+            wlr_box whole_output = wlr_box{0, 0, w, h};
 
-            pixman_region32_init_rect(&regular, 0, 0, w, h);
-            pixman_region32_subtract(&frame_damage, &frame_damage, &regular);
+            frame_damage ^= whole_output;
+            out_damage |= frame_damage;
 
-            pixman_region32_union(out_damage, out_damage, &frame_damage);
             if (runtime_config.no_damage_track)
-                pixman_region32_union(out_damage, out_damage, &regular);
-
-            pixman_region32_fini(&regular);
+                out_damage |= whole_output;
         }
         return r;
     }
 
-    void swap_buffers(timespec *when, pixman_region32_t *swap_damage)
+    void swap_buffers(timespec *when, const wf_region& swap_damage)
     {
-        wlr_output_damage_swap_buffers(damage_manager, when, swap_damage);
-        pixman_region32_clear(&frame_damage);
+        wlr_output_damage_swap_buffers(damage_manager, when,
+            const_cast<wf_region&> (swap_damage).to_pixman());
+        frame_damage.clear();
     }
 
     void schedule_repaint()
@@ -112,8 +109,6 @@ render_manager::render_manager(wayfire_output *o)
 
     frame_listener.notify = frame_cb;
     wl_signal_add(&output_damage->damage_manager->events.frame, &frame_listener);
-
-    pixman_region32_init(&frame_damage);
 
     init_default_streams();
     schedule_redraw();
@@ -149,8 +144,12 @@ render_manager::~render_manager()
         for (auto& stream : row)
             stream.buffer.release();
     }
+}
 
-    pixman_region32_fini(&frame_damage);
+void render_manager::damage_whole()
+{
+    if (!output->destroyed)
+        output_damage->add();
 }
 
 void render_manager::damage(const wlr_box& box)
@@ -159,15 +158,29 @@ void render_manager::damage(const wlr_box& box)
         output_damage->add(box);
 }
 
-void render_manager::damage(pixman_region32_t *region)
+void render_manager::damage(const wf_region& region)
 {
-    if (output->destroyed)
-        return;
-
-    if (region)
+    if (!output->destroyed)
         output_damage->add(region);
-    else
-        output_damage->add();
+}
+
+wlr_box render_manager::get_damage_box() const
+{
+    int w, h;
+    wlr_output_transformed_resolution(output->handle, &w, &h);
+    return {0, 0, w, h};
+}
+
+wlr_box render_manager::get_ws_box(std::tuple<int, int> ws) const
+{
+    GetTuple(vx, vy, ws);
+    GetTuple(cx, cy, output->workspace->get_current_workspace());
+
+    wlr_box box = get_damage_box();
+    box.x = (vx - cx) * box.width;
+    box.y = (vy - cy) * box.height;
+
+    return box;
 }
 
 wf_framebuffer render_manager::get_target_framebuffer() const
@@ -214,7 +227,7 @@ void render_manager::add_inhibit(bool add)
 
     if (output_inhibit == 0)
     {
-        damage(NULL);
+        damage_whole();
         output->emit_signal("start-rendering", nullptr);
     }
 }
@@ -225,25 +238,12 @@ void render_manager::schedule_redraw()
         idle_redraw_source = wl_event_loop_add_idle(core->ev_loop, redraw_idle_cb, output);
 }
 
-/* return damage from this frame for the given workspace, coordinates relative to the workspace */
-void render_manager::get_ws_damage(std::tuple<int, int> ws, pixman_region32_t *out_damage)
+/* return damage from this frame for the given workspace, coordinates
+ * relative to the workspace */
+wf_region render_manager::get_ws_damage(std::tuple<int, int> ws)
 {
-    GetTuple(vx, vy, ws);
-    GetTuple(cx, cy, output->workspace->get_current_workspace());
-
-    int sw, sh;
-    wlr_output_transformed_resolution(output->handle, &sw, &sh);
-
-    if (!pixman_region32_selfcheck(out_damage))
-        pixman_region32_init(out_damage);
-
-    pixman_region32_intersect_rect(out_damage,
-                                   &frame_damage,
-                                   (vx - cx) * sw,
-                                   (vy - cy) * sh,
-                                   sw, sh);
-
-    pixman_region32_translate(out_damage, (cx - vx) * sw, (cy - vy) * sh);
+    auto ws_box = get_ws_box(ws);
+    return (frame_damage & ws_box) + wf_point{-ws_box.x, -ws_box.y};
 }
 
 void damage_idle_cb(void *data)
@@ -251,7 +251,7 @@ void damage_idle_cb(void *data)
     auto rm = (render_manager*) data;
     assert(rm);
 
-    rm->damage(NULL);
+    rm->damage_whole();
     rm->idle_damage_source = NULL;
 }
 
@@ -269,10 +269,6 @@ void render_manager::set_renderer(render_hook_t rh)
     renderer = rh;
 }
 
-static inline int64_t timespec_to_msec(const struct timespec *a) {
-     return (int64_t)a->tv_sec * 1000 + a->tv_nsec / 1000000;
-}
-
 struct render_manager::wf_post_effect
 {
     post_hook_t *hook;
@@ -288,13 +284,11 @@ void render_manager::paint()
     clock_gettime(CLOCK_MONOTONIC, &repaint_started);
     cleanup_post_hooks();
 
-    /* TODO: perhaps we don't need to copy frame damage */
-    pixman_region32_clear(&frame_damage);
-
+    frame_damage.clear();
     run_effects(effects[WF_OUTPUT_EFFECT_PRE]);
 
     bool needs_swap;
-    if (!output_damage->make_current(&frame_damage, needs_swap))
+    if (!output_damage->make_current(frame_damage, needs_swap))
         return;
 
     if (!needs_swap && !constant_redraw)
@@ -304,19 +298,14 @@ void render_manager::paint()
     }
 
     OpenGL::bind_output(output);
-    log_info("frame");
-
     OpenGL::render_begin();
     default_buffer.allocate(output->handle->width, output->handle->height);
     OpenGL::render_end();
 
-    pixman_region32_t swap_damage;
-    pixman_region32_init(&swap_damage);
-
+    wf_region swap_damage;
     if (runtime_config.damage_debug)
     {
-        pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0,
-                              output->handle->width, output->handle->height);
+        swap_damage |= get_damage_box();
 
         OpenGL::render_begin(output->handle->width, output->handle->height, 0);
         OpenGL::clear({1, 1, 0, 1});
@@ -326,18 +315,14 @@ void render_manager::paint()
     if (renderer)
     {
         renderer(get_target_framebuffer());
-        pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0,
-                              output->handle->width, output->handle->height);
         /* TODO: let custom renderers specify what they want to repaint... */
+        swap_damage |= get_damage_box();
     } else
     {
-        int w, h;
-        wlr_output_transformed_resolution(output->handle, &w, &h);
-        pixman_region32_intersect_rect(&frame_damage, &frame_damage, 0, 0, w, h);
-
-        if (pixman_region32_not_empty(&frame_damage))
+        frame_damage &= get_damage_box();
+        if (!frame_damage.empty())
         {
-            pixman_region32_copy(&swap_damage, &frame_damage);
+            swap_damage = frame_damage;
             GetTuple(vx, vy, output->workspace->get_current_workspace());
             auto target_stream = &output_streams[vx][vy];
             if (current_ws_stream != target_stream)
@@ -357,13 +342,10 @@ void render_manager::paint()
     run_effects(effects[WF_OUTPUT_EFFECT_OVERLAY]);
 
     if (post_effects.size())
-    {
-        pixman_region32_union_rect(&swap_damage, &swap_damage, 0, 0,
-                                   output->handle->width, output->handle->height);
-    }
+        swap_damage |= get_damage_box();
 
     OpenGL::render_begin(get_target_framebuffer());
-    wlr_output_render_software_cursors(output->handle, &swap_damage);
+    wlr_output_render_software_cursors(output->handle, swap_damage.to_pixman());
     OpenGL::render_end();
 
     if (post_effects.size())
@@ -376,7 +358,6 @@ void render_manager::paint()
             post->buffer.allocate(output->handle->width, output->handle->height);
             OpenGL::render_end();
 
-            log_info("render from %d to %d", last_buffer->fb, post->buffer.fb);
             (*post->hook)(*last_buffer, post->buffer);
             last_buffer = &post->buffer;
         }
@@ -392,8 +373,7 @@ void render_manager::paint()
     }
 
     OpenGL::unbind_output(output);
-    output_damage->swap_buffers(&repaint_started, &swap_damage);
-    pixman_region32_fini(&swap_damage);
+    output_damage->swap_buffers(&repaint_started, swap_damage);
     post_paint();
 }
 
@@ -467,7 +447,7 @@ void render_manager::add_post(post_hook_t* hook)
 
     buffer->reset();
     buffer->allocate(output->handle->width, output->handle->height);
-    damage(NULL);
+    damage_whole();
 
     auto new_hook = new wf_post_effect;
     new_hook->hook = hook;
@@ -504,7 +484,7 @@ void render_manager::_rem_post(wf_post_effect *post)
         buffer->fb = buffer->tex = 0;
     }
 
-    damage(NULL);
+    damage_whole();
 }
 
 void render_manager::cleanup_post_hooks()
@@ -528,7 +508,7 @@ void render_manager::rem_post(post_hook_t *hook)
             h->to_remove = 1;
     }
 
-    damage(NULL);
+    damage_whole();
 }
 
 void render_manager::workspace_stream_start(wf_workspace_stream *stream)
@@ -536,21 +516,9 @@ void render_manager::workspace_stream_start(wf_workspace_stream *stream)
     stream->running = true;
     stream->scale_x = stream->scale_y = 1;
 
-    GetTuple(vx, vy, stream->ws);
-    GetTuple(cx, cy, output->workspace->get_current_workspace());
-
-    int sw, sh;
-    wlr_output_transformed_resolution(output->handle, &sw, &sh);
-
     /* damage the whole workspace region, so that we get a full repaint */
-    pixman_region32_union_rect(&frame_damage,
-                               &frame_damage,
-                               (vx - cx) * sw,
-                               (vy - cy) * sh,
-                               sw, sh);
-
+    frame_damage |= get_ws_box(stream->ws);
     workspace_stream_update(stream, 1, 1);
-
 }
 
 void render_manager::workspace_stream_update(wf_workspace_stream *stream,
@@ -564,9 +532,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     int dx = g.x + (x - cx) * g.width,
         dy = g.y + (y - cy) * g.height;
 
-    pixman_region32_t ws_damage;
-    pixman_region32_init(&ws_damage);
-    get_ws_damage(stream->ws, &ws_damage);
+    wf_region ws_damage = get_ws_damage(stream->ws);
 
     float current_resolution = stream->scale_x * stream->scale_y;
     float target_resolution = scale_x * scale_y;
@@ -576,21 +542,11 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 
     /* TODO: investigate if this still works */
     if (scaling > 2 && false)
-    {
-        int sw, sh;
-        wlr_output_transformed_resolution(output->handle, &sw, &sh);
+        ws_damage |= get_damage_box();
 
-        pixman_region32_union_rect(&ws_damage, &ws_damage, dx, dy,
-                sw, sh);
-    }
-
-    log_info("update stream %d %d", stream->buffer.fb, stream->buffer.tex);
     /* we don't have to update anything */
-    if (!pixman_region32_not_empty(&ws_damage))
-    {
-        pixman_region32_fini(&ws_damage);
+    if (ws_damage.empty())
         return;
-    }
 
     if (scale_x != stream->scale_x || scale_y != stream->scale_y)
     {
@@ -598,10 +554,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
 //        stream->scale_x = scale_x;
 //        stream->scale_y = scale_y;
 
-        int sw, sh;
-        wlr_output_transformed_resolution(output->handle, &sw, &sh);
-        pixman_region32_union_rect(&ws_damage, &ws_damage, dx, dy,
-                                   sw, sh);
+     //   ws_damage |= get_damage_box();
     }
 
 
@@ -613,7 +566,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     fb.tex = (stream->buffer.tex == 0) ? default_buffer.tex : stream->buffer.tex;
 
     {
-        wf_stream_signal data(&ws_damage, fb);
+        wf_stream_signal data(ws_damage, fb);
         emit_signal("workspace-stream-pre", &data);
     }
 
@@ -624,10 +577,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
         wayfire_surface_t *surface;
 
         int x, y; // framebuffer coords for the view
-        pixman_region32_t damage;
-
-        ~damaged_surface_t()
-        { pixman_region32_fini(&damage); }
+        wf_region damage;
     };
 
     using damaged_surface = std::unique_ptr<damaged_surface_t>;
@@ -642,11 +592,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             auto bbox = view->get_bounding_box() + wf_point{-view_dx, -view_dy};
             bbox = fb.damage_box_from_geometry_box(bbox);
 
-            pixman_region32_init_rect(&ds->damage,
-                                      bbox.x, bbox.y, bbox.width, bbox.height);
-
-            pixman_region32_intersect(&ds->damage, &ds->damage, &ws_damage);
-            if (pixman_region32_not_empty(&ds->damage))
+            ds->damage = ws_damage & bbox;
+            if (!ds->damage.empty())
             {
                 ds->x = view_dx;
                 ds->y = view_dy;
@@ -662,7 +609,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             if (!surface->is_mapped())
                 return;
 
-            if (!pixman_region32_not_empty(&ws_damage))
+            if (ws_damage.empty())
                 return;
 
             /* make sure all coordinates are in workspace-local coords */
@@ -676,19 +623,15 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
             obox.y = y;
 
             obox = fb.damage_box_from_geometry_box(obox);
-            pixman_region32_init_rect(&ds->damage,
-                                      obox.x, obox.y,
-                                      obox.width, obox.height);
-
-            pixman_region32_intersect(&ds->damage, &ds->damage, &ws_damage);
-            if (pixman_region32_not_empty(&ds->damage))
+            ds->damage = ws_damage & obox;
+            if (!ds->damage.empty())
             {
                 ds->x = view_dx;
                 ds->y = view_dy;
                 ds->surface = surface;
 
                 if (ds->surface->alpha >= 0.999f)
-                    ds->surface->subtract_opaque(&ws_damage, x, y);
+                    ds->surface->subtract_opaque(ws_damage, x, y);
 
                 to_render.push_back(std::move(ds));
             }
@@ -711,7 +654,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     }
 
     auto it = views.begin();
-    while (it != views.end() && pixman_region32_not_empty(&ws_damage))
+    while (it != views.end() && !ws_damage.empty())
     {
         auto view = *it;
         int view_dx = 0, view_dy = 0;
@@ -752,11 +695,9 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     std::swap(wayfire_view_transform::global_translate, translate);
     */
     OpenGL::render_begin(fb);
-    int n_rect;
-    auto rects = pixman_region32_rectangles(&ws_damage, &n_rect);
-    for (int i = 0; i < n_rect; i++)
+    for (const auto& rect : ws_damage)
     {
-        wlr_box damage = wlr_box_from_pixman_box(rects[i]);
+        wlr_box damage = wlr_box_from_pixman_box(rect);
         fb.scissor(fb.framebuffer_box_from_damage_box(damage));
         OpenGL::clear({0, 0, 0, 1}, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
@@ -768,15 +709,13 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
         auto ds = std::move(*rev_it);
 
         fb.geometry.x = ds->x; fb.geometry.y = ds->y;
-        ds->surface->render_fb(&ds->damage, fb);
+        ds->surface->render_fb(ds->damage, fb);
 
         ++rev_it;
     }
 
    // std::swap(wayfire_view_transform::global_scale, scale);
    // std::swap(wayfire_view_transform::global_translate, translate);
-
-    pixman_region32_fini(&ws_damage);
 
     if (!renderer)
     {
@@ -788,7 +727,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     }
 
     {
-        wf_stream_signal data(NULL, fb);
+        wf_stream_signal data(ws_damage, fb);
         emit_signal("workspace-stream-post", &data);
     }
 }

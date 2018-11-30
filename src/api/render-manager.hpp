@@ -4,19 +4,17 @@
 #include "plugin.hpp"
 #include "opengl.hpp"
 #include "object.hpp"
+#include "util.hpp"
 #include <vector>
-#include <pixman.h>
 
 /* Emitted whenever a workspace stream is being started or stopped */
 struct wf_stream_signal : public signal_data
 {
-    wf_stream_signal(pixman_region32_t *damage, const wf_framebuffer& _fb)
+    wf_stream_signal(wf_region& damage, const wf_framebuffer& _fb)
         : raw_damage(damage), fb(_fb) { }
 
-    /* Raw damage can be adjusted by the signal handlers
-     * It is guaranteed to be non-null for the workspace-stream-pre signal
-     * and to be null for workspace-stream-post signal */
-    pixman_region32_t *raw_damage;
+    /* Raw damage can be adjusted by the signal handlers */
+    wf_region& raw_damage;
     const wf_framebuffer& fb;
 };
 
@@ -66,13 +64,13 @@ class render_manager : public wf_signal_provider_t
 
         signal_callback_t output_resized;
 
-        pixman_region32_t frame_damage;
+        wf_region frame_damage;
         std::unique_ptr<wf_output_damage> output_damage;
 
         std::vector<std::vector<wf_workspace_stream>> output_streams;
         wf_workspace_stream *current_ws_stream = nullptr;
 
-        void get_ws_damage(std::tuple<int, int> ws, pixman_region32_t *out_damage);
+        wf_region get_ws_damage(std::tuple<int, int> ws);
 
         using effect_container_t = std::vector<effect_hook_t*>;
         effect_container_t effects[WF_OUTPUT_EFFECT_TOTAL];
@@ -126,8 +124,14 @@ class render_manager : public wf_signal_provider_t
          */
         void rem_post(post_hook_t*);
 
+        void damage_whole();
         void damage(const wlr_box& box);
-        void damage(pixman_region32_t *region);
+        void damage(const wf_region& region);
+
+        /* Returns the box representing the output in damage coordinate system */
+        wlr_box get_damage_box() const;
+        /* Returns the box representing the given workspace in damage coordinate system */
+        wlr_box get_ws_box(std::tuple<int, int> ws) const;
 
         wf_framebuffer get_target_framebuffer() const;
 

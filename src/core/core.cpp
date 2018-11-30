@@ -413,7 +413,7 @@ wayfire_output* wayfire_core::get_output_at(int x, int y)
     wayfire_output *target = nullptr;
     for_each_output([&] (wayfire_output *output)
     {
-        if (point_inside({x, y}, output->get_full_geometry()) &&
+        if ((output->get_full_geometry() & wf_point{x, y}) &&
                 target == nullptr)
         {
             target = output;

@@ -98,7 +98,7 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         damage = [=] ()
         {
-            output->render->damage(NULL);
+            output->render->damage_whole();
         };
 
         auto section = config->get_section("switcher");
@@ -572,7 +572,9 @@ class WayfireSwitcher : public wayfire_plugin_t
             {0.0, 1.0, 0.0});
 
         transform->color[3] = duration.progress(sv.attribs.alpha);
-        sv.view->render_fb(NULL, output->render->get_target_framebuffer());
+        sv.view->render_fb(
+            output->render->get_target_framebuffer().get_scissor_region(),
+            output->render->get_target_framebuffer());
 
         transform->translation = glm::mat4();
         transform->scaling = glm::mat4();
@@ -588,7 +590,7 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         dim_background(background_dim_duration.progress());
         for (auto view : get_background_views())
-            view->render_fb(NULL, fb);
+            view->render_fb(fb.get_scissor_region(), fb);
 
         /* Render in the reverse order because we don't use depth testing */
         auto it = views.rbegin();
@@ -599,7 +601,7 @@ class WayfireSwitcher : public wayfire_plugin_t
         }
 
         for (auto view : get_overlay_views())
-            view->render_fb(NULL, fb);
+            view->render_fb(fb.get_scissor_region(), fb);
 
         if (!duration.running())
         {

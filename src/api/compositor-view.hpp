@@ -30,7 +30,7 @@ class wayfire_compositor_view_t : public wayfire_compositor_surface_t, public wa
     public:
         virtual bool is_mapped() { return _is_mapped; }
         virtual void send_frame_done(const timespec& now) {}
-        virtual void subtract_opaque(pixman_region32_t* region, int x, int y) {}
+        virtual void subtract_opaque(wf_region& region, int x, int y) {}
 
         /* override this if you want to get pointer events or to stop input passthrough */
         virtual bool accepts_input(int32_t sx, int32_t sy) { return false; }
@@ -56,7 +56,7 @@ class wayfire_compositor_view_t : public wayfire_compositor_surface_t, public wa
         virtual bool should_be_decorated() { return false; }
 
         /* Usually compositor view implementations don't need to override this */
-        virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& fb);
+        virtual void render_fb(const wf_region& region, const wf_framebuffer& fb);
 
         /* NON-API functions which don't have a meaning for compositor views */
         virtual bool update_size() { assert(false); }
@@ -88,8 +88,6 @@ class wayfire_mirror_view_t : public wayfire_compositor_view_t
     signal_callback_t base_view_unmapped, base_view_damaged;
 
     virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor);
-    virtual void _render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t *damage);
-
     wayfire_view original_view;
     /* sets original_view to NULL and removes signal handlers */
     void unset_original_view();
@@ -102,7 +100,10 @@ class wayfire_mirror_view_t : public wayfire_compositor_view_t
 
     virtual bool can_take_snapshot();
     virtual void take_snapshot();
-    virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& fb);
+
+    virtual void render_fb(const wf_region& damage, const wf_framebuffer& fb);
+    virtual void simple_render(const wf_framebuffer& fb, int x, int y, const wf_region& damage);
+
 
     virtual wf_point get_output_position();
     virtual wf_geometry get_output_geometry();

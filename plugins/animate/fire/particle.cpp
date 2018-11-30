@@ -118,11 +118,6 @@ void ParticleSystem::update_worker(float time, int start, int end)
     }
 }
 
-static int64_t timespec_to_msec(const timespec& ts)
-{
-    return ts.tv_sec * 1000ll + ts.tv_nsec / 1000000ll;
-}
-
 void ParticleSystem::exec_worker_threads(std::function<void(int, int)> spawn_worker)
 {
 //    return spawn_worker(0, ps.size());

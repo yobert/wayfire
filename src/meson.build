@@ -1,4 +1,5 @@
 wayfire_sources = ['main.cpp',
+                   'util.cpp',
 
                    'core/opengl.cpp',
                    'core/plugin.cpp',

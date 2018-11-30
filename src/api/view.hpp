@@ -3,12 +3,12 @@
 #include <vector>
 #include <map>
 #include <functional>
-#include <pixman.h>
 #include <nonstd/observer_ptr.h>
 
 #include "plugin.hpp"
 #include "opengl.hpp"
 #include "object.hpp"
+#include "util.hpp"
 
 extern "C"
 {
@@ -18,22 +18,6 @@ extern "C"
 }
 
 class wayfire_output;
-struct wf_point
-{
-    int x, y;
-};
-using wf_geometry = wlr_box;
-
-bool operator == (const wf_geometry& a, const wf_geometry& b);
-bool operator != (const wf_geometry& a, const wf_geometry& b);
-
-wf_point operator + (const wf_point& a, const wf_point& b);
-wf_point operator + (const wf_point& a, const wf_geometry& b);
-wf_geometry operator + (const wf_geometry &a, const wf_point& b);
-wf_point operator - (const wf_point& a);
-
-bool point_inside(wf_point point, wf_geometry rect);
-bool rect_intersect(wf_geometry screen, wf_geometry win);
 
 /* General TODO: mark member functions const where appropriate */
 class wayfire_view_t;
@@ -67,12 +51,11 @@ class wayfire_surface_t
 
         virtual bool is_subsurface();
         virtual void damage(const wlr_box& box);
-        virtual void damage(pixman_region32_t *region);
+        virtual void damage(const wf_region& region);
 
         void apply_surface_damage(int x, int y);
 
         virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor);
-        virtual void _render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t *damage);
 
         static std::map<std::string, int> shrink_constraints;
         static int maximal_shrink_constraint;
@@ -106,7 +89,7 @@ class wayfire_surface_t
 
         /* Subtract the opaque region of the surface from region, supposing
          * the surface is positioned at (x, y) */
-        virtual void subtract_opaque(pixman_region32_t* region, int x, int y);
+        virtual void subtract_opaque(wf_region& region, int x, int y);
 
         /* Enforces the opaque region be shrunk by the amount of pixels
          * If multiple plugins request this, the highest constraint is selected,
@@ -147,16 +130,19 @@ class wayfire_surface_t
         virtual wayfire_output *get_output() { return output; };
         virtual void set_output(wayfire_output*);
 
-        /* NOT API */
-        virtual void  render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t* damage);
+        /* Render the surface at the given coordinates,
+         * usually you need render_fb() */
+        virtual void simple_render(const wf_framebuffer& fb, int x, int y,
+            const wf_region& damage);
 
-        /* render the surface to the given fb */
-        virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& fb);
+        /* Render the surface to the given fb */
+        virtual void render_fb(const wf_region& damage, const wf_framebuffer& fb);
 
         /* iterate all (sub) surfaces, popups, etc. in top-most order
          * for example, first popups, then subsurfaces, then main surface
          * When reverse=true, the order in which surfaces are visited is reversed */
-        virtual void for_each_surface(wf_surface_iterator_callback callback, bool reverse = false);
+        virtual void for_each_surface(wf_surface_iterator_callback callback,
+            bool reverse = false);
 };
 
 enum wf_view_role
@@ -199,7 +185,7 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
 
         struct offscreen_buffer_t : public wf_framebuffer
         {
-            pixman_region32_t cached_damage;
+            wf_region cached_damage;
             bool valid();
         } offscreen_buffer;
 
@@ -296,7 +282,7 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
 
         /* Subtract the opaque region of the surface from region, supposing
          * the surface is positioned at (x, y) */
-        virtual void subtract_opaque(pixman_region32_t* region, int x, int y);
+        virtual void subtract_opaque(wf_region& region, int x, int y);
 
 
         /* Returns the wlr_surface which should receive focus if this view is activated */
@@ -386,7 +372,7 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
 
         bool has_transformer();
 
-        virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& framebuffer);
+        virtual void render_fb(const wf_region& damage, const wf_framebuffer& framebuffer);
 
         bool has_snapshot = false;
         virtual bool can_take_snapshot();

@@ -391,7 +391,7 @@ class wayfire_move : public wayfire_plugin_t
         int calc_slot(int x, int y)
         {
             auto g = output->workspace->get_workarea();
-            if (!point_inside({x, y}, output->get_relative_geometry()))
+            if (!(output->get_relative_geometry() & wf_point{x, y}))
                 return 0;
 
             int threshold = snap_threshold->as_cached_int();
@@ -627,7 +627,7 @@ class wayfire_move : public wayfire_plugin_t
                 auto og = output->get_full_geometry();
 
                 /* A view is visible on the other output as well */
-                if (rect_intersect(og, current_geometry))
+                if (og & current_geometry)
                     ensure_mirror_view(wo);
             });
         }

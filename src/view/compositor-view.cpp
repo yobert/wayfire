@@ -74,7 +74,7 @@ void wayfire_compositor_view_t::close()
     destroy();
 }
 
-void wayfire_compositor_view_t::render_fb(pixman_region32_t *damage, const wf_framebuffer& fb)
+void wayfire_compositor_view_t::render_fb(const wf_region& damage, const wf_framebuffer& fb)
 {
     /* We only want to circumvent wayfire_surface_t::render_fb,
      * because it relies on the surface having a buffer
@@ -84,23 +84,23 @@ void wayfire_compositor_view_t::render_fb(pixman_region32_t *damage, const wf_fr
         return wayfire_view_t::render_fb(damage, fb);
 
     auto obox = get_output_geometry();
-    render_pixman(fb, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
+    simple_render(fb, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
 }
 
 void wayfire_mirror_view_t::_wlr_render_box(const wf_framebuffer& fb,
         int x, int y, const wlr_box& scissor)
 {
-    /* Do nothing, we draw in _render_pixman */
+    /* Do nothing, we draw directly in simple_render() */
     assert(false);
 }
 
-void wayfire_mirror_view_t::_render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t *damage)
+void wayfire_mirror_view_t::simple_render(const wf_framebuffer& fb, int x, int y, const wf_region& damage)
 {
     assert(original_view);
-    original_view->render_pixman(fb, x, y, damage);
+    original_view->simple_render(fb, x, y, damage);
 }
 
-void wayfire_mirror_view_t::render_fb(pixman_region32_t* damage, const wf_framebuffer& fb)
+void wayfire_mirror_view_t::render_fb(const wf_region& damage, const wf_framebuffer& fb)
 {
     /* If we have transformers, we're fine. take_snapshot will do the things needed */
     if (has_transformer())
@@ -193,7 +193,7 @@ void wayfire_mirror_view_t::take_snapshot()
     fb.viewport_width = scaled_width;
     fb.viewport_height = scaled_height;
 
-    original_view->render_fb(NULL, fb);
+    original_view->render_fb(fb.get_scissor_region(), fb);
 }
 
 wf_point wayfire_mirror_view_t::get_output_position()

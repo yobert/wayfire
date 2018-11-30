@@ -156,7 +156,7 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
 
             if (tex == (uint)-1)
             {
-                tex = get_text_texture(geometry.width * fb.scale, titlebar,
+                tex = get_text_texture(width * fb.scale, titlebar * fb.scale,
                     view->get_title(), font_option->as_string());
             }
 
@@ -164,10 +164,9 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
                 1.0f * fb.geometry.height, 0.0f);
 
             gl_geometry gg;
-            gg.x1 = geometry.x;
-            gg.y1 = geometry.y;
-            gg.x2 = geometry.x + geometry.width;
-            gg.y2 = geometry.y + titlebar;
+            gg.x1 = x; gg.y1 = y;
+            gg.x2 = x + width;
+            gg.y2 = y + titlebar;
 
             OpenGL::render_transformed_texture(tex, gg, {}, fb.transform * ortho, {1, 1, 1, 1},
                 TEXTURE_TRANSFORM_INVERT_Y);
@@ -176,33 +175,23 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
             OpenGL::render_end();
         }
 
-        virtual void _render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t* damage)
+        virtual void simple_render(const wf_framebuffer& fb, int x, int y,
+            const wf_region& damage)
         {
-            const float scale = fb.scale;
+            wf_region frame_region;
+            frame_region |= {x, y, width, titlebar}; // top
+            frame_region |= {x, y, thickness, height}; // left
+            frame_region |= {x + (width - thickness), y, thickness, height}; // right
+            frame_region |= {x, y + (height - thickness), width, thickness}; // bottom
+            frame_region *= fb.scale;
 
-            pixman_region32_t frame_region;
-            pixman_region32_init(&frame_region);
-
-            /* top */
-            pixman_region32_union_rect(&frame_region, &frame_region, x * scale, y * scale, width * scale, titlebar * scale);
-            /* left */
-            pixman_region32_union_rect(&frame_region, &frame_region, x * scale, y * scale, thickness * scale, height * scale);
-            /* right */
-            pixman_region32_union_rect(&frame_region, &frame_region, x * scale + (width - thickness) * scale, y * scale,
-                                       thickness * scale, height * scale);
-            /* bottom */
-            pixman_region32_union_rect(&frame_region, &frame_region, x * scale, y * scale + (height - thickness) * scale,
-                                       width * scale, thickness * scale);
-
-            pixman_region32_intersect(&frame_region, &frame_region, damage);
-            wayfire_surface_t::_render_pixman(fb, x, y, &frame_region);
-            pixman_region32_fini(&frame_region);
+            wayfire_surface_t::simple_render(fb, x, y, damage & frame_region);
         }
 
-        virtual void render_fb(pixman_region32_t* damage, const wf_framebuffer& fb)
+        virtual void render_fb(const wf_region& damage, const wf_framebuffer& fb)
         {
             auto obox = get_output_geometry();
-            render_pixman(fb, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
+            simple_render(fb, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
         }
 
         /* all input events coordinates are surface-local */

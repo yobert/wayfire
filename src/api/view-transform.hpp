@@ -39,6 +39,7 @@ class wf_view_transformer_t
          * target_fb      the framebuffer the transform should render to.
          *                it can be part of the screen, so it's geometry is
          *                given in output-local coordinates */
+
         virtual void render_with_damage(uint32_t src_tex,
                                         wlr_box src_box,
                                         wlr_box scissor_box,

@@ -32,7 +32,7 @@ class wf_system_fade
             duration(dur), output(out)
         {
             damage_hook = [=] ()
-            { output->render->damage(NULL); };
+            { output->render->damage_whole(); };
 
             render_hook = [=] ()
             { render(); };

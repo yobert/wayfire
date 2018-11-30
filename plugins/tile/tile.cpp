@@ -346,7 +346,7 @@ class wayfire_tile : public wayfire_plugin_t
         setup_grab_handlers();
 
         draw_selected = [=] () { draw_selection(); };
-        damage_selected = [=] () { output->render->damage(NULL); };
+        damage_selected = [=] () { output->render->damage_whole(); };
     }
 
     void setup_signals()

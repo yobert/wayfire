@@ -152,29 +152,24 @@ void wayfire_surface_t::set_opaque_shrink_constraint(std::string name, int value
     }
 }
 
-void wayfire_surface_t::subtract_opaque(pixman_region32_t *region, int x, int y)
+void wayfire_surface_t::subtract_opaque(wf_region& region, int x, int y)
 {
     if (!surface)
         return;
 
-    pixman_region32_t opaque;
-    pixman_region32_init(&opaque);
-
-    pixman_region32_copy(&opaque, &surface->current.opaque);
-    pixman_region32_translate(&opaque, x, y);
-    wlr_region_scale(&opaque, &opaque, output->handle->scale);
-    /* wlr_region_scale() uses std::ceil/std::floor, so the resulting region
+    wf_region opaque{&surface->current.opaque};
+    opaque += wf_point{x, y};
+    opaque *= output->handle->scale;
+    /* region scaling uses std::ceil/std::floor, so the resulting region
      * encompasses the opaque region. However, in the case of opaque region, we
-     * don't want any pixels that aren't actually opaque. So in case of different scales,
-     * we just shrink by 1 to compensate for the ceil/floor discrepancy */
+     * don't want any pixels that aren't actually opaque. So in case of different
+     * scales, we just shrink by 1 to compensate for the ceil/floor discrepancy */
     int ceil_factor = 0;
     if (output->handle->scale != (float)surface->current.scale)
         ceil_factor = 1;
 
-    wlr_region_expand(&opaque, &opaque, -maximal_shrink_constraint - ceil_factor);
-
-    pixman_region32_subtract(region, region, &opaque);
-    pixman_region32_fini(&opaque);
+    opaque.expand_edges(-maximal_shrink_constraint - ceil_factor);
+    region ^= opaque;
 }
 
 wl_client* wayfire_surface_t::get_client()
@@ -293,13 +288,10 @@ void wayfire_surface_t::dec_keep_count()
         destruct();
 }
 
-void wayfire_surface_t::damage(pixman_region32_t *region)
+void wayfire_surface_t::damage(const wf_region& dmg)
 {
-    int n_rect;
-    auto rects = pixman_region32_rectangles(region, &n_rect);
-
-    for (int i = 0; i < n_rect; i++)
-        damage(wlr_box_from_pixman_box(rects[i]));
+    for (const auto& rect : dmg)
+        damage(wlr_box_from_pixman_box(rect));
 }
 
 void wayfire_surface_t::damage(const wlr_box& box)
@@ -333,17 +325,15 @@ void wayfire_surface_t::apply_surface_damage(int x, int y)
     if (!output || !is_mapped())
         return;
 
-    pixman_region32_t dmg;
-    pixman_region32_init(&dmg);
-    wlr_surface_get_effective_damage(surface, &dmg);
+    wf_region dmg;
+    wlr_surface_get_effective_damage(surface, dmg.to_pixman());
 
     if (surface->current.scale != 1 ||
         surface->current.scale != output->handle->scale)
-        wlr_region_expand(&dmg, &dmg, 1);
+        dmg.expand_edges(1);
 
-    pixman_region32_translate(&dmg, x, y);
-    damage(&dmg);
-    pixman_region32_fini(&dmg);
+    dmg += wf_point{x, y};
+    damage(dmg);
 }
 
 void wayfire_surface_t::commit()
@@ -460,35 +450,20 @@ void wayfire_surface_t::_wlr_render_box(const wf_framebuffer& fb, int x, int y, 
     OpenGL::render_end();
 }
 
-void wayfire_surface_t::_render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t *damage)
+void wayfire_surface_t::simple_render(const wf_framebuffer& fb, int x, int y, const wf_region& damage)
 {
-    int n_rect;
-    auto rects = pixman_region32_rectangles(damage, &n_rect);
-
-    for (int i = 0; i < n_rect; i++)
+    for (const auto& rect : damage)
     {
-        auto rect = wlr_box_from_pixman_box(rects[i]);
-        _wlr_render_box(fb, x, y, fb.framebuffer_box_from_damage_box(rect));
+        auto box = wlr_box_from_pixman_box(rect);
+        _wlr_render_box(fb, x, y, fb.framebuffer_box_from_damage_box(box));
     }
 }
 
-void wayfire_surface_t::render_pixman(const wf_framebuffer& fb, int x, int y, pixman_region32_t *damage)
-{
-    if (damage)
-        return _render_pixman(fb, x, y, damage);
-
-    pixman_region32_t full_region;
-    pixman_region32_init_rect(&full_region, 0, 0, fb.viewport_width, fb.viewport_height);
-
-    _render_pixman(fb, x, y, &full_region);
-    pixman_region32_fini(&full_region);
-}
-
-void wayfire_surface_t::render_fb(pixman_region32_t *damage, const wf_framebuffer& fb)
+void wayfire_surface_t::render_fb(const wf_region& damage, const wf_framebuffer& fb)
 {
     if (!is_mapped() || !wlr_surface_has_buffer(surface))
         return;
 
     auto obox = get_output_geometry();
-    render_pixman(fb, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
+    simple_render(fb, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
 }

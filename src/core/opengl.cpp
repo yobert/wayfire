@@ -340,6 +340,11 @@ void wf_framebuffer_base::reset()
     viewport_width = viewport_height = 0;
 }
 
+wf_region wf_framebuffer_base::get_scissor_region() const
+{
+    return wf_region{{0, 0, viewport_width, viewport_height}};
+}
+
 wlr_box wf_framebuffer::framebuffer_box_from_damage_box(wlr_box box) const
 {
     if (has_nonstandard_transform)

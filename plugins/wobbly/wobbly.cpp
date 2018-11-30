@@ -146,7 +146,7 @@ static uint32_t get_time()
 {
     timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000ll + ts.tv_nsec / 1000000ll;
+    return timespec_to_msec(ts);
 }
 
 class wf_wobbly : public wf_view_transformer_t

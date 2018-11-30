@@ -186,7 +186,7 @@ class wayfire_expo : public wayfire_plugin_t
         input_coordinates_to_global_coordinates(global_x, global_y);
 
         auto grid = get_grid_geometry();
-        if (!point_inside({global_x, global_y}, grid))
+        if (!(grid & wf_point{global_x, global_y}))
             return;
 
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
@@ -274,7 +274,7 @@ class wayfire_expo : public wayfire_plugin_t
 
         wayfire_view search = nullptr;
         output->workspace->for_each_view([&search, sx, sy] (wayfire_view v) {
-            if (!search && point_inside({sx, sy}, v->get_wm_geometry()))
+            if (!search && (v->get_wm_geometry() & wf_point{sx, sy}))
             search = v;
         }, WF_WM_LAYERS);
 
@@ -287,7 +287,7 @@ class wayfire_expo : public wayfire_plugin_t
         input_coordinates_to_global_coordinates(x, y);
 
         auto grid = get_grid_geometry();
-        if (!point_inside({x, y}, grid))
+        if (!(grid & wf_point{x, y}))
             return;
 
         target_vx = x / og.width;
