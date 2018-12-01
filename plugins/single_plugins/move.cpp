@@ -651,7 +651,6 @@ class wayfire_move : public wayfire_plugin_t
                 return;
 
             view->move(grabbed_geometry.x + dx, grabbed_geometry.y + dy);
-
             update_multi_output();
 
             /* TODO: possibly show some visual indication */

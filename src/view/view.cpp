@@ -560,34 +560,15 @@ void wayfire_view_t::render_fb(const wf_region& damaged_region, const wf_framebu
             OpenGL::clear({0, 0, 0, 0});
             OpenGL::render_end();
 
-            wlr_renderer_scissor(core->renderer, NULL);
-            tr->transform->render_with_damage(last_tex, obox, {0, 0, tbox.width, tbox.height}, fb);
+            wf_region whole_region{wlr_box{0, 0, tbox.width, tbox.height}};
+            tr->transform->render_with_damage(last_tex, obox, whole_region, fb);
             last_tex = fb.tex;
 
             obox = tbox;
             ++it;
         }
 
-        for (auto& rect : damaged_region)
-        {
-            auto box = wlr_box_from_pixman_box(rect);
-            auto sbox = fb.framebuffer_box_from_damage_box(box);
-            (*it)->transform->render_with_damage(last_tex, obox, sbox, fb);
-
-#ifdef WAYFIRE_GRAPHICS_DEBUG
-            OpenGL::render_begin(fb);
-
-            float proj[9];
-            wlr_matrix_projection(proj, fb.viewport_width, fb.viewport_height,
-                WL_OUTPUT_TRANSFORM_NORMAL);
-
-            float col[4] = {0, 0.0, 0.2, 0.5};
-            wlr_render_rect(core->renderer, &sbox, col, proj);
-
-            OpenGL::render_end();
-#endif
-        }
-
+        (*it)->transform->render_with_damage(last_tex, obox, damaged_region, fb);
         cleanup_transforms();
     } else
     {

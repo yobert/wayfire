@@ -92,10 +92,8 @@ class FireTransformer : public wf_view_transformer_t
         p.base_radius = p.radius = random(size * 0.8, size * 1.2);
     }
 
-    virtual void render_with_damage(uint32_t src_tex,
-                                    wlr_box src_box,
-                                    wlr_box scissor_box,
-                                    const wf_framebuffer& target_fb)
+    virtual void render_box(uint32_t src_tex, wlr_box src_box,
+        wlr_box scissor_box, const wf_framebuffer& target_fb)
     {
         OpenGL::render_begin(target_fb);
         target_fb.scissor(scissor_box);

@@ -31,19 +31,27 @@ class wf_view_transformer_t
 
         /* src_tex        the internal FBO texture,
          *
-         * src_box        box of the view that has to be repainted, contains other transforms
+         * src_box        box of the view that has to be repainted, contains
+         *                other transforms
          *
-         * scissor_box    the subbox of the FB which the transform renderer must update,
-         *                drawing outside of it will cause artifacts
+         * damage         the region that needs to be repainted, clipped to
+         *                the view's geometry
          *
          * target_fb      the framebuffer the transform should render to.
          *                it can be part of the screen, so it's geometry is
-         *                given in output-local coordinates */
+         *                given in output-local coordinates
+         *
+         * The default implementation of render_with_damage() will simply iterate
+         * over all rectangles in the damage region, apply framebuffer transform
+         * to it and then call render_box(). Plugins can override either of the
+         * functions.
+         * */
 
-        virtual void render_with_damage(uint32_t src_tex,
-                                        wlr_box src_box,
-                                        wlr_box scissor_box,
-                                        const wf_framebuffer& target_fb) = 0;
+        virtual void render_with_damage(uint32_t src_tex, wlr_box src_box,
+            const wf_region& damage, const wf_framebuffer& target_fb);
+
+        virtual void render_box(uint32_t src_tex, wlr_box src_box,
+            wlr_box scissor_box, const wf_framebuffer& target_fb) {}
 
         virtual ~wf_view_transformer_t() {}
 };
@@ -73,10 +81,8 @@ class wf_2D_view : public wf_view_transformer_t
         virtual wf_point local_to_transformed_point(wf_geometry view, wf_point point);
         virtual wf_point transformed_to_local_point(wf_geometry view, wf_point point);
 
-        virtual void render_with_damage(uint32_t src_tex,
-                                        wlr_box src_box,
-                                        wlr_box scissor_box,
-                                        const wf_framebuffer& target_fb);
+        virtual void render_box(uint32_t src_tex, wlr_box src_box,
+            wlr_box scissor_box, const wf_framebuffer& target_fb);
 };
 
 /* Those are centered relative to the view's bounding box */
@@ -99,10 +105,8 @@ class wf_3D_view : public wf_view_transformer_t
         virtual wf_point local_to_transformed_point(wf_geometry view, wf_point point);
         virtual wf_point transformed_to_local_point(wf_geometry view, wf_point point);
 
-        virtual void render_with_damage(uint32_t src_tex,
-                                        wlr_box src_box,
-                                        wlr_box scissor_box,
-                                        const wf_framebuffer& target_fb);
+        virtual void render_box(uint32_t src_tex, wlr_box src_box,
+            wlr_box scissor_box, const wf_framebuffer& target_fb);
 
         static const float fov; // PI / 8
         static glm::mat4 default_view_matrix();

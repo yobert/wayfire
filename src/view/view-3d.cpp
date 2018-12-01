@@ -23,6 +23,17 @@ wlr_box wf_view_transformer_t::get_bounding_box(wf_geometry view, wlr_box region
     return wlr_box{x1, y1, x2 - x1, y2 - y1};
 }
 
+void wf_view_transformer_t::render_with_damage(uint32_t src_tex, wlr_box src_box,
+            const wf_region& damage, const wf_framebuffer& target_fb)
+{
+    for (const auto& rect : damage)
+    {
+        auto box = target_fb.framebuffer_box_from_damage_box(
+            wlr_box_from_pixman_box(rect));
+        render_box(src_tex, src_box, box, target_fb);
+    }
+}
+
 struct transformable_quad
 {
     gl_geometry geometry;
@@ -121,10 +132,8 @@ wf_point wf_2D_view::transformed_to_local_point(wf_geometry geometry, wf_point p
                                              {(int32_t) x, (int32_t) y});
 }
 
-void wf_2D_view::render_with_damage(uint32_t src_tex,
-                                    wlr_box src_box,
-                                    wlr_box scissor_box,
-                                    const wf_framebuffer& fb)
+void wf_2D_view::render_box(uint32_t src_tex, wlr_box src_box,
+    wlr_box scissor_box, const wf_framebuffer& fb)
 {
     auto quad = center_geometry(fb.geometry, src_box, get_center(view->get_wm_geometry()));
 
@@ -196,11 +205,8 @@ wf_point wf_3D_view::transformed_to_local_point(wf_geometry geometry, wf_point p
     return {WF_INVALID_INPUT_COORDINATES, WF_INVALID_INPUT_COORDINATES};
 }
 
-
-void wf_3D_view::render_with_damage(uint32_t       src_tex,
-                                    wlr_box        src_box,
-                                    wlr_box        scissor_box,
-                                    const wf_framebuffer& fb)
+void wf_3D_view::render_box(uint32_t src_tex, wlr_box src_box,
+    wlr_box scissor_box, const wf_framebuffer& fb)
 {
     auto quad = center_geometry(fb.geometry, src_box, get_center(src_box));
 
