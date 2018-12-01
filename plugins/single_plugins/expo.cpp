@@ -38,7 +38,6 @@ class wayfire_expo : public wayfire_plugin_t
         std::tuple<int, int> move_started_ws;
 
         std::vector<std::vector<wf_workspace_stream*>> streams;
-        signal_callback_t resized_cb;
 
     public:
     void init(wayfire_config *config)
@@ -56,7 +55,6 @@ class wayfire_expo : public wayfire_plugin_t
         for (int i = 0; i < vw; i++) {
             for (int j = 0;j < vh; j++) {
                 streams[i].push_back(new wf_workspace_stream);
-                streams[i][j]->tex = streams[i][j]->fbuff = -1;
                 streams[i][j]->ws = std::make_tuple(i, j);
             }
         }
@@ -115,19 +113,7 @@ class wayfire_expo : public wayfire_plugin_t
             finalize_and_exit();
         };
 
-        renderer = [=] (uint32_t fb) { render(fb); };
-        resized_cb = [=] (signal_data*) {
-            for (int i = 0; i < vw; i++) {
-                for (int j = 0; j < vh; j++) {
-                    GL_CALL(glDeleteTextures(1, &streams[i][j]->tex));
-                    GL_CALL(glDeleteFramebuffers(1, &streams[i][j]->fbuff));
-                    streams[i][j]->tex = streams[i][j]->fbuff = -1;
-                }
-            }
-        };
-
-        output->connect_signal("output-resized", &resized_cb);
-
+        renderer = [=] (const wf_framebuffer& buffer) { render(buffer); };
         background_color = section->get_option("background", "0 0 0 1");
     }
 
@@ -335,59 +321,47 @@ class wayfire_expo : public wayfire_plugin_t
               delimiter_offset;
     } render_params;
 
-    void render(uint32_t target_fb)
+    void update_streams()
     {
+        GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
+
+        for(int j = 0; j < vh; j++)
+        {
+            for(int i = 0; i < vw; i++)
+            {
+                if (!streams[i][j]->running)
+                {
+                    output->render->workspace_stream_start(streams[i][j]);
+                } else
+                {
+                    output->render->workspace_stream_update(streams[i][j],
+                        render_params.scale_x, render_params.scale_y);
+                }
+            }
+        }
+    }
+
+    void render(const wf_framebuffer &fb)
+    {
+        update_streams();
+
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
         GetTuple(vx, vy, output->workspace->get_current_workspace());
         GetTuple(w,  h,  output->get_screen_size());
 
-        OpenGL::use_default_program();
-
-        float angle;
-        switch(output->get_transform()) {
-            case WL_OUTPUT_TRANSFORM_NORMAL:
-                angle = 0;
-                break;
-            case WL_OUTPUT_TRANSFORM_90:
-                angle = 3 * M_PI / 2;
-                break;
-            case WL_OUTPUT_TRANSFORM_180:
-                angle = M_PI;
-                break;
-            case WL_OUTPUT_TRANSFORM_270:
-                angle = M_PI / 2;
-                break;
-            default:
-                angle = 0;
-                break;
-        }
-
         glm::mat4 matrix(1.0);
-        auto rot       = glm::rotate(matrix, angle, glm::vec3(0, 0, 1));
         auto translate = glm::translate(matrix, glm::vec3(render_params.off_x, render_params.off_y, 0));
         auto scale     = glm::scale(matrix, glm::vec3(render_params.scale_x, render_params.scale_y, 1));
-        matrix = rot * translate * scale;
+        matrix = translate * scale;
 
-        OpenGL::use_device_viewport();
-        auto vp = OpenGL::get_device_viewport();
-        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_fb));
-        GL_CALL(glScissor(vp.x, vp.y, vp.width, vp.height));
+        OpenGL::render_begin(fb);
+        OpenGL::clear(background_color->as_cached_color());
+        fb.scissor(fb.geometry);
 
-        auto clear_color = background_color->as_cached_color();
-        glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        auto vp_geometry = OpenGL::get_device_viewport();
-
-        for(int j = 0; j < vh; j++) {
-            for(int i = 0; i < vw; i++) {
-                if (!streams[i][j]->running) {
-                    output->render->workspace_stream_start(streams[i][j]);
-                } else {
-                    output->render->workspace_stream_update(streams[i][j],
-                            render_params.scale_x, render_params.scale_y);
-                }
-
+        for(int j = 0; j < vh; j++)
+        {
+            for(int i = 0; i < vw; i++)
+            {
                 float tlx = (i - vx) * w + render_params.delimiter_offset;
                 float tly = (j - vy) * h + render_params.delimiter_offset * h / w;
 
@@ -404,20 +378,13 @@ class wayfire_expo : public wayfire_plugin_t
                 texg.x2 = streams[i][j]->scale_x;
                 texg.y2 = streams[i][j]->scale_y;
 
-                GL_CALL(glEnable(GL_SCISSOR_TEST));
-                GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_fb));
-
-                GL_CALL(glScissor(vp_geometry.x, vp_geometry.y,
-                                  vp_geometry.width, vp_geometry.height));
-
-                OpenGL::render_transformed_texture(streams[i][j]->tex, out_geometry, texg, matrix,
-                        glm::vec4(1), TEXTURE_TRANSFORM_USE_DEVCOORD |
-                        TEXTURE_USE_TEX_GEOMETRY | TEXTURE_TRANSFORM_INVERT_Y);
-
-                GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-                GL_CALL(glDisable(GL_SCISSOR_TEST));
+                OpenGL::render_transformed_texture(streams[i][j]->buffer.tex, out_geometry, texg, matrix,
+                        glm::vec4(1), TEXTURE_USE_TEX_GEOMETRY | TEXTURE_TRANSFORM_INVERT_Y);
             }
         }
+
+        GL_CALL(glUseProgram(0));
+        OpenGL::render_end();
 
         update_zoom();
     }
@@ -517,22 +484,15 @@ class wayfire_expo : public wayfire_plugin_t
         if (state.active)
             finalize_and_exit();
 
+        OpenGL::render_begin();
         for (auto& row : streams)
         {
             for (auto& stream: row)
-            {
-                if (stream->fbuff != uint32_t(-1))
-                {
-                    if (stream->running)
-                        output->render->workspace_stream_stop(stream);
-                    GL_CALL(glDeleteFramebuffers(1, &stream->fbuff));
-                    GL_CALL(glDeleteTextures(1, &stream->tex));
-                }
-            }
+                stream->buffer.release();
         }
+        OpenGL::render_end();
 
         output->rem_binding(&toggle_cb);
-        output->disconnect_signal("output-resized", &resized_cb);
     }
 };
 

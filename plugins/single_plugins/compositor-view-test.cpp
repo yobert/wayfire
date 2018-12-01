@@ -27,13 +27,13 @@ class test_view : public wayfire_compositor_view_t, public wayfire_compositor_in
             float matrix[9];
             wlr_matrix_project_box(matrix, &g, WL_OUTPUT_TRANSFORM_NORMAL, 0, projection);
 
-            wlr_renderer_begin(core->renderer, fb.width, fb.height);
+            OpenGL::render_begin(fb.width, fb.height, fb.fb);
             auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
 
             float color[] = {1.0f, 0.0, 1.0f, 1.0f};
 
             wlr_render_quad_with_matrix(core->renderer, color, matrix);
-            wlr_renderer_end(core->renderer);
+            OpenGL::render_end();
         }
 
         virtual bool accepts_input(int sx, int sy)

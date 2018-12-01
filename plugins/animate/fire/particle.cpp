@@ -165,7 +165,8 @@ int ParticleSystem::statistic()
 
 void ParticleSystem::create_program()
 {
-    wlr_renderer_begin(core->renderer, 10, 10); // load the proper context
+    /* Just load the proper context, viewport doesn't matter */
+    OpenGL::render_begin();
 
     auto vss = OpenGL::compile_shader(particle_vert_source, GL_VERTEX_SHADER);
     auto fss = OpenGL::compile_shader(particle_frag_source, GL_FRAGMENT_SHADER);
@@ -183,7 +184,7 @@ void ParticleSystem::create_program()
     program.matrix    = GL_CALL(glGetUniformLocation(program.id, "matrix"));
     program.smoothing = GL_CALL(glGetUniformLocation(program.id, "smoothing"));
 
-    wlr_renderer_end(core->renderer);
+    OpenGL::render_end();
 }
 
 void ParticleSystem::render(glm::mat4 matrix)
@@ -224,6 +225,8 @@ void ParticleSystem::render(glm::mat4 matrix)
     /* Darken the background */
     GL_CALL(glVertexAttribPointer(program.color, 4, GL_FLOAT,
                                   false, 0, dark_color.data()));
+
+    GL_CALL(glEnable(GL_BLEND));
     GL_CALL(glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_ALPHA));
     GL_CALL(glUniform1f(program.smoothing, 0.7f));
     // TODO: optimize shaders for this case
@@ -242,6 +245,8 @@ void ParticleSystem::render(glm::mat4 matrix)
     GL_CALL(glVertexAttribDivisor(program.center, 0));
     GL_CALL(glVertexAttribDivisor(program.color, 0));
 
+    GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+    GL_CALL(glUseProgram(0));
 
     GL_CALL(glDisableVertexAttribArray(program.position));
     GL_CALL(glDisableVertexAttribArray(program.radius));

@@ -94,10 +94,7 @@ class WayfireSwitcher : public wayfire_plugin_t
         grab_interface->name = "switcher";
         grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
 
-        switcher_renderer = [=] (uint32_t fb)
-        {
-            render_output(fb);
-        };
+        switcher_renderer = [=] (const wf_framebuffer& buffer) { render_output(buffer); };
 
         damage = [=] ()
         {
@@ -552,7 +549,7 @@ class WayfireSwitcher : public wayfire_plugin_t
         return SwitcherView{view, {}, SWITCHER_POSITION_CENTER};
     }
 
-    void render_view(const SwitcherView& sv)
+    void render_view(const SwitcherView& sv, const wf_framebuffer& buffer)
     {
         auto transform = dynamic_cast<wf_3D_view*> (
             sv.view->get_transformer(switcher_transformer).get());
@@ -583,30 +580,26 @@ class WayfireSwitcher : public wayfire_plugin_t
         transform->color[3] = 1.0;
     }
 
-    void render_output(uint32_t fb)
+    void render_output(const wf_framebuffer& fb)
     {
-        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb));
-        OpenGL::use_device_viewport();
-
-        wlr_renderer_scissor(core->renderer, NULL);
-
-        GL_CALL(glClearColor(0.0, 0.0, 0.0, 1.0));
-        GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+        OpenGL::render_begin(fb);
+        OpenGL::clear({0, 0, 0, 1});
+        OpenGL::render_end();
 
         dim_background(background_dim_duration.progress());
         for (auto view : get_background_views())
-            view->render_fb(NULL, output->render->get_target_framebuffer());
+            view->render_fb(NULL, fb);
 
         /* Render in the reverse order because we don't use depth testing */
         auto it = views.rbegin();
         while (it != views.rend())
         {
-            render_view(*it);
+            render_view(*it, fb);
             ++it;
         }
 
         for (auto view : get_overlay_views())
-            view->render_fb(NULL, output->render->get_target_framebuffer());
+            view->render_fb(NULL, fb);
 
         if (!duration.running())
         {
@@ -615,8 +608,6 @@ class WayfireSwitcher : public wayfire_plugin_t
             if (!active)
                 deinit_switcher();
         }
-
-        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
     }
 
     /* delete all views matching the given criteria, skipping the first "start" views */

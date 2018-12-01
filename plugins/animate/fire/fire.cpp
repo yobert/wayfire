@@ -95,14 +95,12 @@ class FireTransformer : public wf_view_transformer_t
                                     wlr_box scissor_box,
                                     const wf_framebuffer& target_fb)
     {
-        target_fb.bind();
+        OpenGL::render_begin(target_fb);
         target_fb.scissor(scissor_box);
 
         // render view
         auto ortho = glm::ortho(1.0f * target_fb.geometry.x, 1.0f * target_fb.geometry.x + 1.0f * target_fb.geometry.width,
                                 1.0f * target_fb.geometry.y + 1.0f * target_fb.geometry.height, 1.0f * target_fb.geometry.y);
-
-        OpenGL::use_default_program();
 
         float x = src_box.x, y = src_box.y, w = src_box.width, h = src_box.height;
         gl_geometry src_geometry = {x, y, x + w, y + h * progress_line};
@@ -118,7 +116,9 @@ class FireTransformer : public wf_view_transformer_t
 
         auto translate = glm::translate(glm::mat4(1.0),
                                         {src_box.x, src_box.y, 0});
-        ps.render(target_fb.transform * ortho * translate);
+
+        ps.render(target_fb.transform * ortho * translate); // will reset the gl program
+        OpenGL::render_end();
     }
 };
 

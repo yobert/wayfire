@@ -44,92 +44,110 @@ class wayfire_invert_screen : public wayfire_plugin_t
     GLuint program, posID, uvID;
 
     public:
-        void init(wayfire_config *config)
-        {
-            auto section = config->get_section("invert");
-            auto toggle_key = section->get_option("toggle", "<super> KEY_I");
 
-            hook = [=] (uint32_t fb, uint32_t tex, uint32_t target)
-            {
-                render(fb, tex, target);
-            };
+    void load_program()
+    {
+        OpenGL::render_begin();
+
+        auto vs = OpenGL::compile_shader(vertex_shader, GL_VERTEX_SHADER);
+        auto fs = OpenGL::compile_shader(fragment_shader, GL_FRAGMENT_SHADER);
+
+        program = GL_CALL(glCreateProgram());
+        GL_CALL(glAttachShader(program, vs));
+        GL_CALL(glAttachShader(program, fs));
+        GL_CALL(glLinkProgram(program));
+
+        /* won't be deleted until program is deleted */
+        GL_CALL(glDeleteShader(vs));
+        GL_CALL(glDeleteShader(fs));
+
+        posID = GL_CALL(glGetAttribLocation(program, "position"));
+        uvID  = GL_CALL(glGetAttribLocation(program, "uvPosition"));
+
+        OpenGL::render_end();
+    }
 
 
-            toggle_cb = [=] () {
-                if (active)
-                {
-                    output->render->rem_post(&hook);
-                } else
-                {
-                    output->render->add_post(&hook);
-                }
+    void init(wayfire_config *config)
+    {
+        auto section = config->get_section("invert");
+        auto toggle_key = section->get_option("toggle", "<super> KEY_I");
 
-                active = !active;
-            };
+        hook = [=] (const wf_framebuffer_base& source,
+            const wf_framebuffer_base& destination) {
+            render(source, destination);
+        };
 
-            auto vs = OpenGL::compile_shader(vertex_shader, GL_VERTEX_SHADER);
-            auto fs = OpenGL::compile_shader(fragment_shader, GL_FRAGMENT_SHADER);
 
-            program = GL_CALL(glCreateProgram());
-            GL_CALL(glAttachShader(program, vs));
-            GL_CALL(glAttachShader(program, fs));
-            GL_CALL(glLinkProgram(program));
-
-            /* won't be deleted until program is deleted */
-            GL_CALL(glDeleteShader(vs));
-            GL_CALL(glDeleteShader(fs));
-
-            posID = GL_CALL(glGetAttribLocation(program, "position"));
-            uvID  = GL_CALL(glGetAttribLocation(program, "uvPosition"));
-
-            output->add_activator(toggle_key, &toggle_cb);
-        }
-
-        void render(uint32_t fb, uint32_t tex, uint32_t target)
-        {
-            log_info("invert gets %u %u", fb, target);
-            GL_CALL(glUseProgram(program));
-            GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
-            GL_CALL(glActiveTexture(GL_TEXTURE0));
-
-            static const float vertexData[] = {
-                -1.0f, -1.0f,
-                 1.0f, -1.0f,
-                 1.0f,  1.0f,
-                -1.0f,  1.0f
-            };
-
-            static const float coordData[] = {
-                0.0f, 0.0f,
-                1.0f, 0.0f,
-                1.0f, 1.0f,
-                0.0f, 1.0f
-            };
-
-            GL_CALL(glVertexAttribPointer(posID, 2, GL_FLOAT, GL_FALSE, 0, vertexData));
-            GL_CALL(glEnableVertexAttribArray(posID));
-
-            GL_CALL(glVertexAttribPointer(uvID, 2, GL_FLOAT, GL_FALSE, 0, coordData));
-            GL_CALL(glEnableVertexAttribArray(uvID));
-
-            GL_CALL(glDisable(GL_BLEND));
-            GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target));
-            GL_CALL(glDrawArrays (GL_TRIANGLE_FAN, 0, 4));
-            GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
-            GL_CALL(glDisableVertexAttribArray(posID));
-            GL_CALL(glDisableVertexAttribArray(uvID));
-            GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
-        }
-
-        void fini()
-        {
+        toggle_cb = [=] () {
             if (active)
+            {
                 output->render->rem_post(&hook);
+            } else
+            {
+                output->render->add_post(&hook);
+            }
 
-            GL_CALL(glDeleteProgram(program));
-            output->rem_binding(&toggle_cb);
-        }
+            active = !active;
+        };
+
+        load_program();
+        output->add_activator(toggle_key, &toggle_cb);
+    }
+
+    void render(const wf_framebuffer_base& source,
+        const wf_framebuffer_base& destination)
+    {
+        static const float vertexData[] = {
+            -1.0f, -1.0f,
+            1.0f, -1.0f,
+            1.0f,  1.0f,
+            -1.0f,  1.0f
+        };
+
+        static const float coordData[] = {
+            0.0f, 0.0f,
+            1.0f, 0.0f,
+            1.0f, 1.0f,
+            0.0f, 1.0f
+        };
+
+        OpenGL::render_begin(destination);
+
+        GL_CALL(glUseProgram(program));
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, source.tex));
+        GL_CALL(glActiveTexture(GL_TEXTURE0));
+
+        GL_CALL(glVertexAttribPointer(posID, 2, GL_FLOAT, GL_FALSE, 0, vertexData));
+        GL_CALL(glEnableVertexAttribArray(posID));
+
+        GL_CALL(glVertexAttribPointer(uvID, 2, GL_FLOAT, GL_FALSE, 0, coordData));
+        GL_CALL(glEnableVertexAttribArray(uvID));
+
+        GL_CALL(glDisable(GL_BLEND));
+        GL_CALL(glDrawArrays (GL_TRIANGLE_FAN, 0, 4));
+
+        GL_CALL(glEnable(GL_BLEND));
+
+        GL_CALL(glDisableVertexAttribArray(posID));
+        GL_CALL(glDisableVertexAttribArray(uvID));
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
+        GL_CALL(glUseProgram(0));
+
+        OpenGL::render_end();
+    }
+
+    void fini()
+    {
+        if (active)
+            output->render->rem_post(&hook);
+
+        OpenGL::render_begin();
+        GL_CALL(glDeleteProgram(program));
+        OpenGL::render_end();
+
+        output->rem_binding(&toggle_cb);
+    }
 };
 
 extern "C"

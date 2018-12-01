@@ -32,9 +32,10 @@ class wayfire_compositor_subsurface_t : public wayfire_surface_t, public wayfire
         virtual bool is_mapped() { return true; }
 
         virtual wf_geometry get_output_geometry() { assert(false); return {}; }
-        virtual void  render_fb(pixman_region32_t* damage, wf_framebuffer fb) { assert(false); }
+        virtual void  render_fb(pixman_region32_t* damage, const wf_framebuffer& fb) { assert(false); }
 
         virtual void send_frame_done(const timespec& now) {}
+        virtual void subtract_opaque(pixman_region32_t* region, int x, int y) {}
 
         /* all input events coordinates are surface-local */
 

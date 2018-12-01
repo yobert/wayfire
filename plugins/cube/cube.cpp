@@ -129,7 +129,11 @@ class wayfire_cube : public wayfire_plugin_t
         animation.offset_z = {identity_z_offset + Z_OFFSET_NEAR,
             identity_z_offset + Z_OFFSET_NEAR};
 
-        renderer = [=] (uint32_t fb) {render(fb);};
+        renderer = [=] (const wf_framebuffer& dest) {render(dest);};
+
+        OpenGL::render_begin(output->render->get_target_framebuffer());
+        load_program();
+        OpenGL::render_end();
     }
 
     void schedule_next_frame()
@@ -219,10 +223,7 @@ class wayfire_cube : public wayfire_plugin_t
 
         streams.resize(vw);
         for(int i = 0; i < vw; i++)
-        {
             streams[i] = nonstd::make_unique<wf_workspace_stream>();
-            streams[i]->fbuff = streams[i]->tex = -1;
-        }
 
         project = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
     }
@@ -267,18 +268,8 @@ class wayfire_cube : public wayfire_plugin_t
         return duration.running();
     }
 
-    void render(uint32_t target_fb)
+    void render(const wf_framebuffer& dest)
     {
-        if (program.id == (uint)-1)
-            load_program();
-
-        OpenGL::use_device_viewport();
-
-        auto clear_color = background_color->as_cached_color();
-        GL_CALL(glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a));
-
-        GL_CALL(glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT));
-
         GetTuple(vx, vy, output->workspace->get_current_workspace());
         for(size_t i = 0; i < streams.size(); i++) {
             if (!streams[i]->running) {
@@ -289,13 +280,11 @@ class wayfire_cube : public wayfire_plugin_t
             }
         }
 
+        OpenGL::render_begin(dest);
+        OpenGL::clear(background_color->as_cached_color(),
+            GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         GL_CALL(glUseProgram(program.id));
-        GL_CALL(glEnable(GL_DEPTH_TEST));
-        GL_CALL(glDepthFunc(GL_LESS));
-
-        OpenGL::use_device_viewport();
-        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target_fb));
-
         float zoom_factor = duration.progress(animation.zoom);
         glm::mat4 scale_matrix = glm::scale(glm::mat4(1.0),
                 glm::vec3(1. / zoom_factor, 1. / zoom_factor, 1. / zoom_factor));
@@ -336,17 +325,13 @@ class wayfire_cube : public wayfire_plugin_t
         GL_CALL(glVertexAttribPointer(program.uvID, 2, GL_FLOAT, GL_FALSE, 0, coordData));
         GL_CALL(glEnableVertexAttribArray(program.uvID));
 
-        wlr_renderer_scissor(core->renderer, NULL);
-        for(size_t i = 0; i < streams.size(); i++) {
+        GL_CALL(glEnable(GL_DEPTH_TEST));
+        GL_CALL(glDepthFunc(GL_LESS));
+
+        for(size_t i = 0; i < streams.size(); i++)
+        {
             int index = (vx + i) % streams.size();
-
-            GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-            GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-
-            GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-            GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-
-            GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index]->tex));
+            GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index]->buffer.tex));
             GL_CALL(glActiveTexture(GL_TEXTURE0));
 
             model = glm::rotate(glm::mat4(1.0),
@@ -356,19 +341,19 @@ class wayfire_cube : public wayfire_plugin_t
             model = glm::translate(model, glm::vec3(0, 0, identity_z_offset));
             GL_CALL(glUniformMatrix4fv(program.modelID, 1, GL_FALSE, &model[0][0]));
 
-           if (tessellation_support)
-           {
-               GL_CALL(glDrawArrays(GL_PATCHES, 0, 6));
-           } else
-           {
-               GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
-           }
+            if (tessellation_support) {
+                GL_CALL(glDrawArrays(GL_PATCHES, 0, 6));
+            } else {
+                GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
+            }
         }
-        glDisable(GL_DEPTH_TEST);
 
-        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+        GL_CALL(glUseProgram(0));
+        GL_CALL(glDisable(GL_DEPTH_TEST));
         GL_CALL(glDisableVertexAttribArray(program.posID));
         GL_CALL(glDisableVertexAttribArray(program.uvID));
+
+        OpenGL::render_end();
 
         bool result = update_animation();
         if (result)
@@ -471,15 +456,10 @@ class wayfire_cube : public wayfire_plugin_t
         if (output->is_plugin_active(grab_interface->name))
             terminate();
 
-        auto size = streams.size();
-        for (uint i = 0; i < size; i++)
-        {
-            if (streams[i]->fbuff != uint32_t(-1))
-            {
-                GL_CALL(glDeleteFramebuffers(1, &streams[i]->fbuff));
-                GL_CALL(glDeleteTextures(1, &streams[i]->tex));
-            }
-        }
+        OpenGL::render_begin();
+        for (size_t i = 0; i < streams.size(); i++)
+            streams[i]->buffer.release();
+        OpenGL::render_end();
 
         output->rem_binding(&activate);
     }

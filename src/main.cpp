@@ -68,6 +68,8 @@ std::map<EGLint, EGLint> default_attribs = {
     {EGL_DEPTH_SIZE, 1},
 };
 
+std::map<wlr_renderer*, wlr_egl*> egl_for_renderer;
+
 /* Merge the default config and the config we need */
 static std::vector<EGLint> generate_config_attribs(EGLint *renderer_attribs)
 {
@@ -120,6 +122,7 @@ wlr_renderer *add_egl_depth_renderer(wlr_egl *egl, EGLenum platform,
         return NULL;
     }
 
+    egl_for_renderer[renderer] = egl;
     return renderer;
 }
 
@@ -175,6 +178,8 @@ int main(int argc, char *argv[])
     core->ev_loop  = wl_display_get_event_loop(core->display);
     core->backend  = wlr_backend_autocreate(core->display, add_egl_depth_renderer);
     core->renderer = wlr_backend_get_renderer(core->backend);
+    core->egl = egl_for_renderer[core->renderer];
+    assert(core->egl);
 
     log_info("using config file: %s", config_file.c_str());
     core->config = new wayfire_config(config_file);

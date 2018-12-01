@@ -5,11 +5,9 @@
 #include "core.hpp"
 #include "render-manager.hpp"
 
-#include <glm/gtc/matrix_transform.hpp>
+// #include "gldebug.hpp"
 
-namespace {
-    OpenGL::context_t *bound;
-}
+#include <glm/gtc/matrix_transform.hpp>
 
 const char* gl_error_string(const GLenum err) {
     switch (err) {
@@ -35,10 +33,22 @@ void gl_call(const char *func, uint32_t line, const char *glfunc) {
 
 namespace OpenGL
 {
-    GLuint compile_shader_from_file(const char *path, const char *src, GLuint type)
+    /* Different Context is kept for each output */
+    /* Each of the following functions uses the currently bound context */
+    struct
+    {
+        GLuint id;
+
+        GLuint mvpID, colorID;
+        GLuint position, uvPosition;
+    } program;
+
+    GLuint compile_shader_from_file(std::string path, std::string source, GLuint type)
     {
         GLuint shader = GL_CALL(glCreateShader(type));
-        GL_CALL(glShaderSource(shader, 1, &src, NULL));
+
+        const char *c_src = source.c_str();
+        GL_CALL(glShaderSource(shader, 1, &c_src, NULL));
 
         int s;
         char b1[10000];
@@ -48,26 +58,25 @@ namespace OpenGL
 
         if (s == GL_FALSE)
         {
-            log_error("Failed to load shader from %s\n; Errors:\n%s", path, b1);
+            log_error("Failed to load shader from %s\n; Errors:\n%s", path.c_str(), b1);
             return -1;
         }
 
         return shader;
     }
 
-    GLuint compile_shader(const char *src, GLuint type)
+    GLuint compile_shader(std::string source, GLuint type)
     {
-        return compile_shader_from_file("internal", src, type);
+        return compile_shader_from_file("internal", source, type);
     }
 
-    GLuint load_shader(const char *path, GLuint type) {
-
+    GLuint load_shader(std::string path, GLuint type)
+    {
         std::fstream file(path, std::ios::in);
-
         if(!file.is_open())
         {
-            log_error("cannot open shader file %s", path);
-            std::exit(1);
+            log_error("cannot open shader file %s", path.c_str());
+            return -1;
         }
 
         std::string str, line;
@@ -77,140 +86,60 @@ namespace OpenGL
         return compile_shader(str.c_str(), type);
     }
 
-    /*
-    const char *getStrSrc(GLenum src) {
-        if(src == GL_DEBUG_SOURCE_API            )return "API";
-        if(src == GL_DEBUG_SOURCE_WINDOW_SYSTEM  )return "WINDOW_SYSTEM";
-        if(src == GL_DEBUG_SOURCE_SHADER_COMPILER)return "SHADER_COMPILER";
-        if(src == GL_DEBUG_SOURCE_THIRD_PARTY    )return "THIRD_PARTYB";
-        if(src == GL_DEBUG_SOURCE_APPLICATION    )return "APPLICATIONB";
-        if(src == GL_DEBUG_SOURCE_OTHER          )return "OTHER";
-        else return "UNKNOWN";
-    }
 
-    const char *getStrType(GLenum type) {
-        if(type==GL_DEBUG_TYPE_ERROR              )return "ERROR";
-        if(type==GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR)return "DEPRECATED_BEHAVIOR";
-        if(type==GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR )return "UNDEFINED_BEHAVIOR";
-        if(type==GL_DEBUG_TYPE_PORTABILITY        )return "PORTABILITY";
-        if(type==GL_DEBUG_TYPE_PERFORMANCE        )return "PERFORMANCE";
-        if(type==GL_DEBUG_TYPE_OTHER              )return "OTHER";
-        return "UNKNOWN";
-    }
-
-    const char *getStrSeverity(GLenum severity) {
-        if(severity == GL_DEBUG_SEVERITY_HIGH  )return "HIGH";
-        if(severity == GL_DEBUG_SEVERITY_MEDIUM)return "MEDIUM";
-        if(severity == GL_DEBUG_SEVERITY_LOW   )return "LOW";
-        if(severity == GL_DEBUG_SEVERITY_NOTIFICATION) return "NOTIFICATION";
-        return "UNKNOWN";
-    }
-
-    void errorHandler(GLenum src, GLenum type,
-            GLuint id, GLenum severity,
-            GLsizei len, const GLchar *msg,
-            const void *dummy) {
-        // ignore notifications
-        if(severity == GL_DEBUG_SEVERITY_NOTIFICATION)
-            return;
-        debug << "_______________________________________________\n";
-        debug << "GLES debug: \n";
-        debug << "Source: " << getStrSrc(src) << std::endl;
-        debug << "Type: " << getStrType(type) << std::endl;
-        debug << "ID: " << id << std::endl;
-        debug << "Severity: " << getStrSeverity(severity) << std::endl;
-        debug << "Msg: " << msg << std::endl;;
-        debug << "_______________________________________________\n";
-    } */
-
-    context_t* create_gles_context(wayfire_output *output, const char *shaderSrcPath)
+    void init()
     {
-        context_t *ctx = new context_t;
-        ctx->output = output;
+        render_begin();
 
-        /*
-        if (file_debug == &file_info) {
-            glEnable(GL_DEBUG_OUTPUT);
-            glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-            glDebugMessageCallback(errorHandler, 0);
-        } */
+        // enable_gl_synchronuous_debug()
+        std::string shader_path = INSTALL_PREFIX "/share/wayfire/shaders";
+        GLuint vss = load_shader(shader_path + "/vertex.glsl", GL_VERTEX_SHADER);
+        GLuint fss = load_shader(shader_path + "/frag.glsl", GL_FRAGMENT_SHADER);
 
-        GLuint vss = load_shader(std::string(shaderSrcPath)
-                    .append("/vertex.glsl").c_str(),
-                     GL_VERTEX_SHADER);
+        program.id = GL_CALL(glCreateProgram());
 
-#ifndef WAYFIRE_GRAPHICS_DEBUG
-        GLuint fss = load_shader(std::string(shaderSrcPath)
-                    .append("/frag.glsl").c_str(),
-                    GL_FRAGMENT_SHADER);
-#else
-        GLuint fss = load_shader(std::string(shaderSrcPath)
-                    .append("/solid_frag.glsl").c_str(),
-                     GL_FRAGMENT_SHADER);
-#endif
-        ctx->program = GL_CALL(glCreateProgram());
+        GL_CALL(glAttachShader(program.id, vss));
+        GL_CALL(glAttachShader(program.id, fss));
+        GL_CALL(glLinkProgram(program.id));
 
-        GL_CALL(glAttachShader(ctx->program, vss));
-        GL_CALL(glAttachShader(ctx->program, fss));
-        GL_CALL(glLinkProgram(ctx->program));
-
-        ctx->mvpID      = GL_CALL(glGetUniformLocation(ctx->program, "MVP"));
-        ctx->colorID    = GL_CALL(glGetUniformLocation(ctx->program, "color"));
-        ctx->position   = GL_CALL(glGetAttribLocation(ctx->program, "position"));
-        ctx->uvPosition = GL_CALL(glGetAttribLocation(ctx->program, "uvPosition"));
+        program.mvpID      = GL_CALL(glGetUniformLocation(program.id, "MVP"));
+        program.colorID    = GL_CALL(glGetUniformLocation(program.id, "color"));
+        program.position   = GL_CALL(glGetAttribLocation(program.id, "position"));
+        program.uvPosition = GL_CALL(glGetAttribLocation(program.id, "uvPosition"));
 
         GL_CALL(glDeleteShader(vss));
         GL_CALL(glDeleteShader(fss));
-        return ctx;
+
+        render_end();
     }
 
-    void use_default_program() {
-         GL_CALL(glUseProgram(bound->program));
-    }
-
-    void bind_context(context_t *ctx) {
-        bound = ctx;
-
-        bound->width  = ctx->output->handle->width;
-        bound->height = ctx->output->handle->height;
-    }
-
-    wf_geometry get_device_viewport()
+    void fini()
     {
-        return {0, 0, bound->width, bound->height};
+        render_begin();
+        GL_CALL(glDeleteProgram(program.id));
+        render_end();
     }
 
-    void use_device_viewport()
+    namespace
     {
-        const auto vp = get_device_viewport();
-        GL_CALL(glViewport(vp.x, vp.y, vp.width, vp.height));
+        wayfire_output *current_output = NULL;
     }
 
-    void release_context(context_t *ctx)
+    void bind_output(wayfire_output *output)
     {
-        GL_CALL(glDeleteProgram(ctx->program));
-        delete ctx;
+        current_output = output;
     }
 
-    void render_texture(GLuint tex, const gl_geometry& g,
-            const gl_geometry& texg, uint32_t bits)
+    void unbind_output(wayfire_output *output)
     {
-        render_transformed_texture(tex, g, texg, glm::mat4(1.0f), glm::vec4(1.0), bits);
+        current_output = NULL;
     }
 
     void render_transformed_texture(GLuint tex,
-                                    const gl_geometry& g,
-                                    const gl_geometry& texg,
-                                    glm::mat4 model,
-                                    glm::vec4 color,
-                                    uint32_t bits)
+        const gl_geometry& g, const gl_geometry& texg,
+        glm::mat4 model, glm::vec4 color, uint32_t bits)
     {
-        /* TODO: perhaps clean many of the flags, as we won't use them anymore in wlroots */
-        if ((bits & DONT_RELOAD_PROGRAM) == 0)
-            GL_CALL(glUseProgram(bound->program));
-
-        if ((bits & TEXTURE_TRANSFORM_USE_DEVCOORD))
-            use_device_viewport();
+        GL_CALL(glUseProgram(program.id));
 
         gl_geometry final_g = g;
         if (bits & TEXTURE_TRANSFORM_INVERT_Y)
@@ -244,170 +173,185 @@ namespace OpenGL
 
         GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
         GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+
         GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
         GL_CALL(glActiveTexture(GL_TEXTURE0));
 
-        GL_CALL(glVertexAttribPointer(bound->position, 2, GL_FLOAT, GL_FALSE, 0, vertexData));
-        GL_CALL(glEnableVertexAttribArray(bound->position));
+        GL_CALL(glVertexAttribPointer(program.position, 2, GL_FLOAT, GL_FALSE, 0, vertexData));
+        GL_CALL(glEnableVertexAttribArray(program.position));
 
-        GL_CALL(glVertexAttribPointer(bound->uvPosition, 2, GL_FLOAT, GL_FALSE, 0, coordData));
-        GL_CALL(glEnableVertexAttribArray(bound->uvPosition));
+        GL_CALL(glVertexAttribPointer(program.uvPosition, 2, GL_FLOAT, GL_FALSE, 0, coordData));
+        GL_CALL(glEnableVertexAttribArray(program.uvPosition));
 
-        GL_CALL(glUniformMatrix4fv(bound->mvpID, 1, GL_FALSE, &model[0][0]));
-        GL_CALL(glUniform4fv(bound->colorID, 1, &color[0]));
+        GL_CALL(glUniformMatrix4fv(program.mvpID, 1, GL_FALSE, &model[0][0]));
+        GL_CALL(glUniform4fv(program.colorID, 1, &color[0]));
         GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
-        GL_CALL(glDrawArrays (GL_TRIANGLE_FAN, 0, 4));
-
-#ifdef WAYFIRE_GRAPHICS_DEBUG
-        float c[4] = {0, 0, 0, -100};
-        GL_CALL(glUniform4fv(bound->colorID, 1, c));
         GL_CALL(glDrawArrays(GL_TRIANGLE_FAN, 0, 4));
-#endif
 
-        GL_CALL(glDisableVertexAttribArray(bound->uvPosition));
-        GL_CALL(glDisableVertexAttribArray(bound->position));
+        GL_CALL(glDisableVertexAttribArray(program.uvPosition));
+        GL_CALL(glDisableVertexAttribArray(program.position));
     }
 
-    void prepare_framebuffer(GLuint &fbuff, GLuint &texture,
-                             float scale_x, float scale_y)
+    void render_begin()
     {
-        if (fbuff == (uint)-1)
-            GL_CALL(glGenFramebuffers(1, &fbuff));
-        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fbuff));
-
-        bool existing_texture = (texture != (uint)-1);
-        if (!existing_texture)
-            GL_CALL(glGenTextures(1, &texture));
-
-        GL_CALL(glBindTexture(GL_TEXTURE_2D, texture));
-
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
-
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-
-        if (!existing_texture)
-            GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                        bound->width * scale_x, bound->height * scale_y,
-                        0, GL_RGBA, GL_UNSIGNED_BYTE, 0));
-
-        GL_CALL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                texture, 0));
-
-        auto status = GL_CALL(glCheckFramebufferStatus(GL_FRAMEBUFFER));
-        if (status != GL_FRAMEBUFFER_COMPLETE)
-            log_error("failed to initialize framebuffer");
+        /* No real reason for 10, 10, 0 but it doesn't matter */
+        render_begin(10, 10, 0);
     }
 
-    void prepare_framebuffer_size(int w, int h,
-                                  GLuint &fbuff, GLuint &texture,
-                                  float scale_x, float scale_y)
+    void render_begin(const wf_framebuffer_base& fb)
     {
-        log_info("new fb %d %d %u %u", w, h, fbuff, texture);
-        GL_CALL(glGenFramebuffers(1, &fbuff));
-        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fbuff));
-
-        GL_CALL(glGenTextures(1, &texture));
-        GL_CALL(glBindTexture(GL_TEXTURE_2D, texture));
-
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
-
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-
-        GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h,
-                             0, GL_RGBA, GL_UNSIGNED_BYTE, 0));
-
-        GL_CALL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                texture, 0));
-
-        auto status = GL_CALL(glCheckFramebufferStatus(GL_FRAMEBUFFER));
-
-        log_info("gl::: !!!! %d %d",
-                 glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
-        if (status != GL_FRAMEBUFFER_COMPLETE)
-            log_error("failed to initialize framebuffer");
-        else
-            log_error("initialized framebuffer %u with attachment %u", fbuff, texture);
+        render_begin(fb.viewport_width, fb.viewport_height, fb.fb);
     }
 
-
-    GLuint duplicate_texture(GLuint tex, int w, int h)
+    void render_begin(int32_t viewport_width, int32_t viewport_height, uint32_t fb)
     {
-        GLuint dst_tex = -1;
+        if (!current_output && !wlr_egl_is_current(core->egl))
+            wlr_egl_make_current(core->egl, EGL_NO_SURFACE, NULL);
 
-        GLuint dst_fbuff = -1, src_fbuff = -1;
+        wlr_renderer_begin(core->renderer, viewport_width, viewport_height);
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fb));
+        log_info("binding %dx%d, fb: %d", viewport_width, viewport_height, fb);
+    }
 
-        prepare_framebuffer(dst_fbuff, dst_tex);
-        GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h,
-                    0, GL_RGBA, GL_UNSIGNED_BYTE, 0));
+    void clear(wf_color col, uint32_t mask)
+    {
+        GL_CALL(glClearColor(col.r, col.g, col.b, col.a));
+        GL_CALL(glClear(mask));
+    }
 
-        prepare_framebuffer(src_fbuff, tex);
-
-        GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst_fbuff));
-        GL_CALL(glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR));
-
+    void render_end()
+    {
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
-        GL_CALL(glDeleteFramebuffers(1, &dst_fbuff));
-        GL_CALL(glDeleteFramebuffers(1, &src_fbuff));
-        return dst_tex;
+        wlr_renderer_scissor(core->renderer, NULL);
+        wlr_renderer_end(core->renderer);
     }
 }
 
-void wf_framebuffer::init()
+bool wf_framebuffer_base::allocate(int width, int height)
 {
-    tex = fb = -1;
-    OpenGL::prepare_framebuffer(fb, tex, 1, 1);
-    geometry.width = bound->width;
-    geometry.height = bound->height;
+    bool first_allocate = false;
+    if (fb == (uint32_t)-1)
+    {
+        first_allocate = true;
+        GL_CALL(glGenFramebuffers(1, &fb));
+        log_info("alloc fb %d", fb);
+    }
+
+    if (tex == (uint32_t)-1)
+    {
+
+        first_allocate = true;
+        GL_CALL(glGenTextures(1, &tex));
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
+        log_info("alloc tex %d", tex);
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+    }
+
+    log_info("first allocate %d, %dx%d", first_allocate, width, height);
+    bool is_resize = false;
+    /* Special case: fb = 0. This occurs in the default workspace streams, we don't resize anything */
+    if (fb != 0)
+    {
+        if (first_allocate || width != viewport_width || height != viewport_height)
+        {
+            log_info("is resize");
+            is_resize = true;
+            GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
+            GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+                    0, GL_RGBA, GL_UNSIGNED_BYTE, 0));
+        }
+    }
+
+    if (first_allocate)
+    {
+        log_info("set attachemt %d -> %d", tex, fb);
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fb));
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
+        GL_CALL(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                GL_TEXTURE_2D, tex, 0));
+    }
+
+    if (is_resize || first_allocate)
+    {
+        auto status = GL_CALL(glCheckFramebufferStatus(GL_FRAMEBUFFER));
+        if (status != GL_FRAMEBUFFER_COMPLETE)
+        {
+            log_error("failed to initialize framebuffer");
+            return false;
+        }
+    }
+
+    viewport_width = width;
+    viewport_height = height;
+
+    log_info("set size to %d %d", viewport_width, viewport_height);
+
+    GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
+    GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
+    return is_resize || first_allocate;
 }
 
-void wf_framebuffer::init(int w, int h)
+void wf_framebuffer_base::copy_state(wf_framebuffer_base&& other)
 {
-    tex = fb = -1;
-    OpenGL::prepare_framebuffer_size(w, h, fb, tex, 1, 1);
-    geometry.width = w;
-    geometry.height = h;
+    this->viewport_width = other.viewport_width;
+    this->viewport_height = other.viewport_height;
+
+    this->fb = other.fb;
+    this->tex = other.tex;
+
+    other.reset();
 }
 
-void wf_framebuffer::bind() const
+wf_framebuffer_base::wf_framebuffer_base(wf_framebuffer_base&& other)
+{
+    copy_state(std::move(other));
+}
+
+wf_framebuffer_base& wf_framebuffer_base::operator = (wf_framebuffer_base&& other)
+{
+    if (this == &other)
+        return *this;
+
+    release();
+    copy_state(std::move(other));
+
+    return *this;
+}
+
+void wf_framebuffer_base::bind() const
 {
     GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb));
     GL_CALL(glViewport(0, 0, viewport_width, viewport_height));
 }
 
-void wf_framebuffer::scissor(wlr_box box) const
+void wf_framebuffer_base::scissor(wlr_box box) const
 {
     GL_CALL(glEnable(GL_SCISSOR_TEST));
     GL_CALL(glScissor(box.x, viewport_height - box.y - box.height,
                       box.width, box.height));
 }
 
-void wf_framebuffer::clear() const
+void wf_framebuffer_base::release()
 {
-    GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb));
-    GL_CALL(glViewport(0, 0, geometry.width, geometry.height));
-    wlr_renderer_scissor(core->renderer, NULL);
+    log_info("release %d %d", fb, tex);
+    if (fb != uint32_t(-1) && fb != 0)
+        GL_CALL(glDeleteFramebuffers(1, &fb));
+    if (tex != uint32_t(-1) && (fb != 0 || tex != 0))
+        GL_CALL(glDeleteTextures(1, &tex));
 
-    GL_CALL(glClearColor(0, 0, 0, 0));
-    GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+    reset();
 }
 
-void wf_framebuffer::release()
+void wf_framebuffer_base::reset()
 {
-    if (fb == uint32_t(-1))
-        return;
-
-    GL_CALL(glDeleteFramebuffers(1, &fb));
-    GL_CALL(glDeleteTextures(1, &tex));
-
     fb = -1;
     tex = -1;
+    viewport_width = viewport_height = 0;
 }
-
 
 #define WF_PI 3.141592f
 

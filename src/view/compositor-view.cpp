@@ -74,7 +74,7 @@ void wayfire_compositor_view_t::close()
     destroy();
 }
 
-void wayfire_compositor_view_t::render_fb(pixman_region32_t *damage, wf_framebuffer fb)
+void wayfire_compositor_view_t::render_fb(pixman_region32_t *damage, const wf_framebuffer& fb)
 {
     /* We only want to circumvent wayfire_surface_t::render_fb,
      * because it relies on the surface having a buffer
@@ -83,7 +83,6 @@ void wayfire_compositor_view_t::render_fb(pixman_region32_t *damage, wf_framebuf
     if (has_transformer())
         return wayfire_view_t::render_fb(damage, fb);
 
-    GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb.fb));
     auto obox = get_output_geometry();
     render_pixman(wlr_fb_attribs{fb}, obox.x - fb.geometry.x, obox.y - fb.geometry.y, damage);
 }
@@ -101,7 +100,7 @@ void wayfire_mirror_view_t::_render_pixman(const wlr_fb_attribs& fb, int x, int 
     original_view->render_pixman(fb, x, y, damage);
 }
 
-void wayfire_mirror_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer fb)
+void wayfire_mirror_view_t::render_fb(pixman_region32_t* damage, const wf_framebuffer& fb)
 {
     /* If we have transformers, we're fine. take_snapshot will do the things needed */
     if (has_transformer())
@@ -116,10 +115,16 @@ void wayfire_mirror_view_t::render_fb(pixman_region32_t* damage, wf_framebuffer 
     auto base_bounding_box = original_view->get_bounding_box();
     auto bbox = get_bounding_box();
 
-    fb.geometry.x += base_bounding_box.x - bbox.x;
-    fb.geometry.y += base_bounding_box.y - bbox.y;
+    /* Normally we shouldn't copy framebuffers. But in this case we can assume
+     * nothing will break, because the copy will be destroyed immediately */
+    wf_framebuffer copy;
+    memcpy(&copy, &fb, sizeof(wf_framebuffer));
+    copy.geometry.x += base_bounding_box.x - bbox.x;
+    copy.geometry.y += base_bounding_box.y - bbox.y;
 
-    original_view->render_fb(damage, fb);
+    original_view->render_fb(damage, copy);
+
+    copy.reset();
 }
 
 wayfire_mirror_view_t::wayfire_mirror_view_t(wayfire_view original_view)
@@ -171,28 +176,18 @@ void wayfire_mirror_view_t::take_snapshot()
     int scaled_width = scale * obox.width;
     int scaled_height = scale * obox.height;
 
-    if (offscreen_buffer.fb_width != scaled_width ||
-        offscreen_buffer.fb_height != scaled_height)
-    {
-        offscreen_buffer.fini();
-    }
-
-    if (!offscreen_buffer.valid())
-        offscreen_buffer.init(scaled_width, scaled_height);
-
     offscreen_buffer.output_x = buffer_geometry.x;
     offscreen_buffer.output_y = buffer_geometry.y;
     offscreen_buffer.fb_scale = scale;
 
-    GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, offscreen_buffer.fbo));
-    wlr_renderer_begin(core->renderer, offscreen_buffer.fb_width, offscreen_buffer.fb_height);
-    wlr_renderer_scissor(core->renderer, NULL);
-    float clear_color[] = {0, 0, 0, 0};
-    wlr_renderer_clear(core->renderer, clear_color);
-    wlr_renderer_end(core->renderer);
+    OpenGL::render_begin();
+    offscreen_buffer.allocate(scaled_width, scaled_height);
+    offscreen_buffer.bind();
+    OpenGL::clear({0, 0, 0, 0});
+    OpenGL::render_end();
 
     wf_framebuffer fb;
-    fb.fb = offscreen_buffer.fbo;
+    fb.fb = offscreen_buffer.fb;
     fb.tex = offscreen_buffer.tex;
 
     fb.geometry = obox;
@@ -271,7 +266,7 @@ void wayfire_color_rect_view_t::_wlr_render_box(const wlr_fb_attribs& fb, int x,
     float projection[9];
     wlr_matrix_projection(projection, fb.width, fb.height, fb.transform);
 
-    wlr_renderer_begin(core->renderer, fb.width, fb.height);
+    OpenGL::render_begin(fb.width, fb.height, fb.fb);
     auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
 
     /* Draw the border, making sure border parts don't overlap, otherwise
@@ -294,7 +289,7 @@ void wayfire_color_rect_view_t::_wlr_render_box(const wlr_fb_attribs& fb, int x,
         geometry.width - 2 * border, geometry.height - 2 * border,
         _color);
 
-    wlr_renderer_end(core->renderer);
+    OpenGL::render_end();
 }
 
 wayfire_color_rect_view_t::wayfire_color_rect_view_t()
