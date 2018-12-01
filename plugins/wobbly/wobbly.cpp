@@ -101,9 +101,11 @@ void main()
         GL_CALL(glEnableVertexAttribArray(uvID));
 
         GL_CALL(glUniformMatrix4fv(mvpID, 1, GL_FALSE, &mat[0][0]));
+        GL_CALL(glEnable(GL_BLEND));
         GL_CALL(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
 
         GL_CALL(glDrawArrays (GL_TRIANGLES, 0, 3 * cnt));
+        GL_CALL(glDisable(GL_BLEND));
 
         GL_CALL(glDisableVertexAttribArray(uvID));
         GL_CALL(glDisableVertexAttribArray(posID));
@@ -218,6 +220,8 @@ class wf_wobbly : public wf_view_transformer_t
         view->connect_signal("set-output", &view_output_changed);
         view->connect_signal("geometry-changed", &view_geometry_changed);
     }
+
+    uint32_t get_z_order() { return WF_TRANSFORMER_HIGHLEVEL; }
 
     virtual wlr_box get_bounding_box(wf_geometry, wf_geometry)
     {
@@ -439,7 +443,6 @@ class wayfire_wobbly : public wayfire_plugin_t
             if (!wobbly)
                 return;
 
-            log_info("wobbly event %d", data->events);
             if (data->events & WOBBLY_EVENT_GRAB)
                 wobbly->start_grab(data->grab_x, data->grab_y);
 

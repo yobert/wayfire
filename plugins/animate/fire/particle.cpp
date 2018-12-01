@@ -239,6 +239,8 @@ void ParticleSystem::render(glm::mat4 matrix)
     GL_CALL(glUniform1f(program.smoothing, 0.5f));
     GL_CALL(glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, ps.size()));
 
+    GL_CALL(glDisable(GL_BLEND));
+
     // reset vertex attrib state, other renderers may need this
     GL_CALL(glVertexAttribDivisor(program.position, 0));
     GL_CALL(glVertexAttribDivisor(program.radius, 0));;

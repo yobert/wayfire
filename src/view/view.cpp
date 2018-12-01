@@ -583,6 +583,7 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, const wf_framebuffer& 
             OpenGL::clear({0, 0, 0, 0});
             OpenGL::render_end();
 
+            wlr_renderer_scissor(core->renderer, NULL);
             tr->transform->render_with_damage(last_tex, obox, {0, 0, tbox.width, tbox.height}, fb);
             last_tex = fb.tex;
 
@@ -596,6 +597,8 @@ void wayfire_view_t::render_fb(pixman_region32_t* damage, const wf_framebuffer& 
         {
             auto box = wlr_box_from_pixman_box(rects[i]);
             auto sbox = get_scissor_box(output, box);
+
+            wlr_renderer_scissor(core->renderer, NULL);
             (*it)->transform->render_with_damage(last_tex, obox, sbox, fb);
 
 #ifdef WAYFIRE_GRAPHICS_DEBUG
@@ -629,7 +632,18 @@ void wayfire_view_t::add_transformer(std::unique_ptr<wf_view_transformer_t> tran
     auto tr = nonstd::make_unique<transform_t> ();
     tr->transform = std::move(transformer);
     tr->plugin_name = name;
-    transforms.push_back(std::move(tr));
+
+    auto it = transforms.begin();
+    while (it != transforms.end())
+    {
+        if ((*it)->transform->get_z_order() >= tr->transform->get_z_order()) {
+            break;
+        } else {
+            ++it;
+        }
+    }
+
+    transforms.insert(it, std::move(tr));
     damage();
 }
 
