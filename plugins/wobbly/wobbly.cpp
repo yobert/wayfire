@@ -51,24 +51,11 @@ void main()
         if (times_loaded++ > 0)
             return;
 
-        /* viewport dimensions don't matter really, we just care to get the proper GL context */
         OpenGL::render_begin();
-
-        auto vs = OpenGL::compile_shader(vertex_source, GL_VERTEX_SHADER);
-        auto fs = OpenGL::compile_shader(frag_source, GL_FRAGMENT_SHADER);
-
-        program = GL_CALL(glCreateProgram());
-        GL_CALL(glAttachShader(program, vs));
-        GL_CALL(glAttachShader(program, fs));
-        GL_CALL(glLinkProgram(program));
-
+        program = OpenGL::create_program_from_source(vertex_source, frag_source);
         uvID  = GL_CALL(glGetAttribLocation(program, "uvPosition"));
         posID = GL_CALL(glGetAttribLocation(program, "position"));
         mvpID = GL_CALL(glGetUniformLocation(program, "MVP"));
-
-        GL_CALL(glDeleteShader(vs));
-        GL_CALL(glDeleteShader(fs));
-
         OpenGL::render_end();
     }
 

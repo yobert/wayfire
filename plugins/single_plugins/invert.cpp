@@ -48,22 +48,11 @@ class wayfire_invert_screen : public wayfire_plugin_t
     void load_program()
     {
         OpenGL::render_begin();
-
-        auto vs = OpenGL::compile_shader(vertex_shader, GL_VERTEX_SHADER);
-        auto fs = OpenGL::compile_shader(fragment_shader, GL_FRAGMENT_SHADER);
-
-        program = GL_CALL(glCreateProgram());
-        GL_CALL(glAttachShader(program, vs));
-        GL_CALL(glAttachShader(program, fs));
-        GL_CALL(glLinkProgram(program));
-
-        /* won't be deleted until program is deleted */
-        GL_CALL(glDeleteShader(vs));
-        GL_CALL(glDeleteShader(fs));
+        program = OpenGL::create_program_from_source(
+            vertex_shader, fragment_shader);
 
         posID = GL_CALL(glGetAttribLocation(program, "position"));
         uvID  = GL_CALL(glGetAttribLocation(program, "uvPosition"));
-
         OpenGL::render_end();
     }
 

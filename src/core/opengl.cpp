@@ -86,6 +86,35 @@ namespace OpenGL
         return compile_shader(str.c_str(), type);
     }
 
+    GLuint create_program_from_shaders(GLuint vertex_shader,
+        GLuint fragment_shader)
+    {
+        auto result_program = GL_CALL(glCreateProgram());
+        GL_CALL(glAttachShader(result_program, vertex_shader));
+        GL_CALL(glAttachShader(result_program, fragment_shader));
+        GL_CALL(glLinkProgram(result_program));
+
+        /* won't be really deleted until program is deleted as well */
+        GL_CALL(glDeleteShader(vertex_shader));
+        GL_CALL(glDeleteShader(fragment_shader));
+
+        return result_program;
+    }
+
+    GLuint create_program_from_source(std::string vertex_source,
+        std::string frag_source)
+    {
+        return create_program_from_shaders(
+            compile_shader(vertex_source, GL_VERTEX_SHADER),
+            compile_shader(frag_source, GL_FRAGMENT_SHADER));
+    }
+
+    GLuint create_program(std::string vertex_path, std::string frag_path)
+    {
+        return create_program_from_shaders(
+            load_shader(vertex_path, GL_VERTEX_SHADER),
+            load_shader(frag_path, GL_FRAGMENT_SHADER));
+    }
 
     void init()
     {
@@ -93,22 +122,13 @@ namespace OpenGL
 
         // enable_gl_synchronuous_debug()
         std::string shader_path = INSTALL_PREFIX "/share/wayfire/shaders";
-        GLuint vss = load_shader(shader_path + "/vertex.glsl", GL_VERTEX_SHADER);
-        GLuint fss = load_shader(shader_path + "/frag.glsl", GL_FRAGMENT_SHADER);
-
-        program.id = GL_CALL(glCreateProgram());
-
-        GL_CALL(glAttachShader(program.id, vss));
-        GL_CALL(glAttachShader(program.id, fss));
-        GL_CALL(glLinkProgram(program.id));
+        program.id = create_program(
+            shader_path + "/vertex.glsl", shader_path + "/frag.glsl");
 
         program.mvpID      = GL_CALL(glGetUniformLocation(program.id, "MVP"));
         program.colorID    = GL_CALL(glGetUniformLocation(program.id, "color"));
         program.position   = GL_CALL(glGetAttribLocation(program.id, "position"));
         program.uvPosition = GL_CALL(glGetAttribLocation(program.id, "uvPosition"));
-
-        GL_CALL(glDeleteShader(vss));
-        GL_CALL(glDeleteShader(fss));
 
         render_end();
     }

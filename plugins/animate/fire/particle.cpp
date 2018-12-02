@@ -46,6 +46,9 @@ ParticleSystem::ParticleSystem(int particles, ParticleIniter init_func)
 
 ParticleSystem::~ParticleSystem()
 {
+    OpenGL::render_begin();
+    GL_CALL(glDeleteProgram(program.id));
+    OpenGL::render_end();
 }
 
 int ParticleSystem::spawn(int num)
@@ -163,14 +166,8 @@ void ParticleSystem::create_program()
     /* Just load the proper context, viewport doesn't matter */
     OpenGL::render_begin();
 
-    auto vss = OpenGL::compile_shader(particle_vert_source, GL_VERTEX_SHADER);
-    auto fss = OpenGL::compile_shader(particle_frag_source, GL_FRAGMENT_SHADER);
-
-    // TODO: destroy program & shaders properly
-    program.id = GL_CALL(glCreateProgram());
-    GL_CALL(glAttachShader(program.id, vss));
-    GL_CALL(glAttachShader(program.id, fss));
-    GL_CALL(glLinkProgram(program.id));
+    program.id = OpenGL::create_program_from_source(particle_vert_source,
+        particle_frag_source);
 
     program.radius    = GL_CALL(glGetAttribLocation(program.id, "radius"));
     program.position  = GL_CALL(glGetAttribLocation(program.id, "position"));
