@@ -56,8 +56,8 @@ void handle_subsurface_created(wl_listener*, void *data)
 
 void handle_subsurface_destroyed(wl_listener*, void *data)
 {
-    auto wlr_surf = (wlr_surface*) data;
-    auto surface = wf_surface_from_void(wlr_surf->data);
+    auto wlr_surf = (wlr_subsurface*) data;
+    auto surface = wf_surface_from_void(wlr_surf->surface->data);
 
     log_error ("subsurface destroyed %p", wlr_surf);
 
@@ -218,8 +218,9 @@ void wayfire_surface_t::map(wlr_surface *surface)
     /* map by default if this is a subsurface, only toplevels/popups have map/unmap events */
     if (wlr_surface_is_subsurface(surface))
     {
+        auto sub = wlr_subsurface_from_wlr_surface(surface);
         destroy.notify = handle_subsurface_destroyed;
-        wl_signal_add(&surface->events.destroy, &destroy);
+        wl_signal_add(&sub->events.destroy, &destroy);
     }
 
     surface->data = this;
@@ -241,6 +242,7 @@ void wayfire_surface_t::unmap()
     assert(this->surface);
     damage();
 
+    this->surface->data = NULL;
     this->surface = nullptr;
     emit_map_state_change(this);
 
