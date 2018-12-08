@@ -75,8 +75,16 @@ struct wf_output_damage
         return r;
     }
 
-    void swap_buffers(timespec *when, const wf_region& swap_damage)
+    void swap_buffers(timespec *when, wf_region& swap_damage)
     {
+        int w, h;
+        wlr_output_transformed_resolution(output, &w, &h);
+
+        wl_output_transform transform =
+            wlr_output_transform_invert(output->transform);
+        wlr_region_transform(swap_damage.to_pixman(), swap_damage.to_pixman(),
+            transform, w, h);
+
         wlr_output_damage_swap_buffers(damage_manager, when,
             const_cast<wf_region&> (swap_damage).to_pixman());
         frame_damage.clear();
