@@ -194,7 +194,7 @@ void wayfire_mirror_view_t::take_snapshot()
     fb.viewport_height = scaled_height;
     fb.scale = scale;
 
-    original_view->render_fb(fb.get_scissor_region(), fb);
+    original_view->render_fb(fb.get_damage_region(), fb);
 }
 
 wf_point wayfire_mirror_view_t::get_output_position()

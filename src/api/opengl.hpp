@@ -77,10 +77,6 @@ struct wf_framebuffer_base : public noncopyable_t
      * There is no need to call reset() after release() */
     void reset();
 
-    /* Returns a region which corresponds to the scissor that needs to be set
-     * to redraw the whole framebuffer */
-    wf_region get_scissor_region() const;
-
     private:
     void copy_state(wf_framebuffer_base&& other);
 };
@@ -117,6 +113,10 @@ struct wf_framebuffer : public wf_framebuffer_base
      * The given box is in damage coordinates, e.g relative to the output's
      * framebuffer before rotation */
     wlr_box framebuffer_box_from_damage_box(wlr_box box) const;
+
+    /* Returns a region in damage coordinate system which corresponds to the
+     * whole area of the framebuffer */
+    wf_region get_damage_region() const;
 };
 
 namespace OpenGL

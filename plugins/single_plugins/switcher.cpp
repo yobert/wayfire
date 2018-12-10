@@ -573,7 +573,7 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         transform->color[3] = duration.progress(sv.attribs.alpha);
         sv.view->render_fb(
-            output->render->get_target_framebuffer().get_scissor_region(),
+            output->render->get_target_framebuffer().get_damage_region(),
             output->render->get_target_framebuffer());
 
         transform->translation = glm::mat4();
@@ -590,7 +590,7 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         dim_background(background_dim_duration.progress());
         for (auto view : get_background_views())
-            view->render_fb(fb.get_scissor_region(), fb);
+            view->render_fb(fb.get_damage_region(), fb);
 
         /* Render in the reverse order because we don't use depth testing */
         auto it = views.rbegin();
@@ -601,7 +601,7 @@ class WayfireSwitcher : public wayfire_plugin_t
         }
 
         for (auto view : get_overlay_views())
-            view->render_fb(fb.get_scissor_region(), fb);
+            view->render_fb(fb.get_damage_region(), fb);
 
         if (!duration.running())
         {

@@ -524,7 +524,8 @@ void wayfire_view_t::take_snapshot()
     OpenGL::clear({0, 0, 0, 0});
     OpenGL::render_end();
 
-    auto full_region = offscreen_buffer.get_scissor_region();
+    wf_region full_region{{0, 0, offscreen_buffer.viewport_width,
+        offscreen_buffer.viewport_height}};
     for_each_surface([=] (wayfire_surface_t *surface, int x, int y)
     {
         surface->simple_render(offscreen_buffer,

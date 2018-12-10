@@ -360,11 +360,6 @@ void wf_framebuffer_base::reset()
     viewport_width = viewport_height = 0;
 }
 
-wf_region wf_framebuffer_base::get_scissor_region() const
-{
-    return wf_region{{0, 0, viewport_width, viewport_height}};
-}
-
 wlr_box wf_framebuffer::framebuffer_box_from_damage_box(wlr_box box) const
 {
     if (has_nonstandard_transform)
@@ -402,6 +397,11 @@ wlr_box wf_framebuffer::damage_box_from_geometry_box(wlr_box box) const
 wlr_box wf_framebuffer::framebuffer_box_from_geometry_box(wlr_box box) const
 {
     return framebuffer_box_from_damage_box(damage_box_from_geometry_box(box));
+}
+
+wf_region wf_framebuffer::get_damage_region() const
+{
+    return damage_box_from_geometry_box({0, 0, geometry.width, geometry.height});
 }
 
 #define WF_PI 3.141592f
