@@ -192,6 +192,7 @@ void wayfire_mirror_view_t::take_snapshot()
     fb.geometry = obox;
     fb.viewport_width = scaled_width;
     fb.viewport_height = scaled_height;
+    fb.scale = scale;
 
     original_view->render_fb(fb.get_scissor_region(), fb);
 }
