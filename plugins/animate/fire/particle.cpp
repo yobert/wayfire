@@ -38,7 +38,7 @@ ParticleSystem::ParticleSystem(int particles, ParticleIniter init_func)
     this->pinit_func = init_func;
 
     resize(particles);
-    clock_gettime(CLOCK_MONOTONIC, &last_update);
+    last_update_msec = get_current_time();
     create_program();
 
     particles_alive.store(0);
@@ -144,12 +144,9 @@ void ParticleSystem::exec_worker_threads(std::function<void(int, int)> spawn_wor
 
 void ParticleSystem::update()
 {
-    timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-
     // FIXME: don't hardcode 60FPS
-    float time = (timespec_to_msec(now) - timespec_to_msec(last_update)) / 16.0;
-    last_update = now;
+    float time = (get_current_time() - last_update_msec) / 16.0;
+    last_update_msec = get_current_time();
 
     exec_worker_threads([=] (int start, int end) {
         update_worker(time, start, end);

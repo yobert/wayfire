@@ -129,13 +129,6 @@ extern "C"
     }
 }
 
-static uint32_t get_time()
-{
-    timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return timespec_to_msec(ts);
-}
-
 class wf_wobbly : public wf_view_transformer_t
 {
     wayfire_view view;
@@ -173,7 +166,7 @@ class wf_wobbly : public wf_view_transformer_t
         model->v = NULL;
         model->uv = NULL;
 
-        last_frame = get_time();
+        last_frame = get_current_time();
         wobbly_init(model.get());
 
         pre_hook = [=] () {
@@ -237,7 +230,7 @@ class wf_wobbly : public wf_view_transformer_t
         if (snapped_geometry.width <= 0)
             resize(bbox.width, bbox.height);
 
-        auto now = get_time();
+        auto now = get_current_time();
         wobbly_prepare_paint(model.get(), now - last_frame);
         last_frame = now;
 
