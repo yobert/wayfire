@@ -146,6 +146,9 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 
 void input_manager::handle_pointer_motion(wlr_event_pointer_motion *ev)
 {
+    if (input_grabbed() && active_grab->callbacks.pointer.relative_motion)
+        active_grab->callbacks.pointer.relative_motion(ev);
+
     wlr_cursor_move(cursor->cursor, ev->device, ev->delta_x, ev->delta_y);
     update_cursor_position(ev->time_msec);
 }
@@ -153,7 +156,7 @@ void input_manager::handle_pointer_motion(wlr_event_pointer_motion *ev)
 void input_manager::handle_pointer_motion_absolute(wlr_event_pointer_motion_absolute *ev)
 {
     wlr_cursor_warp_absolute(cursor->cursor, ev->device, ev->x, ev->y);
-    update_cursor_position(ev->time_msec);;
+    update_cursor_position(ev->time_msec);
 }
 
 void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
