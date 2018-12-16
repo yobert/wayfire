@@ -51,10 +51,11 @@ namespace OpenGL
         GL_CALL(glShaderSource(shader, 1, &c_src, NULL));
 
         int s;
-        char b1[10000];
+#define LENGTH 1024 * 128
+        char b1[LENGTH];
         GL_CALL(glCompileShader(shader));
         GL_CALL(glGetShaderiv(shader, GL_COMPILE_STATUS, &s));
-        GL_CALL(glGetShaderInfoLog(shader, 10000, NULL, b1));
+        GL_CALL(glGetShaderInfoLog(shader, LENGTH, NULL, b1));
 
         if (s == GL_FALSE)
         {
