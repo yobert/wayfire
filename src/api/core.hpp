@@ -115,7 +115,12 @@ class wayfire_core : public wf_object_base
 
         uint32_t get_keyboard_modifiers();
 
+        /* Set the cursor to the given name from the cursor theme, if available */
         void set_cursor(std::string name);
+        /* Hides the cursor, until something sets it up again, for ex. by set_cursor() */
+        void hide_cursor();
+        /* Sends an absolute motion event. x and y should be passed in global coordinates */
+        void warp_cursor(int x, int y);
 
         /* no such coordinate will ever realistically be used for input */
         static const int invalid_coordinate = -123456789;

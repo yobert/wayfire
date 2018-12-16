@@ -253,6 +253,17 @@ void wf_cursor::set_cursor(std::string name)
     wlr_xcursor_manager_set_cursor_image(xcursor, name.c_str(), cursor);
 }
 
+void wf_cursor::hide_cursor()
+{
+    wlr_cursor_set_surface(cursor, NULL, 0, 0);
+}
+
+void wf_cursor::warp_cursor(int x, int y)
+{
+    wlr_cursor_warp(cursor, NULL, x, y);
+    core->input->update_cursor_position(get_current_time());
+}
+
 void wf_cursor::set_cursor(wlr_seat_pointer_request_set_cursor_event *ev)
 {
     auto focused_surface = ev->seat_client->seat->pointer_state.focused_surface;
