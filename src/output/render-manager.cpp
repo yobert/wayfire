@@ -715,7 +715,7 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     {
         wlr_box damage = wlr_box_from_pixman_box(rect);
         fb.scissor(fb.framebuffer_box_from_damage_box(damage));
-        OpenGL::clear({0, 0, 0, 1}, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        OpenGL::clear(stream->background, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
     OpenGL::render_end();
 

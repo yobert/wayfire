@@ -27,6 +27,8 @@ struct wf_workspace_stream
     bool running = false;
 
     float scale_x, scale_y;
+    /* The background color of the stream, when there is no view above it */
+    wf_color background = {0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 enum wf_output_effect_type
