@@ -148,7 +148,7 @@ class wf_kawase_blur : public wf_blur_base
 
     virtual int calculate_blur_radius()
     {
-        return pow(2, (wf_blur_base::iterations_opt->as_int() + 2) * offset_opt->as_double() * degrade_opt->as_int());
+        return pow(2, iterations_opt->as_int() + 1) * offset_opt->as_double() * degrade_opt->as_int();
     }
 };
 

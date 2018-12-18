@@ -4,6 +4,7 @@
 
 #include <png.h>
 #include <stdint.h>
+#include <unistd.h>
 #include <jpeglib.h>
 #include <jerror.h>
 #include <cstdio>
@@ -14,7 +15,7 @@
 #define TEXTURE_LOAD_ERROR 0
 
 namespace image_io {
-    using Loader = std::function<GLuint(const char *, ulong&, ulong&)>;
+    using Loader = std::function<bool(const char *, GLuint)>;
     using Writer = std::function<void(const char *name, uint8_t *pixels, ulong, ulong)>;
     namespace {
         std::unordered_map<std::string, Loader> loaders;
@@ -23,8 +24,7 @@ namespace image_io {
 
     /* All backend functions are taken from the internet.
      * If you want to be credited, contact me */
-
-    GLuint texture_from_png(const char *filename, ulong& w, ulong& h)
+    bool texture_from_png(const char *filename, GLuint target)
     {
         FILE *fp = fopen(filename, "rb");
         int width, height;
@@ -35,14 +35,14 @@ namespace image_io {
 
         png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
         if(!png)
-            return TEXTURE_LOAD_ERROR;;
+            return false;
 
         png_infop infos = png_create_info_struct(png);
         if(!infos)
-            return TEXTURE_LOAD_ERROR;
+            return false;
 
         if(setjmp(png_jmpbuf(png)))
-            return TEXTURE_LOAD_ERROR;
+            return false;
 
         png_init_io(png, fp);
         png_read_info(png, infos);
@@ -51,12 +51,6 @@ namespace image_io {
         height     = png_get_image_height(png, infos);
         color_type = png_get_color_type(png, infos);
         bit_depth  = png_get_bit_depth(png, infos);
-
-        w = width;
-        h = height;
-
-        // Read any color_type into 8bit depth, RGBA format.
-        // See http://www.libpng.org/pub/png/libpng-manual.txt
 
         if(bit_depth == 16)
             png_set_strip_16(png);
@@ -92,20 +86,14 @@ namespace image_io {
         }
 
         png_read_image(png, row_pointers);
-
-        GLuint texture;
-        GL_CALL(glGenTextures(1, &texture));
-        GL_CALL(glBindTexture(GL_TEXTURE_2D, texture));
-
-        GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
+        GL_CALL(glTexImage2D(target, 0, GL_RGBA, width, height, 0,
                              GL_RGBA, GL_UNSIGNED_BYTE, (GLvoid *) data));
 
         png_destroy_read_struct(&png, &infos, NULL);
         delete[] row_pointers;
 
         fclose(fp);
-
-        return texture;
+        return true;
     }
 
     void texture_to_png(const char *name, uint8_t *pixels, int w, int h)
@@ -152,11 +140,9 @@ namespace image_io {
         delete[] rows;
     }
 
-    GLuint texture_from_jpeg(const char *FileName, unsigned long& x, unsigned long& y)
+    bool texture_from_jpeg(const char *FileName, GLuint target)
     {
-        unsigned int texture_id;
         unsigned long data_size;
-        int channels;
         unsigned char *rowptr[1];
         unsigned char *jdata;
         struct jpeg_decompress_struct infot;
@@ -169,17 +155,14 @@ namespace image_io {
         if(!file)
         {
             log_error("failed to read JPEG file %s", FileName);
-            return 0;
+            return false;
         }
 
         jpeg_stdio_src(&infot, file);
         jpeg_read_header(&infot, TRUE);
         jpeg_start_decompress(&infot);
 
-        x = infot.output_width;
-        y = infot.output_height;
-        channels = infot.num_components;
-        data_size = x * y * 3;
+        data_size = infot.output_width * infot.output_height * 3;
 
         jdata = new unsigned char[data_size];
         while (infot.output_scanline < infot.output_height) {
@@ -189,21 +172,28 @@ namespace image_io {
 
         jpeg_finish_decompress(&infot);
 
-        GL_CALL(glGenTextures(1,&texture_id));
-        GL_CALL(glBindTexture(GL_TEXTURE_2D, texture_id));
-        GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, 0, GL_RGB, GL_UNSIGNED_BYTE, jdata));
+        GL_CALL(glTexImage2D(target, 0, GL_RGB,
+                infot.output_width, infot.output_height,
+                0, GL_RGB, GL_UNSIGNED_BYTE, jdata));
 
         fclose(file);
         delete[] jdata;
-        return texture_id;
+
+        return true;
     }
 
-    GLuint load_from_file(std::string name, ulong& w, ulong& h)
+    bool load_from_file(std::string name, GLuint target)
     {
+        if (access(name.c_str(), F_OK) == -1) {
+            if (!name.empty())
+                log_error("%s() cannot access \"%s\"", __func__, name.c_str());
+            return false;
+        }
+
         int len = name.length();
         if (len < 4 || name[len - 4] != '.') {
             log_error("load_from_file() called with file without extension or with invalid extension!");
-            return -1;
+            return false;
         }
 
         auto ext = name.substr(len - 3, 3);
@@ -213,9 +203,9 @@ namespace image_io {
         auto it = loaders.find(ext);
         if (it == loaders.end()) {
             log_error("load_from_file() called with unsupported extension %s", ext.c_str());
-            return -1;
+            return false;
         } else {
-            return it->second(name.c_str(), w, h);
+            return it->second(name.c_str(), target);
         }
     }
 

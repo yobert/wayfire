@@ -62,7 +62,7 @@ class ParticleSystem
         ParticleSystem() = delete;
 
         ParticleIniter pinit_func;
-        timespec last_update;
+        uint32_t last_update_msec;
 
         std::atomic<int> particles_alive;
         std::vector<Particle> ps;

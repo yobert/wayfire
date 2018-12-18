@@ -108,4 +108,7 @@ pixman_box32_t pixman_box_from_wlr_box(const wlr_box& box);
 /* ------------------------- misc helper functions ------------------------- */
 int64_t timespec_to_msec(const timespec& ts);
 
+/* Returns current time in msec, using CLOCK_MONOTONIC as a base */
+uint32_t get_current_time();
+
 #endif /* end of include guard: WF_UTIL_HPP */

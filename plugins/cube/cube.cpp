@@ -3,13 +3,15 @@
 #include <core.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
-#include <animation.hpp>
 #include <nonstd/make_unique.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <img.hpp>
 
-#include <linux/input-event-codes.h>
-#include <config.h>
+#include "cube.hpp"
+#include "simple-background.hpp"
+#include "skydome.hpp"
+#include "cubemap.hpp"
 
 #define Z_OFFSET_NEAR 0.89567f
 #define Z_OFFSET_FAR  2.00000f
@@ -17,26 +19,27 @@
 #define ZOOM_MAX 10.0f
 #define ZOOM_MIN 0.1f
 
-
 #ifdef USE_GLES32
 #include <GLES3/gl32.h>
 #endif
 
 class wayfire_cube : public wayfire_plugin_t
 {
-    button_callback activate;
+    button_callback activate_binding;
+    activator_callback rotate_left, rotate_right;
     render_hook_t renderer;
+
+    /* Used to restore the pointer where the grab started */
+    wf_point saved_pointer_position;
 
     std::vector<std::unique_ptr<wf_workspace_stream>> streams;
 
     wf_option XVelocity, YVelocity, ZVelocity;
+    wf_option zoom_opt;
 
-    float side_angle;
     /* the Z camera distance so that (-1, 1) is mapped to the whole screen
      * for the given FOV */
     float identity_z_offset;
-
-    wf_point grab_pos;
 
     struct {
         GLuint id = -1;
@@ -48,27 +51,38 @@ class wayfire_cube : public wayfire_plugin_t
 #endif
     } program;
 
-    struct
-    {
-        wf_transition offset_y {0, 0}, offset_z {0, 0}, rotation {0, 0}, zoom{1, 1};
-#ifdef USE_GLES32
-        wf_transition ease_deformation{0, 0};
-#endif
-
-        bool in_exit, active = false;
-    } animation;
-
-    wf_duration duration;
-
-
-
-    glm::mat4 vp, model, view, project;
+    wf_cube_animation_attribs animation;
 
 #ifdef USE_GLES32
     wf_option use_light, use_deform;
 #endif
 
-    wf_option background_color;
+    std::string last_background_mode;
+    std::unique_ptr<wf_cube_background_base> background;
+
+    wf_option background_mode;
+
+    void reload_background()
+    {
+        if (background_mode->as_string() == last_background_mode)
+            return;
+
+        last_background_mode = background_mode->as_string();
+
+        if (last_background_mode == "simple")
+            background = nonstd::make_unique<wf_cube_simple_background> ();
+        else if (last_background_mode == "skydome")
+            background = nonstd::make_unique<wf_cube_background_skydome> (output);
+        else if (last_background_mode == "cubemap")
+            background = nonstd::make_unique<wf_cube_background_cubemap> ();
+        else
+        {
+            log_error("cube: Unrecognized background mode %s. Using default \"simple\"",
+                last_background_mode.c_str());
+            background = nonstd::make_unique<wf_cube_simple_background> ();
+        }
+    }
+
     bool tessellation_support;
 
     public:
@@ -79,31 +93,46 @@ class wayfire_cube : public wayfire_plugin_t
 
         auto section = config->get_section("cube");
 
-        XVelocity  = section->get_option("speed_spin_horiz", "0.1");
-        YVelocity  = section->get_option("speed_spin_vert",  "0.1");
+        XVelocity  = section->get_option("speed_spin_horiz", "0.01");
+        YVelocity  = section->get_option("speed_spin_vert",  "0.01");
         ZVelocity  = section->get_option("speed_zoom",       "0.05");
 
-        duration = wf_duration(section->get_option("initial_animation", "350"));
-        duration.start();
+        zoom_opt = section->get_option("zoom", "0");
 
-        background_color = section->get_option("background", "0 0 0 1");
+        animation.duration = wf_duration(section->get_option("initial_animation", "350"));
+        animation.duration.start();
+
+        background_mode = section->get_option("background_mode", "simple");
+        reload_background();
 
         auto button = section->get_option("activate", "<alt> <ctrl> BTN_LEFT");
-        activate = [=] (uint32_t, int32_t, int32_t) {
-            initiate();
+        activate_binding = [=] (uint32_t, int32_t, int32_t) {
+            input_grabbed();
         };
 
-        output->add_button(button, &activate);
+        auto key_left = section->get_option("rotate_left", "<alt> <ctrl> KEY_LEFT");
+        rotate_left = [=] () {
+            move_vp(-1);
+        };
+
+        auto key_right = section->get_option("rotate_right", "<alt> <ctrl> KEY_RIGHT");
+        rotate_right = [=] () {
+            move_vp(1);
+        };
+
+        output->add_button(button, &activate_binding);
+        output->add_activator(key_left, &rotate_left);
+        output->add_activator(key_right, &rotate_right);
 
         grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t s)
         {
             if (s == WL_POINTER_BUTTON_STATE_RELEASED)
-                input_released();
+                input_ungrabbed();
         };
 
-        grab_interface->callbacks.pointer.motion = [=] (int32_t, int32_t)
+        grab_interface->callbacks.pointer.relative_motion = [=] (wlr_event_pointer_motion* ev)
         {
-            pointer_moved();
+            pointer_moved(ev);
         };
 
         grab_interface->callbacks.pointer.axis = [=] (
@@ -112,11 +141,9 @@ class wayfire_cube : public wayfire_plugin_t
                 pointer_scrolled(ev->delta);
         };
 
-        grab_interface->callbacks.cancel = [=] ()
-        {
-            terminate();
+        grab_interface->callbacks.cancel = [=] () {
+            deactivate();
         };
-
 
 #ifdef USE_GLES32
         use_light  = section->get_option("light", "1");
@@ -124,8 +151,8 @@ class wayfire_cube : public wayfire_plugin_t
 #endif
 
         auto vw = std::get<0>(output->workspace->get_workspace_grid_size());
-        side_angle = 2 * M_PI / float(vw);
-        identity_z_offset = 0.5 / std::tan(side_angle / 2);
+        animation.side_angle = 2 * M_PI / float(vw);
+        identity_z_offset = 0.5 / std::tan(animation.side_angle / 2);
         animation.offset_z = {identity_z_offset + Z_OFFSET_NEAR,
             identity_z_offset + Z_OFFSET_NEAR};
 
@@ -139,7 +166,7 @@ class wayfire_cube : public wayfire_plugin_t
     void schedule_next_frame()
     {
         output->render->schedule_redraw();
-        output->render->damage({0, 0, 1, 1});
+        output->render->damage_whole();
     }
 
     void load_program()
@@ -154,42 +181,30 @@ class wayfire_cube : public wayfire_plugin_t
 #endif
 
         std::string shaderSrcPath;
-        if (tessellation_support)
-        {
+        if (tessellation_support) {
             shaderSrcPath = INSTALL_PREFIX "/share/wayfire/cube/shaders_3.2";
-        } else
-        {
+        } else {
             shaderSrcPath = INSTALL_PREFIX "/share/wayfire/cube/shaders_2.0";
         }
 
         program.id = GL_CALL(glCreateProgram());
         GLuint vss, fss, tcs = -1, tes = -1, gss = -1;
 
-        vss = OpenGL::load_shader(std::string(shaderSrcPath)
-                                  .append("/vertex.glsl").c_str(), GL_VERTEX_SHADER);
-
-        fss = OpenGL::load_shader(std::string(shaderSrcPath)
-                                  .append("/frag.glsl").c_str(), GL_FRAGMENT_SHADER);
-
+        /* Vertex and fragment shaders are used in both GLES 2.0 and 3.2 modes */
+        vss = OpenGL::load_shader(shaderSrcPath + "/vertex.glsl", GL_VERTEX_SHADER);
+        fss = OpenGL::load_shader(shaderSrcPath + "/frag.glsl", GL_FRAGMENT_SHADER);
         GL_CALL(glAttachShader(program.id, vss));
         GL_CALL(glAttachShader(program.id, fss));
 
         if (tessellation_support)
         {
-        tcs = OpenGL::load_shader(std::string(shaderSrcPath)
-                                  .append("/tcs.glsl").c_str(),
-                                  GL_TESS_CONTROL_SHADER);
+            tcs = OpenGL::load_shader(shaderSrcPath + "/tcs.glsl", GL_TESS_CONTROL_SHADER);
+            tes = OpenGL::load_shader(shaderSrcPath + "/tes.glsl", GL_TESS_EVALUATION_SHADER);
+            gss = OpenGL::load_shader(shaderSrcPath + "/geom.glsl", GL_GEOMETRY_SHADER);
 
-        tes = OpenGL::load_shader(std::string(shaderSrcPath)
-                                  .append("/tes.glsl").c_str(),
-                                  GL_TESS_EVALUATION_SHADER);
-
-        gss = OpenGL::load_shader(std::string(shaderSrcPath)
-                                  .append("/geom.glsl").c_str(),
-                                  GL_GEOMETRY_SHADER);
-        GL_CALL(glAttachShader(program.id, tcs));
-        GL_CALL(glAttachShader(program.id, tes));
-        GL_CALL(glAttachShader(program.id, gss));
+            GL_CALL(glAttachShader(program.id, tcs));
+            GL_CALL(glAttachShader(program.id, tes));
+            GL_CALL(glAttachShader(program.id, gss));
         }
 
         GL_CALL(glLinkProgram(program.id));
@@ -205,8 +220,6 @@ class wayfire_cube : public wayfire_plugin_t
         }
 
         program.vpID = GL_CALL(glGetUniformLocation(program.id, "VP"));
-        GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
-
         program.uvID = GL_CALL(glGetAttribLocation(program.id, "uvPosition"));
         program.posID = GL_CALL(glGetAttribLocation(program.id, "position"));
         program.modelID = GL_CALL(glGetUniformLocation(program.id, "model"));
@@ -214,8 +227,8 @@ class wayfire_cube : public wayfire_plugin_t
         if (tessellation_support)
         {
             program.defID = GL_CALL(glGetUniformLocation(program.id, "deform"));
-            program.lightID = GL_CALL(glGetUniformLocation(program.id, "light"));
             program.easeID = GL_CALL(glGetUniformLocation(program.id, "ease"));
+            program.lightID = GL_CALL(glGetUniformLocation(program.id, "light"));
         }
 
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
@@ -225,88 +238,234 @@ class wayfire_cube : public wayfire_plugin_t
         for(int i = 0; i < vw; i++)
             streams[i] = nonstd::make_unique<wf_workspace_stream>();
 
-        project = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
+        animation.projection = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
     }
 
-    void initiate()
+    /* Tries to initialize renderer, activate plugin, etc. */
+    bool activate()
     {
-        if (!animation.active)
-        {
-            if (!output->activate_plugin(grab_interface))
-                return;
+        if (output->is_plugin_active(grab_interface->name))
+            return true;
 
-            grab_interface->grab();
-            output->render->set_renderer(renderer);
-        }
+        if (!output->activate_plugin(grab_interface))
+            return false;
 
+        output->render->set_renderer(renderer);
+        grab_interface->grab();
+        return true;
+    }
+
+    int calculate_viewport_dx_from_rotation()
+    {
+        float dx = -animation.duration.progress(animation.rotation) / animation.side_angle;
+        return std::floor(dx + 0.5);
+    }
+
+    /* Disable custom rendering and deactivate plugin */
+    void deactivate()
+    {
+        output->render->reset_renderer();
+
+        grab_interface->ungrab();
+        output->deactivate_plugin(grab_interface);
+
+        /* Figure out how much we have rotated and switch workspace */
+        int size = streams.size();
+        int dvx = calculate_viewport_dx_from_rotation();
+
+        GetTuple(vx, vy, output->workspace->get_current_workspace());
+        int nvx = (vx + (dvx % size) + size) % size;
+        output->workspace->set_workspace(std::make_tuple(nvx, vy));
+
+        /* We are finished with rotation, make sure the next time cube is used
+         * it is properly reset */
+        animation.rotation = {0, 0};
+    }
+
+    /* Sets attributes target to such values that the cube effect isn't visible,
+     * i.e towards the starting(or ending) position
+     *
+     * It doesn't change rotation because that is different in different cases -
+     * for example when moved by the keyboard or with a button grab */
+    void reset_attribs()
+    {
+        animation.zoom = {animation.duration.progress(animation.zoom), 1.0};
+        animation.offset_z = {animation.duration.progress(animation.offset_z), identity_z_offset + Z_OFFSET_NEAR};
+        animation.offset_y = {animation.duration.progress(animation.offset_y), 0};
+        animation.ease_deformation = {animation.duration.progress(animation.ease_deformation), 0};
+    }
+
+    /* Start moving to a workspace to the left/right using the keyboard */
+    void move_vp(int dir)
+    {
+        if (!activate())
+            return;
+
+        /* After the rotation is done, we want to exit cube and focus the target workspace */
+        animation.in_exit = true;
+
+        /* Set up rotation target to the next workspace in the given direction,
+         * and reset other attribs */
+        reset_attribs();
+        animation.rotation = {animation.duration.progress(animation.rotation),
+            animation.rotation.end - dir * animation.side_angle};
+
+        animation.duration.start();
+        update_view_matrix();
+        schedule_next_frame();
+    }
+
+    /* Initiate with an button grab. */
+    void input_grabbed()
+    {
+        if (!activate())
+            return;
+
+        GetTuple(px, py, core->get_cursor_position());
+        saved_pointer_position = {px, py};
+        core->hide_cursor();
+
+        /* Rotations, offset_y and zoom stay as they are now, as they have been grabbed.
+         * offset_z changes to the default one.
+         *
+         * We also need to make sure the cube gets deformed */
         animation.in_exit = false;
-        animation.active = true;
+        float current_rotation = animation.duration.progress(animation.rotation);
+        float current_offset_y = animation.duration.progress(animation.offset_y);
+        float current_zoom = animation.duration.progress(animation.zoom);
 
-        animation.rotation = {duration.progress(animation.rotation), 0};
-        animation.offset_y = {duration.progress(animation.offset_y), 0};
-        animation.offset_z = {duration.progress(animation.offset_z),
-            identity_z_offset + Z_OFFSET_FAR};
-        animation.zoom = {duration.progress(animation.zoom), 1};
-        animation.ease_deformation = {0, 1};
+        animation.rotation = {current_rotation, current_rotation};
+        animation.offset_y = {current_offset_y, current_offset_y};
+        animation.offset_z = {animation.duration.progress(animation.offset_z),
+                              zoom_opt->as_double() + identity_z_offset + Z_OFFSET_NEAR};
 
-        duration.start();
+        animation.zoom = {current_zoom, current_zoom};
+        animation.ease_deformation = {animation.duration.progress(animation.ease_deformation), 1};
 
-        if (update_animation())
-            schedule_next_frame();
+        animation.duration.start();
 
-        GetTuple(px, py, output->get_cursor_position());
-        grab_pos = {px, py};
+        update_view_matrix();
+        schedule_next_frame();
     }
 
-    bool update_animation()
+    /* Mouse grab was released */
+    void input_ungrabbed()
     {
-        view = glm::lookAt(glm::vec3(0., duration.progress(animation.offset_y),
-                duration.progress(animation.offset_z)),
-            glm::vec3(0., 0., 0.),
+        core->set_cursor("default");
+        core->warp_cursor(saved_pointer_position.x, saved_pointer_position.y);
+
+        animation.in_exit = true;
+
+        /* Rotate cube so that selected workspace aligns with the output */
+        float current_rotation = animation.duration.progress(animation.rotation);
+        int dvx = calculate_viewport_dx_from_rotation();
+        animation.rotation = {current_rotation, -dvx * animation.side_angle};
+        /* And reset other attributes, again to align the workspace with the output */
+        reset_attribs();
+
+        animation.duration.start();
+
+        update_view_matrix();
+        schedule_next_frame();
+    }
+
+    /* Update the view matrix used in the next frame */
+    void update_view_matrix()
+    {
+        auto zoom_translate = glm::translate(glm::mat4(1.f),
+            glm::vec3(0.f, 0.f, -animation.duration.progress(animation.offset_z)));
+
+        auto rotation = glm::rotate(glm::mat4(1.0),
+            (float) animation.duration.progress(animation.offset_y),
+            glm::vec3(1., 0., 0.));
+
+        auto view = glm::lookAt(glm::vec3(0., 0., 0.),
+            glm::vec3(0., 0., -animation.duration.progress(animation.offset_z)),
             glm::vec3(0., 1., 0.));
 
-        return duration.running();
+        animation.view = zoom_translate * rotation * view;
+    }
+
+    void update_workspace_streams()
+    {
+        GetTuple(vx, vy, output->workspace->get_current_workspace());
+        (void) vx;
+
+        for(size_t i = 0; i < streams.size(); i++)
+        {
+            if (!streams[i]->running)
+            {
+                streams[i]->ws = std::make_tuple(i, vy);
+                output->render->workspace_stream_start(streams[i].get());
+            } else
+            {
+                output->render->workspace_stream_update(streams[i].get());
+            }
+        }
+    }
+
+    glm::mat4 calculate_vp_matrix(const wf_framebuffer& dest)
+    {
+        float zoom_factor = animation.duration.progress(animation.zoom);
+        auto scale_matrix = glm::scale(glm::mat4(1.0),
+            glm::vec3(1. / zoom_factor, 1. / zoom_factor, 1. / zoom_factor));
+
+        return dest.transform * animation.projection * animation.view * scale_matrix;
+    }
+
+    /* Calculate the base model matrix for the i-th side of the cube */
+    glm::mat4 calculate_model_matrix(int i)
+    {
+        auto model = glm::rotate(glm::mat4(1.0),
+            float(i) * animation.side_angle + float(animation.duration.progress(animation.rotation)),
+            glm::vec3(0, 1, 0));
+
+        model = glm::translate(model, glm::vec3(0, 0, identity_z_offset));
+        return model;
+    }
+
+    /* Render the sides of the cube, using the given culling mode - cw or ccw */
+    void render_cube(GLuint front_face)
+    {
+        GL_CALL(glFrontFace(front_face));
+        static const GLuint indexData[] = { 0, 1, 2, 0, 2, 3 };
+
+        GetTuple(vx, vy, output->workspace->get_current_workspace());
+        (void) vy;
+        for(size_t i = 0; i < streams.size(); i++)
+        {
+            int index = (vx + i) % streams.size();
+            GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index]->buffer.tex));
+
+            auto model = calculate_model_matrix(i);
+            GL_CALL(glUniformMatrix4fv(program.modelID, 1, GL_FALSE, &model[0][0]));
+
+            if (tessellation_support) {
+                GL_CALL(glDrawElements(GL_PATCHES, 6, GL_UNSIGNED_INT, &indexData));
+            } else {
+                GL_CALL(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, &indexData));
+            }
+        }
     }
 
     void render(const wf_framebuffer& dest)
     {
-        GetTuple(vx, vy, output->workspace->get_current_workspace());
-        for(size_t i = 0; i < streams.size(); i++) {
-            if (!streams[i]->running) {
-                streams[i]->ws = std::make_tuple(i, vy);
-                output->render->workspace_stream_start(streams[i].get());
-            } else {
-                output->render->workspace_stream_update(streams[i].get());
-            }
-        }
+        update_workspace_streams();
 
+        if (program.id == (uint)-1)
+            load_program();
+
+        reload_background();
+        background->render_frame(dest, animation);
+
+        auto vp = calculate_vp_matrix(dest);
         OpenGL::render_begin(dest);
-        OpenGL::clear(background_color->as_cached_color(),
-            GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        GL_CALL(glUseProgram(program.id));
-        float zoom_factor = duration.progress(animation.zoom);
-        glm::mat4 scale_matrix = glm::scale(glm::mat4(1.0),
-                glm::vec3(1. / zoom_factor, 1. / zoom_factor, 1. / zoom_factor));
-
-        vp = output->render->get_target_framebuffer().transform *
-            project * view * scale_matrix;
-        GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
-
-        if (tessellation_support)
-        {
-            GL_CALL(glUniform1i(program.defID, *use_deform));
-            GL_CALL(glUniform1i(program.lightID, *use_light));
-            GL_CALL(glUniform1f(program.easeID,
-                    duration.progress(animation.ease_deformation)));
-        }
 
         GLfloat vertexData[] = {
             -0.5,  0.5,
-             0.5,  0.5,
-             0.5, -0.5,
-            -0.5,  0.5,
-             0.5, -0.5,
+            0.5,  0.5,
+            0.5, -0.5,
             -0.5, -0.5
         };
 
@@ -314,118 +473,77 @@ class wayfire_cube : public wayfire_plugin_t
             0.0f, 1.0f,
             1.0f, 1.0f,
             1.0f, 0.0f,
-            0.0f, 1.0f,
-            1.0f, 0.0f,
-            0.0f, 0.0f,
+            0.0f, 0.0f
         };
 
-        GL_CALL(glVertexAttribPointer(program.posID, 2, GL_FLOAT, GL_FALSE, 0, vertexData));
-        GL_CALL(glEnableVertexAttribArray(program.posID));
-
-        GL_CALL(glVertexAttribPointer(program.uvID, 2, GL_FLOAT, GL_FALSE, 0, coordData));
-        GL_CALL(glEnableVertexAttribArray(program.uvID));
-
+        GL_CALL(glUseProgram(program.id));
         GL_CALL(glEnable(GL_DEPTH_TEST));
         GL_CALL(glDepthFunc(GL_LESS));
 
-        for(size_t i = 0; i < streams.size(); i++)
+        GL_CALL(glVertexAttribPointer(program.posID, 2, GL_FLOAT, GL_FALSE, 0, vertexData));
+        GL_CALL(glVertexAttribPointer(program.uvID, 2, GL_FLOAT, GL_FALSE, 0, coordData));
+
+        GL_CALL(glEnableVertexAttribArray(program.posID));
+        GL_CALL(glEnableVertexAttribArray(program.uvID));
+
+        GL_CALL(glUniformMatrix4fv(program.vpID, 1, GL_FALSE, &vp[0][0]));
+        if (tessellation_support)
         {
-            int index = (vx + i) % streams.size();
-            GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index]->buffer.tex));
-            GL_CALL(glActiveTexture(GL_TEXTURE0));
-
-            model = glm::rotate(glm::mat4(1.0),
-                float(i) * side_angle + float(duration.progress(animation.rotation)),
-                glm::vec3(0, 1, 0));
-
-            model = glm::translate(model, glm::vec3(0, 0, identity_z_offset));
-            GL_CALL(glUniformMatrix4fv(program.modelID, 1, GL_FALSE, &model[0][0]));
-
-            if (tessellation_support) {
-                GL_CALL(glDrawArrays(GL_PATCHES, 0, 6));
-            } else {
-                GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
-            }
+            GL_CALL(glUniform1i(program.defID, *use_deform));
+            GL_CALL(glUniform1i(program.lightID, *use_light));
+            GL_CALL(glUniform1f(program.easeID,
+                    animation.duration.progress(animation.ease_deformation)));
         }
 
-        GL_CALL(glUseProgram(0));
+        /* We render the cube in two stages, based on winding.
+         * By using two stages, we ensure that we first render the cube sides
+         * that are on the back, and then we render those at the front, so we
+         * don't have to use depth testing and we also can support alpha cube. */
+        GL_CALL(glEnable(GL_CULL_FACE));
+        render_cube(GL_CCW);
+        render_cube(GL_CW);
+        GL_CALL(glDisable(GL_CULL_FACE));
+
         GL_CALL(glDisable(GL_DEPTH_TEST));
+        GL_CALL(glUseProgram(0));
         GL_CALL(glDisableVertexAttribArray(program.posID));
         GL_CALL(glDisableVertexAttribArray(program.uvID));
 
-        OpenGL::render_end();
-
-        bool result = update_animation();
-        if (result)
+        update_view_matrix();
+        if (animation.duration.running())
             schedule_next_frame();
 
-        if (animation.in_exit && !result)
-            terminate();
+        if (animation.in_exit && !animation.duration.running())
+            deactivate();
     }
 
-    void input_released()
+    void pointer_moved(wlr_event_pointer_motion* ev)
     {
-        int size = streams.size();
-
-        float dx = -duration.progress(animation.rotation) / side_angle;
-        int dvx = std::floor(dx + 0.5);
-
-        GetTuple(vx, vy, output->workspace->get_current_workspace());
-        int nvx = (vx + (dvx % size) + size) % size;
-        output->workspace->set_workspace(std::make_tuple(nvx, vy));
-
-
-        animation.in_exit = true;
-        animation.zoom = {duration.progress(animation.zoom), 1.0};
-        animation.offset_z = {duration.progress(animation.offset_z), identity_z_offset + Z_OFFSET_NEAR};
-        animation.offset_y = {duration.progress(animation.offset_y), 0};
-        animation.rotation = {duration.progress(animation.rotation) + 1.0f * dvx * side_angle, 0};
-        animation.ease_deformation = {duration.progress(animation.ease_deformation), 0};
-
-        duration.start();
-
-        update_animation();
-        schedule_next_frame();
-    }
-
-    void terminate()
-    {
-        animation.active = false;
-        animation.in_exit = false;
-
-        output->render->reset_renderer();
-        output->deactivate_plugin(grab_interface);
-
-        auto size = streams.size();
-        for (uint i = 0; i < size; i++)
-            output->render->workspace_stream_stop(streams[i].get());
-    }
-
-    void pointer_moved()
-    {
-        GetTuple(cx, cy, output->get_cursor_position());
         if (animation.in_exit)
             return;
 
-        int xdiff = grab_pos.x - cx;
-        int ydiff = grab_pos.y - cy;
+        double xdiff = ev->delta_x;
+        double ydiff = ev->delta_y;
 
-        animation.zoom = {duration.progress(animation.zoom), animation.zoom.end};
+        animation.zoom = {animation.duration.progress(animation.zoom), animation.zoom.end};
 
-        float current_off_y = duration.progress(animation.offset_y);
-        animation.offset_y = {current_off_y, current_off_y - ydiff * YVelocity->as_cached_double()} ;
-        animation.offset_z = {duration.progress(animation.offset_z), animation.offset_z.end};
+        double current_off_y = animation.duration.progress(animation.offset_y);
+        double off_y = current_off_y + ydiff * YVelocity->as_cached_double();
 
-        float current_rotation = duration.progress(animation.rotation);
+        off_y = std::min(std::max(off_y, -1.5), 1.5); // clamp between -1.5 and 1.5
+
+        animation.offset_y = {current_off_y, off_y};
+        animation.offset_z = {animation.duration.progress(animation.offset_z), animation.offset_z.end};
+
+        float current_rotation = animation.duration.progress(animation.rotation);
         animation.rotation = {current_rotation,
-            current_rotation - xdiff * XVelocity->as_cached_double()};
+            current_rotation + xdiff * XVelocity->as_cached_double()};
 
-        animation.ease_deformation = {duration.progress(animation.ease_deformation),
+        animation.ease_deformation = {animation.duration.progress(animation.ease_deformation),
             animation.ease_deformation.end};
 
-        duration.start();
+        animation.duration.start();
 
-        grab_pos = {cx, cy};
         schedule_next_frame();
     }
 
@@ -434,19 +552,19 @@ class wayfire_cube : public wayfire_plugin_t
         if (animation.in_exit)
             return;
 
-        animation.offset_y = {duration.progress(animation.offset_y), animation.offset_y.end} ;
-        animation.offset_z = {duration.progress(animation.offset_z), animation.offset_z.end};
-        animation.rotation = {duration.progress(animation.rotation), animation.rotation.end};
-        animation.ease_deformation = {duration.progress(animation.ease_deformation), animation.ease_deformation.end};
+        animation.offset_y = {animation.duration.progress(animation.offset_y), animation.offset_y.end};
+        animation.offset_z = {animation.duration.progress(animation.offset_z), animation.offset_z.end};
+        animation.rotation = {animation.duration.progress(animation.rotation), animation.rotation.end};
+        animation.ease_deformation = {animation.duration.progress(animation.ease_deformation), animation.ease_deformation.end};
 
-        float target_zoom = duration.progress(animation.zoom);
+        float target_zoom = animation.duration.progress(animation.zoom);
         float start_zoom = target_zoom;
 
         target_zoom +=  std::min(std::pow(target_zoom, 1.5f), ZOOM_MAX) * amount * ZVelocity->as_cached_double();
         target_zoom = std::min(std::max(target_zoom, ZOOM_MIN), ZOOM_MAX);
         animation.zoom = {start_zoom, target_zoom};
 
-        duration.start();
+        animation.duration.start();
 
         schedule_next_frame();
     }
@@ -454,14 +572,14 @@ class wayfire_cube : public wayfire_plugin_t
     void fini()
     {
         if (output->is_plugin_active(grab_interface->name))
-            terminate();
+            deactivate();
 
         OpenGL::render_begin();
         for (size_t i = 0; i < streams.size(); i++)
             streams[i]->buffer.release();
         OpenGL::render_end();
 
-        output->rem_binding(&activate);
+        output->rem_binding(&activate_binding);
     }
 };
 

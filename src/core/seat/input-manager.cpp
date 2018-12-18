@@ -110,13 +110,6 @@ void input_manager::handle_input_destroyed(wlr_input_device *dev)
     update_capabilities();
 }
 
-static uint64_t get_input_time()
-{
-    timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-}
-
 input_manager::input_manager()
 {
     input_device_created.notify = handle_new_input_cb;
@@ -127,12 +120,12 @@ input_manager::input_manager()
 
     surface_map_state_changed = [=] (signal_data *data)
     {
-        update_cursor_position(get_input_time(), false);
+        update_cursor_position(get_current_time(), false);
 
         if (our_touch)
         {
             for (auto f : our_touch->gesture_recognizer.current)
-                handle_touch_motion(get_input_time(), f.first, f.second.sx, f.second.sy);
+                handle_touch_motion(get_current_time(), f.first, f.second.sx, f.second.sy);
         }
     };
 
@@ -195,7 +188,7 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
 static void idle_update_cursor(void *data)
 {
     auto input = (input_manager*) data;
-    input->update_cursor_position(get_input_time(), false);
+    input->update_cursor_position(get_current_time(), false);
 }
 
 void input_manager::ungrab_input()

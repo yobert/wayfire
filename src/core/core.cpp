@@ -215,6 +215,16 @@ void wayfire_core::set_cursor(std::string name)
     input->cursor->set_cursor(name);
 }
 
+void wayfire_core::hide_cursor()
+{
+    input->cursor->hide_cursor();
+}
+
+void wayfire_core::warp_cursor(int x, int y)
+{
+    input->cursor->warp_cursor(x, y);
+}
+
 const int wayfire_core::invalid_coordinate;
 std::tuple<int, int> wayfire_core::get_cursor_position()
 {

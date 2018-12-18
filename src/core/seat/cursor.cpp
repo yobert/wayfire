@@ -146,6 +146,9 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 
 void input_manager::handle_pointer_motion(wlr_event_pointer_motion *ev)
 {
+    if (input_grabbed() && active_grab->callbacks.pointer.relative_motion)
+        active_grab->callbacks.pointer.relative_motion(ev);
+
     wlr_cursor_move(cursor->cursor, ev->device, ev->delta_x, ev->delta_y);
     update_cursor_position(ev->time_msec);
 }
@@ -153,7 +156,7 @@ void input_manager::handle_pointer_motion(wlr_event_pointer_motion *ev)
 void input_manager::handle_pointer_motion_absolute(wlr_event_pointer_motion_absolute *ev)
 {
     wlr_cursor_warp_absolute(cursor->cursor, ev->device, ev->x, ev->y);
-    update_cursor_position(ev->time_msec);;
+    update_cursor_position(ev->time_msec);
 }
 
 void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
@@ -248,6 +251,17 @@ void wf_cursor::set_cursor(std::string name)
         name = "left_ptr";
 
     wlr_xcursor_manager_set_cursor_image(xcursor, name.c_str(), cursor);
+}
+
+void wf_cursor::hide_cursor()
+{
+    wlr_cursor_set_surface(cursor, NULL, 0, 0);
+}
+
+void wf_cursor::warp_cursor(int x, int y)
+{
+    wlr_cursor_warp(cursor, NULL, x, y);
+    core->input->update_cursor_position(get_current_time());
 }
 
 void wf_cursor::set_cursor(wlr_seat_pointer_request_set_cursor_event *ev)

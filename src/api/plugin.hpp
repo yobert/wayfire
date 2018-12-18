@@ -78,6 +78,7 @@ struct wayfire_grab_interface_t {
             std::function<void(wlr_event_pointer_axis*)> axis;
             std::function<void(uint32_t, uint32_t)> button; // button, state
             std::function<void(int32_t, int32_t)> motion;
+            std::function<void(wlr_event_pointer_motion*)> relative_motion;
         } pointer;
 
         struct {

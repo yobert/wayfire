@@ -20,6 +20,9 @@ struct wf_cursor
     void set_cursor(wlr_seat_pointer_request_set_cursor_event *ev);
     void set_cursor(std::string name);
 
+    void hide_cursor();
+    void warp_cursor(int x, int y);
+
     void init_xcursor();
 
     wl_listener button, motion, motion_absolute, axis;
