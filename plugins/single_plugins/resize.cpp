@@ -155,7 +155,7 @@ class wayfire_resize : public wayfire_plugin_t
     uint32_t calculate_edges(wf_geometry vg, int sx, int sy)
     {
         int view_x = sx - vg.x;
-        int view_y = sx - vg.y;
+        int view_y = sy - vg.y;
 
         uint32_t edges = 0;
         if (view_x < vg.width / 2) {
