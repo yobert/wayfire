@@ -280,6 +280,9 @@ class wayfire_cube : public wayfire_plugin_t
         /* We are finished with rotation, make sure the next time cube is used
          * it is properly reset */
         animation.rotation = {0, 0};
+
+        for (auto& stream : streams)
+            output->render->workspace_stream_stop(stream.get());
     }
 
     /* Sets attributes target to such values that the cube effect isn't visible,
