@@ -247,3 +247,20 @@ activate = <alt> BTN_RIGHT
 [decoration]
 # can also be monospace, etc.
 font = serif
+
+# Blur windows, disabled by default because it can be resource-intensive
+[blur]
+# blur method, use kawase, box, gaussian or bokeh
+method = kawase
+# normal mode means all windows get blurred, otherwise in toggle mode you can
+# alt+super+left click to toggle blur for a specific window
+mode = normal
+
+# each plugin has its own set of <method>_{offset, degrade, iterations} options,
+# here they are listed only for kawase
+
+# different combinations result in various levels of blur strength,
+# performance and visual appearance.
+kawase_offset = 2
+kawase_degrade = 3
+kawase_iterations = 3
