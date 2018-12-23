@@ -4,7 +4,7 @@
 
 [![Join the chat at https://gitter.im/Wayfire-WM/Lobby](https://badges.gitter.im/Wayfire-WM/Lobby.svg)](https://gitter.im/Wayfire-WM/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) or join #wayfire at freenode.net
 
-Wayfire is a wayland compositor based on wlroots. It aims to create a customizable, extendable and lightweight environment without sacrificing its appearance. If you want to gain a better impression at what it can do, see [screenshots](https://github.com/ammen99/wayfire/wiki/Screenshots), [list of plugins](https://github.com/ammen99/wayfire/wiki/Configuration-&-Plugins)
+Wayfire is a wayland compositor based on wlroots. It aims to create a customizable, extendable and lightweight environment without sacrificing its appearance. If you want to gain a better impression at what it can do, see the demo videos on youtube: [link](https://www.youtube.com/playlist?list=PLb7YRKEhWEBUIoT-a29UoJW9mhfzjpNle)
 
 # Build and install
 
