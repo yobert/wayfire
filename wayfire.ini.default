@@ -9,15 +9,11 @@ vwidth = 3
 vheight = 2
 
 # apps that should run on startup. any backgrounds/panels belong here
-# it is recommended that you don't use the built-in panel/background,
-# as they are just demos. Consider using https://github.com/WayfireWM/wf-shell
-
+# by default, wayfire tries to run the clients from
+# https://github.com/WayfireWM/wf-shell
 [autostart]
-builtin_bg = /usr/lib/wayfire/wayfire-shell-background -i path_to_your_image
-builtin_panel = /usr/lib/wayfire/wayfire-shell-panel
-
-#bg = /usr/bin/wf-background
-#shell = /usr/bin/wf-panel
+background = /usr/bin/wf-background
+panel = /usr/bin/wf-panel
 
 # run a certain application when the user presses a keybinding
 # useful to setup a screenshot, brightness control, sound control bindings
