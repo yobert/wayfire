@@ -73,7 +73,6 @@ add_project_arguments(['-Wno-pedantic', '-Wno-unused-parameter'], language: 'cpp
 subdir('proto')
 subdir('src')
 subdir('plugins')
-subdir('shell')
 
 install_subdir('shaders', install_dir: 'share/wayfire')
 
