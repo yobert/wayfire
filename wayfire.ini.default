@@ -169,7 +169,7 @@ slot_tr = <ctrl> <alt> KEY_KP9
 
 # move windows around
 [move]
-activate = <alt> BTN_LEFT
+activate = <super> BTN_LEFT
 enable_snap = 1
 enable_snap_off = 1
 snap_threshold = 10
@@ -183,14 +183,14 @@ next_output_with_win = <super> <shift> KEY_T
 
 # resize a window
 [resize]
-activate = <super> BTN_LEFT
+activate = <super> <shift> BTN_LEFT
 
 # rotate the screen
 [rotator]
-rotate_down = <ctrl> <alt> KEY_DOWN
-rotate_left = <ctrl> <alt> KEY_LEFT
-rotate_right = <ctrl> <alt> KEY_RIGHT
-rotate_up = <ctrl> <alt> KEY_UP
+rotate_down = <ctrl> <alt> <shift> KEY_DOWN
+rotate_left = <ctrl> <alt> <shift> KEY_LEFT
+rotate_right = <ctrl> <alt> <shift> KEY_RIGHT
+rotate_up = <ctrl> <alt> <shift> KEY_UP
 
 # change active window with an animation
 [switcher]

@@ -34,7 +34,7 @@ class wayfire_resize : public wayfire_plugin_t
         grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY | WF_ABILITY_GRAB_INPUT;
 
         auto button = config->get_section("resize")
-            ->get_option("activate", "<super> BTN_LEFT");
+            ->get_option("activate", "<super> <shift> BTN_LEFT");
 
         activate_binding = [=] (uint32_t, int, int)
         {
@@ -57,7 +57,7 @@ class wayfire_resize : public wayfire_plugin_t
         };
 
         output->add_button(button, &activate_binding);
-        output->add_touch(new_static_option("<super>"), &touch_activate_binding);
+        output->add_touch(new_static_option("<super> <shift>"), &touch_activate_binding);
 
         grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t state)
         {
