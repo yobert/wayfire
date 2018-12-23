@@ -127,14 +127,27 @@ mode = cascade
 # show the current workspace row as a cube
 [cube]
 activate = <ctrl> <alt> BTN_LEFT
-background = 0.1 0.1 0.1 1.0
+# deform values 1 and 2 are supported only with OpenGL ES 3.2 support
+deform = 0
+zoom = 3.0
 speed_zoom = 0.070000
 speed_spin_horiz = 0.020000
 speed_spin_vert = 0.020000
 initial_animation = 586.000000
 
-# set deform to 1 or 2 if you have OpenGL ES 3.2
+# can be simple, skydome, cubemap
+background_mode = skydome
+# for simple background mode
+background = 0.1 0.1 0.1 1.0
+# for skydome background mode
+skydome_texture = /home/ilex/Desktop/col.png
+mirror = 0
+# for cubemap background mode
+cubemap_image = /home/ilex/Desktop/col.png
 deform = 0
+
+
+
 
 # show an overview of all workspaces
 [expo]
