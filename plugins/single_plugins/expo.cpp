@@ -216,8 +216,14 @@ class wayfire_expo : public wayfire_plugin_t
         moving_view->set_moving(true);
 
         input_coordinates_to_global_coordinates(x, y);
+        GetTuple(vx, vy, output->workspace->get_current_workspace());
+        auto og = output->get_relative_geometry();
+
         snap_wobbly(moving_view, {}, false);
-        start_wobbly(moving_view, x, y);
+        /* Translate coordinates into output-local coordinate system,
+         * relative to the current workspace (because that's the coordinate system
+         * in which the view sees itself) */
+        start_wobbly(moving_view, x - vx * og.x, y - vy * og.y);
 
         if (moving_view->fullscreen)
             moving_view->fullscreen_request(moving_view->get_output(), false);
