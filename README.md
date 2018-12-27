@@ -20,7 +20,7 @@ ninja -C build && sudo ninja -C build install
 ```
 cp wayfire.ini.default ~/.config/wayfire.ini
 ```
-It is also advisable to install https://github.com/WayfireWM/wf-shell in order to get a background and a panel. Just follow the instructions in the README of wf-shell.
+It is also advisable to install https://github.com/WayfireWM/wf-shell in order to get a background and a panel. Just follow the instructions in the README of wf-shell. You may also want to visit the page on [external tools](https://github.com/WayfireWM/wayfire/wiki/External-tools).
 
 To start wayfire, just execute `wayfire` from a TTY. If you encounter any issues, please read [debug report guidelines](https://github.com/ammen99/wayfire/wiki/Debugging-problems) and open a bug in this repo. Or you can also write in gitter.
 # Project status
