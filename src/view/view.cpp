@@ -446,8 +446,7 @@ void wayfire_view_t::damage_raw(const wlr_box& box)
         /* Damage only the visible region of the shell view.
          * This prevents hidden panels from spilling damage onto other workspaces */
         wlr_box ws_box = output->render->get_damage_box();
-        wlr_box visible_damage;
-        wlr_box_intersection(&damage_box, &ws_box, &visible_damage);
+        wlr_box visible_damage = wf_geometry_intersection(damage_box, ws_box);
 
         for (int i = 0; i < vw; i++)
         {
