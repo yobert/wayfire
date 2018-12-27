@@ -347,9 +347,14 @@ void wf_framebuffer_base::scissor(wlr_box box) const
 void wf_framebuffer_base::release()
 {
     if (fb != uint32_t(-1) && fb != 0)
+    {
         GL_CALL(glDeleteFramebuffers(1, &fb));
+    }
+
     if (tex != uint32_t(-1) && (fb != 0 || tex != 0))
+    {
         GL_CALL(glDeleteTextures(1, &tex));
+    }
 
     reset();
 }

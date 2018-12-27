@@ -323,7 +323,10 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
         virtual void notify_view_resized(wf_geometry view_geometry)
         {
             if (tex != (uint32_t)-1)
+            {
                 GL_CALL(glDeleteTextures(1, &tex));
+            }
+
             tex = -1;
 
             width = view_geometry.width;

@@ -51,7 +51,6 @@ class viewport_manager : public workspace_manager
         wf_default_workspace_implementation default_implementation;
 
         void check_lower_panel_layer(int base);
-        bool draw_panel_over_fullscreen_windows;
         bool sent_autohide = false;
 
         void remove_from_layer(wayfire_view view, uint32_t layer);
@@ -477,11 +476,14 @@ void viewport_manager::reflow_reserved_areas()
         {
             case WORKSPACE_ANCHORED_EDGE_TOP:
                 current_workarea.y += a->reserved_size;
-            case WORKSPACE_ANCHORED_EDGE_BOTTOM: // fallthrough
+                // fallthrough
+            case WORKSPACE_ANCHORED_EDGE_BOTTOM:
                 current_workarea.height -= a->reserved_size;
                 break;
-            case WORKSPACE_ANCHORED_EDGE_LEFT: // fallthrough
+
+            case WORKSPACE_ANCHORED_EDGE_LEFT:
                 current_workarea.x += a->reserved_size;
+                // fallthrough
             case WORKSPACE_ANCHORED_EDGE_RIGHT:
                 current_workarea.width -= a->reserved_size;
                 break;
@@ -557,9 +559,6 @@ void viewport_manager::check_lower_panel_layer(int base)
         }
     } else
     {
-        // TODO: imlement showing
-        //weston_layer_set_position(&panel_layer, WESTON_LAYER_POSITION_UI);
-
         if (sent_autohide)
         {
             sent_autohide = 0;
@@ -574,13 +573,6 @@ class viewport_impl_plugin : public wayfire_plugin_t {
     {
         auto vp = new viewport_manager();
         vp->init(output);
-
-        /* TODO: fix draw_panel_over_fullscreen_windows or update protocol */
-        /*
-        vp->draw_panel_over_fullscreen_windows =
-            config->get_section("core")->get_int("draw_panel_over_fullscreen_windows", 0);
-            */
-
         output->workspace = vp;
     }
 

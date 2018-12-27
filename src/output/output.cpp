@@ -247,18 +247,6 @@ void wayfire_output::set_initial_mode()
     }
 }
 
-static void handle_output_layout_changed(wl_listener*, void *)
-{
-    core->for_each_output([] (wayfire_output *wo)
-    {
-        wo->workspace->for_each_view([=] (wayfire_view view)
-        {
-            auto wm = view->get_wm_geometry();
-            view->move(wm.x, wm.y, false);
-        }, WF_WM_LAYERS);
-    });
-}
-
 wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
 {
     this->handle = handle;
@@ -762,7 +750,7 @@ uint32_t wf_all_layers_not_below(uint32_t layer)
     uint32_t mask = 0;
     for (int i = 0; i < WF_TOTAL_LAYERS; i++)
     {
-        if ((1 << i) >= layer)
+        if ((1u << i) >= layer)
             mask |= (1 << i);
     }
 

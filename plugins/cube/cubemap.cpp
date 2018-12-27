@@ -45,7 +45,9 @@ void wf_cube_background_cubemap::reload_texture()
 
     OpenGL::render_begin();
     if (tex == (uint)-1)
+    {
         GL_CALL(glGenTextures(1, &tex));
+    }
 
     GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, tex));
     for (int i = 0; i < 6; i++)

@@ -25,6 +25,16 @@ wayfire_view_t* wf_view_from_void(void *handle)
     return dynamic_cast<wayfire_view_t*> (wf_surface_from_void(handle));
 }
 
+wayfire_compositor_surface_t *wf_compositor_surface_from_surface(wayfire_surface_t *surface)
+{
+    return dynamic_cast<wayfire_compositor_surface_t*> (surface);
+}
+
+wayfire_compositor_interactive_view *interactive_view_from_view(wayfire_view_t *view)
+{
+    return dynamic_cast<wayfire_compositor_interactive_view*> (view);
+}
+
 wayfire_view wl_surface_to_wayfire_view(wl_resource *resource)
 {
     auto surface = (wlr_surface*) wl_resource_get_user_data(resource);

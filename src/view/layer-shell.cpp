@@ -30,6 +30,8 @@ static uint32_t zwlr_layer_to_wf_layer(zwlr_layer_shell_v1_layer layer)
             return WF_LAYER_BOTTOM;
         case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND:
             return WF_LAYER_BACKGROUND;
+        default:
+            throw std::domain_error("Invalid layer for layer surface!");
     }
 }
 

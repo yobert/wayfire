@@ -19,6 +19,8 @@ class wayfire_compositor_surface_t
     virtual void on_touch_motion(int x, int y) {}
 };
 
+wayfire_compositor_surface_t *wf_compositor_surface_from_surface(wayfire_surface_t *surface);
+
 class wayfire_compositor_subsurface_t : public wayfire_surface_t, public wayfire_compositor_surface_t
 {
     protected:
@@ -43,11 +45,6 @@ class wayfire_compositor_subsurface_t : public wayfire_surface_t, public wayfire
         virtual bool accepts_input(int32_t sx, int32_t sy) { return false; }
 
 };
-
-static wayfire_compositor_surface_t *wf_compositor_surface_from_surface(wayfire_surface_t *surface)
-{
-    return dynamic_cast<wayfire_compositor_surface_t*> (surface);
-}
 
 void emit_map_state_change(wayfire_surface_t *surface);
 

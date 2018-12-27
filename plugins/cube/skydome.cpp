@@ -55,7 +55,9 @@ void wf_cube_background_skydome::reload_texture()
     OpenGL::render_begin();
 
     if (tex == (uint)-1)
+    {
         GL_CALL(glGenTextures(1, &tex));
+    }
 
     GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
 

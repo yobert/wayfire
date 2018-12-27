@@ -118,7 +118,7 @@ void wayfire_mirror_view_t::render_fb(const wf_region& damage, const wf_framebuf
     /* Normally we shouldn't copy framebuffers. But in this case we can assume
      * nothing will break, because the copy will be destroyed immediately */
     wf_framebuffer copy;
-    memcpy(&copy, &fb, sizeof(wf_framebuffer));
+    memcpy((void*)&copy, (void*)&fb, sizeof(wf_framebuffer));
     copy.geometry.x += base_bounding_box.x - bbox.x;
     copy.geometry.y += base_bounding_box.y - bbox.y;
 

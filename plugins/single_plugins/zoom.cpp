@@ -13,8 +13,6 @@ class wayfire_zoom_screen : public wayfire_plugin_t
 
     wf_option speed, modifier, smoothing_duration;
 
-    GLuint program, posID, uvID;
-
     float target_zoom = 1.0;
     bool hook_set = false;
     wf_duration duration;

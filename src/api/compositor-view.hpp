@@ -13,10 +13,7 @@ class wayfire_compositor_interactive_view
         void handle_key(uint32_t key, uint32_t state) {}
 };
 
-static wayfire_compositor_interactive_view *interactive_view_from_view(wayfire_view_t *view)
-{
-    return dynamic_cast<wayfire_compositor_interactive_view*> (view);
-}
+wayfire_compositor_interactive_view *interactive_view_from_view(wayfire_view_t *view);
 
 /* a base class for writing compositor views
  *

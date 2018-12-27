@@ -320,7 +320,7 @@ void wayfire_view_t::set_fullscreen(bool full)
         output->workspace->get_view_layer(self()) == WF_LAYER_FULLSCREEN)
     {
         output->workspace->add_view_to_layer(self(),
-            saved_layer == 0 ? WF_LAYER_WORKSPACE : saved_layer);
+            saved_layer == 0 ? (uint32_t)WF_LAYER_WORKSPACE : saved_layer);
         saved_layer = 0;
     }
 }

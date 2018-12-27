@@ -68,7 +68,7 @@ configure_file(input: 'config.h.in',
 
 wayfire_conf_inc = include_directories(['.'])
 
-add_project_arguments(['-Wno-pedantic', '-Wno-unused-parameter'], language: 'cpp')
+add_project_arguments(['-Wno-unused-parameter'], language: 'cpp')
 
 subdir('proto')
 subdir('src')
