@@ -13,10 +13,10 @@ class wayfire_rotator : public wayfire_plugin_t
 
         auto section = config->get_section("rotator");
 
-        auto up_key    = section->get_option("rotate_up",   "<alt> <ctrl> KEY_UP");
-        auto down_key  = section->get_option("rotate_down", "<alt> <ctrl> KEY_DOWN");
-        auto left_key  = section->get_option("rotate_left", "<alt> <ctrl> KEY_LEFT");
-        auto right_key = section->get_option("rotate_right","<alt> <ctrl> KEY_RIGHT");
+        auto up_key    = section->get_option("rotate_up",   "<alt> <ctrl> <shift> KEY_UP");
+        auto down_key  = section->get_option("rotate_down", "<alt> <ctrl> <shift> KEY_DOWN");
+        auto left_key  = section->get_option("rotate_left", "<alt> <ctrl> <shift> KEY_LEFT");
+        auto right_key = section->get_option("rotate_right","<alt> <ctrl> <shift> KEY_RIGHT");
 
         up    = [=] () { output->set_transform(WL_OUTPUT_TRANSFORM_NORMAL); };
         down  = [=] () { output->set_transform(WL_OUTPUT_TRANSFORM_180); };

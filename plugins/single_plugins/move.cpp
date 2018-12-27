@@ -203,7 +203,7 @@ class wayfire_move : public wayfire_plugin_t
             grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY | WF_ABILITY_GRAB_INPUT;
 
             auto section = config->get_section("move");
-            wf_option button = section->get_option("activate", "<alt> BTN_LEFT");
+            wf_option button = section->get_option("activate", "<super> BTN_LEFT");
             activate_binding = [=] (uint32_t, int, int)
             {
                 is_using_touch = false;
@@ -227,7 +227,7 @@ class wayfire_move : public wayfire_plugin_t
             };
 
             output->add_button(button, &activate_binding);
-            output->add_touch(new_static_option("<alt>"), &touch_activate_binding);
+            output->add_touch(new_static_option("<super>"), &touch_activate_binding);
 
             enable_snap = section->get_option("enable_snap", "1");
             enable_snap_off = section->get_option("enable_snap_off", "1");

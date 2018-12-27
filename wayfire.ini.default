@@ -9,15 +9,11 @@ vwidth = 3
 vheight = 2
 
 # apps that should run on startup. any backgrounds/panels belong here
-# it is recommended that you don't use the built-in panel/background,
-# as they are just demos. Consider using https://github.com/WayfireWM/wf-shell
-
+# by default, wayfire tries to run the clients from
+# https://github.com/WayfireWM/wf-shell
 [autostart]
-builtin_bg = /usr/lib/wayfire/wayfire-shell-background -i path_to_your_image
-builtin_panel = /usr/lib/wayfire/wayfire-shell-panel
-
-#bg = /usr/bin/wf-background
-#shell = /usr/bin/wf-panel
+background = /usr/bin/wf-background
+panel = /usr/bin/wf-panel
 
 # run a certain application when the user presses a keybinding
 # useful to setup a screenshot, brightness control, sound control bindings
@@ -131,14 +127,27 @@ mode = cascade
 # show the current workspace row as a cube
 [cube]
 activate = <ctrl> <alt> BTN_LEFT
-background = 0.1 0.1 0.1 1.0
+# deform values 1 and 2 are supported only with OpenGL ES 3.2 support
+deform = 0
+zoom = 3.0
 speed_zoom = 0.070000
 speed_spin_horiz = 0.020000
 speed_spin_vert = 0.020000
 initial_animation = 586.000000
 
-# set deform to 1 or 2 if you have OpenGL ES 3.2
+# can be simple, skydome, cubemap
+background_mode = skydome
+# for simple background mode
+background = 0.1 0.1 0.1 1.0
+# for skydome background mode
+skydome_texture = /home/ilex/Desktop/col.png
+mirror = 0
+# for cubemap background mode
+cubemap_image = /home/ilex/Desktop/col.png
 deform = 0
+
+
+
 
 # show an overview of all workspaces
 [expo]
@@ -169,7 +178,7 @@ slot_tr = <ctrl> <alt> KEY_KP9
 
 # move windows around
 [move]
-activate = <alt> BTN_LEFT
+activate = <super> BTN_LEFT
 enable_snap = 1
 enable_snap_off = 1
 snap_threshold = 10
@@ -183,14 +192,14 @@ next_output_with_win = <super> <shift> KEY_T
 
 # resize a window
 [resize]
-activate = <super> BTN_LEFT
+activate = <super> <shift> BTN_LEFT
 
 # rotate the screen
 [rotator]
-rotate_down = <ctrl> <alt> KEY_DOWN
-rotate_left = <ctrl> <alt> KEY_LEFT
-rotate_right = <ctrl> <alt> KEY_RIGHT
-rotate_up = <ctrl> <alt> KEY_UP
+rotate_down = <ctrl> <alt> <shift> KEY_DOWN
+rotate_left = <ctrl> <alt> <shift> KEY_LEFT
+rotate_right = <ctrl> <alt> <shift> KEY_RIGHT
+rotate_up = <ctrl> <alt> <shift> KEY_UP
 
 # change active window with an animation
 [switcher]
@@ -238,3 +247,20 @@ activate = <alt> BTN_RIGHT
 [decoration]
 # can also be monospace, etc.
 font = serif
+
+# Blur windows, disabled by default because it can be resource-intensive
+[blur]
+# blur method, use kawase, box, gaussian or bokeh
+method = kawase
+# normal mode means all windows get blurred, otherwise in toggle mode you can
+# alt+super+left click to toggle blur for a specific window
+mode = normal
+
+# each plugin has its own set of <method>_{offset, degrade, iterations} options,
+# here they are listed only for kawase
+
+# different combinations result in various levels of blur strength,
+# performance and visual appearance.
+kawase_offset = 2
+kawase_degrade = 3
+kawase_iterations = 3
