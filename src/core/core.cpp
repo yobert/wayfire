@@ -205,11 +205,6 @@ uint32_t wayfire_core::get_keyboard_modifiers()
     return input->get_modifiers();
 }
 
-static void output_destroyed_callback(wl_listener *, void *data)
-{
-    core->remove_output(core->get_output((wlr_output*) data));
-}
-
 void wayfire_core::set_cursor(std::string name)
 {
     input->cursor->set_cursor(name);
@@ -270,9 +265,6 @@ void wayfire_core::add_output(wlr_output *output)
     wo->id = _last_output_id++;
     focus_output(wo);
 
-    wo->destroy_listener.notify = output_destroyed_callback;
-    wl_signal_add(&wo->handle->events.destroy, &wo->destroy_listener);
-
     wo->connect_signal("_surface_mapped", &input->surface_map_state_changed);
     wo->connect_signal("_surface_unmapped", &input->surface_map_state_changed);
 
@@ -325,9 +317,9 @@ void wayfire_core::remove_output(wayfire_output *output)
      * desktop views have been removed by the previous cycle */
     output->workspace->for_each_view([] (wayfire_view view)
     {
-        view->set_output(nullptr);
         view->close();
     }, WF_ALL_LAYERS);
+    /* A note: at this point, some views might already have been deleted */
 
     /* FIXME: this is a hack, but depends on #46 */
     input->surface_map_state_changed(NULL);
