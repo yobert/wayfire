@@ -245,7 +245,9 @@ wayfire_surface_t* input_manager::input_surface_at(int x, int y,
     int& lx, int& ly)
 {
     auto output = core->get_output_at(x, y);
-    assert(output);
+    /* If the output at these coordinates was just destroyed or some other edge case */
+    if (!output)
+        return nullptr;
 
     auto og = output->get_full_geometry();
     x -= og.x;
