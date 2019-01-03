@@ -11,6 +11,6 @@ void wf_cube_simple_background::render_frame(const wf_framebuffer& fb,
 {
     OpenGL::render_begin(fb);
     OpenGL::clear(background_color->as_cached_color(),
-        GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        GL_COLOR_BUFFER_BIT);
     OpenGL::render_end();
 }

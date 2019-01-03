@@ -54,25 +54,25 @@ void wf_cube_background_skydome::reload_texture()
     last_background_image = background_image->as_string();
     OpenGL::render_begin();
 
-    if (tex == (uint)-1)
-    {
+    if (tex == (uint32_t)-1)
         GL_CALL(glGenTextures(1, &tex));
-    }
 
     GL_CALL(glBindTexture(GL_TEXTURE_2D, tex));
 
-    if (!image_io::load_from_file(last_background_image, GL_TEXTURE_2D))
+    if (image_io::load_from_file(last_background_image, GL_TEXTURE_2D))
     {
-        log_error("Failed to load skydome image from %s.",
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+    }
+    else
+    {
+        log_error("Failed to load skydome image from \"%s\".",
             last_background_image.c_str());
         GL_CALL(glDeleteTextures(1, &tex));
         tex = -1;
     }
-
-    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
 
     GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
 
@@ -140,10 +140,13 @@ void wf_cube_background_skydome::render_frame(const wf_framebuffer& fb,
     reload_texture();
 
     if (tex == (uint32_t)-1)
+    {
+        GL_CALL(glClearColor(TEX_ERROR_FLAG_COLOR));
+        GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
         return;
+    }
 
     OpenGL::render_begin(fb);
-    GL_CALL(glClear(GL_DEPTH_BUFFER_BIT));
 
     GL_CALL(glUseProgram(program));
 

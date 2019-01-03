@@ -5,6 +5,8 @@
 #include <animation.hpp>
 #include <opengl.hpp>
 
+#define TEX_ERROR_FLAG_COLOR  0, 1, 0, 1
+
 struct wf_cube_animation_attribs
 {
     wf_duration duration;

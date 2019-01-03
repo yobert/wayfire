@@ -455,33 +455,34 @@ class wayfire_cube : public wayfire_plugin_t
     {
         update_workspace_streams();
 
-        if (program.id == (uint)-1)
+        if (program.id == (uint32_t)-1)
             load_program();
+
+        OpenGL::render_begin(dest);
+        GL_CALL(glClear(GL_DEPTH_BUFFER_BIT));
 
         reload_background();
         background->render_frame(dest, animation);
 
         auto vp = calculate_vp_matrix(dest);
-        OpenGL::render_begin(dest);
 
+        GL_CALL(glUseProgram(program.id));
+        GL_CALL(glEnable(GL_DEPTH_TEST));
+        GL_CALL(glDepthFunc(GL_LESS));
 
-        GLfloat vertexData[] = {
+        static GLfloat vertexData[] = {
             -0.5,  0.5,
             0.5,  0.5,
             0.5, -0.5,
             -0.5, -0.5
         };
 
-        GLfloat coordData[] = {
+        static GLfloat coordData[] = {
             0.0f, 1.0f,
             1.0f, 1.0f,
             1.0f, 0.0f,
             0.0f, 0.0f
         };
-
-        GL_CALL(glUseProgram(program.id));
-        GL_CALL(glEnable(GL_DEPTH_TEST));
-        GL_CALL(glDepthFunc(GL_LESS));
 
         GL_CALL(glVertexAttribPointer(program.posID, 2, GL_FLOAT, GL_FALSE, 0, vertexData));
         GL_CALL(glVertexAttribPointer(program.uvID, 2, GL_FLOAT, GL_FALSE, 0, coordData));

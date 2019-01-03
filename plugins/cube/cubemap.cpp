@@ -44,29 +44,31 @@ void wf_cube_background_cubemap::reload_texture()
     last_background_image = background_image->as_string();
 
     OpenGL::render_begin();
-    if (tex == (uint)-1)
-    {
+    if (tex == (uint32_t)-1)
         GL_CALL(glGenTextures(1, &tex));
-    }
 
     GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, tex));
     for (int i = 0; i < 6; i++)
     {
         if (!image_io::load_from_file(last_background_image, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i))
         {
-            log_error("Failed to load cubemap background image from %s",
+            log_error("Failed to load cubemap background image from \"%s\".",
                 last_background_image.c_str());
 
             GL_CALL(glDeleteTextures(1, &tex));
             tex = -1;
+            break;
         }
     }
 
-    GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-    GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-    GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-    GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-    GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+    if (tex != (uint32_t)-1)
+    {
+        GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+        GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+        GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+        GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+        GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+    }
 
     GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
     OpenGL::render_end();
@@ -80,7 +82,12 @@ void wf_cube_background_cubemap::render_frame(const wf_framebuffer& fb,
     reload_texture();
 
     OpenGL::render_begin(fb);
-    GL_CALL(glClear(GL_DEPTH_BUFFER_BIT));
+    if (tex == (uint32_t)-1)
+    {
+        GL_CALL(glClearColor(TEX_ERROR_FLAG_COLOR));
+        GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+        return;
+    }
 
     GL_CALL(glUseProgram(program));
     GL_CALL(glDepthMask(GL_FALSE));
