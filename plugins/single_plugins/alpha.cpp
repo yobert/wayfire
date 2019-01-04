@@ -34,6 +34,7 @@ class wayfire_alpha : public wayfire_plugin_t
 {
     axis_callback axis_cb;
     wf_option modifier, min_value;
+    wf_option_callback min_value_changed;
 
     public:
     void init(wayfire_config *config)
@@ -66,6 +67,24 @@ class wayfire_alpha : public wayfire_plugin_t
         auto section = config->get_section("alpha");
         modifier = section->get_option("modifier", "<alt>");
         min_value = section->get_option("min_value", "0.1");
+        min_value_changed = [=] ()
+        {
+            output->workspace->for_each_view([=] (wayfire_view view)
+            {
+                if (!view->get_transformer("alpha"))
+                    return;
+
+                wf_2D_view *transformer = dynamic_cast<wf_2D_view*> (view->get_transformer("alpha").get());
+
+                if (transformer->alpha < min_value->as_double())
+                {
+                    transformer->alpha = min_value->as_double();
+                    view->damage();
+                }
+
+            }, WF_ALL_LAYERS);
+	};
+        min_value->add_updated_handler(&min_value_changed);
 
         output->add_axis(modifier, &axis_cb);
     }
@@ -106,6 +125,8 @@ class wayfire_alpha : public wayfire_plugin_t
             if (view->get_transformer("alpha"))
                 view->pop_transformer("alpha");
         }, WF_ALL_LAYERS);
+
+        min_value->rem_updated_handler(&min_value_changed);
 
         output->rem_binding(&axis_cb);
     }
