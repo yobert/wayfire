@@ -67,7 +67,12 @@ std::pair<wlr_output_mode, bool> parse_output_mode(std::string modeline)
 wf_point parse_output_layout(std::string layout)
 {
     wf_point pos;
-    int read = std::sscanf(layout.c_str(), "%d @ %d", &pos.x, &pos.y);
+    int read;
+
+    if (layout.find("@") != layout.npos)
+        read = std::sscanf(layout.c_str(), "%d @ %d", &pos.x, &pos.y);
+    else
+        read = std::sscanf(layout.c_str(), "%d , %d", &pos.x, &pos.y);
 
     if (read < 2)
         pos.x = pos.y = 0;
