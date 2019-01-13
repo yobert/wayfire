@@ -3,6 +3,7 @@ extern "C"
 #include <wlr/types/wlr_screenshooter.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_virtual_keyboard_v1.h>
+#include <wlr/types/wlr_foreign_toplevel_management_v1.h>
 #include <wlr/types/wlr_idle.h>
 #include <wlr/types/wlr_idle_inhibit_v1.h>
 #include <wlr/types/wlr_input_inhibitor.h>
@@ -27,6 +28,7 @@ extern "C"
 #include "seat/input-inhibit.hpp"
 #include "seat/touch.hpp"
 #include "../output/wayfire-shell.hpp"
+#include "../output/gtk-shell.hpp"
 #include "view/priv-view.hpp"
 #include "config.h"
 
@@ -165,6 +167,8 @@ void wayfire_core::init(wayfire_config *conf)
     protocols.idle_inhibit = wlr_idle_inhibit_v1_create(display);
 
     protocols.wf_shell = wayfire_shell_create(display);
+    protocols.gtk_shell = wf_gtk_shell_create(display);
+    protocols.toplevel_manager = wlr_foreign_toplevel_manager_v1_create(display);
 
 #ifdef BUILD_WITH_IMAGEIO
     image_io::init();
@@ -296,7 +300,8 @@ void wayfire_core::remove_output(wayfire_output *output)
 
     /* first move each desktop view(e.g windows) to another output */
     std::vector<wayfire_view> views;
-    output->workspace->for_each_view_reverse([&views] (wayfire_view view) { views.push_back(view); }, WF_MIDDLE_LAYERS);
+    output->workspace->for_each_view_reverse([&views] (wayfire_view view) { views.push_back(view); },
+        WF_MIDDLE_LAYERS | WF_LAYER_MINIMIZED);
 
     for (auto& view : views)
         output->detach_view(view);

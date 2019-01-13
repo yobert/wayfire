@@ -13,6 +13,7 @@
 extern "C"
 {
 #include <wlr/types/wlr_box.h>
+#include <wlr/types/wlr_foreign_toplevel_management_v1.h>
 #include <wlr/types/wlr_surface.h>
 #include <wlr/util/edges.h>
 }
@@ -59,6 +60,7 @@ class wayfire_surface_t
 
         static std::map<std::string, int> shrink_constraints;
         static int maximal_shrink_constraint;
+
     public:
         /* NOT API */
         wayfire_surface_t *parent_surface;
@@ -155,7 +157,6 @@ enum wf_view_role
 /* Represents a desktop window (not as X11 window, but like a xdg_toplevel surface) */
 class wayfire_view_t : public wayfire_surface_t, public wf_object_base
 {
-    friend void surface_destroyed_cb(wl_listener*, void *data);
     protected:
 
         /* Whether this view is really mapped
@@ -217,8 +218,37 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
 
         /* Same as damage(), but don't transform box */
         void damage_raw(const wlr_box& box);
-    public:
 
+        /* The toplevel is created by the individual view's mapping functions,
+         * i.e in xdg-shell, xwayland, etc.
+         * The handle is automatically destroyed when the view is unmapped */
+        wlr_foreign_toplevel_handle_v1 *toplevel_handle = NULL;
+
+        wl_listener toplevel_handle_v1_maximize_request,
+                    toplevel_handle_v1_activate_request,
+                    toplevel_handle_v1_minimize_request,
+                    toplevel_handle_v1_set_rectangle_request;
+
+        wlr_box minimize_hint;
+
+        /* Create/destroy the toplevel_handle */
+        virtual void create_toplevel();
+        virtual void destroy_toplevel();
+
+        /* The following are no-op if toplevel_handle == NULL */
+        virtual void toplevel_send_title();
+        virtual void toplevel_send_app_id();
+        virtual void toplevel_send_state();
+        virtual void toplevel_update_output(wayfire_output *output, bool enter);
+
+    public: // NOT API
+        /* The handle_{app_id, title}_changed emit the corresponding signal
+         * and if there is a toplevel_handle, they send the updated values */
+        virtual void handle_app_id_changed();
+        virtual void handle_title_changed();
+        virtual void handle_minimize_hint(const wlr_box& hint);
+
+    public:
         /* these represent toplevel relations, children here are transient windows,
          * such as the close file dialogue */
         wayfire_view parent = nullptr;
@@ -226,6 +256,7 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         virtual void set_toplevel_parent(wayfire_view parent);
         virtual void set_output(wayfire_output*);
 
+        virtual void set_role(wf_view_role new_role);
         wf_view_role role = WF_VIEW_ROLE_TOPLEVEL;
 
         wayfire_view_t();
@@ -295,8 +326,10 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         virtual void set_resizing(bool resizing, uint32_t edges = 0);
         virtual void set_moving(bool moving);
 
-        bool maximized = false, fullscreen = false;
+        bool maximized = false, fullscreen = false, activated = false, minimized = false;
 
+        /* Will also move the view to/from the minimized layer, if necessary */
+        virtual void set_minimized(bool minimized);
         virtual void set_maximized(bool maxim);
         virtual void set_fullscreen(bool fullscreen);
 
@@ -316,14 +349,19 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         virtual std::string get_app_id() { return ""; }
         virtual std::string get_title() { return ""; }
 
-
         /* Set if the current view should not be rendered by built-in renderer */
         bool is_hidden = false;
 
         virtual void move_request();
+        virtual void focus_request();
         virtual void resize_request(uint32_t edges = 0);
+        virtual void minimize_request(bool state);
         virtual void maximize_request(bool state);
         virtual void fullscreen_request(wayfire_output *output, bool state);
+
+        /* Returns the rectangle on the output to which to minimize towards.
+         * Returns a box with width = height = 0 if no hint is set */
+        virtual wlr_box get_minimize_hint();
 
         /* returns whether the view should be decorated */
         virtual bool should_be_decorated();

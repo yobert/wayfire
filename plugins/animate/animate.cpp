@@ -8,98 +8,96 @@
 #include "basic_animations.hpp"
 #include "fire/fire.hpp"
 
-void animation_base::init(wayfire_view, wf_option, bool) {}
+void animation_base::init(wayfire_view, wf_option, wf_animation_type) {}
 bool animation_base::step() {return false;}
 animation_base::~animation_base() {}
 
-template<class animation_type, bool close_animation>
+template<class animation_type>
 struct animation_hook;
 
-template<class animation_type, bool close_animation>
+template<class animation_type>
 void delete_hook_idle(void *data)
 {
-    auto hook = (animation_hook<animation_type, close_animation>*) data;
+    auto hook = (animation_hook<animation_type>*) data;
     delete hook;
 }
 
-template<class animation_type, bool close_animation>
+template<class animation_type>
 struct animation_hook
 {
     static_assert(std::is_base_of<animation_base, animation_type>::value,
             "animation_type must be derived from animation_base!");
 
+    wf_animation_type type;
     animation_base *base = nullptr;
     wayfire_view view;
     wayfire_output *output;
 
-    effect_hook_t hook;
-    signal_callback_t view_removed;
-
-    animation_hook(wayfire_view view, wf_option duration)
+    effect_hook_t update_animation_hook = [=] ()
     {
-        this->view = view;
-        output = view->get_output();
+        view->damage();
+        bool result = base->step();
+        view->damage();
 
-        if (close_animation)
+        if (!result)
+            finalize(false);
+    };
+
+    signal_callback_t view_removed = [=] (signal_data *data)
+    {
+        if (get_signaled_view(data) == view)
+            finalize(true);
+    };
+
+    animation_hook(wayfire_view view, wf_option duration, wf_animation_type type)
+    {
+        this->type = type;
+        this->view = view;
+        this->output = view->get_output();
+
+        if (type == ANIMATION_TYPE_UNMAP)
         {
             view->inc_keep_count();
             view->take_snapshot();
         }
 
-        view->damage();
         base = dynamic_cast<animation_base*> (new animation_type());
-        base->init(view, duration, close_animation);
-        base->step();
-        view->damage();
+        base->init(view, duration, type);
 
-        hook = [=] ()
-        {
-            view->damage();
-            bool result = base->step();
-            view->damage();
-
-            if (!result)
-                finalize();
-        };
-
-        output->render->add_effect(&hook, WF_OUTPUT_EFFECT_POST);
-
-        view_removed = [=] (signal_data *data)
-        {
-            if (get_signaled_view(data) == view && !close_animation)
-                finalize();
-        };
+        output->render->add_effect(&update_animation_hook, WF_OUTPUT_EFFECT_PRE);
 
         output->connect_signal("detach-view", &view_removed);
-
-        if (!close_animation)
-            output->connect_signal("unmap-view", &view_removed);
+        /* We don't want to listen for view-disappeared signal,
+         * because it will be emitted right after the unmap signal */
+        if (type != ANIMATION_TYPE_UNMAP)
+            output->connect_signal("view-disappeared", &view_removed);
+        output->connect_signal("view-minimize-request", &view_removed);
     }
 
-    void finalize()
+    void finalize(bool forced)
     {
-        output->render->rem_effect(&hook, WF_OUTPUT_EFFECT_POST);
+        output->render->rem_effect(&update_animation_hook, WF_OUTPUT_EFFECT_PRE);
 
         output->disconnect_signal("detach-view", &view_removed);
-        output->disconnect_signal("unmap-view", &view_removed);
+        output->disconnect_signal("view-disappeared", &view_removed);
+        output->disconnect_signal("view-minimize-request", &view_removed);
 
-        /* make sure we "unhide" the view */
-        view->alpha = 1.0;
         delete base;
-
-        if (close_animation)
+        if (type == ANIMATION_TYPE_UNMAP)
             view->dec_keep_count();
 
-        wl_event_loop_add_idle(core->ev_loop, delete_hook_idle<animation_type, close_animation>, this);
+        if (type == ANIMATION_TYPE_MINIMIZE && !forced)
+            view->set_minimized(true);
+
+        wl_event_loop_add_idle(core->ev_loop, delete_hook_idle<animation_type>, this);
     }
 
     ~animation_hook()
     { }
 };
 
-class wayfire_animation : public wayfire_plugin_t {
-    signal_callback_t map_cb, unmap_cb, wake_cb;
-
+class wayfire_animation : public wayfire_plugin_t
+{
     wf_option open_animation, close_animation;
     wf_option duration, startup_duration;
 
@@ -120,29 +118,14 @@ class wayfire_animation : public wayfire_plugin_t {
         FireAnimation::fire_particle_size =
             section->get_option("fire_particle_size", "16");
 
-        using namespace std::placeholders;
-        map_cb = std::bind(std::mem_fn(&wayfire_animation::view_mapped),
-                this, _1);
-        unmap_cb = std::bind(std::mem_fn(&wayfire_animation::view_unmapped),
-                this, _1);
-
-        wake_cb = [=] (signal_data *data)
-        {
-            new wf_system_fade(output, startup_duration);
-        };
-
-        output->connect_signal("map-view", &map_cb);
-        output->connect_signal("unmap-view", &unmap_cb);
-
-        /* TODO: the best way to do this?
-        if (config->get_section("backlight")->get_int("min_brightness", 1) > -1)
-            output->connect_signal("wake", &wake_cb);
-            */
-        output->connect_signal("start-rendering", &wake_cb);
+        output->connect_signal("map-view", &on_view_mapped);
+        output->connect_signal("unmap-view", &on_view_unmapped);
+        output->connect_signal("start-rendering", &on_render_start);
+        output->connect_signal("view-minimize-request", &on_minimize_request);
     }
 
     /* TODO: enhance - add more animations */
-    void view_mapped(signal_data *ddata)
+    signal_callback_t on_view_mapped = [=] (signal_data *ddata) -> void
     {
         auto view = get_signaled_view(ddata);
         assert(view);
@@ -152,14 +135,14 @@ class wayfire_animation : public wayfire_plugin_t {
             return;
 
         if (open_animation->as_string() == "fade")
-            new animation_hook<fade_animation, false>(view, duration);
+            new animation_hook<fade_animation>(view, duration, ANIMATION_TYPE_MAP);
         else if (open_animation->as_string() == "zoom")
-            new animation_hook<zoom_animation, false>(view, duration);
+            new animation_hook<zoom_animation>(view, duration, ANIMATION_TYPE_MAP);
         else if (open_animation->as_string() == "fire")
-            new animation_hook<FireAnimation, false>(view, duration);
-    }
+            new animation_hook<FireAnimation>(view, duration, ANIMATION_TYPE_MAP);
+    };
 
-    void view_unmapped(signal_data *data)
+    signal_callback_t on_view_unmapped = [=] (signal_data *data) -> void
     {
         auto view = get_signaled_view(data);
 
@@ -167,18 +150,35 @@ class wayfire_animation : public wayfire_plugin_t {
             return;
 
         if (close_animation->as_string() == "fade")
-            new animation_hook<fade_animation, true> (view, duration);
+            new animation_hook<fade_animation> (view, duration, ANIMATION_TYPE_UNMAP);
         else if (close_animation->as_string() == "zoom")
-            new animation_hook<zoom_animation, true> (view, duration);
+            new animation_hook<zoom_animation> (view, duration, ANIMATION_TYPE_UNMAP);
         else if (close_animation->as_string() == "fire")
-            new animation_hook<FireAnimation, true> (view, duration);
-    }
+            new animation_hook<FireAnimation> (view, duration, ANIMATION_TYPE_UNMAP);
+    };
+
+    signal_callback_t on_minimize_request = [=] (signal_data *data) -> void
+    {
+        auto ev = static_cast<view_minimize_request_signal*> (data);
+        if (ev->state) {
+            ev->carried_out = true;
+            new animation_hook<zoom_animation> (ev->view, duration, ANIMATION_TYPE_MINIMIZE);
+        } else {
+            new animation_hook<zoom_animation> (ev->view, duration, ANIMATION_TYPE_RESTORE);
+        }
+    };
+
+    signal_callback_t on_render_start = [=] (signal_data *data) -> void
+    {
+        new wf_system_fade(output, startup_duration);
+    };
 
     void fini()
     {
-        output->disconnect_signal("map-view", &map_cb);
-        output->disconnect_signal("unmap-view", &unmap_cb);
-        output->disconnect_signal("start-rendering", &wake_cb);
+        output->disconnect_signal("map-view", &on_view_mapped);
+        output->disconnect_signal("unmap-view", &on_view_unmapped);
+        output->disconnect_signal("start-rendering", &on_render_start);
+        output->disconnect_signal("view-minimize-request", &on_minimize_request);
     }
 };
 

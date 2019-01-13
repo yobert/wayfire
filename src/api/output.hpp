@@ -32,7 +32,7 @@ class wayfire_output : public wf_object_base
        wayfire_view active_view, last_active_toplevel;
 
        wl_listener destroy_listener;
-       signal_callback_t unmap_view_cb;
+       signal_callback_t view_disappeared_cb;
 
        wf_option_callback config_mode_changed,
                           config_transform_changed,
@@ -107,6 +107,11 @@ class wayfire_output : public wf_object_base
        /* same as set_active_view(), but will bring the view to the front */
        void focus_view(wayfire_view v, wlr_seat *seat = nullptr);
 
+       /* Switch the workspace so that view becomes visible.
+        * @return true if workspace switch really occured */
+       bool ensure_visible(wayfire_view view);
+
+       /* Move view to the top of its layer without changing keyboard focus */
        void bring_to_front(wayfire_view v);
 
        /* force refocus the topmost view in one of the layers marked in layers

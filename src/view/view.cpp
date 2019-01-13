@@ -10,6 +10,7 @@
 #include "priv-view.hpp"
 #include "xdg-shell.hpp"
 #include "xdg-shell-v6.hpp"
+#include "../output/gtk-shell.hpp"
 
 #include <algorithm>
 #include <glm/glm.hpp>
@@ -41,17 +42,217 @@ std::string wayfire_view_t::to_string() const
     return "view-" + wf_object_base::to_string();
 }
 
+static void handle_toplevel_handle_v1_maximize_request(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_foreign_toplevel_handle_v1_maximized_event*> (data);
+    auto view = wf_view_from_void(ev->toplevel->data);
+
+    view->maximize_request(ev->maximized);
+}
+
+static void handle_toplevel_handle_v1_minimize_request(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_foreign_toplevel_handle_v1_minimized_event*> (data);
+    auto view = wf_view_from_void(ev->toplevel->data);
+
+    view->minimize_request(ev->minimized);
+}
+
+static void handle_toplevel_handle_v1_activate_request(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_foreign_toplevel_handle_v1_activated_event*> (data);
+    auto view = wf_view_from_void(ev->toplevel->data);
+
+    view->focus_request();
+}
+
+static void handle_toplevel_handle_v1_set_rectangle_request(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_foreign_toplevel_handle_v1_set_rectangle_event*> (data);
+    auto view = wf_view_from_void(ev->toplevel->data);
+
+    auto surface = wf_surface_from_void(ev->surface->data);
+    if (!surface)
+    {
+        log_error("Setting minimize hint to unknown surface.");
+        return;
+    }
+
+    if (surface->get_output() != view->get_output())
+    {
+        log_info("Minimize hint set to surface on a different output, "
+            "problems might arise");
+    }
+
+    auto box = surface->get_output_geometry();
+    box.x += ev->x;
+    box.y += ev->y;
+    box.width = ev->width;
+    box.height = ev->height;
+
+    view->handle_minimize_hint(box);
+}
+
+void wayfire_view_t::create_toplevel()
+{
+    if (toplevel_handle)
+        return;
+
+    /* We don't want to create toplevels for shell views or xwayland menus */
+    if (role != WF_VIEW_ROLE_TOPLEVEL)
+        return;
+
+    toplevel_handle = wlr_foreign_toplevel_handle_v1_create(
+        core->protocols.toplevel_manager);
+    toplevel_handle->data = this;
+
+    toplevel_handle_v1_maximize_request.notify =
+        handle_toplevel_handle_v1_maximize_request;
+    toplevel_handle_v1_minimize_request.notify =
+        handle_toplevel_handle_v1_minimize_request;
+    toplevel_handle_v1_activate_request.notify =
+        handle_toplevel_handle_v1_activate_request;
+    toplevel_handle_v1_set_rectangle_request.notify =
+        handle_toplevel_handle_v1_set_rectangle_request;
+    wl_signal_add(&toplevel_handle->events.request_maximize,
+        &toplevel_handle_v1_maximize_request);
+    wl_signal_add(&toplevel_handle->events.request_minimize,
+        &toplevel_handle_v1_minimize_request);
+    wl_signal_add(&toplevel_handle->events.request_activate,
+        &toplevel_handle_v1_activate_request);
+    wl_signal_add(&toplevel_handle->events.set_rectangle,
+        &toplevel_handle_v1_set_rectangle_request);
+
+    toplevel_send_title();
+    toplevel_send_app_id();
+    toplevel_send_state();
+    toplevel_update_output(output, true);
+}
+
+void wayfire_view_t::destroy_toplevel()
+{
+    if (!toplevel_handle)
+        return;
+
+    toplevel_handle->data = NULL;
+    wl_list_remove(&toplevel_handle_v1_maximize_request.link);
+    wl_list_remove(&toplevel_handle_v1_activate_request.link);
+    wl_list_remove(&toplevel_handle_v1_minimize_request.link);
+    wl_list_remove(&toplevel_handle_v1_set_rectangle_request.link);
+
+    wlr_foreign_toplevel_handle_v1_destroy(toplevel_handle);
+    toplevel_handle = NULL;
+}
+
+void wayfire_view_t::toplevel_send_title()
+{
+    if (!toplevel_handle)
+        return;
+    wlr_foreign_toplevel_handle_v1_set_title(toplevel_handle,
+        get_title().c_str());
+}
+
+void wayfire_view_t::toplevel_send_app_id()
+{
+    if (!toplevel_handle)
+        return;
+
+    std::string app_id;
+
+    auto default_app_id = get_app_id();
+    auto gtk_shell_app_id = wf_gtk_shell_get_custom_app_id(
+        core->protocols.gtk_shell, surface->resource);
+
+    auto app_id_mode = (*core->config)["workarounds"]
+        ->get_option("app_id_mode", "stock");
+
+    if (app_id_mode->as_string() == "gtk-shell" && gtk_shell_app_id.length() > 0) {
+        app_id = gtk_shell_app_id;
+    } else if (app_id_mode->as_string() == "full") {
+        app_id = default_app_id + " " + gtk_shell_app_id;
+    } else {
+        app_id = default_app_id;
+    }
+
+    wlr_foreign_toplevel_handle_v1_set_app_id(toplevel_handle, app_id.c_str());
+}
+
+void wayfire_view_t::toplevel_send_state()
+{
+    if (!toplevel_handle)
+        return;
+
+    wlr_foreign_toplevel_handle_v1_set_maximized(toplevel_handle, maximized);
+    wlr_foreign_toplevel_handle_v1_set_activated(toplevel_handle, activated);
+    wlr_foreign_toplevel_handle_v1_set_minimized(toplevel_handle, minimized);
+}
+
+void wayfire_view_t::toplevel_update_output(wayfire_output *wo, bool enter)
+{
+    if (!wo || !toplevel_handle)
+        return;
+
+    if (enter) {
+        wlr_foreign_toplevel_handle_v1_output_enter(
+            toplevel_handle, wo->handle);
+    } else {
+        wlr_foreign_toplevel_handle_v1_output_leave(
+            toplevel_handle, wo->handle);
+    }
+}
+
+void wayfire_view_t::handle_title_changed()
+{
+    title_changed_signal data;
+    data.view = self();
+    if (output)
+        output->emit_signal("view-title-changed", &data);
+    emit_signal("title-changed", &data);
+
+    toplevel_send_title();
+}
+
+void wayfire_view_t::handle_app_id_changed()
+{
+    app_id_changed_signal data;
+    data.view = self();
+    if (output)
+        output->emit_signal("view-app-id-changed", &data);
+    emit_signal("app-id-changed", &data);
+
+    toplevel_send_app_id();
+}
+
+void wayfire_view_t::handle_minimize_hint(const wlr_box &hint)
+{
+    this->minimize_hint = hint;
+}
+
+wlr_box wayfire_view_t::get_minimize_hint()
+{
+    return minimize_hint;
+}
+
 void wayfire_view_t::set_output(wayfire_output *wo)
 {
     _output_signal data;
     data.output = output;
 
+    toplevel_update_output(output, false);
     wayfire_surface_t::set_output(wo);
     if (decoration)
         decoration->set_output(wo);
 
+    toplevel_update_output(wo, true);
     if (wo != data.output)
         emit_signal("set-output", &data);
+}
+
+void wayfire_view_t::set_role(wf_view_role new_role)
+{
+    if (new_role != WF_VIEW_ROLE_TOPLEVEL)
+        destroy_toplevel();
+    role = new_role;
 }
 
 wayfire_view wayfire_view_t::self()
@@ -120,6 +321,15 @@ void wayfire_view_t::move(int x, int y, bool send_signal)
     damage(last_bounding_box);
     geometry.x = x + opos.x - wm.x;
     geometry.y = y + opos.y - wm.y;
+
+    /* Make sure that if we move the view while it is unmapped, its snapshot
+     * is still valid coordinates */
+    if (offscreen_buffer.valid())
+    {
+        offscreen_buffer.geometry.x += x - data.old_geometry.x;
+        offscreen_buffer.geometry.y += y - data.old_geometry.y;
+    }
+
     damage();
 
     if (send_signal)
@@ -298,6 +508,52 @@ void wayfire_view_t::set_maximized(bool maxim)
 
     if (frame)
         frame->notify_view_maximized();
+
+    toplevel_send_state();
+}
+
+void wayfire_view_t::set_minimized(bool minim)
+{
+    minimized = minim;
+    if (minimized)
+    {
+        view_disappeared_signal data;
+        data.view = self();
+        emit_signal("disappear", &data);
+
+        output->emit_signal("view-disappeared", &data);
+        output->workspace->add_view_to_layer(self(), WF_LAYER_MINIMIZED);
+
+        /* We want to be sure that when we restore the view, it will be visible
+         * on the then current workspace
+         *
+         * Because the minimized layer doesn't move when switching workspaces,
+         * we know that making it "visible" in the minimize layer will ensure
+         * it is visible when we restore it */
+        auto bbox = get_bounding_box();
+        auto workspace = output->get_relative_geometry();
+
+        if (!(bbox & workspace))
+        {
+            /* Make the center of the view on the current workspace */
+            int cx = bbox.x + bbox.width / 2;
+            int cy = bbox.y + bbox.height / 2;
+
+            int width = workspace.width, height = workspace.height;
+            /* compute center coordinates when moved to the current workspace */
+            int local_cx = (cx % width + width) % width;
+            int local_cy = (cy % height + height) % height;
+
+            auto wm_geometry = get_wm_geometry();
+            move(wm_geometry.x + local_cx - cx, wm_geometry.y + local_cy - cy);
+        }
+    } else
+    {
+        output->workspace->add_view_to_layer(self(), WF_LAYER_WORKSPACE);
+        output->focus_view(self());
+    }
+
+    toplevel_send_state();
 }
 
 void wayfire_view_t::set_fullscreen(bool full)
@@ -323,6 +579,8 @@ void wayfire_view_t::set_fullscreen(bool full)
             saved_layer == 0 ? (uint32_t)WF_LAYER_WORKSPACE : saved_layer);
         saved_layer = 0;
     }
+
+    toplevel_send_state();
 }
 
 void wayfire_view_t::activate(bool active)
@@ -335,8 +593,11 @@ void wayfire_view_t::activate(bool active)
     if (role == WF_VIEW_ROLE_SHELL_VIEW)
     {
         if (!active)
-            activate(true);
+            return activate(true);
     }
+
+    activated = active;
+    toplevel_send_state();
 }
 
 void wayfire_view_t::close()
@@ -757,12 +1018,15 @@ void emit_view_unmap(wayfire_view view)
     data.view = view;
 
     view->get_output()->emit_signal("unmap-view", &data);
+    view->get_output()->emit_signal("view-disappeared", &data);
     view->emit_signal("unmap", &data);
+    view->emit_signal("disappeared", &data);
 }
 
 void wayfire_view_t::unmap()
 {
     _is_mapped = false;
+    destroy_toplevel();
 
     if (parent)
         set_toplevel_parent(nullptr);
@@ -784,6 +1048,12 @@ void wayfire_view_t::move_request()
     move_request_signal data;
     data.view = self();
     output->emit_signal("move-request", &data);
+}
+
+void wayfire_view_t::focus_request()
+{
+    core->focus_view(self(), nullptr);
+    output->ensure_visible(self());
 }
 
 void wayfire_view_t::resize_request(uint32_t edges)
@@ -811,6 +1081,33 @@ void wayfire_view_t::maximize_request(bool state)
         set_geometry(output->workspace->get_workarea());
         set_maximized(state);
         output->emit_signal("view-maximized", &data);
+    }
+}
+
+void wayfire_view_t::minimize_request(bool state)
+{
+    if (state == minimized || !is_mapped())
+        return;
+
+    view_minimize_request_signal data;
+    data.view = self();
+    data.state = state;
+
+    if (is_mapped())
+    {
+        output->emit_signal("view-minimize-request", &data);
+        /* Some plugin (e.g animate) will take care of the request, so we need
+         * to just send proper state to foreign-toplevel clients */
+        if (data.carried_out)
+        {
+            minimized = state;
+            toplevel_send_state();
+
+        } else
+        {
+            /* Do the default minimization */
+            set_minimized(state);
+        }
     }
 }
 
@@ -904,25 +1201,6 @@ void wayfire_view_t::set_toplevel_parent(wayfire_view new_parent)
 
 wayfire_view_t::~wayfire_view_t()
 {
-}
-
-void emit_title_changed(wayfire_view view)
-{
-    if (!view)
-        return;
-    title_changed_signal data;
-    data.view = view;
-    view->get_output()->emit_signal("view-title-changed", &data);
-}
-
-void emit_app_id_changed(wayfire_view view)
-{
-    if (!view)
-        return;
-
-    app_id_changed_signal data;
-    data.view = view;
-    view->get_output()->emit_signal("view-app-id-changed", &data);
 }
 
 void init_desktop_apis()
