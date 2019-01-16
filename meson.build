@@ -62,6 +62,10 @@ if png.found() and jpeg.found()
   conf_data.set('BUILD_WITH_IMAGEIO', true)
 endif
 
+if meson.get_compiler('cpp').has_function('secure_getenv', prefix: '#include <stdlib.h>')
+  conf_data.set('HAS_SECURE_GETENV', true)
+endif
+
 configure_file(input: 'config.h.in',
                output: 'config.h',
                configuration: conf_data)
