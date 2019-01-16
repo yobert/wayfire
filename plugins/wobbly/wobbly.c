@@ -31,7 +31,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <values.h>
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 
@@ -136,10 +136,10 @@ modelCalcBounds (Model *model)
 {
     int i;
 
-    model->topLeft.x	 = MAXSHORT;
-    model->topLeft.y	 = MAXSHORT;
-    model->bottomRight.x = MINSHORT;
-    model->bottomRight.y = MINSHORT;
+    model->topLeft.x	 = SHRT_MAX;
+    model->topLeft.y	 = SHRT_MAX;
+    model->bottomRight.x = SHRT_MIN;
+    model->bottomRight.y = SHRT_MIN;
 
     for (i = 0; i < model->numObjects; i++)
     {
