@@ -60,7 +60,8 @@ if get_option('enable_graphics_debug')
   conf_data.set('WAYFIRE_GRAPHICS_DEBUG', true)
 endif
 
-if get_option('enable_gles32') and meson.get_compiler('cpp').has_header('GLES3/gl32.h')
+if get_option('enable_gles32') and meson.get_compiler('cpp').has_header(
+    'GLES3/gl32.h', args: '-I' + glesv2.get_pkgconfig_variable('includedir'))
   conf_data.set('USE_GLES32', true)
 endif
 
