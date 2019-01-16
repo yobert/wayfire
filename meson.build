@@ -34,6 +34,9 @@ xkbcommon      = dependency('xkbcommon')
 wlroots        = dependency('wlroots', fallback: ['wlroots', 'wlroots'])
 wfconfig       = dependency('wf-config', fallback: ['wf-config', 'wfconfig'])
 
+needs_libinotify = ['freebsd', 'dragonfly'].contains(host_machine.system())
+libinotify       = dependency('libinotify', required: needs_libinotify)
+
 jpeg = dependency('libjpeg', required: false)
 png  = dependency('libpng',  required: false)
 
