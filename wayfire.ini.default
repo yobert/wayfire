@@ -44,9 +44,9 @@ disable_while_typing = 1
 cursor_size = 24
 cursor_theme = default
 
-xkb_layout = us,bg
-xkb_option = grp:win_space_toggle,compose:ralt
-xkb_variant = ,phonetic
+#xkb_layout = us,bg
+#xkb_option = grp:win_space_toggle,compose:ralt
+#xkb_variant = ,phonetic
 
 kb_repeat_rate = 40
 kb_repeat_delay = 400
