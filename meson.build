@@ -37,6 +37,9 @@ wfconfig       = dependency('wf-config', fallback: ['wf-config', 'wfconfig'])
 jpeg = dependency('libjpeg', required: false)
 png  = dependency('libpng',  required: false)
 
+# backtrace() is in a separate library on FreeBSD
+backtrace = meson.get_compiler('cpp').find_library('execinfo', required: false)
+
 conf_data = configuration_data()
 
 conf_data.set('WF_SRC_DIR', meson.source_root())
