@@ -51,29 +51,6 @@ xkb_variant = ,phonetic
 kb_repeat_rate = 40
 kb_repeat_delay = 400
 
-
-# set background image
-[shell]
-background = /home/<user>/Desktop/sea-tree.jpeg
-
-# panel options
-[shell_panel]
-autohide = 0 # automatically hide if the cursor isn't inside
-background_color = 0.033 0.041 0.047 0.9
-
-# customize font
-font_size = 45
-
-# list of launchers
-launcher1_cmd = chrome
-launcher1_icon = /usr/share/icons/hicolor/64x64/apps/google-chrome.png
-launcher2_cmd = tilix
-launcher2_icon = /usr/share/icons/hicolor/48x48/apps/terminator.png
-launcher3_cmd = env XDG_CURRENT_DESKTOP=GNOME gnome-control-center
-launcher3_icon = /usr/share/icons/gnome/48x48/categories/preferences-system.png
-launcher5_cmd = nautilus
-launcher5_icon = /usr/share/icons/gnome/48x48/apps/system-file-manager.png
-
 # output configuration
 # overlapping outputs are not supported
 [eDP-1]
