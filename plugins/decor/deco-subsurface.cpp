@@ -1,12 +1,3 @@
-extern "C"
-{
-#define static
-#include <wlr/render/wlr_renderer.h>
-#include <wlr/types/wlr_matrix.h>
-#include <wlr/types/wlr_xcursor_manager.h>
-#undef static
-}
-
 #define GLM_FORCE_RADIANS
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -23,6 +14,15 @@ extern "C"
 #include "deco-subsurface.hpp"
 
 #include <cairo.h>
+
+extern "C"
+{
+#define static
+#include <wlr/render/wlr_renderer.h>
+#include <wlr/types/wlr_matrix.h>
+#include <wlr/types/wlr_xcursor_manager.h>
+#undef static
+}
 
 const int titlebar_thickness = 30;
 const int resize_edge_threshold = 5;
