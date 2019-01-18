@@ -37,7 +37,7 @@ void wayfire_xdg_popup::unconstrain()
     if (!output || !view)
         return;
 
-    auto box = output->get_full_geometry();
+    auto box = output->get_relative_geometry();
     auto wm = view->get_output_geometry();
     box.x -= wm.x;
     box.y -= wm.y;
