@@ -19,6 +19,7 @@
 extern "C"
 {
 #define static
+#include <wlr/config.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_matrix.h>
 #include <wlr/util/region.h>

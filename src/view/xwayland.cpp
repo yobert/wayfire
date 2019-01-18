@@ -6,13 +6,18 @@
 
 extern "C"
 {
+#include <wlr/config.h>
+
+#if WLR_HAS_XWAYLAND
 #define class class_t
 #define static
 #include <wlr/xwayland.h>
 #undef static
 #undef class
+#endif
 }
 
+#if WLR_HAS_XWAYLAND
 class wayfire_unmanaged_xwayland_view : public wayfire_view_t
 {
     wlr_xwayland_surface *xw;
@@ -579,25 +584,34 @@ void notify_xwayland_created(wl_listener *, void *data)
     }
 }
 
-static wlr_xwayland *xwayland_handle;
 static wl_listener xwayland_created;
+static wlr_xwayland *xwayland_handle = nullptr;
+#endif
 
 void init_xwayland()
 {
+#if WLR_HAS_XWAYLAND
     xwayland_created.notify = notify_xwayland_created;
     xwayland_handle = wlr_xwayland_create(core->display, core->compositor, false);
 
     if (xwayland_handle)
         wl_signal_add(&xwayland_handle->events.new_surface, &xwayland_created);
+#endif
 }
 
 void xwayland_set_seat(wlr_seat *seat)
 {
+#if WLR_HAS_XWAYLAND
     if (xwayland_handle)
         wlr_xwayland_set_seat(xwayland_handle, core->get_current_seat());
+#endif
 }
 
 std::string xwayland_get_display()
 {
+#if WLR_HAS_XWAYLAND
     return std::to_string(xwayland_handle ? xwayland_handle->display : -1);
+#else
+    return "-1";
+#endif
 }
