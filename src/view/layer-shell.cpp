@@ -141,7 +141,7 @@ struct wf_layer_shell_manager
         v->anchored_area = std::unique_ptr<workspace_manager::anchored_area>
             (new workspace_manager::anchored_area);
 
-        v->anchored_area->reflowed = [v] (wf_geometry geometry)
+        v->anchored_area->reflowed = [v] (wf_geometry geometry, wf_geometry _)
         { v->configure(geometry); };
 
         v->anchored_area->edge = anchor_to_edge(edges);
@@ -208,7 +208,7 @@ struct wf_layer_shell_manager
         /* set all views that have exclusive zones first */
         for (auto v : views)
         {
-            if (v->lsurface->client_pending.keyboard_interactive)
+            if (v->lsurface->client_pending.keyboard_interactive && v->is_mapped())
                 focus_mask = zwlr_layer_to_wf_layer(v->lsurface->layer);
 
             if (v->lsurface->client_pending.exclusive_zone > 0)
@@ -312,6 +312,9 @@ void wayfire_layer_shell_view::destroy()
 
 void wayfire_layer_shell_view::map(wlr_surface *surface)
 {
+    output->workspace->add_view_to_layer(self(),
+        zwlr_layer_to_wf_layer(lsurface->layer));
+
     wayfire_view_t::map(surface);
 
     /* we already called handle_map in constructor to get proper size */
@@ -320,9 +323,6 @@ void wayfire_layer_shell_view::map(wlr_surface *surface)
         layer_shell_manager.handle_map(this);
 
     first_map = false;
-
-    output->workspace->add_view_to_layer(self(),
-                                         zwlr_layer_to_wf_layer(lsurface->layer));
 
     if (lsurface->current.keyboard_interactive)
         output->focus_view(self());

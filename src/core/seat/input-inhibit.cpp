@@ -19,6 +19,11 @@ void inhibit_output(wayfire_output *output)
     iface_map[output] = iface;
 }
 
+bool is_output_inhibited(wayfire_output *output)
+{
+    return output->is_plugin_active(iface_name);
+}
+
 void uninhibit_output(wayfire_output *output)
 {
     if (!output->is_plugin_active(iface_name))

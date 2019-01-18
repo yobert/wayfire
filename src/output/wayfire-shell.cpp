@@ -26,8 +26,6 @@ struct wayfire_shell
     std::map<wayfire_output*, signal_callback_t> output_autohide_callback;
 
     signal_callback_t output_added, output_removed;
-    signal_callback_t view_unmapped;
-
     static wayfire_shell& get_instance()
     {
         static wayfire_shell shell;
@@ -41,71 +39,267 @@ struct wayfire_shell
     wayfire_shell() {}
 };
 
-
-static void zwf_wm_surface_configure(struct wl_client *client,
-                                     struct wl_resource *resource,
-                                     int32_t x, int32_t y)
+static workspace_manager::anchored_edge anchor_edge_to_workspace_edge(uint32_t edge)
 {
-    auto view = (wayfire_view_t*) wl_resource_get_user_data(resource);
-    view->move(x, y);
+    if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_TOP)
+        return workspace_manager::WORKSPACE_ANCHORED_EDGE_TOP;
+    if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_BOTTOM)
+        return workspace_manager::WORKSPACE_ANCHORED_EDGE_BOTTOM;
+    if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_LEFT)
+        return workspace_manager::WORKSPACE_ANCHORED_EDGE_LEFT;
+    if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_RIGHT)
+        return workspace_manager::WORKSPACE_ANCHORED_EDGE_RIGHT;
+
+    log_error ("Unrecognized anchor edge %d", edge);
+    return workspace_manager::WORKSPACE_ANCHORED_EDGE_TOP;
 }
 
-struct wf_shell_reserved_custom_data : public wf_custom_data_t
+class wayfire_shell_wm_surface : public wf_custom_data_t
 {
-    workspace_manager::anchored_area area;
+    std::unique_ptr<workspace_manager::anchored_area> area;
+    wayfire_output *output;
+    wayfire_view view;
 
-    wf_shell_reserved_custom_data() {
-        area.reserved_size = -1;
-        area.real_size = 0;
+    uint32_t anchors = 0;
+    struct {
+        int top    = 0;
+        int bottom = 0;
+        int left   = 0;
+        int right  = 0;
+        bool margins_set = false;
+    } margin;
+
+    uint32_t focus_mode = 0;
+    uint32_t exclusive_zone_size = 0;
+
+    /* width/height with which the view position was last calculated */
+    int32_t previous_width = 0, previous_height = 0;
+
+    public:
+    wayfire_shell_wm_surface(wayfire_output *output, wayfire_view view)
+    {
+        this->output = output;
+        this->view = view;
+        view->connect_signal("geometry-changed", &on_geometry_changed);
+    }
+
+    ~wayfire_shell_wm_surface()
+    {
+        if (area)
+            output->workspace->remove_reserved_area(area.get());
+
+        /* Make sure we unfocus the current layer, if it was focused */
+        set_keyboard_mode(ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_NO_FOCUS);
+        view->disconnect_signal("geometry-changed", &on_geometry_changed);
+    }
+
+    const uint32_t both_horiz =
+        ZWF_WM_SURFACE_V1_ANCHOR_EDGE_TOP | ZWF_WM_SURFACE_V1_ANCHOR_EDGE_BOTTOM;
+    const uint32_t both_vert =
+        ZWF_WM_SURFACE_V1_ANCHOR_EDGE_LEFT | ZWF_WM_SURFACE_V1_ANCHOR_EDGE_RIGHT;
+
+    void set_anchor(uint32_t anchors)
+    {
+        /* Just a warning, the result will be wrong, but won't crash */
+        if ((anchors & both_vert) == both_vert || (anchors & both_horiz) == both_horiz)
+        {
+            log_error("wayfire-shell: Failed to set anchors, \
+                opposing edges detected.");
+        }
+
+        this->anchors = anchors;
+        if (anchors > 0)
+        {
+            if (margin.margins_set)
+                set_margin(margin.top, margin.bottom, margin.left, margin.right);
+            set_exclusive_zone(this->exclusive_zone_size);
+        }
+    }
+
+    std::function<void(wf_geometry, wf_geometry)> on_reflow =
+    [=] (wf_geometry _, wf_geometry workarea)
+    {
+        if (!margin.margins_set)
+            return;
+
+        auto surface_geometry = view->get_wm_geometry();
+
+        /* First calculate offsets from edges of the available workarea */
+        int x = workarea.x, y = workarea.y;
+        if (anchors & ZWF_WM_SURFACE_V1_ANCHOR_EDGE_TOP)
+            y += margin.top;
+        if (anchors & ZWF_WM_SURFACE_V1_ANCHOR_EDGE_BOTTOM)
+            y = workarea.y + workarea.height - surface_geometry.height - margin.bottom;
+
+        if (anchors & ZWF_WM_SURFACE_V1_ANCHOR_EDGE_LEFT)
+             x += margin.left;
+        if (anchors & ZWF_WM_SURFACE_V1_ANCHOR_EDGE_RIGHT)
+            x = workarea.x + workarea.width - surface_geometry.width - margin.right;
+
+        /* Second, if the wm surface is anchored to a single edge,
+         * center it on that edge */
+        if (__builtin_popcount(anchors) == 1)
+        {
+            if (anchors & (both_horiz)) {
+                x = workarea.x + workarea.width / 2 - surface_geometry.width / 2;
+            } else {
+                y = workarea.y + workarea.height / 2 - surface_geometry.height / 2;
+            }
+        }
+
+        previous_width = surface_geometry.width;
+        previous_height = surface_geometry.height;
+
+        view->move(x, y);
+    };
+
+    signal_callback_t on_geometry_changed = [=] (signal_data *data)
+    {
+        auto wm = view->get_wm_geometry();
+
+        /* Trigger a reflow to reposition the view according to newer geometry */
+        if (wm.width != previous_width || wm.height != previous_height)
+            set_exclusive_zone(exclusive_zone_size);
+    };
+
+    void set_margin(int32_t top, int32_t bottom, int32_t left, int32_t right)
+    {
+        margin.top = top;
+        margin.bottom = bottom;
+        margin.left = left;
+        margin.right = right;
+        margin.margins_set = true;
+
+        /* set_exclusive_zone will trigger a reflow */
+        set_exclusive_zone(exclusive_zone_size);
+    }
+
+    void set_keyboard_mode(uint32_t new_mode)
+    {
+        /* Nothing to do */
+        if (focus_mode == new_mode)
+            return;
+
+        switch(new_mode)
+        {
+            case ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_NO_FOCUS:
+                view->set_keyboard_focus_enabled(false);
+                output->refocus(nullptr);
+                break;
+
+            case ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_CLICK_TO_FOCUS:
+                view->set_keyboard_focus_enabled(true);
+                break;
+
+            case ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS:
+                if (core->get_focused_layer() != 0)
+                {
+                    log_error("wayfire-shell: denying exlusive focus request");
+                    return;
+                }
+
+                view->set_keyboard_focus_enabled(true);
+                core->focus_layer(output->workspace->get_view_layer(view));
+                output->focus_view(view);
+                break;
+
+            default:
+                log_error ("wayfire-shell: Invalid keyboard mode!");
+                break;
+        };
+
+        /* We force-focused a layer, unfocus it now */
+        if (this->focus_mode == ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS
+            && new_mode != ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS)
+        {
+            core->focus_layer(0);
+        }
+    }
+
+    /* We keep an exclusive zone even if its size is 0, because
+     * margin positioning depends on the reflow callback */
+    void set_exclusive_zone(uint32_t size)
+    {
+        if (__builtin_popcount(anchors) != 1)
+            return;
+
+        this->exclusive_zone_size = size;
+
+        bool new_area = false;
+        if (!area)
+        {
+            area = nonstd::make_unique<workspace_manager::anchored_area> ();
+            area->reflowed = on_reflow;
+            new_area = true;
+        }
+
+        area->edge = anchor_edge_to_workspace_edge(anchors);
+        area->reserved_size = size;
+        area->real_size = size;
+
+        if (new_area) {
+            output->workspace->add_reserved_area(area.get());
+        } else {
+            output->workspace->reflow_reserved_areas();
+        }
     }
 };
 
-static workspace_manager::anchored_area *
-get_anchored_area_for_view(wayfire_view view)
+static nonstd::observer_ptr<wayfire_shell_wm_surface>
+wm_surface_from_view(wayfire_view view)
 {
-    return &view->get_data_safe<wf_shell_reserved_custom_data>()->area;
+    return view->get_data<wayfire_shell_wm_surface>();
 }
 
-static void zwf_wm_surface_set_exclusive_zone(struct wl_client *client,
-                                              struct wl_resource *resource,
-                                              uint32_t anchor_edge, uint32_t size)
+static wayfire_view view_from_resource(wl_resource *resource)
 {
-    auto view = ((wayfire_view_t*) wl_resource_get_user_data(resource))->self();
-    auto area = get_anchored_area_for_view(view);
-
-    bool is_first_update = (area->reserved_size == -1);
-
-    area->reserved_size = size;
-    area->edge = (workspace_manager::anchored_edge)anchor_edge;
-
-    if (is_first_update)
-        view->get_output()->workspace->add_reserved_area(area);
-    else
-        view->get_output()->workspace->reflow_reserved_areas();
+    // TODO: assert(wl_resource_instance_of)
+    return static_cast<wayfire_view_t*> (
+        wl_resource_get_user_data(resource))->self();
 }
 
-static void zwf_wm_surface_request_focus(struct wl_client *client,
-                                         struct wl_resource *resource)
+static nonstd::observer_ptr<wayfire_shell_wm_surface>
+wm_surface_from_resource(wl_resource *resource)
 {
-    auto view = (wayfire_view_t*) wl_resource_get_user_data(resource);
-    view->get_output()->focus_view(view->self());
+    return wm_surface_from_view(view_from_resource(resource));
 }
 
-static void zwf_wm_surface_return_focus(struct wl_client *client,
-                                        struct wl_resource *resource)
+static void handle_wm_surface_configure(wl_client *client, wl_resource *resource,
+    int32_t x, int32_t y)
 {
-    auto view = (wayfire_view_t*) wl_resource_get_user_data(resource);
-    auto wo = view->get_output();
+    view_from_resource(resource)->move(x, y);
+}
 
-    if (wo == core->get_active_output())
-        wo->focus_view(wo->get_top_view());
+static void handle_wm_surface_set_anchor(wl_client *client, wl_resource *resource,
+    uint32_t anchors)
+{
+    wm_surface_from_resource(resource)->set_anchor(anchors);
+}
+
+static void handle_wm_surface_set_margin(wl_client *client, wl_resource *resource,
+    int32_t top, int32_t bottom, int32_t left, int32_t right)
+{
+    wm_surface_from_resource(resource)->set_margin(top, bottom, left, right);
+}
+
+static void handle_wm_surface_set_keyboard_mode(wl_client *client,
+    wl_resource *resource, uint32_t mode)
+{
+    wm_surface_from_resource(resource)->set_keyboard_mode(mode);
+}
+
+static void handle_wm_surface_set_exclusive_zone(wl_client *client,
+    wl_resource *resource, uint32_t size)
+{
+    wm_surface_from_resource(resource)->set_exclusive_zone(size);
 }
 
 const struct zwf_wm_surface_v1_interface zwf_wm_surface_v1_implementation = {
-    zwf_wm_surface_configure,
-    zwf_wm_surface_set_exclusive_zone,
-    zwf_wm_surface_request_focus,
-    zwf_wm_surface_return_focus
+    .configure = handle_wm_surface_configure,
+    .set_anchor = handle_wm_surface_set_anchor,
+    .set_margin = handle_wm_surface_set_margin,
+    .set_keyboard_mode = handle_wm_surface_set_keyboard_mode,
+    .set_exclusive_zone = handle_wm_surface_set_exclusive_zone
 };
 
 static void zwf_output_get_wm_surface(struct wl_client *client,
@@ -121,6 +315,9 @@ static void zwf_output_get_wm_surface(struct wl_client *client,
         log_error ("wayfire_shell: get_wm_surface() for invalid surface!");
         return;
     }
+
+    auto wf_wm_surface = nonstd::make_unique<wayfire_shell_wm_surface> (wo, view);
+    view->store_data<wayfire_shell_wm_surface> (std::move(wf_wm_surface));
 
     auto wfo = wl_resource_create(client, &zwf_wm_surface_v1_interface, 1, id);
     wl_resource_set_implementation(wfo, &zwf_wm_surface_v1_implementation, view.get(), NULL);
@@ -265,22 +462,13 @@ static void wayfire_shell_handle_output_created(wayfire_output *output)
         zwf_output_send_autohide(&wayfire_shell::get_instance(), output, bool(flag));
     };
 
-    /* FIXME: traditionally std::map won't move memory around ... */
+    /* std::map is guaranteed to not invalidate references to elements in it,
+     * so passing such a pointer is safe */
     output->connect_signal("autohide-panels", &shell.output_autohide_callback[output]);
-    output->connect_signal("unmap-view", &shell.view_unmapped);
 }
 
 static void wayfire_shell_handle_output_destroyed(wayfire_output *output)
 {
-}
-
-static void wayfire_shell_unmap_view(wayfire_view view)
-{
-    if (view->has_data<wf_shell_reserved_custom_data>())
-    {
-        auto area = get_anchored_area_for_view(view);
-        view->get_output()->workspace->remove_reserved_area(area);
-    }
 }
 
 wayfire_shell* wayfire_shell_create(wl_display *display)
@@ -301,10 +489,5 @@ wayfire_shell* wayfire_shell_create(wl_display *display)
 
     core->connect_signal("output-added", &shell.output_added);
     core->connect_signal("output-removed", &shell.output_removed);
-
-    shell.view_unmapped = [=] (signal_data *data) {
-        wayfire_shell_unmap_view(get_signaled_view(data));
-    };
-
     return &shell;
 }

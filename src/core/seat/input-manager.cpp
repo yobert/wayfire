@@ -278,6 +278,11 @@ void input_manager::set_exclusive_focus(wl_client *client)
         else
             uninhibit_output(output);
     });
+
+    /* We no longer have an exclusively focused client, so we should restore
+     * focus to the topmost view */
+    if (!client)
+        core->get_active_output()->refocus(nullptr);
 }
 
 /* add/remove bindings */

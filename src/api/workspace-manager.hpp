@@ -92,8 +92,10 @@ class workspace_manager
             /* desired size, to be given later in the reflowed callback */
             int real_size;
 
-            /* called when the anchored area geometry was changed */
-            std::function<void(wf_geometry)> reflowed;
+            /* called when the anchored area geometry was changed.
+             * First geometry is the anchored geometry, the second one the
+             * workarea available when the anchored area was considered */
+            std::function<void(wf_geometry, wf_geometry)> reflowed;
         };
 
         virtual wf_geometry calculate_anchored_geometry(const anchored_area& area) = 0;

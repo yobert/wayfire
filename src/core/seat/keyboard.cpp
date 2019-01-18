@@ -11,6 +11,7 @@ extern "C"
 #include "core.hpp"
 #include "input-manager.hpp"
 #include "compositor-view.hpp"
+#include "input-inhibit.hpp"
 
 static void handle_keyboard_key_cb(wl_listener* listener, void *data)
 {
@@ -133,6 +134,10 @@ static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
         return false;
 
     if (key < KEY_F1 || key > KEY_F10)
+        return false;
+
+    /* Somebody inhibited the output, most probably a lockscreen */
+    if (is_output_inhibited(core->get_active_output()))
         return false;
 
     int target_vt = key - KEY_F1 + 1;

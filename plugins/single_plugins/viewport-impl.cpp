@@ -461,7 +461,7 @@ void viewport_manager::reflow_reserved_areas()
         auto anchor_area = calculate_anchored_geometry(*a);
 
         if (a->reflowed)
-            a->reflowed(anchor_area);
+            a->reflowed(anchor_area, current_workarea);
 
         switch(a->edge)
         {
