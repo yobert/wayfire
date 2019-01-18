@@ -156,7 +156,7 @@ class wayfire_expo : public wayfire_plugin_t
     wf_geometry get_grid_geometry()
     {
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
-        auto full_g = output->get_full_geometry();
+        auto full_g = output->get_layout_geometry();
 
         wf_geometry grid;
         grid.x = grid.y = 0;
@@ -250,7 +250,7 @@ class wayfire_expo : public wayfire_plugin_t
     }
     void input_coordinates_to_global_coordinates(int &sx, int &sy)
     {
-        auto og = output->get_full_geometry();
+        auto og = output->get_layout_geometry();
 
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
 
@@ -269,7 +269,7 @@ class wayfire_expo : public wayfire_plugin_t
     wayfire_view find_view_at(int sx, int sy)
     {
         GetTuple(vx, vy, output->workspace->get_current_workspace());
-        auto og = output->get_full_geometry();
+        auto og = output->get_layout_geometry();
 
         input_coordinates_to_global_coordinates(sx, sy);
 
@@ -288,7 +288,7 @@ class wayfire_expo : public wayfire_plugin_t
     }
 
     void update_target_workspace(int x, int y) {
-        auto og = output->get_full_geometry();
+        auto og = output->get_layout_geometry();
 
         input_coordinates_to_global_coordinates(x, y);
 

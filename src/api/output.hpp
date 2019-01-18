@@ -68,7 +68,7 @@ class wayfire_output : public wf_object_base
        wf_geometry get_relative_geometry();
 
        /* geometry with respect to the output-layout */
-       wf_geometry get_full_geometry();
+       wf_geometry get_layout_geometry();
 
        void set_transform(wl_output_transform new_transform);
        wl_output_transform get_transform();

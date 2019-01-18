@@ -332,7 +332,7 @@ wf_geometry wayfire_output::get_relative_geometry()
     return g;
 }
 
-wf_geometry wayfire_output::get_full_geometry()
+wf_geometry wayfire_output::get_layout_geometry()
 {
     wf_geometry g;
     g.x = handle->lx; g.y = handle->ly;
@@ -437,7 +437,7 @@ void wayfire_output::ensure_pointer()
 
     int px = wl_fixed_to_int(ptr->x), py = wl_fixed_to_int(ptr->y);
 
-    auto g = get_full_geometry();
+    auto g = get_layout_geometry();
     if (!point_inside({px, py}, g)) {
         wl_fixed_t cx = wl_fixed_from_int(g.x + g.width / 2);
         wl_fixed_t cy = wl_fixed_from_int(g.y + g.height / 2);
@@ -454,7 +454,7 @@ void wayfire_output::ensure_pointer()
 std::tuple<int, int> wayfire_output::get_cursor_position()
 {
     GetTuple(x, y, core->get_cursor_position());
-    auto og = get_full_geometry();
+    auto og = get_layout_geometry();
 
     return std::make_tuple(x - og.x, y - og.y);
 }

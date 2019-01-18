@@ -249,7 +249,7 @@ wayfire_surface_t* input_manager::input_surface_at(int x, int y,
     if (!output)
         return nullptr;
 
-    auto og = output->get_full_geometry();
+    auto og = output->get_layout_geometry();
     x -= og.x;
     y -= og.y;
 

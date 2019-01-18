@@ -102,7 +102,7 @@ void wf_gesture_recognizer::continue_gesture(int id, int sx, int sy)
         bool bottom_edge = false, upper_edge = false,
              left_edge = false, right_edge = false;
 
-        auto og = core->get_active_output()->get_full_geometry();
+        auto og = core->get_active_output()->get_layout_geometry();
 
         for (auto f : current)
         {
@@ -304,7 +304,7 @@ void input_manager::handle_touch_down(uint32_t time, int32_t id, int32_t x, int3
     auto wo = core->get_output_at(x, y);
     core->focus_output(wo);
 
-    auto og = wo->get_full_geometry();
+    auto og = wo->get_layout_geometry();
     int ox = x - og.x;
     int oy = y - og.y;
 
@@ -345,7 +345,7 @@ void input_manager::handle_touch_motion(uint32_t time, int32_t id, int32_t x, in
     if (active_grab)
     {
         auto wo = core->get_output_at(x, y);
-        auto og = wo->get_full_geometry();
+        auto og = wo->get_layout_geometry();
         if (active_grab->callbacks.touch.motion)
             active_grab->callbacks.touch.motion(id, x - og.x, y - og.y);
 

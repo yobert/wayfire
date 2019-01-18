@@ -255,9 +255,7 @@ bool viewport_manager::view_visible_on(wayfire_view view, std::tuple<int, int> v
 {
     GetTuple(tx, ty, vp);
 
-    auto g = output->get_full_geometry();
-    g.x = g.y = 0;
-
+    auto g = output->get_relative_geometry();
     if (view->role != WF_VIEW_ROLE_SHELL_VIEW)
     {
         g.x += (tx - vx) * g.width;

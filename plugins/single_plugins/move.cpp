@@ -493,7 +493,7 @@ class wayfire_move : public wayfire_plugin_t
         std::tuple<int, int> get_input_coords()
         {
             GetTuple(gx, gy, get_global_input_coords());
-            auto og = output->get_full_geometry();
+            auto og = output->get_layout_geometry();
 
             return std::tuple<int, int> {gx - og.x, gy - og.y};
         }
@@ -504,8 +504,8 @@ class wayfire_move : public wayfire_plugin_t
             move_request_signal req;
             req.view = view;
 
-            auto old_g = output->get_full_geometry();
-            auto new_g = new_output->get_full_geometry();
+            auto old_g = output->get_layout_geometry();
+            auto new_g = new_output->get_layout_geometry();
             auto wm_g = view->get_wm_geometry();
 
             int dx = old_g.x - new_g.x;
@@ -579,8 +579,8 @@ class wayfire_move : public wayfire_plugin_t
             if (wo->has_data(get_data_name()))
                 return;
 
-            auto base_output = output->get_full_geometry();
-            auto mirror_output = wo->get_full_geometry();
+            auto base_output = output->get_layout_geometry();
+            auto mirror_output = wo->get_layout_geometry();
 
             auto mirror = new wf_move_mirror_view(view, base_output.x - mirror_output.x,
                 base_output.y - mirror_output.y);
@@ -616,7 +616,7 @@ class wayfire_move : public wayfire_plugin_t
                 return;
             }
 
-            auto current_og = output->get_full_geometry();
+            auto current_og = output->get_layout_geometry();
             auto current_geometry = view->get_bounding_box() + wf_point{current_og.x, current_og.y};
 
             core->for_each_output([=] (wayfire_output *wo)
@@ -624,7 +624,7 @@ class wayfire_move : public wayfire_plugin_t
                 if (wo == output) // skip the same output
                     return;
 
-                auto og = output->get_full_geometry();
+                auto og = output->get_layout_geometry();
 
                 /* A view is visible on the other output as well */
                 if (og & current_geometry)

@@ -146,7 +146,7 @@ class wayfire_resize : public wayfire_plugin_t
     std::tuple<int, int> get_input_coords()
     {
         GetTuple(gx, gy, get_global_input_coords());
-        auto og = output->get_full_geometry();
+        auto og = output->get_layout_geometry();
 
         return std::tuple<int, int> {gx - og.x, gy - og.y};
     }

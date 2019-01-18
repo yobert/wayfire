@@ -68,7 +68,7 @@ wf_point wf_drag_icon::get_output_position()
 
     if (output)
     {
-        auto og = output->get_full_geometry();
+        auto og = output->get_layout_geometry();
         x -= og.x;
         y -= og.y;
     }
@@ -83,7 +83,7 @@ void wf_drag_icon::damage(const wlr_box& box)
 
     core->for_each_output([=] (wayfire_output *output)
     {
-        auto output_geometry = output->get_full_geometry();
+        auto output_geometry = output->get_layout_geometry();
         if (output_geometry & box)
         {
             auto local = box;
