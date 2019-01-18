@@ -81,17 +81,48 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         this->output = output;
         this->view = view;
         view->connect_signal("geometry-changed", &on_geometry_changed);
+        view->connect_signal("set-output", &on_view_output_changed);
     }
 
     ~wayfire_shell_wm_surface()
     {
-        if (area)
-            output->workspace->remove_reserved_area(area.get());
-
         /* Make sure we unfocus the current layer, if it was focused */
         set_keyboard_mode(ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_NO_FOCUS);
+
         view->disconnect_signal("geometry-changed", &on_geometry_changed);
+        view->disconnect_signal("set-output", &on_view_output_changed);
+
+        /* If the view's output has been reset, we have already reset the needed state
+         * in the output changed handler */
+        if (view->get_output() && area)
+            output->workspace->remove_reserved_area(area.get());
     }
+
+    signal_callback_t on_view_output_changed = [=] (signal_data *data)
+    {
+        if (margin.margins_set || exclusive_zone_size)
+        {
+            /* An achored view should never be moved to a different output,
+             * except if its output was closed, in which case the output is set
+             * to nullptr */
+            assert(view->get_output() == nullptr
+                || view->get_output() == this->output);
+
+            if (view->get_output() == nullptr && area)
+            {
+                output->workspace->remove_reserved_area(area.get());
+                area = nullptr;
+            }
+        }
+
+        /* Don't forget to reset keyboard focus mode if moved to another output */
+        if (focus_mode == ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS
+            && view->get_output() == nullptr)
+        {
+            core->focus_layer(0);
+            focus_mode = ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_CLICK_TO_FOCUS;
+        }
+    };
 
     const uint32_t both_horiz =
         ZWF_WM_SURFACE_V1_ANCHOR_EDGE_TOP | ZWF_WM_SURFACE_V1_ANCHOR_EDGE_BOTTOM;
