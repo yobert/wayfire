@@ -297,11 +297,7 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
     wl_signal_add(&lsurface->events.new_popup, &new_popup);
     wl_signal_add(&lsurface->events.destroy,   &destroy_ev);
 
-    /* easy reflowing */
-    auto old_current = lsurface->current;
-    lsurface->current = lsurface->client_pending;
     layer_shell_manager.handle_map(this);
-    lsurface->current = old_current;
 }
 
 void wayfire_layer_shell_view::destroy()
