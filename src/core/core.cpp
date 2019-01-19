@@ -464,7 +464,8 @@ void wayfire_core::focus_layer(uint32_t layer)
         return;
 
     focused_layer = layer;
-    active_output->refocus(nullptr);
+    if (focused_layer > 0)
+        active_output->refocus();
 }
 
 uint32_t wayfire_core::get_focused_layer()
