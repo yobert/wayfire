@@ -36,8 +36,15 @@ struct wf_input_device
 
     static struct config_t
     {
+        wf_option mouse_cursor_speed;
+        wf_option mouse_scroll_speed;
+        wf_option touchpad_cursor_speed;
+        wf_option touchpad_scroll_speed;
         wf_option touchpad_tap_enabled;
+        wf_option touchpad_click_method;
+        wf_option touchpad_scroll_method;
         wf_option touchpad_dwt_enabled;
+        wf_option touchpad_dwmouse_enabled;
         wf_option touchpad_natural_scroll_enabled;
 
         void load(wayfire_config *config);
