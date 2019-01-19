@@ -1,7 +1,9 @@
 #ifndef DEBUG_HPP
 #define DEBUG_HPP
 
+#ifndef WAYFIRE_PLUGIN
 #include "config.h"
+#endif
 
 extern "C"
 {
