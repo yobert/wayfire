@@ -43,3 +43,34 @@ executable('wayfire', wayfire_sources,
         include_directories: [wayfire_conf_inc, wayfire_api_inc],
         link_args: '-ldl',
         install: true)
+
+install_headers(['api/nonstd/make_unique.hpp',
+                 'api/nonstd/noncopyable.hpp',
+                 'api/nonstd/observer_ptr.h'],
+                subdir: 'wayfire/nonstd')
+
+install_headers(['api/compositor-surface.hpp',
+                 'api/compositor-view.hpp',
+                 'api/core.hpp',
+                 'api/debug.hpp',
+                 'api/decorator.hpp',
+                 'api/img.hpp',
+                 'api/object.hpp',
+                 'api/opengl.hpp',
+                 'api/output.hpp',
+                 'api/plugin.hpp',
+                 'api/render-manager.hpp',
+                 'api/signal-definitions.hpp',
+                 'api/util.hpp',
+                 'api/view-transform.hpp',
+                 'api/view.hpp',
+                 'api/workspace-manager.hpp'],
+                subdir: 'wayfire')
+
+pkgconfig = import('pkgconfig')
+pkgconfig.generate(
+    subdirs:      'wayfire',
+    version:      meson.project_version(),
+    filebase:     meson.project_name(),
+    name:         meson.project_name(),
+    description: 'A Wayland Compositor')
