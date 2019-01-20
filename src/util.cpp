@@ -1,5 +1,6 @@
 #include "util.hpp"
 #include <debug.hpp>
+#include <ctime>
 
 extern "C"
 {

@@ -177,7 +177,7 @@ class wayfire_cube : public wayfire_plugin_t
         tessellation_support =
             ext_string.find(std::string("GL_EXT_tessellation_shader")) != std::string::npos;
 #else
-        tesselation_support = false;
+        tessellation_support = false;
 #endif
 
         std::string shaderSrcPath;

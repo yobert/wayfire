@@ -34,8 +34,14 @@ xkbcommon      = dependency('xkbcommon')
 wlroots        = dependency('wlroots', fallback: ['wlroots', 'wlroots'])
 wfconfig       = dependency('wf-config', fallback: ['wf-config', 'wfconfig'])
 
+needs_libinotify = ['freebsd', 'dragonfly'].contains(host_machine.system())
+libinotify       = dependency('libinotify', required: needs_libinotify)
+
 jpeg = dependency('libjpeg', required: false)
 png  = dependency('libpng',  required: false)
+
+# backtrace() is in a separate library on FreeBSD
+backtrace = meson.get_compiler('cpp').find_library('execinfo', required: false)
 
 conf_data = configuration_data()
 
@@ -54,12 +60,17 @@ if get_option('enable_graphics_debug')
   conf_data.set('WAYFIRE_GRAPHICS_DEBUG', true)
 endif
 
-if get_option('enable_gles32') and meson.get_compiler('cpp').has_header('GLES3/gl32.h')
+if get_option('enable_gles32') and meson.get_compiler('cpp').has_header(
+    'GLES3/gl32.h', args: '-I' + glesv2.get_pkgconfig_variable('includedir'))
   conf_data.set('USE_GLES32', true)
 endif
 
 if png.found() and jpeg.found()
   conf_data.set('BUILD_WITH_IMAGEIO', true)
+endif
+
+if meson.get_compiler('cpp').has_function('secure_getenv', prefix: '#include <stdlib.h>')
+  conf_data.set('HAS_SECURE_GETENV', true)
 endif
 
 configure_file(input: 'config.h.in',

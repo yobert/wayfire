@@ -142,7 +142,11 @@ int main(int argc, char *argv[])
     wlr_log_init(WLR_ERROR, NULL);
 #endif
 
+#ifdef HAS_SECURE_GETENV
     std::string home_dir = secure_getenv("HOME");
+#else
+    std::string home_dir = getenv("HOME");
+#endif
     config_file = home_dir + "/.config/wayfire.ini";
 
     struct option opts[] = {
