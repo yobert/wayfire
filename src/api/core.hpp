@@ -22,6 +22,7 @@ extern "C"
 struct wlr_data_device_manager;
 struct wlr_linux_dmabuf_v1;
 struct wlr_gamma_control_manager;
+struct wlr_gamma_control_manager_v1;
 struct wlr_screenshooter;
 struct wlr_xdg_output_manager_v1;
 struct wlr_export_dmabuf_manager_v1;
@@ -89,6 +90,7 @@ class wayfire_core : public wf_object_base
         {
             wlr_data_device_manager *data_device;
             wlr_gamma_control_manager *gamma;
+            wlr_gamma_control_manager_v1 *gamma_v1;
             wlr_screenshooter *screenshooter;
             wlr_screencopy_manager_v1 *screencopy;
             wlr_linux_dmabuf_v1 *linux_dmabuf;
