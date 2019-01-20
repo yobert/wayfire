@@ -45,17 +45,12 @@ class wayfire_cube : public wayfire_plugin_t
         GLuint id = -1;
         GLuint modelID, vpID;
         GLuint posID, uvID;
-#ifdef USE_GLES32
         GLuint defID, lightID;
         GLuint easeID;
-#endif
     } program;
 
     wf_cube_animation_attribs animation;
-
-#ifdef USE_GLES32
     wf_option use_light, use_deform;
-#endif
 
     std::string last_background_mode;
     std::unique_ptr<wf_cube_background_base> background;
@@ -145,10 +140,8 @@ class wayfire_cube : public wayfire_plugin_t
             deactivate();
         };
 
-#ifdef USE_GLES32
         use_light  = section->get_option("light", "1");
         use_deform = section->get_option("deform", "0");
-#endif
 
         auto vw = std::get<0>(output->workspace->get_workspace_grid_size());
         animation.side_angle = 2 * M_PI / float(vw);
