@@ -123,7 +123,7 @@ speed_spin_vert = 0.020000
 initial_animation = 586.000000
 
 # can be simple, skydome, cubemap
-background_mode = skydome
+background_mode = simple
 # for simple background mode
 background = 0.1 0.1 0.1 1.0
 # for skydome background mode
