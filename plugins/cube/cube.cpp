@@ -198,6 +198,7 @@ class wayfire_cube : public wayfire_plugin_t
 
         if (tessellation_support)
         {
+#ifdef USE_GLES32
             tcs = OpenGL::load_shader(shaderSrcPath + "/tcs.glsl", GL_TESS_CONTROL_SHADER);
             tes = OpenGL::load_shader(shaderSrcPath + "/tes.glsl", GL_TESS_EVALUATION_SHADER);
             gss = OpenGL::load_shader(shaderSrcPath + "/geom.glsl", GL_GEOMETRY_SHADER);
@@ -205,6 +206,7 @@ class wayfire_cube : public wayfire_plugin_t
             GL_CALL(glAttachShader(program.id, tcs));
             GL_CALL(glAttachShader(program.id, tes));
             GL_CALL(glAttachShader(program.id, gss));
+#endif
         }
 
         GL_CALL(glLinkProgram(program.id));
@@ -212,11 +214,14 @@ class wayfire_cube : public wayfire_plugin_t
 
         GL_CALL(glDeleteShader(vss));
         GL_CALL(glDeleteShader(fss));
+
         if (tessellation_support)
         {
+#ifdef USE_GLES32
             GL_CALL(glDeleteShader(tcs));
             GL_CALL(glDeleteShader(tes));
             GL_CALL(glDeleteShader(gss));
+#endif
         }
 
         program.vpID = GL_CALL(glGetUniformLocation(program.id, "VP"));
