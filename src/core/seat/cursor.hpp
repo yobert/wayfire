@@ -30,6 +30,9 @@ struct wf_cursor
 
     wlr_cursor *cursor = NULL;
     wlr_xcursor_manager *xcursor = NULL;
+
+    wf_option mouse_scroll_speed;
+    wf_option touchpad_scroll_speed;
 };
 
 #endif /* end of include guard: CURSOR_HPP */

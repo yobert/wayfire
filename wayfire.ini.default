@@ -37,9 +37,19 @@ command_lock = swaylock
 
 # input options
 [input]
+# -1..1, where 0 is default
+mouse_cursor_speed = 0
+touchpad_cursor_speed = 0
+# 0..* (multipliers)
+mouse_scroll_speed = 1
+touchpad_scroll_speed = 1
+
 natural_scroll = 1
 tap_to_click = 1
+click_method = default  # none | button-areas | clickfinger
+scroll_method = default # none | two-finger | edge | on-button-down
 disable_while_typing = 1
+disable_touchpad_while_mouse = 0
 
 cursor_size = 24
 cursor_theme = default

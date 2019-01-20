@@ -185,8 +185,11 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
         return;
     }
 
+    double mult = ev->source == WLR_AXIS_SOURCE_FINGER ?
+        cursor->touchpad_scroll_speed->as_cached_double() :
+        cursor->mouse_scroll_speed->as_cached_double();
     wlr_seat_pointer_notify_axis(seat, ev->time_msec, ev->orientation,
-                                 ev->delta, ev->delta_discrete, ev->source);
+                                 mult * ev->delta, mult * ev->delta_discrete, ev->source);
 }
 
 
@@ -213,6 +216,10 @@ wf_cursor::wf_cursor()
     config_reloaded = [=] (signal_data*) {
         init_xcursor();
     };
+
+    auto section = core->config->get_section("input");
+    mouse_scroll_speed    = section->get_option("mouse_scroll_speed", "1");
+    touchpad_scroll_speed = section->get_option("touchpad_scroll_speed", "1");
 
     core->connect_signal("reload-config", &config_reloaded);
 }
