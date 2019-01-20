@@ -57,7 +57,7 @@ class viewport_manager : public workspace_manager
 
     public:
         void init(wayfire_output *output);
-        ~viewport_manager();
+        virtual ~viewport_manager();
 
         bool view_visible_on(wayfire_view, std::tuple<int, int>);
 
@@ -461,7 +461,7 @@ void viewport_manager::reflow_reserved_areas()
         auto anchor_area = calculate_anchored_geometry(*a);
 
         if (a->reflowed)
-            a->reflowed(anchor_area);
+            a->reflowed(anchor_area, current_workarea);
 
         switch(a->edge)
         {
@@ -569,6 +569,7 @@ class viewport_impl_plugin : public wayfire_plugin_t {
 
     void fini()
     {
+        delete output->workspace;
         output->workspace = NULL;
     }
 

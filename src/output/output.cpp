@@ -271,13 +271,7 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
     render = new render_manager(this);
     plugin = new plugin_manager(this, c);
 
-    view_disappeared_cb = [=] (signal_data *data)
-    {
-        auto view = get_signaled_view(data);
-        if (view == active_view)
-            refocus(active_view, workspace->get_view_layer(view));
-    };
-
+    view_disappeared_cb = [=] (signal_data *data) { refocus(get_signaled_view(data)); };
     connect_signal("view-disappeared", &view_disappeared_cb);
 }
 
@@ -302,6 +296,14 @@ void wayfire_output::refocus(wayfire_view skip_view, uint32_t layers)
     }
 
     set_active_view(next_focus);
+}
+
+void wayfire_output::refocus(wayfire_view skip_view)
+{
+    uint32_t focused_layer = core->get_focused_layer();
+    uint32_t layers = focused_layer <= WF_LAYER_WORKSPACE ?
+        WF_WM_LAYERS : wf_all_layers_not_below(focused_layer);
+    refocus(skip_view, layers);
 }
 
 workspace_manager::~workspace_manager()

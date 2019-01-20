@@ -117,6 +117,8 @@ class wayfire_output : public wf_object_base
        /* force refocus the topmost view in one of the layers marked in layers
         * and which isn't skip_view */
        void refocus(wayfire_view skip_view, uint32_t layers);
+       /* refocus the topmost focuseable view != skip_view, preferring regular views */
+       void refocus(wayfire_view skip_view = nullptr);
 
        wf_binding *add_key(wf_option key, key_callback *);
        wf_binding *add_axis(wf_option axis, axis_callback *);

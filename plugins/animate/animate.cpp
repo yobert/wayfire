@@ -1,6 +1,7 @@
 #include <output.hpp>
 #include <signal-definitions.hpp>
 #include <render-manager.hpp>
+#include <workspace-manager.hpp>
 #include <debug.hpp>
 #include <type_traits>
 #include <core.hpp>
@@ -124,36 +125,41 @@ class wayfire_animation : public wayfire_plugin_t
         output->connect_signal("view-minimize-request", &on_minimize_request);
     }
 
+    std::string get_animation_for_view(wf_option& anim_type, wayfire_view view)
+    {
+        if (view->role != WF_VIEW_ROLE_SHELL_VIEW)
+            return anim_type->as_string();
+
+        if (output->workspace->get_view_layer(view) >= WF_LAYER_LOCK)
+            return "fade";
+
+        return "none";
+    }
+
     /* TODO: enhance - add more animations */
     signal_callback_t on_view_mapped = [=] (signal_data *ddata) -> void
     {
         auto view = get_signaled_view(ddata);
-        assert(view);
+        auto animation = get_animation_for_view(open_animation, view);
 
-        /* TODO: check if this is really needed */
-        if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
-            return;
-
-        if (open_animation->as_string() == "fade")
+        if (animation == "fade")
             new animation_hook<fade_animation>(view, duration, ANIMATION_TYPE_MAP);
-        else if (open_animation->as_string() == "zoom")
+        else if (animation == "zoom")
             new animation_hook<zoom_animation>(view, duration, ANIMATION_TYPE_MAP);
-        else if (open_animation->as_string() == "fire")
+        else if (animation == "fire")
             new animation_hook<FireAnimation>(view, duration, ANIMATION_TYPE_MAP);
     };
 
     signal_callback_t on_view_unmapped = [=] (signal_data *data) -> void
     {
         auto view = get_signaled_view(data);
+        auto animation = get_animation_for_view(close_animation, view);
 
-        if (view->role == WF_VIEW_ROLE_SHELL_VIEW)
-            return;
-
-        if (close_animation->as_string() == "fade")
+        if (animation == "fade")
             new animation_hook<fade_animation> (view, duration, ANIMATION_TYPE_UNMAP);
-        else if (close_animation->as_string() == "zoom")
+        else if (animation == "zoom")
             new animation_hook<zoom_animation> (view, duration, ANIMATION_TYPE_UNMAP);
-        else if (close_animation->as_string() == "fire")
+        else if (animation == "fire")
             new animation_hook<FireAnimation> (view, duration, ANIMATION_TYPE_UNMAP);
     };
 

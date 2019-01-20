@@ -32,7 +32,6 @@ namespace image_io {
         png_byte bit_depth;
         png_bytep *row_pointers;
 
-
         png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
         if(!png)
             return false;
@@ -91,6 +90,7 @@ namespace image_io {
 
         png_destroy_read_struct(&png, &infos, NULL);
         delete[] row_pointers;
+        delete[] data;
 
         fclose(fp);
         return true;

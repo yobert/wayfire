@@ -326,6 +326,7 @@ void wayfire_core::remove_output(wayfire_output *output)
     output->workspace->for_each_view([] (wayfire_view view)
     {
         view->close();
+        view->set_output(nullptr);
     }, WF_ALL_LAYERS);
     /* A note: at this point, some views might already have been deleted */
 
@@ -465,7 +466,8 @@ void wayfire_core::focus_layer(uint32_t layer)
         return;
 
     focused_layer = layer;
-    active_output->refocus(nullptr, wf_all_layers_not_below(layer));
+    if (focused_layer > 0)
+        active_output->refocus();
 }
 
 uint32_t wayfire_core::get_focused_layer()

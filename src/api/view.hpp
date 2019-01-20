@@ -248,6 +248,10 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         virtual void handle_title_changed();
         virtual void handle_minimize_hint(const wlr_box& hint);
 
+        bool _keyboard_focus_enabled = true;
+        /* NOT API */
+        virtual void set_keyboard_focus_enabled(bool enabled);
+
     public:
         /* these represent toplevel relations, children here are transient windows,
          * such as the close file dialogue */

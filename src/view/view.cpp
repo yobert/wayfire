@@ -407,9 +407,14 @@ void wayfire_view_t::subtract_opaque(wf_region& region, int x, int y)
     maximal_shrink_constraint = saved_shrink_constraint;
 }
 
+void wayfire_view_t::set_keyboard_focus_enabled(bool enabled)
+{
+    this->_keyboard_focus_enabled = enabled;
+}
+
 wlr_surface *wayfire_view_t::get_keyboard_focus_surface()
 {
-    if (_is_mapped)
+    if (_is_mapped && _keyboard_focus_enabled)
         return surface;
 
     return NULL;
@@ -1018,8 +1023,12 @@ void emit_view_unmap(wayfire_view view)
     unmap_view_signal data;
     data.view = view;
 
-    view->get_output()->emit_signal("unmap-view", &data);
-    view->get_output()->emit_signal("view-disappeared", &data);
+    if (view->get_output())
+    {
+        view->get_output()->emit_signal("unmap-view", &data);
+        view->get_output()->emit_signal("view-disappeared", &data);
+    }
+
     view->emit_signal("unmap", &data);
     view->emit_signal("disappeared", &data);
 }
@@ -1038,9 +1047,7 @@ void wayfire_view_t::unmap()
 
     log_info("unmap %s %s %p", get_title().c_str(), get_app_id().c_str(), this);
 
-    if (output)
-        emit_view_unmap(self());
-
+    emit_view_unmap(self());
     wayfire_surface_t::unmap();
 }
 
@@ -1103,7 +1110,7 @@ void wayfire_view_t::minimize_request(bool state)
         {
             minimized = state;
             toplevel_send_state();
-
+            output->refocus(self());
         } else
         {
             /* Do the default minimization */
