@@ -486,28 +486,6 @@ void viewport_manager::reflow_reserved_areas()
     data.new_workarea = current_workarea;
 
     output->emit_signal("reserved-workarea", &data);
-
-    for_each_view([=] (wayfire_view view)
-    {
-        if (!view->is_mapped())
-            return;
-
-        if (view->maximized)
-        {
-            /* this is legit because, if the output size has changed,
-             * update_output_geometry() would have already scaled coordinates,
-             * so that views' corners are in the proper viewports now */
-            auto wm = view->get_wm_geometry();
-            int vx = std::floor(1.0 * wm.x / output_geometry.width);
-            int vy = std::floor(1.0 * wm.y / output_geometry.height);
-
-            auto new_geometry = current_workarea;
-            new_geometry.x += vx * output_geometry.width;
-            new_geometry.y += vy * output_geometry.height;
-
-            view->set_geometry(new_geometry);
-        }
-    }, WF_MIDDLE_LAYERS);
 }
 
 void viewport_manager::update_output_geometry()
