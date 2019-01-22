@@ -306,9 +306,6 @@ class wayfire_grid : public wayfire_plugin_t
     signal_callback_t on_workarea_changed = [=] (signal_data *data)
     {
         auto ev = static_cast<reserved_workarea_signal*> (data);
-        if (ev->new_workarea == ev->old_workarea)
-            return;
-
         output->workspace->for_each_view([=] (wayfire_view view)
         {
             auto data = view->get_data_safe<wf_grid_slot_data>();

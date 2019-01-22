@@ -485,7 +485,8 @@ void viewport_manager::reflow_reserved_areas()
     data.old_workarea = old_workarea;
     data.new_workarea = current_workarea;
 
-    output->emit_signal("reserved-workarea", &data);
+    if (data.old_workarea != data.new_workarea)
+        output->emit_signal("reserved-workarea", &data);
 }
 
 void viewport_manager::update_output_geometry()
