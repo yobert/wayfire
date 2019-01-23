@@ -32,7 +32,7 @@ struct snap_query_signal : public signal_data
 struct snap_signal : public signal_data
 {
     wayfire_view view;
-    slot_type tslot;
+    uint32_t slot; // 0 for unsnap
 };
 
 #endif /* end of include guard: SNAP_SIGNAL */

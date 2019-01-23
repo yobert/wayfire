@@ -337,9 +337,11 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         virtual void set_moving(bool moving);
 
         bool maximized = false, fullscreen = false, activated = false, minimized = false;
+        uint32_t tiled_edges = 0;
 
         /* Will also move the view to/from the minimized layer, if necessary */
         virtual void set_minimized(bool minimized);
+        virtual void set_tiled(uint32_t edges);
         virtual void set_maximized(bool maxim);
         virtual void set_fullscreen(bool fullscreen);
 

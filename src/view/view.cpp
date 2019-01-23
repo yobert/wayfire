@@ -522,6 +522,18 @@ wf_geometry wayfire_view_t::get_bounding_box()
     return transform_region(get_untransformed_bounding_box());
 }
 
+void wayfire_view_t::set_tiled(uint32_t edges)
+{
+    /* Most shells don't support the tiled state. In this case, just default to maximize */
+    if (edges) {
+        set_maximized(true);
+    } else {
+        set_maximized(false);
+    }
+
+    tiled_edges = edges;
+}
+
 void wayfire_view_t::set_maximized(bool maxim)
 {
     maximized = maxim;
@@ -1101,6 +1113,8 @@ void wayfire_view_t::maximize_request(bool state)
     {
         set_geometry(output->workspace->get_workarea());
         set_maximized(state);
+        set_tiled(WLR_EDGE_TOP | WLR_EDGE_LEFT
+            | WLR_EDGE_BOTTOM | WLR_EDGE_RIGHT);
         output->emit_signal("view-maximized", &data);
     }
 }

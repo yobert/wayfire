@@ -52,6 +52,7 @@ class wayfire_xdg_view : public wayfire_view_t
     virtual wf_geometry get_wm_geometry();
 
     virtual void activate(bool act);
+    virtual void set_tiled(uint32_t edges);
     virtual void set_maximized(bool max);
     virtual void set_fullscreen(bool full);
     virtual void move(int w, int h, bool send);

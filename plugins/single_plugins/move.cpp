@@ -327,7 +327,7 @@ class wayfire_move : public wayfire_plugin_t
                 return;
             }
 
-            stuck_in_slot = !view->maximized && !view->fullscreen;
+            stuck_in_slot = !view->tiled_edges && !view->fullscreen;
             grabbed_geometry = view->get_wm_geometry();
 
             GetTuple(sx, sy, get_input_coords());
@@ -377,7 +377,7 @@ class wayfire_move : public wayfire_plugin_t
             {
                 snap_signal data;
                 data.view = view;
-                data.tslot = (slot_type)slot.slot_id;
+                data.slot = (slot_type)slot.slot_id;
                 output->emit_signal("view-snap", &data);
 
                 /* Update slot, will hide the preview as well */
@@ -473,8 +473,14 @@ class wayfire_move : public wayfire_plugin_t
             stuck_in_slot = 1;
             if (view->fullscreen)
                 view->fullscreen_request(view->get_output(), false);
-            if (view->maximized)
-                view->maximize_request(false);
+
+            if (view->tiled_edges)
+            {
+                snap_signal data;
+                data.view = view;
+                data.slot = 0;
+                output->emit_signal("view-snap", &data);
+            }
 
             /* view geometry might change after unmaximize/unfullscreen, so update position */
             grabbed_geometry = view->get_wm_geometry();
