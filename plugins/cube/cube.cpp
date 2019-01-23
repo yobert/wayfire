@@ -442,7 +442,9 @@ class wayfire_cube : public wayfire_plugin_t
             GL_CALL(glUniformMatrix4fv(program.modelID, 1, GL_FALSE, &model[0][0]));
 
             if (tessellation_support) {
+#ifdef USE_GLES32
                 GL_CALL(glDrawElements(GL_PATCHES, 6, GL_UNSIGNED_INT, &indexData));
+#endif
             } else {
                 GL_CALL(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, &indexData));
             }
