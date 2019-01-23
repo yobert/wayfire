@@ -527,7 +527,7 @@ void wayfire_view_t::set_minimized(bool minim)
     {
         view_disappeared_signal data;
         data.view = self();
-        emit_signal("disappear", &data);
+        emit_signal("disappeared", &data);
 
         output->emit_signal("view-disappeared", &data);
         output->workspace->add_view_to_layer(self(), WF_LAYER_MINIMIZED);
@@ -595,14 +595,6 @@ void wayfire_view_t::activate(bool active)
 {
     if (frame)
         frame->notify_view_activated(active);
-
-    /* we don't send activated or deactivated for shell views,
-     * they should always be active */
-    if (role == WF_VIEW_ROLE_SHELL_VIEW)
-    {
-        if (!active)
-            return activate(true);
-    }
 
     activated = active;
     toplevel_send_state();

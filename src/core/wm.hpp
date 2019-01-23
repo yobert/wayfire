@@ -11,8 +11,16 @@ class wayfire_close : public wayfire_plugin_t {
 };
 
 class wayfire_focus : public wayfire_plugin_t {
-    button_callback callback;
-    touch_callback touch;
+    button_callback on_button;
+    touch_callback on_touch;
+    signal_callback_t on_view_disappear,
+                      on_view_output_change;
+
+    wayfire_view last_focus;
+    void send_done(wayfire_view view);
+    void set_last_focus(wayfire_view view);
+    void check_focus_surface(wayfire_surface_t *surface);
+
     public:
         void init(wayfire_config*);
 };

@@ -26,6 +26,7 @@ class wayfire_xdg_popup : public wayfire_surface_t
         virtual void get_child_offset(int &x, int &y);
 
         virtual bool is_subsurface() { return true; }
+        virtual void send_done();
 };
 
 void handle_xdg_new_popup(wl_listener*, void*);

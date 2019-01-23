@@ -69,6 +69,12 @@ void wayfire_xdg_popup::get_child_offset(int &x, int &y)
     y = popup->base->geometry.y;
 }
 
+void wayfire_xdg_popup::send_done()
+{
+    if (is_mapped())
+        wlr_xdg_popup_destroy(popup->base);
+}
+
 void handle_xdg_new_popup(wl_listener*, void *data)
 {
     auto popup = static_cast<wlr_xdg_popup*> (data);
@@ -295,6 +301,22 @@ wf_geometry wayfire_xdg_view::get_wm_geometry()
 
 void wayfire_xdg_view::activate(bool act)
 {
+    /*
+    if (!act)
+    {
+        for_each_surface([] (wayfire_surface_t* surface, int, int)
+        {
+            auto popup = dynamic_cast<wayfire_xdg_popup*> (surface);
+            if (popup)
+                popup->send_done();
+        });
+    } */
+
+    /* we don't send activated or deactivated for shell views,
+     * they should always be active */
+    if (this->role == WF_VIEW_ROLE_SHELL_VIEW)
+        act = true;
+
     wlr_xdg_toplevel_set_activated(xdg_surface, act);
     wayfire_view_t::activate(act);
 }
