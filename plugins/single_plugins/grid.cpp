@@ -136,6 +136,12 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
     }
 };
 
+class wf_grid_slot_data : public wf_custom_data_t
+{
+    public:
+        int slot;
+};
+
 nonstd::observer_ptr<wayfire_grid_view_cdata> ensure_grid_view(wayfire_view view,
         wayfire_grab_interface iface, wf_option animation_type,
         wf_option animation_duration)
@@ -158,9 +164,6 @@ class wf_grid_saved_view_geometry : public wf_custom_data_t
 
 class wayfire_grid : public wayfire_plugin_t
 {
-    signal_callback_t output_resized_cb;
-
-
     std::vector<std::string> slots = {"unused", "bl", "b", "br", "l", "c", "r", "tl", "t", "tr"};
     std::vector<std::string> default_keys = {
         "none",
@@ -177,9 +180,14 @@ class wayfire_grid : public wayfire_plugin_t
     activator_callback bindings[10];
     wf_option keys[10];
 
-    signal_callback_t snap_cb, snap_query_cb, maximized_cb, fullscreen_cb;
-
     wf_option animation_duration, animation_type;
+
+    nonstd::observer_ptr<wayfire_grid_view_cdata>
+        ensure_grid_view(wayfire_view view)
+    {
+        return ::ensure_grid_view(view, grab_interface,
+            animation_type, animation_duration);
+    }
 
     public:
     void init(wayfire_config *config)
@@ -205,29 +213,16 @@ class wayfire_grid : public wayfire_plugin_t
             output->add_activator(keys[i], &bindings[i]);
         }
 
-        using namespace std::placeholders;
-        snap_cb = std::bind(std::mem_fn(&wayfire_grid::snap_signal_cb), this, _1);
-        output->connect_signal("view-snap", &snap_cb);
-
-        snap_query_cb = [=] (signal_data *data) {
-            auto query = static_cast<snap_query_signal*> (data);
-            assert(query);
-
-            query->out_geometry = get_slot_dimensions(query->slot,
-                output->workspace->get_workarea());
-        };
-        output->connect_signal("query-snap-geometry", &snap_query_cb);
-
-        maximized_cb = std::bind(std::mem_fn(&wayfire_grid::maximize_signal_cb), this, _1);
-        output->connect_signal("view-maximized-request", &maximized_cb);
-
-        fullscreen_cb = std::bind(std::mem_fn(&wayfire_grid::fullscreen_signal_cb), this, _1);
-        output->connect_signal("view-fullscreen-request", &fullscreen_cb);
+        output->connect_signal("reserved-workarea", &on_workarea_changed);
+        output->connect_signal("view-snap", &on_snap_signal);
+        output->connect_signal("query-snap-geometry", &on_snap_query);
+        output->connect_signal("view-maximized-request", &on_maximize_signal);
+        output->connect_signal("view-fullscreen-request", &on_fullscreen_signal);
     }
 
-    void handle_slot(wayfire_view view, int slot)
+    void handle_slot(wayfire_view view, const wf_geometry workarea, int slot)
     {
-        wf_geometry target = get_slot_dimensions(slot, output->workspace->get_workarea());
+        wf_geometry target = get_slot_dimensions(slot, workarea);
         bool tiled = true;
 
         if (view->maximized && view->get_wm_geometry() == target)
@@ -251,10 +246,14 @@ class wayfire_grid : public wayfire_plugin_t
             return;
         }
 
-        auto gv = ensure_grid_view(view, grab_interface, animation_type, animation_duration);
-        gv->adjust_target_geometry(target, tiled);
+        view->get_data_safe<wf_grid_slot_data>()->slot = slot;
+        ensure_grid_view(view)->adjust_target_geometry(target, tiled);
     }
 
+    void handle_slot(wayfire_view view, int slot)
+    {
+        handle_slot(view, output->workspace->get_workarea(), slot);
+    }
 
     /* calculates the target geometry so that it is centered around the pointer */
     wf_geometry calculate_restored_geometry(wf_geometry base_restored)
@@ -304,21 +303,64 @@ class wayfire_grid : public wayfire_plugin_t
         return area;
     }
 
-    void snap_signal_cb(signal_data *ddata)
+    signal_callback_t on_workarea_changed = [=] (signal_data *data)
+    {
+        auto ev = static_cast<reserved_workarea_signal*> (data);
+        output->workspace->for_each_view([=] (wayfire_view view)
+        {
+            auto data = view->get_data_safe<wf_grid_slot_data>();
+
+            /* Detect if the view was maximized outside of the grid plugin */
+            auto wm = view->get_wm_geometry();
+            if (view->maximized && wm.width == ev->old_workarea.width
+                && wm.height == ev->old_workarea.height)
+            {
+                data->slot = SLOT_CENTER;
+            }
+
+            if (!data->slot)
+                return;
+
+            /* Workarea changed, and we have a view which is tiled into some slot.
+             * We need to make sure it remains in its slot. So we calculate the
+             * viewport of the view, and tile it there */
+            auto workarea = ev->new_workarea;
+            auto output_geometry = output->get_relative_geometry();
+
+            int vx = std::floor(wm.x / output_geometry.width);
+            int vy = std::floor(wm.y / output_geometry.height);
+
+            workarea.x += vx * output_geometry.width;
+            workarea.y += vy * output_geometry.height;
+
+            handle_slot(view, workarea, data->slot);
+        }, WF_LAYER_WORKSPACE);
+    };
+
+    signal_callback_t on_snap_query = [=] (signal_data *data)
+    {
+        auto query = static_cast<snap_query_signal*> (data);
+        assert(query);
+
+        query->out_geometry = get_slot_dimensions(query->slot,
+            output->workspace->get_workarea());
+    };
+
+    signal_callback_t on_snap_signal = [=] (signal_data *ddata)
     {
         snap_signal *data = static_cast<snap_signal*>(ddata);
         handle_slot(data->view, data->tslot);
-    }
+    };
 
-    void maximize_signal_cb(signal_data *ddata)
+    signal_callback_t on_maximize_signal = [=] (signal_data *ddata)
     {
         auto data = static_cast<view_maximized_signal*> (ddata);
         handle_slot(data->view, data->state ? 5 : 0);
-    }
+    };
 
-    void fullscreen_signal_cb(signal_data *ddata)
+    signal_callback_t on_fullscreen_signal = [=] (signal_data *ev)
     {
-        auto data = static_cast<view_fullscreen_signal*> (ddata);
+        auto data = static_cast<view_fullscreen_signal*> (ev);
         static const std::string fs_data_name = "grid-saved-fs";
 
         if (data->state)
@@ -332,9 +374,8 @@ class wayfire_grid : public wayfire_plugin_t
                 sg->was_maximized = data->view->maximized;
             }
 
-            auto gv = ensure_grid_view(data->view, grab_interface, animation_type, animation_duration);
-            gv->adjust_target_geometry(output->get_relative_geometry(), true);
-
+            ensure_grid_view(data->view)->adjust_target_geometry(
+                output->get_relative_geometry(), true);
             data->view->set_fullscreen(true);
         } else
         {
@@ -347,24 +388,24 @@ class wayfire_grid : public wayfire_plugin_t
                 auto maximized = sg->was_maximized;
                 data->view->erase_data(fs_data_name);
 
-                auto gv = ensure_grid_view(data->view, grab_interface, animation_type, animation_duration);
-                gv->adjust_target_geometry(target_geometry, maximized);
+                ensure_grid_view(data->view)->adjust_target_geometry(
+                    target_geometry, maximized);
             }
 
             data->view->set_fullscreen(false);
         }
-    }
+    };
 
     void fini()
     {
         for (int i = 1; i < 10; i++)
             output->rem_binding(&bindings[i]);
 
-        output->disconnect_signal("view-snap", &snap_cb);
-        output->disconnect_signal("query-snap-geometry", &snap_query_cb);
-        output->disconnect_signal("view-maximized-request", &maximized_cb);
-        output->disconnect_signal("view-fullscreen-request", &fullscreen_cb);
-        output->disconnect_signal("output-resized", &output_resized_cb);
+        output->disconnect_signal("reserved-workarea", &on_workarea_changed);
+        output->disconnect_signal("view-snap", &on_snap_signal);
+        output->disconnect_signal("query-snap-geometry", &on_snap_query);
+        output->disconnect_signal("view-maximized-request", &on_maximize_signal);
+        output->disconnect_signal("view-fullscreen-request", &on_fullscreen_signal);
     }
 };
 
