@@ -5,7 +5,7 @@
 
 
 class wayfire_close : public wayfire_plugin_t {
-    key_callback callback;
+    activator_callback callback;
     public:
         void init(wayfire_config*);
 };

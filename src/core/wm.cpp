@@ -20,8 +20,10 @@ void wayfire_exit::init(wayfire_config*)
 void wayfire_close::init(wayfire_config *config)
 {
     grab_interface->abilities_mask = WF_ABILITY_GRAB_INPUT;
-    auto key = config->get_section("core")->get_option("view_close", "<super> KEY_Q");
-    callback = [=] (uint32_t key)
+    auto key = config->get_section("core")
+        ->get_option("close_top_view", "<super> KEY_Q | <alt> KEY_FN_F4");
+
+    callback = [=] ()
     {
         if (!output->activate_plugin(grab_interface))
             return;
@@ -31,7 +33,7 @@ void wayfire_close::init(wayfire_config *config)
         if (view) view->close();
     };
 
-    output->add_key(key, &callback);
+    output->add_activator(key, &callback);
 }
 
 void wayfire_focus::init(wayfire_config *)
