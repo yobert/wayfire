@@ -246,6 +246,14 @@ class wayfire_xwayland_view : public wayfire_view_t
         create_toplevel();
     }
 
+    int last_server_width = 0, last_server_height = 0;
+    void commit()
+    {
+        wayfire_view_t::commit();
+        last_server_width = geometry.width;
+        last_server_height = geometry.height;
+    }
+
     bool is_subsurface() { return false; }
 
     virtual bool should_be_decorated()
@@ -290,7 +298,8 @@ class wayfire_xwayland_view : public wayfire_view_t
 
     void send_configure()
     {
-        send_configure(geometry.width, geometry.height);
+        send_configure(last_server_width ?: geometry.width,
+            last_server_height ?: geometry.height);
     }
 
     void set_output(wayfire_output *wo)
@@ -328,6 +337,9 @@ class wayfire_xwayland_view : public wayfire_view_t
         damage();
         if (frame)
             frame->calculate_resize_size(w, h);
+
+        last_server_width = w;
+        last_server_height = h;
         send_configure(w, h);
     }
 
