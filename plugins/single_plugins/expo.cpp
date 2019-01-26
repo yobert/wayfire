@@ -13,31 +13,39 @@
 #include "view-change-viewport-signal.hpp"
 #include "../wobbly/wobbly-signal.hpp"
 
-
 class wayfire_expo : public wayfire_plugin_t
 {
     private:
-        activator_callback toggle_cb;
 
-        wf_option action_button;
-        wf_option background_color, zoom_animation_duration;
-        wf_option delimiter_offset;
+    activator_callback toggle_cb = [=] ()
+    {
+        if (!state.active) {
+            activate();
+        } else {
+            if (!zoom_animation.running() || state.zoom_in)
+                deactivate();
+        }
+    };
 
-        wf_duration zoom_animation;
+    wf_option action_button;
+    wf_option background_color, zoom_animation_duration;
+    wf_option delimiter_offset;
 
-        render_hook_t renderer;
+    wf_duration zoom_animation;
 
-        struct {
-            bool active = false;
-            bool moving = false;
-            bool button_pressed = false;
+    render_hook_t renderer;
 
-            bool zoom_in = false;
-        } state;
-        int target_vx, target_vy;
-        std::tuple<int, int> move_started_ws;
+    struct {
+        bool active = false;
+        bool moving = false;
+        bool button_pressed = false;
 
-        std::vector<std::vector<std::unique_ptr<wf_workspace_stream>>> streams;
+        bool zoom_in = false;
+    } state;
+    int target_vx, target_vy;
+    std::tuple<int, int> move_started_ws;
+
+    std::vector<std::vector<std::unique_ptr<wf_workspace_stream>>> streams;
 
     public:
     void init(wayfire_config *config)
@@ -64,14 +72,6 @@ class wayfire_expo : public wayfire_plugin_t
 
         delimiter_offset = section->get_option("offset", "10");
 
-        toggle_cb = [=] () {
-            if (!state.active) {
-                activate();
-            } else {
-                if (!zoom_animation.running() || state.zoom_in)
-                    deactivate();
-            }
-        };
 
         output->add_activator(toggle_binding, &toggle_cb);
         grab_interface->callbacks.pointer.button = [=] (uint32_t button, uint32_t state)
@@ -347,6 +347,11 @@ class wayfire_expo : public wayfire_plugin_t
         }
     }
 
+    /* Renders a grid of all active workspaces. It "renders" the workspaces
+     * in their correct place/size, then scales+translates the whole scene so
+     * that all of the workspaces become visible.
+     *
+     * The scale+translate part is calculated in zoom_target */
     void render(const wf_framebuffer &fb)
     {
         update_streams();
@@ -355,37 +360,44 @@ class wayfire_expo : public wayfire_plugin_t
         GetTuple(vx, vy, output->workspace->get_current_workspace());
         GetTuple(w,  h,  output->get_screen_size());
 
-        glm::mat4 matrix(1.0);
-        auto translate = glm::translate(matrix, glm::vec3(render_params.off_x, render_params.off_y, 0));
-        auto scale     = glm::scale(matrix, glm::vec3(render_params.scale_x, render_params.scale_y, 1));
-        matrix = translate * scale;
+        auto translate = glm::translate(glm::mat4(1.0), glm::vec3(render_params.off_x, render_params.off_y, 0));
+        auto scale     = glm::scale(glm::mat4(1.0), glm::vec3(render_params.scale_x, render_params.scale_y, 1));
+        auto scene_transform = fb.transform * translate * scale; // scale+translate part
 
         OpenGL::render_begin(fb);
         OpenGL::clear(background_color->as_cached_color());
         fb.scissor(fb.framebuffer_box_from_geometry_box(fb.geometry));
 
+        /* Space between adjacent workspaces */
+        float hspacing = 1.0 * render_params.delimiter_offset / w;
+        float vspacing = 1.0 * render_params.delimiter_offset / h;
+        if (fb.wl_transform & 1)
+            std::swap(hspacing, vspacing);
+
         for(int j = 0; j < vh; j++)
         {
             for(int i = 0; i < vw; i++)
             {
-                float tlx = (i - vx) * w + render_params.delimiter_offset;
-                float tly = (j - vy) * h + render_params.delimiter_offset * h / w;
-
-                float brx = tlx + w - 2 * render_params.delimiter_offset;
-                float bry = tly + h - 2 * render_params.delimiter_offset * h / w;
-
+                /* First, center each workspace on the output, taking spacing into account */
                 gl_geometry out_geometry = {
-                    2.0f * tlx / w - 1.0f, 1.0f - 2.0f * tly / h,
-                    2.0f * brx / w - 1.0f, 1.0f - 2.0f * bry / h};
+                    .x1 = -1 + hspacing,
+                    .y1 = 1 - vspacing,
+                    .x2 = 1 - hspacing,
+                    .y2 = -1 + vspacing,
+                };
 
-                gl_geometry texg;
-                texg.x1 = 0;
-                texg.y1 = 0;
-                texg.x2 = streams[i][j]->scale_x;
-                texg.y2 = streams[i][j]->scale_y;
+                /* Then, calculate translation matrix so that the workspace gets
+                 * in its correct position relative to the focused workspace */
+                auto translation = glm::translate(glm::mat4(1.0),
+                    {(i - vx) * 2.0f, (vy - j) * 2.0f, 0.0f});
 
-                OpenGL::render_transformed_texture(streams[i][j]->buffer.tex, out_geometry, texg, matrix,
-                        glm::vec4(1), TEXTURE_USE_TEX_GEOMETRY | TEXTURE_TRANSFORM_INVERT_Y);
+                auto workspace_transform = scene_transform * translation;
+
+                /* Undo rotation of the workspace */
+                workspace_transform = workspace_transform * glm::inverse(fb.transform);
+
+                OpenGL::render_transformed_texture(streams[i][j]->buffer.tex,
+                    out_geometry, {}, workspace_transform);
             }
         }
 
@@ -395,13 +407,8 @@ class wayfire_expo : public wayfire_plugin_t
         update_zoom();
     }
 
-    struct tup {
-        float begin, end;
-    };
-
     struct {
-        tup scale_x, scale_y,
-            off_x, off_y;
+        wf_transition scale_x, scale_y, off_x, off_y;
         wf_transition delimiter_offset;
     } zoom_target;
 
@@ -436,10 +443,10 @@ class wayfire_expo : public wayfire_plugin_t
 
         if (!zoom_in)
         {
-            std::swap(zoom_target.scale_x.begin, zoom_target.scale_x.end);
-            std::swap(zoom_target.scale_y.begin, zoom_target.scale_y.end);
-            std::swap(zoom_target.off_x.begin, zoom_target.off_x.end);
-            std::swap(zoom_target.off_y.begin, zoom_target.off_y.end);
+            std::swap(zoom_target.scale_x.start, zoom_target.scale_x.end);
+            std::swap(zoom_target.scale_y.start, zoom_target.scale_y.end);
+            std::swap(zoom_target.off_x.start, zoom_target.off_x.end);
+            std::swap(zoom_target.off_y.start, zoom_target.off_y.end);
             std::swap(zoom_target.delimiter_offset.start,
                       zoom_target.delimiter_offset.end);
         }
@@ -451,15 +458,10 @@ class wayfire_expo : public wayfire_plugin_t
     void update_zoom()
     {
 
-        render_params.scale_x = zoom_animation.progress(zoom_target.scale_x.begin,
-                                                        zoom_target.scale_x.end);
-        render_params.scale_y = zoom_animation.progress(zoom_target.scale_y.begin,
-                                                        zoom_target.scale_y.end);
-
-        render_params.off_x = zoom_animation.progress(zoom_target.off_x.begin,
-                                                      zoom_target.off_x.end);
-        render_params.off_y = zoom_animation.progress(zoom_target.off_y.begin,
-                                                      zoom_target.off_y.end);
+        render_params.scale_x = zoom_animation.progress(zoom_target.scale_x);
+        render_params.scale_y = zoom_animation.progress(zoom_target.scale_y);
+        render_params.off_x = zoom_animation.progress(zoom_target.off_x);
+        render_params.off_y = zoom_animation.progress(zoom_target.off_y);
 
         render_params.delimiter_offset = zoom_animation.progress(zoom_target.delimiter_offset);
 
