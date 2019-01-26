@@ -140,6 +140,13 @@ class input_manager
         void handle_pointer_motion_absolute(wlr_event_pointer_motion_absolute *ev);
         bool handle_pointer_button(wlr_event_pointer_button *ev);
 
+        void handle_pointer_swipe_begin(wlr_event_pointer_swipe_begin *ev);
+        void handle_pointer_swipe_update(wlr_event_pointer_swipe_update *ev);
+        void handle_pointer_swipe_end(wlr_event_pointer_swipe_end *ev);
+        void handle_pointer_pinch_begin(wlr_event_pointer_pinch_begin *ev);
+        void handle_pointer_pinch_update(wlr_event_pointer_pinch_update *ev);
+        void handle_pointer_pinch_end(wlr_event_pointer_pinch_end *ev);
+
         bool handle_keyboard_key(uint32_t key, uint32_t state);
         void handle_keyboard_mod(uint32_t key, uint32_t state);
 
