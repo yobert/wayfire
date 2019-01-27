@@ -415,18 +415,18 @@ class wayfire_cube : public wayfire_plugin_t
     }
 
     /* Calculate the base model matrix for the i-th side of the cube */
-    glm::mat4 calculate_model_matrix(int i)
+    glm::mat4 calculate_model_matrix(int i, glm::mat4 fb_transform)
     {
-        auto model = glm::rotate(glm::mat4(1.0),
+        auto rotation = glm::rotate(glm::mat4(1.0),
             float(i) * animation.side_angle + float(animation.duration.progress(animation.rotation)),
             glm::vec3(0, 1, 0));
 
-        model = glm::translate(model, glm::vec3(0, 0, identity_z_offset));
-        return model;
+        auto translation = glm::translate(glm::mat4(1.0), glm::vec3(0, 0, identity_z_offset));
+        return rotation * translation * glm::inverse(fb_transform);
     }
 
     /* Render the sides of the cube, using the given culling mode - cw or ccw */
-    void render_cube(GLuint front_face)
+    void render_cube(GLuint front_face, glm::mat4 fb_transform)
     {
         GL_CALL(glFrontFace(front_face));
         static const GLuint indexData[] = { 0, 1, 2, 0, 2, 3 };
@@ -438,7 +438,7 @@ class wayfire_cube : public wayfire_plugin_t
             int index = (vx + i) % streams.size();
             GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index]->buffer.tex));
 
-            auto model = calculate_model_matrix(i);
+            auto model = calculate_model_matrix(i, fb_transform);
             GL_CALL(glUniformMatrix4fv(program.modelID, 1, GL_FALSE, &model[0][0]));
 
             if (tessellation_support) {
@@ -504,8 +504,8 @@ class wayfire_cube : public wayfire_plugin_t
          * that are on the back, and then we render those at the front, so we
          * don't have to use depth testing and we also can support alpha cube. */
         GL_CALL(glEnable(GL_CULL_FACE));
-        render_cube(GL_CCW);
-        render_cube(GL_CW);
+        render_cube(GL_CCW, dest.transform);
+        render_cube(GL_CW, dest.transform);
         GL_CALL(glDisable(GL_CULL_FACE));
 
         GL_CALL(glDisable(GL_DEPTH_TEST));
