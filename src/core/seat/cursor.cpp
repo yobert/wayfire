@@ -38,6 +38,11 @@ static void handle_pointer_axis_cb(wl_listener*, void *data)
     wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
+static void handle_pointer_frame_cb(wl_listener*, void *data)
+{
+    core->input->handle_pointer_frame();
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
+}
 
 bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
 {
@@ -207,6 +212,10 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
                                  mult * ev->delta, mult * ev->delta_discrete, ev->source);
 }
 
+void input_manager::handle_pointer_frame()
+{
+    wlr_seat_pointer_notify_frame(seat);
+}
 
 wf_cursor::wf_cursor()
 {
@@ -220,11 +229,13 @@ wf_cursor::wf_cursor()
     motion.notify             = handle_pointer_motion_cb;
     motion_absolute.notify    = handle_pointer_motion_absolute_cb;
     axis.notify               = handle_pointer_axis_cb;
+    frame.notify              = handle_pointer_frame_cb;
 
     wl_signal_add(&cursor->events.button, &button);
     wl_signal_add(&cursor->events.motion, &motion);
     wl_signal_add(&cursor->events.motion_absolute, &motion_absolute);
     wl_signal_add(&cursor->events.axis, &axis);
+    wl_signal_add(&cursor->events.frame, &frame);
 
     init_xcursor();
 
@@ -301,6 +312,7 @@ wf_cursor::~wf_cursor()
     wl_list_remove(&motion.link);
     wl_list_remove(&motion_absolute.link);
     wl_list_remove(&axis.link);
+    wl_list_remove(&frame.link);
 
     core->disconnect_signal("reload-config", &config_reloaded);
 }
