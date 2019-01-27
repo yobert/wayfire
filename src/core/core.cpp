@@ -33,10 +33,7 @@ extern "C"
 #include "../output/gtk-shell.hpp"
 #include "view/priv-view.hpp"
 #include "config.h"
-
-#ifdef BUILD_WITH_IMAGEIO
 #include "img.hpp"
-#endif
 
 /* End input_manager */
 
@@ -173,10 +170,7 @@ void wayfire_core::init(wayfire_config *conf)
     protocols.gtk_shell = wf_gtk_shell_create(display);
     protocols.toplevel_manager = wlr_foreign_toplevel_manager_v1_create(display);
 
-#ifdef BUILD_WITH_IMAGEIO
     image_io::init();
-#endif
-
     OpenGL::init();
 }
 

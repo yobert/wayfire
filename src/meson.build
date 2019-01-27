@@ -4,6 +4,7 @@ wayfire_sources = ['main.cpp',
                    'core/opengl.cpp',
                    'core/plugin.cpp',
                    'core/core.cpp',
+                   'core/img.cpp',
                    'core/wm.cpp',
 
                    'core/seat/input-inhibit.cpp',
@@ -34,7 +35,6 @@ wayfire_dependencies = [wayland_server, wlroots, xkbcommon, libinput,
                        wfconfig, libinotify, backtrace]
 
 if conf_data.get('BUILD_WITH_IMAGEIO')
-    wayfire_sources += ['core/img.cpp']
     wayfire_dependencies += [jpeg, png]
 endif
 

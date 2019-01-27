@@ -2,11 +2,14 @@
 #include "opengl.hpp"
 #include "debug.hpp"
 
+#ifdef BUILD_WITH_IMAGEIO
 #include <png.h>
-#include <stdint.h>
-#include <unistd.h>
 #include <jpeglib.h>
 #include <jerror.h>
+#endif
+
+#include <stdint.h>
+#include <unistd.h>
 #include <cstdio>
 #include <iostream>
 #include <unordered_map>
@@ -22,6 +25,7 @@ namespace image_io {
         std::unordered_map<std::string, Writer> writers;
     }
 
+#ifdef BUILD_WITH_IMAGEIO
     /* All backend functions are taken from the internet.
      * If you want to be credited, contact me */
     bool texture_from_png(const char *filename, GLuint target)
@@ -181,6 +185,7 @@ namespace image_io {
 
         return true;
     }
+#endif
 
     bool load_from_file(std::string name, GLuint target)
     {
@@ -225,8 +230,10 @@ namespace image_io {
     void init()
     {
         log_debug("init ImageIO");
+#ifdef BUILD_WITH_IMAGEIO
         loaders["png"] = Loader(texture_from_png);
         loaders["jpg"] = Loader(texture_from_jpeg);
         writers["png"] = Writer(texture_to_png);
+#endif
     }
 }
