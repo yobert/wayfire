@@ -39,7 +39,7 @@ plugin_manager::plugin_manager(wayfire_output *o, wayfire_config *config)
     this->output = o;
 
     auto section = config->get_section("core");
-    plugins_opt = section->get_option("plugins", "default");
+    plugins_opt = section->get_option("plugins", "none");
 
     reload_dynamic_plugins();
     load_static_plugins();
@@ -139,7 +139,16 @@ wayfire_plugin plugin_manager::load_plugin_from_file(std::string path)
 
 void plugin_manager::reload_dynamic_plugins()
 {
-    std::stringstream stream(plugins_opt->as_string());
+    auto plugin_list = plugins_opt->as_string();
+    if (plugin_list == "none")
+    {
+        log_error("No plugins specified in the config file, or config file is "
+            "missing. In this state the compositor is nearly unusable, please "
+            "ensure your configuration file is set up properly.");
+        plugin_list = default_plugins;
+    }
+
+    std::stringstream stream(plugin_list);
     std::vector<std::string> next_plugins;
 
     auto plugin_prefix = std::string(INSTALL_PREFIX "/lib/wayfire/");
