@@ -54,22 +54,32 @@ add_project_link_arguments(['-rdynamic'], language:'cpp')
 
 if get_option('buildtype') == 'debug' or get_option('enable_debug_output')
   conf_data.set('WAYFIRE_DEBUG_ENABLED', true)
+else
+  conf_data.set('WAYFIRE_DEBUG_ENABLED', false)
 endif
 
 if get_option('enable_graphics_debug')
   conf_data.set('WAYFIRE_GRAPHICS_DEBUG', true)
+else
+  conf_data.set('WAYFIRE_GRAPHICS_DEBUG', false)
 endif
 
 if get_option('enable_gles32') and meson.get_compiler('cpp').has_header(
     'GLES3/gl32.h', args: '-I' + glesv2.get_pkgconfig_variable('includedir'))
   conf_data.set('USE_GLES32', true)
+else
+  conf_data.set('USE_GLES32', false)
 endif
 
 if png.found() and jpeg.found()
   conf_data.set('BUILD_WITH_IMAGEIO', true)
+else
+  conf_data.set('BUILD_WITH_IMAGEIO', false)
 endif
 
 if meson.get_compiler('cpp').has_function('secure_getenv', prefix: '#include <stdlib.h>')
+  conf_data.set('HAS_SECURE_GETENV', true)
+else
   conf_data.set('HAS_SECURE_GETENV', true)
 endif
 
@@ -92,10 +102,10 @@ summary = [
 	'----------------',
 	'wayfire @0@'.format(meson.project_version()),
 	'',
-	'debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED', false)),
-	'     imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO', false)),
-	'      gles32: @0@'.format(conf_data.get('USE_GLES32', false)),
-    'graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG', false)),
+	'debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED')),
+	'     imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
+	'      gles32: @0@'.format(conf_data.get('USE_GLES32')),
+    'graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG')),
 	'----------------',
 	''
 ]
