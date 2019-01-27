@@ -195,6 +195,7 @@ rotate_up = <ctrl> <alt> <shift> KEY_UP
 [switcher]
 next_view = <alt> KEY_TAB
 prev_view = <alt> <shift> KEY_TAB
+gesture_toggle = "edge-swipe down 3"
 speed = 500
 view_thumbnail_scale = 1.0
 
