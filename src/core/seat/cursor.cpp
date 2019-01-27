@@ -185,6 +185,10 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
         return;
     }
 
+    /* Do not send scroll events to clients if an axis binding has used up the event */
+    if (callbacks.size())
+        return;
+
     double mult = ev->source == WLR_AXIS_SOURCE_FINGER ?
         cursor->touchpad_scroll_speed->as_cached_double() :
         cursor->mouse_scroll_speed->as_cached_double();
