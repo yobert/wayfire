@@ -2,6 +2,7 @@ extern "C"
 {
 #include <wlr/config.h>
 #include <wlr/types/wlr_screenshooter.h>
+#include <wlr/types/wlr_data_control_v1.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_virtual_keyboard_v1.h>
 #include <wlr/types/wlr_foreign_toplevel_management_v1.h>
@@ -129,6 +130,7 @@ void wayfire_core::init(wayfire_config *conf)
     wf_input_device::config.load(conf);
 
     protocols.data_device = wlr_data_device_manager_create(display);
+    protocols.data_control = wlr_data_control_manager_v1_create(display);
     wlr_renderer_init_wl_display(renderer, display);
 
     output_layout = wlr_output_layout_create();

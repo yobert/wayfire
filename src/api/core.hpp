@@ -20,6 +20,7 @@ extern "C"
 #undef static
 
 struct wlr_data_device_manager;
+struct wlr_data_control_manager_v1;
 struct wlr_linux_dmabuf_v1;
 struct wlr_gamma_control_manager;
 struct wlr_gamma_control_manager_v1;
@@ -90,6 +91,7 @@ class wayfire_core : public wf_object_base
         struct
         {
             wlr_data_device_manager *data_device;
+            wlr_data_control_manager_v1 *data_control;
             wlr_gamma_control_manager *gamma;
             wlr_gamma_control_manager_v1 *gamma_v1;
             wlr_screenshooter *screenshooter;
