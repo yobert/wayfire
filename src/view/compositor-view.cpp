@@ -133,12 +133,17 @@ wayfire_mirror_view_t::wayfire_mirror_view_t(wayfire_view original_view)
 
     base_view_unmapped = [=] (signal_data*)
     {
-        if (!is_mapped())
-            return;
-
-        unmap();
-        unset_original_view();
-        destroy();
+        /* If the view was mapped, then the base view unmapping is what triggers
+         * its destructions. Otherwise, just unset the original view */
+        if (is_mapped())
+        {
+            unmap();
+            unset_original_view();
+            destroy();
+        } else
+        {
+            unset_original_view();
+        }
     };
 
     original_view->connect_signal("unmap", &base_view_unmapped);
