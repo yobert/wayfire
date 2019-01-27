@@ -8,8 +8,12 @@
 static void handle_pointer_button_cb(wl_listener*, void *data)
 {
     auto ev = static_cast<wlr_event_pointer_button*> (data);
-    core->input->handle_pointer_button(ev);
-    wlr_seat_pointer_notify_button(core->input->seat, ev->time_msec, ev->button, ev->state);
+    if (!core->input->handle_pointer_button(ev))
+    {
+        wlr_seat_pointer_notify_button(core->input->seat, ev->time_msec,
+            ev->button, ev->state);
+    }
+
     wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
@@ -35,10 +39,11 @@ static void handle_pointer_axis_cb(wl_listener*, void *data)
 }
 
 
-void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
+bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
 {
     in_mod_binding = false;
 
+    std::vector<std::function<void()>> callbacks;
     if (ev->state == WLR_BUTTON_PRESSED)
     {
         count_other_inputs++;
@@ -48,7 +53,6 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         core->focus_output(output);
 
         GetTuple(ox, oy, core->get_active_output()->get_cursor_position());
-        std::vector<std::function<void()>> callbacks;
 
         auto mod_state = get_modifiers();
         for (auto& binding : bindings[WF_BINDING_BUTTON])
@@ -83,12 +87,19 @@ void input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
     {
         if (active_grab->callbacks.pointer.button)
             active_grab->callbacks.pointer.button(ev->button, ev->state);
-    } else if (cursor_focus)
+        return true;
+    }
+    else if (cursor_focus)
     {
         auto custom = wf_compositor_surface_from_surface(cursor_focus);
         if (custom)
             custom->on_pointer_button(ev->button, ev->state);
     }
+
+    /* Do not send event to clients if any button binding used it. However, if
+     * the binding was just a single button (no modifiers), forward it to the client.
+     * This allows some use-cases like click-to-focus plugin. */
+    return (!callbacks.empty() && get_modifiers());
 }
 
 void input_manager::update_cursor_focus(wayfire_surface_t *focus, int x, int y)
