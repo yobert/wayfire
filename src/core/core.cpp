@@ -21,6 +21,7 @@ extern "C"
 #include <sys/wait.h>
 #include <fcntl.h>
 
+#include "debug.hpp"
 #include "output.hpp"
 #include "core.hpp"
 #include "signal-definitions.hpp"
