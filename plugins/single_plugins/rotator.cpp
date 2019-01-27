@@ -18,10 +18,10 @@ class wayfire_rotator : public wayfire_plugin_t
         auto left_key  = section->get_option("rotate_left", "<alt> <ctrl> <shift> KEY_LEFT");
         auto right_key = section->get_option("rotate_right","<alt> <ctrl> <shift> KEY_RIGHT");
 
-        up    = [=] () { output->set_transform(WL_OUTPUT_TRANSFORM_NORMAL); };
-        down  = [=] () { output->set_transform(WL_OUTPUT_TRANSFORM_180); };
-        left  = [=] () { output->set_transform(WL_OUTPUT_TRANSFORM_270); };
-        right = [=] () { output->set_transform(WL_OUTPUT_TRANSFORM_90); };
+        up    = [=] (wf_activator_source, uint32_t) { output->set_transform(WL_OUTPUT_TRANSFORM_NORMAL); };
+        down  = [=] (wf_activator_source, uint32_t) { output->set_transform(WL_OUTPUT_TRANSFORM_180); };
+        left  = [=] (wf_activator_source, uint32_t) { output->set_transform(WL_OUTPUT_TRANSFORM_270); };
+        right = [=] (wf_activator_source, uint32_t) { output->set_transform(WL_OUTPUT_TRANSFORM_90); };
 
         output->add_activator(up_key,    &up);
         output->add_activator(down_key,  &down);

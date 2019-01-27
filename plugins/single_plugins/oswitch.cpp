@@ -27,7 +27,8 @@ class wayfire_output_manager : public wayfire_plugin_t
             auto actkey  = section->get_option("next_output", "<super> KEY_K");
             auto withwin = section->get_option("next_output_with_win", "<super> <shift> KEY_K");
 
-            switch_output = [=] () {
+            switch_output = [=] (wf_activator_source, uint32_t)
+            {
                 /* when we switch the output, the oswitch keybinding
                  * may be activated for the next output, which we don't want,
                  * so we postpone the switch */
@@ -36,13 +37,14 @@ class wayfire_output_manager : public wayfire_plugin_t
                 wl_event_loop_add_idle(core->ev_loop, next_output_idle_cb, next);
             };
 
-            switch_output_with_window = [=] () {
+            switch_output_with_window = [=] (wf_activator_source, uint32_t)
+            {
                 auto next = core->get_next_output(output);
                 auto view = output->get_active_view();
 
                 if (!view)
                 {
-                    switch_output();
+                    switch_output(ACTIVATOR_SOURCE_KEYBINDING, 0);
                     return;
                 }
 

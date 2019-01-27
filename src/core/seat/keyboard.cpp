@@ -145,36 +145,6 @@ static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
     return true;
 }
 
-std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state, uint32_t key)
-{
-    std::vector<std::function<void()>> callbacks;
-
-    for (auto& binding : bindings[WF_BINDING_KEY])
-    {
-        if (binding->value->as_cached_key().matches({mod_state, key}) &&
-            binding->output == core->get_active_output())
-        {
-            /* make sure we don't capture a reference to binding,
-             * because it might get destroyed later */
-            auto callback = binding->call.key;
-            callbacks.push_back([key, callback] () {
-                (*callback) (key);
-            });
-        }
-    }
-
-    for (auto& binding : bindings[WF_BINDING_ACTIVATOR])
-    {
-        if (binding->value->matches_key({mod_state, key}) &&
-            binding->output == core->get_active_output())
-        {
-            callbacks.push_back(*binding->call.activator);
-        }
-    }
-
-    return callbacks;
-}
-
 static uint32_t mod_from_key(uint32_t key)
 {
     if (key == KEY_LEFTALT || key == KEY_RIGHTALT)
@@ -187,6 +157,44 @@ static uint32_t mod_from_key(uint32_t key)
         return WLR_MODIFIER_LOGO;
 
     return 0;
+}
+
+std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state, uint32_t key)
+{
+    std::vector<std::function<void()>> callbacks;
+
+    for (auto& binding : bindings[WF_BINDING_KEY])
+    {
+        if (binding->value->as_cached_key().matches({mod_state, key}) &&
+            binding->output == core->get_active_output())
+        {
+            /* We must be careful because the callback might be erased,
+             * so force copy the callback into the lambda */
+            auto callback = binding->call.key;
+            callbacks.push_back([key, callback] () {
+                (*callback) (key);
+            });
+        }
+    }
+
+    for (auto& binding : bindings[WF_BINDING_ACTIVATOR])
+    {
+        if (binding->value->matches_key({mod_state, key}) &&
+            binding->output == core->get_active_output())
+        {
+            /* We must be careful because the callback might be erased,
+             * so force copy the callback into the lambda
+             *
+             * Also, do not send keys for modifier bindings */
+            auto callback = binding->call.activator;
+            callbacks.push_back([=] () {
+                (*callback) (ACTIVATOR_SOURCE_KEYBINDING,
+                    mod_from_key(key) ? 0 : key);
+            });
+        }
+    }
+
+    return callbacks;
 }
 
 bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)

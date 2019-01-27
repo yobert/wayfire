@@ -17,7 +17,7 @@ class wayfire_idle_inhibit : public wayfire_plugin_t
     {
         auto binding = config->get_section("idle-inhibit")->get_option("toggle", "<super> <shift> KEY_I");
 
-        toggle = [=] ()
+        toggle = [=] (wf_activator_source, uint32_t)
         {
             enabled = !enabled;
             wlr_idle_set_enabled(core->protocols.idle, NULL, enabled);
@@ -29,7 +29,7 @@ class wayfire_idle_inhibit : public wayfire_plugin_t
     void fini()
     {
         if (!enabled) // enable idle if the plugin is disabled
-            toggle();
+            toggle(ACTIVATOR_SOURCE_KEYBINDING, 0);
 
         output->rem_binding(&toggle);
     }

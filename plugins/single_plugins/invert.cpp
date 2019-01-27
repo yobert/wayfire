@@ -68,7 +68,7 @@ class wayfire_invert_screen : public wayfire_plugin_t
         };
 
 
-        toggle_cb = [=] () {
+        toggle_cb = [=] (wf_activator_source, uint32_t) {
             if (active)
             {
                 output->render->rem_post(&hook);

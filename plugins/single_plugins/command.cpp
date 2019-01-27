@@ -34,7 +34,7 @@ class wayfire_command : public wayfire_plugin_t
             auto comvalue = section->get_option(command, "")->as_string();
             auto activator = section->get_option(binding, "none");
 
-            cmds[i++] = [=] () { core->run(comvalue.c_str()); };
+            cmds[i++] = [=] (wf_activator_source, uint32_t) { core->run(comvalue.c_str()); };
             output->add_activator(activator, &cmds[i - 1]);
         }
     }
