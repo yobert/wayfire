@@ -474,7 +474,7 @@ bool wayfire_view_t::intersects_region(const wlr_box& region)
 
 wf_geometry wayfire_view_t::get_untransformed_bounding_box()
 {
-    if (is_mapped() || !offscreen_buffer.valid())
+    if (is_mapped())
     {
         auto bbox = get_output_geometry();
         int x1 = bbox.x, x2 = bbox.x + bbox.width;
@@ -500,6 +500,8 @@ wf_geometry wayfire_view_t::get_untransformed_bounding_box()
         return bbox;
     }
 
+    /* Offscreen buffer might be invalid, but if this is the case, and the view
+     * isn't mapped, then the view's geometry is truly empty and this is correct. */
     return offscreen_buffer.geometry;
 }
 
