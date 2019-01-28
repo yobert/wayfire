@@ -150,6 +150,8 @@ class WayfireSwitcher : public wayfire_plugin_t
             if (id == 0) handle_touch_motion(x, y);
         };
 
+        grab_interface->callbacks.cancel = [=] () {deinit_switcher();};
+
         view_removed = [=] (signal_data *data)
         {
             handle_view_removed(get_signaled_view(data));

@@ -60,6 +60,7 @@ class vswitch : public wayfire_plugin_t
     {
         grab_interface->name = "vswitch";
         grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
+        grab_interface->callbacks.cancel = [=] () {stop_switch();};
 
         callback_left  = [=] () { add_direction(-1,  0); };
         callback_right = [=] () { add_direction( 1,  0); };
