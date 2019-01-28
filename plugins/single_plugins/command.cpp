@@ -199,6 +199,7 @@ class wayfire_command : public wayfire_plugin_t
         grab_interface->abilities_mask = WF_ABILITY_GRAB_INPUT;
         grab_interface->callbacks.pointer.button = on_button;
         grab_interface->callbacks.keyboard.key = on_key;
+        grab_interface->callbacks.cancel = [=]() {reset_repeat();};
 
         using namespace std::placeholders;
 
