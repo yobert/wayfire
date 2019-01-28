@@ -36,7 +36,10 @@ command_5 = amixer -q sset Master toggle
 
 binding_lock = <super> KEY_L
 command_lock = swaylock
-
+# Repeatable bindings allow the user to repeat the given command by holding the
+# key or button with which the binding was activated.
+repeatable_binding_echo = <ctrl> <alt> <super> <shift> KEY_E
+command_echo = echo "Test"
 
 # input options
 [input]
