@@ -2,7 +2,6 @@
 #include <core.hpp>
 #include <linux/input.h>
 #include <linux/input-event-codes.h>
-#include <debug.hpp>
 
 static bool begins_with(std::string word, std::string prefix)
 {
@@ -80,7 +79,9 @@ class wayfire_command : public wayfire_plugin_t
 
         repeat_delay_source = wl_event_loop_add_timer(core->ev_loop,
             repeat_delay_timeout_handler, &on_repeat_delay_timeout);
-        wl_event_source_timer_update(repeat_delay_source, 400);
+
+        wl_event_source_timer_update(repeat_delay_source,
+            core->config->get_section("input")->get_option("kb_repeat_delay", "400")->as_int());
     }
 
     std::function<void()> on_repeat_delay_timeout = [=] ()
@@ -93,7 +94,12 @@ class wayfire_command : public wayfire_plugin_t
 
     std::function<void()> on_repeat_once = [=] ()
     {
-        wl_event_source_timer_update(repeat_source, 25);
+        uint32_t repeat_rate = core->config->get_section("input")
+            ->get_option("kb_repeat_rate", "40")->as_int();
+        if (repeat_rate <= 0 || repeat_rate > 1000)
+            return reset_repeat();
+
+        wl_event_source_timer_update(repeat_source, 1000 / repeat_rate);
         core->run(repeat.repeat_command.c_str());
     };
 
