@@ -169,6 +169,7 @@ class wayfire_cube : public wayfire_plugin_t
         std::string ext_string(reinterpret_cast<const char*> (glGetString(GL_EXTENSIONS)));
         tessellation_support =
             ext_string.find(std::string("GL_EXT_tessellation_shader")) != std::string::npos;
+        GLuint tcs = -1, tes = -1, gss = -1;
 #else
         tessellation_support = false;
 #endif
@@ -181,7 +182,7 @@ class wayfire_cube : public wayfire_plugin_t
         }
 
         program.id = GL_CALL(glCreateProgram());
-        GLuint vss, fss, tcs = -1, tes = -1, gss = -1;
+        GLuint vss, fss;
 
         /* Vertex and fragment shaders are used in both GLES 2.0 and 3.2 modes */
         vss = OpenGL::load_shader(shaderSrcPath + "/vertex.glsl", GL_VERTEX_SHADER);
