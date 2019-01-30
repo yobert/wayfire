@@ -251,10 +251,10 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
      * margin positioning depends on the reflow callback */
     void set_exclusive_zone(uint32_t size)
     {
+        this->exclusive_zone_size = size;
+
         if (__builtin_popcount(anchors) != 1)
             return;
-
-        this->exclusive_zone_size = size;
 
         bool new_area = false;
         if (!area)
