@@ -20,6 +20,7 @@ extern "C"
 #undef static
 
 struct wlr_data_device_manager;
+struct wlr_data_control_manager_v1;
 struct wlr_linux_dmabuf_v1;
 struct wlr_gamma_control_manager;
 struct wlr_gamma_control_manager_v1;
@@ -35,6 +36,7 @@ struct wlr_idle;
 struct wlr_idle_inhibit_manager_v1;
 struct wlr_screencopy_manager_v1;
 struct wlr_foreign_toplevel_manager_v1;
+struct wlr_pointer_gestures_v1;
 
 #include <wayland-server.h>
 }
@@ -89,6 +91,7 @@ class wayfire_core : public wf_object_base
         struct
         {
             wlr_data_device_manager *data_device;
+            wlr_data_control_manager_v1 *data_control;
             wlr_gamma_control_manager *gamma;
             wlr_gamma_control_manager_v1 *gamma_v1;
             wlr_screenshooter *screenshooter;
@@ -102,6 +105,7 @@ class wayfire_core : public wf_object_base
             wlr_idle *idle;
             wlr_idle_inhibit_manager_v1 *idle_inhibit;
             wlr_foreign_toplevel_manager_v1 *toplevel_manager;
+            wlr_pointer_gestures_v1 *pointer_gestures;
             wayfire_shell *wf_shell;
             wf_gtk_shell *gtk_shell;
         } protocols;

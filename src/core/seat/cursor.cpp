@@ -38,6 +38,48 @@ static void handle_pointer_axis_cb(wl_listener*, void *data)
     wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
+static void handle_pointer_swipe_begin_cb(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_event_pointer_swipe_begin*> (data);
+    core->input->handle_pointer_swipe_begin(ev);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
+}
+
+static void handle_pointer_swipe_update_cb(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_event_pointer_swipe_update*> (data);
+    core->input->handle_pointer_swipe_update(ev);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
+}
+
+static void handle_pointer_swipe_end_cb(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_event_pointer_swipe_end*> (data);
+    core->input->handle_pointer_swipe_end(ev);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
+}
+
+static void handle_pointer_pinch_begin_cb(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_event_pointer_pinch_begin*> (data);
+    core->input->handle_pointer_pinch_begin(ev);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
+}
+
+static void handle_pointer_pinch_update_cb(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_event_pointer_pinch_update*> (data);
+    core->input->handle_pointer_pinch_update(ev);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
+}
+
+static void handle_pointer_pinch_end_cb(wl_listener*, void *data)
+{
+    auto ev = static_cast<wlr_event_pointer_pinch_end*> (data);
+    core->input->handle_pointer_pinch_end(ev);
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
+}
+
 static void handle_pointer_frame_cb(wl_listener*, void *data)
 {
     core->input->handle_pointer_frame();
@@ -212,6 +254,42 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
                                  mult * ev->delta, mult * ev->delta_discrete, ev->source);
 }
 
+void input_manager::handle_pointer_swipe_begin(wlr_event_pointer_swipe_begin *ev)
+{
+    wlr_pointer_gestures_v1_send_swipe_begin(core->protocols.pointer_gestures, seat,
+            ev->time_msec, ev->fingers);
+}
+
+void input_manager::handle_pointer_swipe_update(wlr_event_pointer_swipe_update *ev)
+{
+    wlr_pointer_gestures_v1_send_swipe_update(core->protocols.pointer_gestures, seat,
+            ev->time_msec, ev->dx, ev->dy);
+}
+
+void input_manager::handle_pointer_swipe_end(wlr_event_pointer_swipe_end *ev)
+{
+    wlr_pointer_gestures_v1_send_swipe_end(core->protocols.pointer_gestures, seat,
+            ev->time_msec, ev->cancelled);
+}
+
+void input_manager::handle_pointer_pinch_begin(wlr_event_pointer_pinch_begin *ev)
+{
+    wlr_pointer_gestures_v1_send_pinch_begin(core->protocols.pointer_gestures, seat,
+            ev->time_msec, ev->fingers);
+}
+
+void input_manager::handle_pointer_pinch_update(wlr_event_pointer_pinch_update *ev)
+{
+    wlr_pointer_gestures_v1_send_pinch_update(core->protocols.pointer_gestures, seat,
+            ev->time_msec, ev->dx, ev->dy, ev->scale, ev->rotation);
+}
+
+void input_manager::handle_pointer_pinch_end(wlr_event_pointer_pinch_end *ev)
+{
+    wlr_pointer_gestures_v1_send_pinch_end(core->protocols.pointer_gestures, seat,
+            ev->time_msec, ev->cancelled);
+}
+
 void input_manager::handle_pointer_frame()
 {
     wlr_seat_pointer_notify_frame(seat);
@@ -229,12 +307,24 @@ wf_cursor::wf_cursor()
     motion.notify             = handle_pointer_motion_cb;
     motion_absolute.notify    = handle_pointer_motion_absolute_cb;
     axis.notify               = handle_pointer_axis_cb;
+    swipe_begin.notify        = handle_pointer_swipe_begin_cb;
+    swipe_update.notify       = handle_pointer_swipe_update_cb;
+    swipe_end.notify          = handle_pointer_swipe_end_cb;
+    pinch_begin.notify        = handle_pointer_pinch_begin_cb;
+    pinch_update.notify       = handle_pointer_pinch_update_cb;
+    pinch_end.notify          = handle_pointer_pinch_end_cb;
     frame.notify              = handle_pointer_frame_cb;
 
     wl_signal_add(&cursor->events.button, &button);
     wl_signal_add(&cursor->events.motion, &motion);
     wl_signal_add(&cursor->events.motion_absolute, &motion_absolute);
     wl_signal_add(&cursor->events.axis, &axis);
+    wl_signal_add(&cursor->events.swipe_begin, &swipe_begin);
+    wl_signal_add(&cursor->events.swipe_update, &swipe_update);
+    wl_signal_add(&cursor->events.swipe_end, &swipe_end);
+    wl_signal_add(&cursor->events.pinch_begin, &pinch_begin);
+    wl_signal_add(&cursor->events.pinch_update, &pinch_update);
+    wl_signal_add(&cursor->events.pinch_end, &pinch_end);
     wl_signal_add(&cursor->events.frame, &frame);
 
     init_xcursor();
@@ -312,6 +402,12 @@ wf_cursor::~wf_cursor()
     wl_list_remove(&motion.link);
     wl_list_remove(&motion_absolute.link);
     wl_list_remove(&axis.link);
+    wl_list_remove(&swipe_begin.link);
+    wl_list_remove(&swipe_update.link);
+    wl_list_remove(&swipe_end.link);
+    wl_list_remove(&pinch_begin.link);
+    wl_list_remove(&pinch_update.link);
+    wl_list_remove(&pinch_end.link);
     wl_list_remove(&frame.link);
 
     core->disconnect_signal("reload-config", &config_reloaded);

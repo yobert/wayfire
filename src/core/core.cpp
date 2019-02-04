@@ -2,6 +2,7 @@ extern "C"
 {
 #include <wlr/config.h>
 #include <wlr/types/wlr_screenshooter.h>
+#include <wlr/types/wlr_data_control_v1.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_virtual_keyboard_v1.h>
 #include <wlr/types/wlr_foreign_toplevel_management_v1.h>
@@ -15,6 +16,7 @@ extern "C"
 #include <wlr/types/wlr_gamma_control_v1.h>
 #include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
+#include <wlr/types/wlr_pointer_gestures_v1.h>
 }
 
 #include <unistd.h>
@@ -128,6 +130,7 @@ void wayfire_core::init(wayfire_config *conf)
     wf_input_device::config.load(conf);
 
     protocols.data_device = wlr_data_device_manager_create(display);
+    protocols.data_control = wlr_data_control_manager_v1_create(display);
     wlr_renderer_init_wl_display(renderer, display);
 
     output_layout = wlr_output_layout_create();
@@ -170,6 +173,8 @@ void wayfire_core::init(wayfire_config *conf)
     protocols.wf_shell = wayfire_shell_create(display);
     protocols.gtk_shell = wf_gtk_shell_create(display);
     protocols.toplevel_manager = wlr_foreign_toplevel_manager_v1_create(display);
+
+    protocols.pointer_gestures = wlr_pointer_gestures_v1_create(display);
 
     image_io::init();
     OpenGL::init();
