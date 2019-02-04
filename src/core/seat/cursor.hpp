@@ -28,7 +28,8 @@ struct wf_cursor
 
     wl_listener button, motion, motion_absolute, axis,
                 swipe_begin, swipe_update, swipe_end,
-                pinch_begin, pinch_update, pinch_end;
+                pinch_begin, pinch_update, pinch_end,
+                frame;
     signal_callback_t config_reloaded;
 
     wlr_cursor *cursor = NULL;

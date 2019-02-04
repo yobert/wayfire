@@ -80,6 +80,11 @@ static void handle_pointer_pinch_end_cb(wl_listener*, void *data)
     wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
 }
 
+static void handle_pointer_frame_cb(wl_listener*, void *data)
+{
+    core->input->handle_pointer_frame();
+    wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
+}
 
 bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
 {
@@ -285,6 +290,10 @@ void input_manager::handle_pointer_pinch_end(wlr_event_pointer_pinch_end *ev)
             ev->time_msec, ev->cancelled);
 }
 
+void input_manager::handle_pointer_frame()
+{
+    wlr_seat_pointer_notify_frame(seat);
+}
 
 wf_cursor::wf_cursor()
 {
@@ -304,6 +313,7 @@ wf_cursor::wf_cursor()
     pinch_begin.notify        = handle_pointer_pinch_begin_cb;
     pinch_update.notify       = handle_pointer_pinch_update_cb;
     pinch_end.notify          = handle_pointer_pinch_end_cb;
+    frame.notify              = handle_pointer_frame_cb;
 
     wl_signal_add(&cursor->events.button, &button);
     wl_signal_add(&cursor->events.motion, &motion);
@@ -315,6 +325,7 @@ wf_cursor::wf_cursor()
     wl_signal_add(&cursor->events.pinch_begin, &pinch_begin);
     wl_signal_add(&cursor->events.pinch_update, &pinch_update);
     wl_signal_add(&cursor->events.pinch_end, &pinch_end);
+    wl_signal_add(&cursor->events.frame, &frame);
 
     init_xcursor();
 
@@ -397,6 +408,7 @@ wf_cursor::~wf_cursor()
     wl_list_remove(&pinch_begin.link);
     wl_list_remove(&pinch_update.link);
     wl_list_remove(&pinch_end.link);
+    wl_list_remove(&frame.link);
 
     core->disconnect_signal("reload-config", &config_reloaded);
 }

@@ -61,7 +61,8 @@ class input_manager
         wayfire_grab_interface active_grab = nullptr;
         bool session_active = true;
 
-        wl_listener input_device_created, new_drag_icon, request_set_cursor;
+        wl_listener input_device_created, new_drag_icon, request_set_cursor,
+                    request_set_selection, request_set_primary_selection;
 
 
         signal_callback_t config_updated;
@@ -139,6 +140,7 @@ class input_manager
         void handle_pointer_motion(wlr_event_pointer_motion *ev);
         void handle_pointer_motion_absolute(wlr_event_pointer_motion_absolute *ev);
         bool handle_pointer_button(wlr_event_pointer_button *ev);
+        void handle_pointer_frame();
 
         void handle_pointer_swipe_begin(wlr_event_pointer_swipe_begin *ev);
         void handle_pointer_swipe_update(wlr_event_pointer_swipe_update *ev);
