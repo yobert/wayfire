@@ -199,10 +199,12 @@ class wayfire_grid : public wayfire_plugin_t
         animation_duration = section->get_option("duration", "300");
         animation_type = section->get_option("type", "simple");
 
-        for (int i = 1; i < 10; i++) {
+        for (int i = 1; i < 10; i++)
+        {
             keys[i] = section->get_option("slot_" + slots[i], default_keys[i]);
 
-            bindings[i] = [=] () {
+            bindings[i] = [=] (wf_activator_source, uint32_t)
+            {
                 auto view = output->get_active_view();
                 if (!view || view->role != WF_VIEW_ROLE_TOPLEVEL)
                     return;

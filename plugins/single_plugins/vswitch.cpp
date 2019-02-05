@@ -62,15 +62,15 @@ class vswitch : public wayfire_plugin_t
         grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
         grab_interface->callbacks.cancel = [=] () {stop_switch();};
 
-        callback_left  = [=] () { add_direction(-1,  0); };
-        callback_right = [=] () { add_direction( 1,  0); };
-        callback_up    = [=] () { add_direction( 0, -1); };
-        callback_down  = [=] () { add_direction( 0,  1); };
+        callback_left  = [=] (wf_activator_source, uint32_t) { add_direction(-1,  0); };
+        callback_right = [=] (wf_activator_source, uint32_t) { add_direction( 1,  0); };
+        callback_up    = [=] (wf_activator_source, uint32_t) { add_direction( 0, -1); };
+        callback_down  = [=] (wf_activator_source, uint32_t) { add_direction( 0,  1); };
 
-        callback_win_left  = [=] () { add_direction(-1,  0, get_top_view()); };
-        callback_win_right = [=] () { add_direction( 1,  0, get_top_view()); };
-        callback_win_up    = [=] () { add_direction( 0, -1, get_top_view()); };
-        callback_win_down  = [=] () { add_direction( 0,  1, get_top_view()); };
+        callback_win_left  = [=] (wf_activator_source, uint32_t) { add_direction(-1,  0, get_top_view()); };
+        callback_win_right = [=] (wf_activator_source, uint32_t) { add_direction( 1,  0, get_top_view()); };
+        callback_win_up    = [=] (wf_activator_source, uint32_t) { add_direction( 0, -1, get_top_view()); };
+        callback_win_down  = [=] (wf_activator_source, uint32_t) { add_direction( 0,  1, get_top_view()); };
 
         auto section   = config->get_section("vswitch");
 

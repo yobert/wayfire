@@ -23,7 +23,7 @@ void wayfire_close::init(wayfire_config *config)
     auto key = config->get_section("core")
         ->get_option("close_top_view", "<super> KEY_Q | <alt> KEY_FN_F4");
 
-    callback = [=] ()
+    callback = [=] (wf_activator_source, uint32_t)
     {
         if (!output->activate_plugin(grab_interface))
             return;

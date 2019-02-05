@@ -106,12 +106,12 @@ class wayfire_cube : public wayfire_plugin_t
         };
 
         auto key_left = section->get_option("rotate_left", "<alt> <ctrl> KEY_LEFT");
-        rotate_left = [=] () {
+        rotate_left = [=] (wf_activator_source, uint32_t) {
             move_vp(-1);
         };
 
         auto key_right = section->get_option("rotate_right", "<alt> <ctrl> KEY_RIGHT");
-        rotate_right = [=] () {
+        rotate_right = [=] (wf_activator_source, uint32_t) {
             move_vp(1);
         };
 

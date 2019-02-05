@@ -108,6 +108,8 @@ bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
                 binding->value->as_cached_button().matches(
                     {mod_state, ev->button}))
             {
+                /* We must be careful because the callback might be erased,
+                 * so force copy the callback into the lambda */
                 auto callback = binding->call.button;
                 callbacks.push_back([=] () {(*callback) (ev->button, ox, oy);});
             }
@@ -118,7 +120,12 @@ bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
             if (binding->output == core->get_active_output() &&
                 binding->value->matches_button({mod_state, ev->button}))
             {
-                callbacks.push_back(*binding->call.activator);
+                /* We must be careful because the callback might be erased,
+                 * so force copy the callback into the lambda */
+                auto callback = binding->call.activator;
+                callbacks.push_back([=] () {
+                    (*callback) (ACTIVATOR_SOURCE_BUTTONBINDING, ev->button);
+                });
             }
         }
 

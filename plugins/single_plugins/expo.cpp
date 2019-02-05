@@ -17,7 +17,7 @@ class wayfire_expo : public wayfire_plugin_t
 {
     private:
 
-    activator_callback toggle_cb = [=] ()
+    activator_callback toggle_cb = [=] (wf_activator_source, uint32_t)
     {
         if (!state.active) {
             activate();

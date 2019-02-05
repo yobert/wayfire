@@ -138,7 +138,7 @@ class wayfire_fisheye : public wayfire_plugin_t
                 render(source, dest);
             };
 
-            toggle_cb = [=] ()
+            toggle_cb = [=] (wf_activator_source, uint32_t)
             {
                     if (active)
                     {

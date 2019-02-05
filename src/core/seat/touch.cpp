@@ -390,6 +390,8 @@ void input_manager::handle_gesture(wf_touch_gesture g)
         if (binding->output == core->get_active_output() &&
             binding->value->as_cached_gesture().matches(g))
         {
+            /* We must be careful because the callback might be erased,
+             * so force copy the callback into the lambda */
             auto call = binding->call.gesture;
             callbacks.push_back([=, &g] () {
                 (*call) (&g);
@@ -402,7 +404,12 @@ void input_manager::handle_gesture(wf_touch_gesture g)
         if (binding->output == core->get_active_output() &&
             binding->value->matches_gesture(g))
         {
-            callbacks.push_back(*binding->call.activator);
+            /* We must be careful because the callback might be erased,
+             * so force copy the callback into the lambda */
+            auto call = binding->call.activator;
+            callbacks.push_back([=] () {
+                (*call) (ACTIVATOR_SOURCE_GESTURE, 0);
+            });
         }
     }
 
