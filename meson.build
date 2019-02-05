@@ -2,7 +2,7 @@ project(
 	'wayfire',
     'c',
 	'cpp',
-	version: '0.0',
+	version: '0.1',
 	license: 'MIT',
 	meson_version: '>=0.43.0',
 	default_options: [
@@ -13,7 +13,7 @@ project(
 	],
 )
 
-so_version = ['0', '0', '0']
+so_version = ['0', '1', '0']
 wayfire_api_inc  = include_directories('src/api')
 
 wayland_server = dependency('wayland-server')
