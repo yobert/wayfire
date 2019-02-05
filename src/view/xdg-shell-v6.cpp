@@ -64,6 +64,11 @@ void wayfire_xdg6_popup::get_child_position(int &x, int &y)
     y += popup->geometry.y - popup->base->geometry.y;
 }
 
+void wayfire_xdg6_popup::send_done()
+{
+    wlr_xdg_surface_v6_send_close(popup->base);
+}
+
 void handle_v6_new_popup(wl_listener*, void *data)
 {
     auto popup = static_cast<wlr_xdg_popup_v6*> (data);
@@ -283,6 +288,17 @@ wf_geometry wayfire_xdg6_view::get_wm_geometry()
 
 void wayfire_xdg6_view::activate(bool act)
 {
+    /*
+    if (!act)
+    {
+        for_each_surface([] (wayfire_surface_t* surface, int, int)
+        {
+            auto popup = dynamic_cast<wayfire_xdg6_popup*> (surface);
+            if (popup)
+                popup->send_done();
+        });
+    } */
+
     wlr_xdg_toplevel_v6_set_activated(v6_surface, act);
     wayfire_view_t::activate(act);
 }

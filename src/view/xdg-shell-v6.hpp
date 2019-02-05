@@ -25,6 +25,7 @@ class wayfire_xdg6_popup : public wayfire_surface_t
 
         virtual void get_child_position(int &x, int &y);
         virtual bool is_subsurface() { return true; }
+        virtual void send_done();
 };
 
 class wayfire_xdg6_view : public wayfire_view_t
