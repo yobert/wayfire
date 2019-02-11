@@ -526,7 +526,6 @@ void wayfire_output::bring_to_front(wayfire_view v) {
  * Because we don't want to deactivate views when for ex. a panel gets focus,
  * we don't deactivate the current view when this is the case. However, when the focus
  * goes back to the toplevel layer, we need to ensure the proper view is activated. */
-
 void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
 {
     if (v && !v->is_mapped())
@@ -549,15 +548,21 @@ void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
     }
 
     active_view = v;
-    if (active_view)
-    {
-        core->input->set_keyboard_focus(active_view, seat);
 
-        if (!refocus)
-            active_view->activate(true);
-    } else
+    /* If the output isn't focused, we shouldn't touch focus */
+    if (core->get_active_output() == this)
     {
-        core->input->set_keyboard_focus(NULL, seat);
+        if (active_view)
+        {
+            core->input->set_keyboard_focus(active_view, seat);
+
+            if (!refocus)
+                active_view->activate(true);
+        } else
+        {
+            core->input->set_keyboard_focus(NULL, seat);
+
+        }
     }
 
     if (!active_view || active_view->role == WF_VIEW_ROLE_TOPLEVEL)
