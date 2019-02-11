@@ -389,7 +389,7 @@ static void notify_created(wl_listener*, void *data)
 {
     auto surf = static_cast<wlr_xdg_surface*> (data);
     if (surf->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL)
-        core->add_view(nonstd::make_unique<wayfire_xdg_view> (surf));
+        core->add_view(std::make_unique<wayfire_xdg_view> (surf));
 }
 
 static wlr_xdg_shell *xdg_handle;

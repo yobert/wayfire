@@ -3,7 +3,6 @@
 #include <core.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
-#include <nonstd/make_unique.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <img.hpp>
@@ -65,16 +64,16 @@ class wayfire_cube : public wayfire_plugin_t
         last_background_mode = background_mode->as_string();
 
         if (last_background_mode == "simple")
-            background = nonstd::make_unique<wf_cube_simple_background> ();
+            background = std::make_unique<wf_cube_simple_background> ();
         else if (last_background_mode == "skydome")
-            background = nonstd::make_unique<wf_cube_background_skydome> (output);
+            background = std::make_unique<wf_cube_background_skydome> (output);
         else if (last_background_mode == "cubemap")
-            background = nonstd::make_unique<wf_cube_background_cubemap> ();
+            background = std::make_unique<wf_cube_background_cubemap> ();
         else
         {
             log_error("cube: Unrecognized background mode %s. Using default \"simple\"",
                 last_background_mode.c_str());
-            background = nonstd::make_unique<wf_cube_simple_background> ();
+            background = std::make_unique<wf_cube_simple_background> ();
         }
     }
 
@@ -235,7 +234,7 @@ class wayfire_cube : public wayfire_plugin_t
 
         streams.resize(vw);
         for(int i = 0; i < vw; i++)
-            streams[i] = nonstd::make_unique<wf_workspace_stream>();
+            streams[i] = std::make_unique<wf_workspace_stream>();
 
         animation.projection = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
     }

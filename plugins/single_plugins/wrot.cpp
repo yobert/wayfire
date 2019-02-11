@@ -2,7 +2,6 @@
 #include "view-transform.hpp"
 #include "output.hpp"
 #include "core.hpp"
-#include <nonstd/make_unique.hpp>
 #include <linux/input.h>
 
 static double cross (double x1, double y1, double x2, double y2) // cross product
@@ -55,7 +54,7 @@ class wf_wrot : public wayfire_plugin_t
             grab_interface->callbacks.pointer.motion = [=] (int x, int y)
             {
                 if (!current_view->get_transformer("wrot"))
-                    current_view->add_transformer(nonstd::make_unique<wf_2D_view> (current_view), "wrot");
+                    current_view->add_transformer(std::make_unique<wf_2D_view> (current_view), "wrot");
 
                 auto tr = dynamic_cast<wf_2D_view*> (current_view->get_transformer("wrot").get());
                 assert(tr);

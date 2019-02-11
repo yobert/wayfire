@@ -173,5 +173,5 @@ class wf_gaussian_blur : public wf_blur_base
 
 std::unique_ptr<wf_blur_base> create_gaussian_blur(wayfire_output *output)
 {
-    return nonstd::make_unique<wf_gaussian_blur> (output);
+    return std::make_unique<wf_gaussian_blur> (output);
 }

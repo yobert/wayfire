@@ -1,5 +1,3 @@
-#include <nonstd/make_unique.hpp>
-
 #include "fire.hpp"
 #include "particle.hpp"
 
@@ -144,7 +142,7 @@ void FireAnimation::init(wayfire_view view, wf_option dur, wf_animation_type typ
     }
 
     name = "animation-fire-" + std::to_string(type);
-    auto tr = nonstd::make_unique<FireTransformer>(view);
+    auto tr = std::make_unique<FireTransformer>(view);
     transformer = decltype(transformer) (tr.get());
 
     view->add_transformer(std::move(tr), name);

@@ -429,7 +429,7 @@ static void handle_layer_surface_destroy(wl_listener*, void *data)
 static void handle_layer_surface_created(wl_listener *listener, void *data)
 {
     auto lsurf = static_cast<wlr_layer_surface_v1*> (data);
-    core->add_view(nonstd::make_unique<wayfire_layer_shell_view> (lsurf));
+    core->add_view(std::make_unique<wayfire_layer_shell_view> (lsurf));
 }
 
 static wlr_layer_shell_v1 *layer_shell_handle;

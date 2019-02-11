@@ -841,7 +841,7 @@ void wayfire_view_t::render_fb(const wf_region& damaged_region, const wf_framebu
 void wayfire_view_t::add_transformer(std::unique_ptr<wf_view_transformer_t> transformer, std::string name)
 {
     damage();
-    auto tr = nonstd::make_unique<transform_t> ();
+    auto tr = std::make_unique<transform_t> ();
     tr->transform = std::move(transformer);
     tr->plugin_name = name;
 

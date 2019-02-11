@@ -5,7 +5,7 @@
 #include "opengl.hpp"
 #include "object.hpp"
 #include "util.hpp"
-#include <vector>
+#include <list>
 
 /* Emitted whenever a workspace stream is being started or stopped */
 struct wf_stream_signal : public signal_data
@@ -74,12 +74,12 @@ class render_manager : public wf_signal_provider_t
 
         wf_region get_ws_damage(std::tuple<int, int> ws);
 
-        using effect_container_t = std::vector<effect_hook_t*>;
+        using effect_container_t = wf::safe_list_t<effect_hook_t*>;
         effect_container_t effects[WF_OUTPUT_EFFECT_TOTAL];
 
         struct wf_post_effect;
         /* TODO: use unique_ptr */
-        using post_container_t = std::vector<wf_post_effect*>;
+        using post_container_t = wf::safe_list_t<wf_post_effect*>;
         post_container_t post_effects;
 
         wf_framebuffer_base default_buffer;
@@ -113,7 +113,7 @@ class render_manager : public wf_signal_provider_t
         void add_inhibit(bool add);
 
         void add_effect(effect_hook_t*, wf_output_effect_type type);
-        void rem_effect(const effect_hook_t*, wf_output_effect_type type);
+        void rem_effect(effect_hook_t*);
 
         /* add a new postprocessing effect */
         void add_post(post_hook_t*);

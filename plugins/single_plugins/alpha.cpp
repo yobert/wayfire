@@ -28,7 +28,6 @@
 #include <output.hpp>
 #include "view-transform.hpp"
 #include "workspace-manager.hpp"
-#include <nonstd/make_unique.hpp>
 
 class wayfire_alpha : public wayfire_plugin_t
 {
@@ -54,7 +53,7 @@ class wayfire_alpha : public wayfire_plugin_t
         float alpha;
 
         if (!view->get_transformer("alpha"))
-            view->add_transformer(nonstd::make_unique<wf_2D_view> (view), "alpha");
+            view->add_transformer(std::make_unique<wf_2D_view> (view), "alpha");
 
         transformer = dynamic_cast<wf_2D_view*> (view->get_transformer("alpha").get());
         alpha = transformer->alpha;

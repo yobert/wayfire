@@ -367,7 +367,7 @@ void render_manager::paint()
     if (post_effects.size())
     {
         auto last_buffer = &default_buffer;
-        for (auto post : post_effects)
+        post_effects.for_each([&] (auto post)
         {
             OpenGL::render_begin();
             /* Make sure we have the correct resolution, in case the output was resized */
@@ -376,7 +376,7 @@ void render_manager::paint()
 
             (*post->hook)(*last_buffer, post->buffer);
             last_buffer = &post->buffer;
-        }
+        });
 
         assert(last_buffer->fb == 0 && last_buffer->tex == 0);
     }
@@ -435,12 +435,8 @@ void render_manager::post_paint()
 
 void render_manager::run_effects(effect_container_t& container)
 {
-    std::vector<effect_hook_t*> active_effects;
-    for (auto effect : container)
-        active_effects.push_back(effect);
-
-    for (auto effect : active_effects)
-        (*effect)();
+    container.for_each([] (auto effect)
+        { (*effect)(); });
 }
 
 void render_manager::add_effect(effect_hook_t* hook, wf_output_effect_type type)
@@ -448,17 +444,16 @@ void render_manager::add_effect(effect_hook_t* hook, wf_output_effect_type type)
     effects[type].push_back(hook);
 }
 
-void render_manager::rem_effect(const effect_hook_t *hook, wf_output_effect_type type)
+void render_manager::rem_effect(effect_hook_t *hook)
 {
-    auto& container = effects[type];
-    auto it = std::remove(container.begin(), container.end(), hook);
-    container.erase(it, container.end());
+    for (int i = 0; i < WF_OUTPUT_EFFECT_TOTAL; i++)
+        effects[i].remove_all(hook);
 }
 
 void render_manager::add_post(post_hook_t* hook)
 {
     auto buffer = &default_buffer;
-    if (!post_effects.empty())
+    if (post_effects.size())
         buffer = &post_effects.back()->buffer;
 
     buffer->reset();
@@ -474,24 +469,21 @@ void render_manager::add_post(post_hook_t* hook)
     post_effects.push_back(new_hook);
 }
 
-void render_manager::_rem_post(wf_post_effect *post)
+void render_manager::_rem_post(wf_post_effect *to_remove)
 {
-    auto it = post_effects.begin();
-    while(it != post_effects.end())
+    post_effects.for_each([=] (auto effect)
     {
-        if ((*it) == post)
-        {
-            (*it)->buffer.release();
-            delete *it;
-            it = post_effects.erase(it);
-        } else
-        {
-            ++it;
-        }
-    }
+        if (effect != to_remove)
+            return;
+
+        effect->buffer.release();
+        delete effect;
+    });
+
+    post_effects.remove_all(to_remove);
 
     auto buffer = &default_buffer;
-    if (!post_effects.empty())
+    if (post_effects.size())
         buffer = &post_effects.back()->buffer;
 
     if (buffer->fb != 0)
@@ -506,11 +498,10 @@ void render_manager::_rem_post(wf_post_effect *post)
 void render_manager::cleanup_post_hooks()
 {
     std::vector<wf_post_effect*> to_remove;
-    for (auto& h : post_effects)
-    {
-        if (h->to_remove)
-            to_remove.push_back(h);
-    }
+    post_effects.for_each([&] (auto& hook) -> void {
+        if (hook->to_remove)
+            to_remove.push_back(hook);
+    });
 
     for (auto post : to_remove)
         _rem_post(post);
@@ -518,11 +509,10 @@ void render_manager::cleanup_post_hooks()
 
 void render_manager::rem_post(post_hook_t *hook)
 {
-    for (auto& h : post_effects)
-    {
+    post_effects.for_each([=] (auto& h) {
         if (h->hook == hook)
             h->to_remove = 1;
-    }
+    });
 
     damage_whole();
 }

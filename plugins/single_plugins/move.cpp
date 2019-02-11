@@ -169,7 +169,7 @@ class wf_move_snap_preview : public wayfire_color_rect_view_t
             return;
 
         _is_mapped = false;
-        output->render->rem_effect(&pre_paint, WF_OUTPUT_EFFECT_PRE);
+        output->render->rem_effect(&pre_paint);
 
         emit_map_state_change(this);
     }

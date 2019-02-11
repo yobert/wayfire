@@ -77,7 +77,7 @@ struct animation_hook
 
     void finalize(bool forced)
     {
-        output->render->rem_effect(&update_animation_hook, WF_OUTPUT_EFFECT_PRE);
+        output->render->rem_effect(&update_animation_hook);
 
         output->disconnect_signal("detach-view", &view_removed);
         output->disconnect_signal("view-disappeared", &view_removed);

@@ -5,9 +5,9 @@
 #include "object.hpp"
 #include "view.hpp"
 
-#include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <nonstd/safe-list.hpp>
 
 extern "C"
 {
@@ -25,7 +25,7 @@ class wayfire_output : public wf_object_base
     friend class wayfire_core;
 
     private:
-       std::unordered_map<std::string, std::vector<signal_callback_t*>> signals;
+       std::unordered_map<std::string, wf::safe_list_t<signal_callback_t*>> signals;
        std::unordered_multiset<wayfire_grab_interface> active_plugins;
 
        plugin_manager *plugin;

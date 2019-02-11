@@ -4,7 +4,6 @@
 #include <view.hpp>
 #include <decorator.hpp>
 #include <assert.h>
-#include <nonstd/make_unique.hpp>
 
 // for emit_map_*()
 #include <compositor-view.hpp>

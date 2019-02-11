@@ -62,7 +62,7 @@ class wayfire_expo : public wayfire_plugin_t
 
         for (int i = 0; i < vw; i++) {
             for (int j = 0; j < vh; j++) {
-                streams[i].emplace_back(nonstd::make_unique<wf_workspace_stream>());
+                streams[i].emplace_back(std::make_unique<wf_workspace_stream>());
                 streams[i][j]->ws = std::make_tuple(i, j);
             }
         }

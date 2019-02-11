@@ -2,16 +2,17 @@
 #define OBJECT_HPP
 
 #include <unordered_map>
-#include <vector>
+#include <list>
 #include <typeinfo>
 
 #include <nonstd/observer_ptr.h>
-#include <nonstd/make_unique.hpp>
+#include <nonstd/safe-list.hpp>
 #include "plugin.hpp"
 
 /* A base class for "objects".
  * Provides signals & attaching custom data */
-class wf_custom_data_t {
+class wf_custom_data_t
+{
     public:
     virtual ~wf_custom_data_t() {};
 };
@@ -29,24 +30,19 @@ class wf_signal_provider_t
     /* Unregister a registered callback */
     void disconnect_signal(std::string name, signal_callback_t* callback)
     {
-        auto& container = signals[name];
-        auto it = std::remove(container.begin(), container.end(), callback);
-        container.erase(it, container.end());
+        signals[name].remove_all(callback);
     }
 
     /* Emit the given signal. No type checking for data is required */
     void emit_signal(std::string name, signal_data *data)
     {
-        std::vector<signal_callback_t> callbacks;
-        for (auto call : signals[name])
-            callbacks.push_back(*call);
-
-        for (auto call : callbacks)
-            call(data);
+        signals[name].for_each([data] (auto call) {
+            (*call) (data);
+        });
     }
 
     private:
-    std::unordered_map<std::string, std::vector<signal_callback_t*>> signals;
+    std::unordered_map<std::string, wf::safe_list_t<signal_callback_t*>> signals;
 };
 
 class wf_object_base : public wf_signal_provider_t
@@ -74,7 +70,7 @@ class wf_object_base : public wf_signal_provider_t
         std::string name = typeid(T).name())
     {
         if (data.count(name) == 0)
-            store_data<T>(nonstd::make_unique<T>(), name);
+            store_data<T>(std::make_unique<T>(), name);
         return get_data<T>(name);
     }
 

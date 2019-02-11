@@ -126,5 +126,5 @@ class wf_bokeh_blur : public wf_blur_base
 
 std::unique_ptr<wf_blur_base> create_bokeh_blur(wayfire_output *output)
 {
-    return nonstd::make_unique<wf_bokeh_blur> (output);
+    return std::make_unique<wf_bokeh_blur> (output);
 }

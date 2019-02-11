@@ -68,8 +68,8 @@ class wf_system_fade
 
         void finish()
         {
-            output->render->rem_effect(&damage_hook, WF_OUTPUT_EFFECT_PRE);
-            output->render->rem_effect(&render_hook, WF_OUTPUT_EFFECT_OVERLAY);
+            output->render->rem_effect(&damage_hook);
+            output->render->rem_effect(&render_hook);
             output->render->auto_redraw(false);
 
             wl_event_loop_add_idle(core->ev_loop, destroy_system_fade, this);

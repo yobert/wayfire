@@ -218,7 +218,7 @@ class wayfire_xwayland_view : public wayfire_view_t
             auto xsurface = xw; // keep the xsurface in stack, because destroy will likely free this
             destroy();
 
-            auto view = nonstd::make_unique<wayfire_unmanaged_xwayland_view> (xsurface);
+            auto view = std::make_unique<wayfire_unmanaged_xwayland_view> (xsurface);
             auto raw = view.get();
 
             core->add_view(std::move(view));
@@ -577,10 +577,10 @@ void notify_xwayland_created(wl_listener *, void *data)
 
     if (xsurf->override_redirect)
     {
-        core->add_view(nonstd::make_unique<wayfire_unmanaged_xwayland_view>(xsurf));
+        core->add_view(std::make_unique<wayfire_unmanaged_xwayland_view>(xsurf));
     } else
     {
-        core->add_view(nonstd::make_unique<wayfire_xwayland_view> (xsurf));
+        core->add_view(std::make_unique<wayfire_xwayland_view> (xsurf));
     }
 }
 

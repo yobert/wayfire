@@ -8,6 +8,7 @@
 #include "debug-func.hpp"
 #include <config.hpp>
 #include "main.hpp"
+#include "nonstd/safe-list.hpp"
 
 extern "C"
 {
@@ -126,6 +127,19 @@ wlr_renderer *add_egl_depth_renderer(wlr_egl *egl, EGLenum platform,
     return renderer;
 }
 
+namespace wf
+{
+    namespace _safe_list_detail
+    {
+        wl_event_loop* event_loop;
+        void idle_cleanup_func(void *data)
+        {
+            auto priv = reinterpret_cast<std::function<void()>*> (data);
+            (*priv)();
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     /*
@@ -177,8 +191,13 @@ int main(int argc, char *argv[])
 
     log_info("Starting wayfire");
 
+    /* First create display and initialize safe-list's event loop, so that
+     * wf objects (which depend on safe-list) can work */
+    auto display = wl_display_create();
+    wf::_safe_list_detail::event_loop = wl_display_get_event_loop(display);
+
     core = new wayfire_core();
-    core->display  = wl_display_create();
+    core->display  = display;
     core->ev_loop  = wl_display_get_event_loop(core->display);
     core->backend  = wlr_backend_autocreate(core->display, add_egl_depth_renderer);
     core->renderer = wlr_backend_get_renderer(core->backend);

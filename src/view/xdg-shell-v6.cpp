@@ -371,7 +371,7 @@ static void notify_v6_created(wl_listener*, void *data)
 {
     auto surf = static_cast<wlr_xdg_surface_v6*> (data);
     if (surf->role == WLR_XDG_SURFACE_V6_ROLE_TOPLEVEL)
-        core->add_view(nonstd::make_unique<wayfire_xdg6_view> (surf));
+        core->add_view(std::make_unique<wayfire_xdg6_view> (surf));
 }
 
 static wlr_xdg_shell_v6 *v6_handle;
