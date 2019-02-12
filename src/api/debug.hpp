@@ -25,4 +25,5 @@ const char *wf_strip_path(const char *path);
 
 #define nonull(x) ((x) ? (x) : ("nil"))
 
+void wf_print_trace();
 #endif
