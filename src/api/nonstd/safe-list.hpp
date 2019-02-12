@@ -33,7 +33,7 @@ namespace wf
         wl_event_source *idle_cleanup_source = NULL;
 
         /* Remove all invalidated elements in the list */
-        std::function<void()> do_cleanup = [=] ()
+        std::function<void()> do_cleanup = [&] ()
         {
             auto it = list.begin();
             while (it != list.end())
@@ -55,7 +55,21 @@ namespace wf
         }
 
         public:
-        safe_list_t() = default;
+        safe_list_t() {};
+
+        /* Copy the not-erased elements from other, but do not copy the idle source */
+        safe_list_t(const safe_list_t& other) { *this = other; }
+        safe_list_t& operator = (const safe_list_t& other)
+        {
+            this->idle_cleanup_source = NULL;
+            other.for_each([&] (auto& el) {
+                this->push_back(el);
+            });
+        }
+
+        safe_list_t(safe_list_t&& other) = default;
+        safe_list_t& operator = (safe_list_t&& other) = default;
+
         ~safe_list_t()
         {
             if (idle_cleanup_source)
@@ -104,7 +118,7 @@ namespace wf
         }
 
         /* Call func for each non-erased element of the list */
-        void for_each(std::function<void(T&)> func)
+        void for_each(std::function<void(T&)> func) const
         {
             for (auto& el : list)
             {
@@ -119,10 +133,12 @@ namespace wf
          * and scheduling a cleanup operation */
         void remove_all(const T& value)
         {
+            bool actually_removed = false;
             for (auto& it : list)
             {
                 if (it && *it == value)
                 {
+                    actually_removed = true;
                     /* First reset the element in the list, and then free resources */
                     auto copy = std::move(it);
                     it = nullptr;
@@ -130,8 +146,12 @@ namespace wf
                 }
             }
 
-            idle_cleanup_source = wl_event_loop_add_idle(_safe_list_detail::event_loop,
-                _safe_list_detail::idle_cleanup_func, &do_cleanup);
+            /* Schedule a clean-up, but be careful to not schedule it twice */
+            if (!idle_cleanup_source && actually_removed)
+            {
+                idle_cleanup_source = wl_event_loop_add_idle(_safe_list_detail::event_loop,
+                    _safe_list_detail::idle_cleanup_func, &do_cleanup);
+            }
         }
     };
 }
