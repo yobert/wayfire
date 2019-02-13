@@ -92,8 +92,7 @@ class input_manager
 
         /* TODO: move this in a wf_keyboard struct,
          * This might not work with multiple keyboards */
-        bool in_mod_binding = false;
-        uint32_t mod_binding_key = 0; /* e.g. whether L or R Shift caused a <shift> binding */
+        uint32_t mod_binding_key = 0; /* The keycode which triggered the modifier binding */
         std::chrono::steady_clock::time_point mod_binding_start;
         int count_other_inputs = 0;
         std::vector<std::function<void()>> match_keys(uint32_t mods, uint32_t key, uint32_t mod_binding_key = 0);

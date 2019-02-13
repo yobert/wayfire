@@ -300,7 +300,7 @@ void input_manager::set_touch_focus(wayfire_surface_t *surface, uint32_t time, i
 
 void input_manager::handle_touch_down(uint32_t time, int32_t id, int32_t x, int32_t y)
 {
-    in_mod_binding = false;
+    mod_binding_key = 0;
     auto wo = core->get_output_at(x, y);
     core->focus_output(wo);
 

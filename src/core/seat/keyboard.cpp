@@ -173,6 +173,8 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
 {
     std::vector<std::function<void()>> callbacks;
 
+    uint32_t actual_key = key == 0 ? mod_binding_key : key;
+
     for (auto& binding : bindings[WF_BINDING_KEY])
     {
         if (binding->value->as_cached_key().matches({mod_state, key}) &&
@@ -181,8 +183,8 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
             /* We must be careful because the callback might be erased,
              * so force copy the callback into the lambda */
             auto callback = binding->call.key;
-            callbacks.push_back([key, callback, mod_binding_key] () {
-                (*callback) (key == 0 ? mod_binding_key : key);
+            callbacks.push_back([actual_key, callback] () {
+                (*callback) (actual_key);
             });
         }
     }
@@ -199,7 +201,7 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
             auto callback = binding->call.activator;
             callbacks.push_back([=] () {
                 (*callback) (ACTIVATOR_SOURCE_KEYBINDING,
-                    mod_from_key(seat, key) ? 0 : key);
+                    mod_from_key(seat, actual_key) ? 0 : actual_key);
             });
         }
     }
@@ -234,22 +236,20 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
                 if (!mod_from_key(seat, kbd->keycodes[i]))
                     modifiers_only = false;
 
-            in_mod_binding = modifiers_only;
-
-            if (in_mod_binding)
+            if (modifiers_only)
             {
                 mod_binding_start = steady_clock::now();
                 mod_binding_key = key;
             }
         } else
         {
-            in_mod_binding = false;
+            mod_binding_key = 0;
         }
 
         callbacks = match_keys(get_modifiers(), key);
     } else
     {
-        if (in_mod_binding)
+        if (mod_binding_key != 0)
         {
             auto section = core->config->get_section("input");
             auto timeout = section->get_option("modifier_binding_timeout", "0")->as_int();
@@ -259,7 +259,7 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
                 callbacks = match_keys(get_modifiers() | mod, 0, mod_binding_key);
         }
 
-        in_mod_binding = false;
+        mod_binding_key = 0;
     }
 
     for (auto call : callbacks)

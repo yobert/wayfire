@@ -88,7 +88,7 @@ static void handle_pointer_frame_cb(wl_listener*, void *data)
 
 bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
 {
-    in_mod_binding = false;
+    mod_binding_key = 0;
 
     std::vector<std::function<void()>> callbacks;
     if (ev->state == WLR_BUTTON_PRESSED)
@@ -241,7 +241,7 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
         (*call) (ev);
 
     /* reset modifier bindings */
-    in_mod_binding = false;
+    mod_binding_key = 0;
     if (active_grab)
     {
         if (active_grab->callbacks.pointer.axis)
