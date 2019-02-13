@@ -19,7 +19,7 @@
 
 namespace image_io {
     using Loader = std::function<bool(const char *, GLuint)>;
-    using Writer = std::function<void(const char *name, uint8_t *pixels, ulong, ulong)>;
+    using Writer = std::function<void(const char *name, uint8_t *pixels, unsigned long, unsigned long)>;
     namespace {
         std::unordered_map<std::string, Loader> loaders;
         std::unordered_map<std::string, Writer> writers;
