@@ -239,9 +239,15 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
         callbacks = match_keys(get_modifiers(), key);
     } else
     {
-        if (in_mod_binding && duration_cast<milliseconds>(
-                    steady_clock::now() - mod_binding_start) < milliseconds(400))
-            callbacks = match_keys(get_modifiers() | mod, 0, mod_binding_key);
+        if (in_mod_binding)
+        {
+            auto section = core->config->get_section("input");
+            auto timeout = section->get_option("modifier_binding_timeout", "0")->as_int();
+            if (timeout <= 0 ||
+                    duration_cast<milliseconds>(steady_clock::now() - mod_binding_start)
+                    <= milliseconds(timeout))
+                callbacks = match_keys(get_modifiers() | mod, 0, mod_binding_key);
+        }
 
         in_mod_binding = false;
     }
