@@ -4,6 +4,7 @@
 #include <unordered_set>
 #include <map>
 #include <vector>
+#include <chrono>
 
 #include "seat.hpp"
 #include "cursor.hpp"
@@ -92,6 +93,7 @@ class input_manager
         /* TODO: move this in a wf_keyboard struct,
          * This might not work with multiple keyboards */
         bool in_mod_binding = false;
+        std::chrono::steady_clock::time_point mod_binding_start;
         int count_other_inputs = 0;
         std::vector<std::function<void()>> match_keys(uint32_t mods, uint32_t key);
 

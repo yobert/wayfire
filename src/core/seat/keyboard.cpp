@@ -199,6 +199,8 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
 
 bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
 {
+    using namespace std::chrono;
+
     if (active_grab && active_grab->callbacks.keyboard.key)
         active_grab->callbacks.keyboard.key(key, state);
 
@@ -223,6 +225,9 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
                     modifiers_only = false;
 
             in_mod_binding = modifiers_only;
+
+            if (in_mod_binding)
+                mod_binding_start = steady_clock::now();
         } else
         {
             in_mod_binding = false;
@@ -231,7 +236,8 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
         callbacks = match_keys(get_modifiers(), key);
     } else
     {
-        if (in_mod_binding)
+        if (in_mod_binding && duration_cast<milliseconds>(
+                    steady_clock::now() - mod_binding_start) < milliseconds(400))
             callbacks = match_keys(get_modifiers() | mod, 0);
 
         in_mod_binding = false;
