@@ -222,10 +222,7 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
                 if (!mod_from_key(kbd->keycodes[i]))
                     modifiers_only = false;
 
-            if (modifiers_only)
-                in_mod_binding = true;
-            else
-                in_mod_binding = false;
+            in_mod_binding = modifiers_only;
         } else
         {
             in_mod_binding = false;
