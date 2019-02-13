@@ -5,8 +5,6 @@
 #include <GLES2/gl2.h>
 #include <string>
 
-#define ulong unsigned long
-
 namespace image_io
 {
     /* Load the image from the given file, binding it to the given GL texture target
