@@ -159,7 +159,7 @@ static uint32_t mod_from_key(uint32_t key)
     return 0;
 }
 
-std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state, uint32_t key)
+std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state, uint32_t key, uint32_t mod_binding_key)
 {
     std::vector<std::function<void()>> callbacks;
 
@@ -171,8 +171,8 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
             /* We must be careful because the callback might be erased,
              * so force copy the callback into the lambda */
             auto callback = binding->call.key;
-            callbacks.push_back([key, callback] () {
-                (*callback) (key);
+            callbacks.push_back([key, callback, mod_binding_key] () {
+                (*callback) (key == 0 ? mod_binding_key : key);
             });
         }
     }
@@ -227,7 +227,10 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
             in_mod_binding = modifiers_only;
 
             if (in_mod_binding)
+            {
                 mod_binding_start = steady_clock::now();
+                mod_binding_key = key;
+            }
         } else
         {
             in_mod_binding = false;
@@ -238,7 +241,7 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
     {
         if (in_mod_binding && duration_cast<milliseconds>(
                     steady_clock::now() - mod_binding_start) < milliseconds(400))
-            callbacks = match_keys(get_modifiers() | mod, 0);
+            callbacks = match_keys(get_modifiers() | mod, 0, mod_binding_key);
 
         in_mod_binding = false;
     }
