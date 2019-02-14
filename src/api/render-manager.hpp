@@ -129,6 +129,8 @@ class render_manager : public wf_signal_provider_t
         wf_region get_scheduled_damage();
 
         void damage_whole();
+        /* Safe to call while repainting the frame */
+        void damage_whole_idle();
         void damage(const wlr_box& box);
         void damage(const wf_region& region);
 

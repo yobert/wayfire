@@ -369,14 +369,12 @@ wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx
 
     if (transforms.size())
     {
-        auto it = transforms.rbegin();
         auto box = get_untransformed_bounding_box();
-        while(it != transforms.rend())
+        transforms.for_each_reverse([&] (auto& transform)
         {
-            auto p = (*it)->transform->transformed_to_local_point(box, {cx, cy});
+            auto p = transform->transform->transformed_to_local_point(box, {cx, cy});
             cx = p.x; cy = p.y;
-            ++it;
-        }
+        });
     }
 
     for_each_surface(
@@ -432,14 +430,18 @@ wlr_box wayfire_view_t::transform_region(const wlr_box& region,
     auto box = region;
     auto view = get_untransformed_bounding_box();
 
-    for (auto& tr : transforms)
+    bool seen_upto = false;
+    transforms.for_each([&] (auto& tr)
     {
-        if (tr->transform.get() == upto.get())
-            break;
+        if (seen_upto || tr->transform.get() == upto.get())
+        {
+            seen_upto = true;
+            return;
+        }
 
         box = tr->transform->get_bounding_box(view, box);
         view = tr->transform->get_bounding_box(view, view);
-    }
+    });
 
     return box;
 }
@@ -795,67 +797,110 @@ void wayfire_view_t::take_snapshot()
 
 void wayfire_view_t::render_fb(const wf_region& damaged_region, const wf_framebuffer& fb)
 {
-    in_paint = true;
-    if (has_transformer())
+    if (!has_transformer())
+        return wayfire_surface_t::render_fb(damaged_region, fb);
+
+    take_snapshot();
+
+    /* Render the view passing its snapshot through the transformers.
+     * For each transformer except the last we render on offscreen buffers,
+     * and the last one is rendered to the real fb. */
+    wf_geometry obox = get_untransformed_bounding_box();
+    obox.width = offscreen_buffer.geometry.width;
+    obox.height = offscreen_buffer.geometry.height;
+
+    /* We keep a shared_ptr to the previous transform which we executed, so that
+     * even if it gets removed, its texture remains valid.
+     *
+     * NB: we do not call previous_transform's transformer functions after the
+     * cycle is complete, because the memory might have already been freed.
+     * We only know that the texture is still alive. */
+    std::shared_ptr<transform_t> previous_transform = nullptr;
+    GLuint previous_texture = offscreen_buffer.tex;
+
+    /* final_transform is the one that should render to the screen */
+    std::shared_ptr<transform_t> final_transform = nullptr;
+
+    transforms.for_each([&] (auto& transform) -> void
     {
-        take_snapshot();
-
-        wf_geometry obox = get_untransformed_bounding_box();
-        obox.width = offscreen_buffer.geometry.width;
-        obox.height = offscreen_buffer.geometry.height;
-
-        auto it = transforms.begin();
-
-        GLuint last_tex = offscreen_buffer.tex;
-        while(std::next(it) != transforms.end())
+        /* Last transform is handled separately */
+        if (transform == transforms.back())
         {
-            auto& tr = *it;
-            auto& fb = tr->fb;
-
-            auto tbox = tr->transform->get_bounding_box(obox, obox);
-
-            OpenGL::render_begin();
-            fb.allocate(tbox.width, tbox.height); // resize if needed
-            fb.geometry = tbox;
-            fb.bind(); // bind buffer to clear
-            OpenGL::clear({0, 0, 0, 0});
-            OpenGL::render_end();
-
-            wf_region whole_region{wlr_box{0, 0, tbox.width, tbox.height}};
-            tr->transform->render_with_damage(last_tex, obox, whole_region, fb);
-            last_tex = fb.tex;
-
-            obox = tbox;
-            ++it;
+            final_transform = transform;
+            return;
         }
 
-        (*it)->transform->render_with_damage(last_tex, obox, damaged_region, fb);
-        cleanup_transforms();
+        /* Calculate size after this transform */
+        auto transformed_box = transform->transform->get_bounding_box(obox, obox);
+
+        /* Prepare buffer to store result after the transform */
+        OpenGL::render_begin();
+        transform->fb.allocate(transformed_box.width, transformed_box.height);
+        transform->fb.geometry = transformed_box;
+        transform->fb.bind(); // bind buffer to clear
+        OpenGL::clear({0, 0, 0, 0});
+        OpenGL::render_end();
+
+        /* Actually render the transform to the next framebuffer */
+        wf_region whole_region{wlr_box{0, 0,
+            transformed_box.width, transformed_box.height}};
+        transform->transform->render_with_damage(previous_texture, obox,
+            whole_region, transform->fb);
+
+        previous_transform = transform;
+        previous_texture = previous_transform->fb.tex;
+        obox = transformed_box;
+    });
+
+    /* Pretty "exotic" case: the last transformer was deleted before we could
+     * use it. In this case, just manually display the view */
+    if (final_transform == nullptr)
+    {
+        OpenGL::render_begin(fb);
+        auto matrix = fb.get_orthographic_projection();
+        gl_geometry src_geometry = {
+            1.0f * obox.x, 1.0f * obox.y,
+            1.0f * obox.x + 1.0f * obox.width,
+            1.0f * obox.y + 1.0f * obox.height,
+        };
+
+        for (const auto& rect : damaged_region)
+        {
+            fb.scissor(wlr_box_from_pixman_box(rect));
+            OpenGL::render_transformed_texture(previous_texture, src_geometry, {}, matrix);
+        }
+
+        OpenGL::render_end();
     } else
     {
-        wayfire_surface_t::render_fb(damaged_region, fb);
+        /* Regular case, just call the last transformer */
+        final_transform->transform->render_with_damage(previous_texture, obox,
+            damaged_region, fb);
     }
-    in_paint = false;
+}
+
+wayfire_view_t::transform_t::transform_t() {}
+wayfire_view_t::transform_t::~transform_t()
+{
+    OpenGL::render_begin();
+    this->fb.release();
+    OpenGL::render_end();
 }
 
 void wayfire_view_t::add_transformer(std::unique_ptr<wf_view_transformer_t> transformer, std::string name)
 {
     damage();
-    auto tr = std::make_unique<transform_t> ();
+    auto tr = std::make_shared<transform_t> ();
     tr->transform = std::move(transformer);
     tr->plugin_name = name;
 
-    auto it = transforms.begin();
-    while (it != transforms.end())
+    transforms.emplace_at(std::move(tr), [&] (auto& other)
     {
-        if ((*it)->transform->get_z_order() >= tr->transform->get_z_order()) {
-            break;
-        } else {
-            ++it;
-        }
-    }
+        if (other->transform->get_z_order() >= tr->transform->get_z_order())
+            return transforms.INSERT_BEFORE;
+        return transforms.INSERT_NONE;
+    });
 
-    transforms.insert(it, std::move(tr));
     damage();
 }
 
@@ -867,70 +912,34 @@ void wayfire_view_t::add_transformer(std::unique_ptr<wf_view_transformer_t> tran
 
 nonstd::observer_ptr<wf_view_transformer_t> wayfire_view_t::get_transformer(std::string name)
 {
-    for (auto& tr : transforms)
+    nonstd::observer_ptr<wf_view_transformer_t> result{nullptr};
+    transforms.for_each([&] (auto& tr)
     {
         if (tr->plugin_name == name)
-            return nonstd::make_observer(tr->transform.get());
-    }
+            result = nonstd::make_observer(tr->transform.get());
+    });
 
-    return nullptr;
-}
-
-void wayfire_view_t::_pop_transformer(nonstd::observer_ptr<transform_t> transformer)
-{
-    damage();
-
-    auto it = transforms.begin();
-    while(it != transforms.end())
-    {
-        if ((*it).get() == transformer.get())
-        {
-            (*it)->fb.release();
-            it = transforms.erase(it);
-        } else
-        {
-            ++it;
-        }
-    }
-
-    damage();
+    return result;
 }
 
 void wayfire_view_t::pop_transformer(nonstd::observer_ptr<wf_view_transformer_t> transformer)
 {
-    for(auto& tr : transforms)
+    transforms.remove_if([&] (auto& tr)
     {
-        if (tr->transform.get() == transformer.get())
-            tr->to_remove = 1;
-    }
+        return tr->transform.get() == transformer.get();
+    });
 
-    if (!in_paint)
-        cleanup_transforms();
+    output->render->damage_whole_idle();
 }
 
 void wayfire_view_t::pop_transformer(std::string name)
 {
-    for(auto& tr : transforms)
+    transforms.remove_if([&] (auto& tr)
     {
-        if (tr->plugin_name == name)
-            tr->to_remove = 1;
-    }
+        return tr->plugin_name == name;
+    });
 
-    if (!in_paint)
-        cleanup_transforms();
-}
-
-void wayfire_view_t::cleanup_transforms()
-{
-    std::vector<nonstd::observer_ptr<transform_t>> to_remove;
-    for (auto& tr: transforms)
-    {
-        if (tr->to_remove)
-            to_remove.push_back(nonstd::make_observer(tr.get()));
-    }
-
-    for (auto r : to_remove)
-        _pop_transformer(r);
+    output->render->damage_whole();
 }
 
 bool wayfire_view_t::has_transformer()

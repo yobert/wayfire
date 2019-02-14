@@ -158,7 +158,8 @@ class wayfire_cube : public wayfire_plugin_t
     void schedule_next_frame()
     {
         output->render->schedule_redraw();
-        output->render->damage_whole();
+        /* Damage a minimal area of the screen so that next frame gets scheduled */
+        output->render->damage({0, 0, 1, 1});
     }
 
     void load_program()

@@ -117,6 +117,56 @@ namespace wf
             list.push_back(std::make_unique<T> (value));
         }
 
+        enum insert_place_t
+        {
+            INSERT_BEFORE,
+            INSERT_AFTER,
+            INSERT_NONE,
+        };
+
+        /* Insert the given value at a position in the list, determined by the
+         * check function. The value is inserted at the first position that
+         * check indicates, or at the end of the list otherwise */
+        void emplace_at(T&& value, std::function<insert_place_t(T&)> check)
+        {
+            auto it = list.begin();
+            while (it != list.end())
+            {
+                /* Skip empty elements */
+                if (*it == nullptr)
+                {
+                    ++it;
+                    continue;
+                }
+
+                auto place = check(**it);
+                switch (place)
+                {
+                    case INSERT_AFTER:
+                        /* We can safely increment it, because it points to an
+                         * element in the list */
+                        ++it;
+                        // fall through
+                    case INSERT_BEFORE:
+                        list.emplace(it, std::make_unique<T>(value));
+                        return;
+
+                    default:
+                        break;
+                }
+
+                ++it;
+            }
+
+            /* If no place found, insert at the end */
+            emplace_back(std::move(value));
+        }
+
+        void insert_at(T value, std::function<insert_place_t(T&)> check)
+        {
+            emplace_at(std::move(value), check);
+        }
+
         /* Call func for each non-erased element of the list */
         void for_each(std::function<void(T&)> func) const
         {
@@ -126,6 +176,21 @@ namespace wf
                  * erased util the event loop goes idle */
                 if (el)
                     func(*el);
+            }
+        }
+
+        /* Call func for each non-erased element of the list in reversed order */
+        void for_each_reverse(std::function<void(T&)> func) const
+        {
+            auto it = list.rbegin();
+            while (it != list.rend())
+            {
+                /* The loop here is safe, because no elements will be erased
+                 * util the event loop goes idle */
+                if (*it)
+                    func(**it);
+
+                ++it;
             }
         }
 

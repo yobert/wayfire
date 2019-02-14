@@ -163,8 +163,31 @@ wf_region render_manager::get_scheduled_damage()
 
 void render_manager::damage_whole()
 {
-    if (!output->destroyed)
-        output_damage->add();
+    if (output->destroyed)
+        return;
+
+    GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
+    GetTuple(vx, vy, output->workspace->get_current_workspace());
+
+    int sw, sh;
+    wlr_output_transformed_resolution(output->handle, &sw, &sh);
+    output_damage->add({-vx * sw, -vy * sh, vw * sw, vh * sh});
+}
+
+void damage_idle_cb(void *data)
+{
+    auto rm = (render_manager*) data;
+    assert(rm);
+
+    rm->damage_whole();
+    rm->idle_damage_source = NULL;
+}
+
+void render_manager::damage_whole_idle()
+{
+    damage_whole();
+    if (!idle_damage_source)
+        idle_damage_source = wl_event_loop_add_idle(core->ev_loop, damage_idle_cb, this);
 }
 
 void render_manager::damage(const wlr_box& box)
@@ -267,22 +290,10 @@ wf_region render_manager::get_ws_damage(std::tuple<int, int> ws)
     return (frame_damage & ws_box) + wf_point{-ws_box.x, -ws_box.y};
 }
 
-void damage_idle_cb(void *data)
-{
-    auto rm = (render_manager*) data;
-    assert(rm);
-
-    rm->damage_whole();
-    rm->idle_damage_source = NULL;
-}
-
-
 void render_manager::reset_renderer()
 {
     renderer = nullptr;
-
-    if (!idle_damage_source)
-        idle_damage_source = wl_event_loop_add_idle(core->ev_loop, damage_idle_cb, this);
+    damage_whole_idle();
 }
 
 void render_manager::set_renderer(render_hook_t rh)
