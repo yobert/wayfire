@@ -109,7 +109,6 @@ void frame_cb (wl_listener*, void *data)
 render_manager::render_manager(wayfire_output *o)
 {
     output = o;
-    default_buffer.tex = default_buffer.fb = 0;
 
     /* TODO: do we really need a unique_ptr? */
     output_damage = std::unique_ptr<wf_output_damage>(new wf_output_damage(output->handle));
@@ -206,8 +205,14 @@ wf_framebuffer render_manager::get_target_framebuffer() const
     fb.wl_transform = output->get_transform();
     fb.transform = get_output_matrix_from_transform(output->get_transform());
     fb.scale = output->handle->scale;
-    fb.fb = default_buffer.fb;
-    fb.tex = default_buffer.tex;
+
+    fb.fb = fb.tex = 0;
+    if (post_effects.size())
+    {
+        fb.fb = post_buffers[default_out_buffer].fb;
+        fb.tex = post_buffers[default_out_buffer].tex;
+    }
+
     fb.viewport_width = output->handle->width;
     fb.viewport_height = output->handle->height;
 
@@ -285,20 +290,11 @@ void render_manager::set_renderer(render_hook_t rh)
     renderer = rh;
 }
 
-struct render_manager::wf_post_effect
-{
-    post_hook_t *hook;
-    bool to_remove = false;
-    wf_framebuffer_base buffer;
-
-    wf_post_effect() {buffer.fb = buffer.tex = 0;}
-};
-
 void render_manager::paint()
 {
+    /* Part 1: frame setup: query damage, etc. */
     timespec repaint_started;
     clock_gettime(CLOCK_MONOTONIC, &repaint_started);
-    cleanup_post_hooks();
 
     frame_damage.clear();
     run_effects(effects[WF_OUTPUT_EFFECT_PRE]);
@@ -314,9 +310,15 @@ void render_manager::paint()
     }
 
     OpenGL::bind_output(output);
-    OpenGL::render_begin();
-    default_buffer.allocate(output->handle->width, output->handle->height);
-    OpenGL::render_end();
+
+    /* Make sure the default buffer has enough size */
+    if (post_effects.size())
+    {
+        OpenGL::render_begin();
+        post_buffers[default_out_buffer]
+            .allocate(output->handle->width, output->handle->height);
+        OpenGL::render_end();
+    }
 
     wf_region swap_damage;
     if (runtime_config.damage_debug)
@@ -328,6 +330,7 @@ void render_manager::paint()
         OpenGL::render_end();
     }
 
+    /* Part 2: call the renderer, which draws the scenegraph */
     if (renderer)
     {
         renderer(get_target_framebuffer());
@@ -339,22 +342,11 @@ void render_manager::paint()
         if (!frame_damage.empty())
         {
             swap_damage = frame_damage;
-            GetTuple(vx, vy, output->workspace->get_current_workspace());
-            auto target_stream = &output_streams[vx][vy];
-            if (current_ws_stream != target_stream)
-            {
-                if (current_ws_stream)
-                    workspace_stream_stop(current_ws_stream);
-
-                current_ws_stream = target_stream;
-                workspace_stream_start(current_ws_stream);
-            } else
-            {
-                workspace_stream_update(current_ws_stream);
-            }
+            default_renderer();
         }
     }
 
+    /* Part 3: finalize the scene: overlay effects and sw cursors */
     run_effects(effects[WF_OUTPUT_EFFECT_OVERLAY]);
 
     if (post_effects.size())
@@ -364,23 +356,8 @@ void render_manager::paint()
     wlr_output_render_software_cursors(output->handle, swap_damage.to_pixman());
     OpenGL::render_end();
 
-    if (post_effects.size())
-    {
-        auto last_buffer = &default_buffer;
-        post_effects.for_each([&] (auto post)
-        {
-            OpenGL::render_begin();
-            /* Make sure we have the correct resolution, in case the output was resized */
-            post->buffer.allocate(output->handle->width, output->handle->height);
-            OpenGL::render_end();
-
-            (*post->hook)(*last_buffer, post->buffer);
-            last_buffer = &post->buffer;
-        });
-
-        assert(last_buffer->fb == 0 && last_buffer->tex == 0);
-    }
-
+    /* Part 4: postprocessing effects */
+    run_post_effects();
     if (output_inhibit)
     {
         OpenGL::render_begin(output->handle->width, output->handle->height, 0);
@@ -388,14 +365,65 @@ void render_manager::paint()
         OpenGL::render_end();
     }
 
+    /* Part 5: finalize frame: swap buffers, send frame_done, etc */
     OpenGL::unbind_output(output);
     output_damage->swap_buffers(&repaint_started, swap_damage);
     post_paint();
 }
 
+void render_manager::default_renderer()
+{
+    GetTuple(vx, vy, output->workspace->get_current_workspace());
+    auto target_stream = &output_streams[vx][vy];
+    if (current_ws_stream != target_stream)
+    {
+        if (current_ws_stream)
+            workspace_stream_stop(current_ws_stream);
+
+        current_ws_stream = target_stream;
+        workspace_stream_start(current_ws_stream);
+    } else
+    {
+        workspace_stream_update(current_ws_stream);
+    }
+}
+
+/* Run all postprocessing effects, rendering to alternating buffers and finally
+ * to the screen.
+ *
+ * NB: 2 buffers just aren't enough. We render to the zero buffer, and then we
+ * alternately render to the second and the third. The reason: We track damage.
+ * So, we need to keep the whole buffer each frame. */
+void render_manager::run_post_effects()
+{
+    static wf_framebuffer_base default_framebuffer;
+    default_framebuffer.tex = default_framebuffer.fb = 0;
+
+    int last_buffer_idx = default_out_buffer;
+    int next_buffer_idx = 1;
+
+    post_effects.for_each([&] (auto post) -> void
+    {
+        /* The last postprocessing hook renders directly to the screen, others to
+         * the currently free buffer */
+        wf_framebuffer_base& next_buffer =
+            (post == post_effects.back() ? default_framebuffer :
+                post_buffers[next_buffer_idx]);
+
+        OpenGL::render_begin();
+        /* Make sure we have the correct resolution */
+        next_buffer.allocate(output->handle->width, output->handle->height);
+        OpenGL::render_end();
+
+        (*post) (post_buffers[last_buffer_idx], next_buffer);
+
+        last_buffer_idx = next_buffer_idx;
+        next_buffer_idx ^= 0b11; // alternate 1 and 2
+    });
+}
+
 void render_manager::post_paint()
 {
-    cleanup_post_hooks();
     run_effects(effects[WF_OUTPUT_EFFECT_POST]);
 
     if (constant_redraw)
@@ -452,68 +480,13 @@ void render_manager::rem_effect(effect_hook_t *hook)
 
 void render_manager::add_post(post_hook_t* hook)
 {
-    auto buffer = &default_buffer;
-    if (post_effects.size())
-        buffer = &post_effects.back()->buffer;
-
-    buffer->reset();
-    buffer->allocate(output->handle->width, output->handle->height);
+    post_effects.push_back(hook);
     damage_whole();
-
-    auto new_hook = new wf_post_effect;
-    new_hook->hook = hook;
-    new_hook->buffer.fb = new_hook->buffer.tex = 0;
-    /* Just resize the framebuffer, to match real size */
-    new_hook->buffer.allocate(output->handle->width, output->handle->height);
-
-    post_effects.push_back(new_hook);
-}
-
-void render_manager::_rem_post(wf_post_effect *to_remove)
-{
-    post_effects.for_each([=] (auto effect)
-    {
-        if (effect != to_remove)
-            return;
-
-        effect->buffer.release();
-        delete effect;
-    });
-
-    post_effects.remove_all(to_remove);
-
-    auto buffer = &default_buffer;
-    if (post_effects.size())
-        buffer = &post_effects.back()->buffer;
-
-    if (buffer->fb != 0)
-    {
-        buffer->release();
-        buffer->fb = buffer->tex = 0;
-    }
-
-    damage_whole();
-}
-
-void render_manager::cleanup_post_hooks()
-{
-    std::vector<wf_post_effect*> to_remove;
-    post_effects.for_each([&] (auto& hook) -> void {
-        if (hook->to_remove)
-            to_remove.push_back(hook);
-    });
-
-    for (auto post : to_remove)
-        _rem_post(post);
 }
 
 void render_manager::rem_post(post_hook_t *hook)
 {
-    post_effects.for_each([=] (auto& h) {
-        if (h->hook == hook)
-            h->to_remove = 1;
-    });
-
+    post_effects.remove_all(hook);
     damage_whole();
 }
 
@@ -568,8 +541,8 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     stream->buffer.allocate(output->handle->width, output->handle->height);
 
     auto fb = get_target_framebuffer();
-    fb.fb = (stream->buffer.fb == 0) ? default_buffer.fb : stream->buffer.fb;
-    fb.tex = (stream->buffer.tex == 0) ? default_buffer.tex : stream->buffer.tex;
+    fb.fb = (stream->buffer.fb == 0) ? fb.fb : stream->buffer.fb;
+    fb.tex = (stream->buffer.tex == 0) ? fb.tex : stream->buffer.tex;
 
     {
         wf_stream_signal data(ws_damage, fb);

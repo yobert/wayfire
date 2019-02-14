@@ -460,12 +460,14 @@ class wayfire_cube : public wayfire_plugin_t
 
         OpenGL::render_begin(dest);
         GL_CALL(glClear(GL_DEPTH_BUFFER_BIT));
+        OpenGL::render_end();
 
         reload_background();
         background->render_frame(dest, animation);
 
         auto vp = calculate_vp_matrix(dest);
 
+        OpenGL::render_begin(dest);
         GL_CALL(glUseProgram(program.id));
         GL_CALL(glEnable(GL_DEPTH_TEST));
         GL_CALL(glDepthFunc(GL_LESS));
@@ -512,6 +514,7 @@ class wayfire_cube : public wayfire_plugin_t
         GL_CALL(glUseProgram(0));
         GL_CALL(glDisableVertexAttribArray(program.posID));
         GL_CALL(glDisableVertexAttribArray(program.uvID));
+        OpenGL::render_end();
 
         update_view_matrix();
         if (animation.duration.running())

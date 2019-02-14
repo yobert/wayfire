@@ -77,12 +77,10 @@ class render_manager : public wf_signal_provider_t
         using effect_container_t = wf::safe_list_t<effect_hook_t*>;
         effect_container_t effects[WF_OUTPUT_EFFECT_TOTAL];
 
-        struct wf_post_effect;
-        /* TODO: use unique_ptr */
-        using post_container_t = wf::safe_list_t<wf_post_effect*>;
+        using post_container_t = wf::safe_list_t<post_hook_t*>;
         post_container_t post_effects;
-
-        wf_framebuffer_base default_buffer;
+        wf_framebuffer_base post_buffers[3];
+        static constexpr uint32_t default_out_buffer = 0;
 
         int constant_redraw = 0;
         int output_inhibit = 0;
@@ -91,10 +89,10 @@ class render_manager : public wf_signal_provider_t
         void paint();
         void post_paint();
 
-        void run_effects(effect_container_t&);
+        void default_renderer();
 
-        void _rem_post(wf_post_effect *hook);
-        void cleanup_post_hooks();
+        void run_effects(effect_container_t&);
+        void run_post_effects();
 
         void init_default_streams();
 

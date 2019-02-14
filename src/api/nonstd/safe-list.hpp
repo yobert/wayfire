@@ -129,14 +129,20 @@ namespace wf
             }
         }
 
-        /* Remove all elements equal to value, by resetting their pointers
-         * and scheduling a cleanup operation */
+        /* Safely remove all elements equal to value */
         void remove_all(const T& value)
+        {
+            remove_if([=] (const T& el) { return el == value; });
+        }
+
+        /* Remove all elements satisfying a given condition.
+         * This function resets their pointers and scheduling a cleanup operation */
+        void remove_if(std::function<bool(const T&)> predicate)
         {
             bool actually_removed = false;
             for (auto& it : list)
             {
-                if (it && *it == value)
+                if (it && predicate(*it))
                 {
                     actually_removed = true;
                     /* First reset the element in the list, and then free resources */
