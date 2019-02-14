@@ -254,9 +254,6 @@ class wf_wobbly : public wf_view_transformer_t
         OpenGL::render_begin(target_fb);
         target_fb.scissor(scissor_box);
 
-        auto ortho = glm::ortho(1.0f * target_fb.geometry.x, 1.0f * target_fb.geometry.x + 1.0f * target_fb.geometry.width,
-                                1.0f * target_fb.geometry.y + 1.0f * target_fb.geometry.height, 1.0f * target_fb.geometry.y);
-
         float x = src_box.x, y = src_box.y, w = src_box.width, h = src_box.height;
 
         std::vector<float> vert, uv;
@@ -306,9 +303,9 @@ class wf_wobbly : public wf_view_transformer_t
             }
         }
 
-        wobbly_graphics::render_triangles(src_tex, target_fb.transform * ortho,
-                                          vert.data(), uv.data(),
-                                          model->x_cells * model->y_cells * 2);
+        wobbly_graphics::render_triangles(src_tex,
+            target_fb.get_orthographic_projection(),
+            vert.data(), uv.data(), model->x_cells * model->y_cells * 2);
 
         OpenGL::render_end();
     }

@@ -97,9 +97,6 @@ class FireTransformer : public wf_view_transformer_t
         target_fb.scissor(scissor_box);
 
         // render view
-        auto ortho = glm::ortho(1.0f * target_fb.geometry.x, 1.0f * target_fb.geometry.x + 1.0f * target_fb.geometry.width,
-                                1.0f * target_fb.geometry.y + 1.0f * target_fb.geometry.height, 1.0f * target_fb.geometry.y);
-
         float x = src_box.x, y = src_box.y, w = src_box.width, h = src_box.height;
         gl_geometry src_geometry = {x, y, x + w, y + h * progress_line};
 
@@ -109,13 +106,13 @@ class FireTransformer : public wf_view_transformer_t
         };
 
         OpenGL::render_transformed_texture(src_tex, src_geometry, tex_geometry,
-                                           target_fb.transform * ortho,
+                                           target_fb.get_orthographic_projection(),
                                            glm::vec4(1.0), TEXTURE_USE_TEX_GEOMETRY);
 
         auto translate = glm::translate(glm::mat4(1.0),
                                         {src_box.x, src_box.y, 0});
 
-        ps.render(target_fb.transform * ortho * translate); // will reset the gl program
+        ps.render(target_fb.get_orthographic_projection() * translate);
         OpenGL::render_end();
     }
 };

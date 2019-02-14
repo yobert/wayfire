@@ -410,6 +410,16 @@ wf_region wf_framebuffer::get_damage_region() const
     return damage_box_from_geometry_box({0, 0, geometry.width, geometry.height});
 }
 
+glm::mat4 wf_framebuffer::get_orthographic_projection() const
+{
+    auto ortho = glm::ortho(1.0f * geometry.x,
+        1.0f * geometry.x + 1.0f * geometry.width,
+        1.0f * geometry.y + 1.0f * geometry.height,
+        1.0f * geometry.y);
+
+    return this->transform * ortho;
+}
+
 #define WF_PI 3.141592f
 
 /* look up the actual values of wl_output_transform enum

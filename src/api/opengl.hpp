@@ -117,6 +117,10 @@ struct wf_framebuffer : public wf_framebuffer_base
     /* Returns a region in damage coordinate system which corresponds to the
      * whole area of the framebuffer */
     wf_region get_damage_region() const;
+
+    /* Returns a matrix which contains an orthographic projection from "geometry"
+     * coordinates to the framebuffer coordinates. */
+    glm::mat4 get_orthographic_projection() const;
 };
 
 namespace OpenGL
