@@ -148,14 +148,25 @@ class wayfire_animation : public wayfire_plugin_t
 
     std::string get_animation_for_view(wf_option& anim_type, wayfire_view view)
     {
-        if (WF_MATCHER_MATCHES(fade_enabled_matcher, view))
-            return "fade";
-        if (WF_MATCHER_MATCHES(zoom_enabled_matcher, view))
-            return "zoom";
-        if (WF_MATCHER_MATCHES(fire_enabled_matcher, view))
-            return "fire";
-        if (WF_MATCHER_MATCHES(animation_enabled_matcher, view))
+        /* Determine the animation for the given view.
+         * Note that the matcher plugin might not have been loaded, so
+         * we need to have a fallback algorithm */
+        if (animation_enabled_matcher)
+        {
+            if (WF_MATCHER_MATCHES(fade_enabled_matcher, view))
+                return "fade";
+            if (WF_MATCHER_MATCHES(zoom_enabled_matcher, view))
+                return "zoom";
+            if (WF_MATCHER_MATCHES(fire_enabled_matcher, view))
+                return "fire";
+            if (WF_MATCHER_MATCHES(animation_enabled_matcher, view))
+                return anim_type->as_string();
+        }
+        else if (view->role == WF_VIEW_ROLE_TOPLEVEL ||
+            (view->role == WF_VIEW_ROLE_UNMANAGED && view->is_focuseable()))
+        {
             return anim_type->as_string();
+        }
 
         return "none";
     }
