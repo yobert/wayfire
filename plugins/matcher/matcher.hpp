@@ -14,6 +14,7 @@ namespace wf
             virtual bool matches(wayfire_view view) const = 0;
             virtual ~view_matcher() = default;
         };
+#define WF_MATCHER_MATCHES(matcher,view) (matcher ? matcher->matches(view) : false)
 
         struct match_signal : public signal_data
         {
