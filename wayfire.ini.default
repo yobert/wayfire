@@ -67,6 +67,9 @@ cursor_theme = default
 kb_repeat_rate = 40
 kb_repeat_delay = 400
 
+# cancel modifier actions (like <super> for expo) when held for this long, 0 to never cancel
+modifier_binding_timeout = 0
+
 # output configuration
 # overlapping outputs are not supported
 [eDP-1]

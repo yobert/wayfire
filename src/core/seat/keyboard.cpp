@@ -3,6 +3,7 @@
 
 extern "C"
 {
+#include <xkbcommon/xkbcommon.h>
 #include <wlr/backend/session.h>
 #include <wlr/backend/multi.h>
 }
@@ -145,23 +146,34 @@ static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
     return true;
 }
 
-static uint32_t mod_from_key(uint32_t key)
+static uint32_t mod_from_key(wlr_seat *seat, uint32_t key)
 {
-    if (key == KEY_LEFTALT || key == KEY_RIGHTALT)
-        return WLR_MODIFIER_ALT;
-    if (key == KEY_LEFTCTRL || key == KEY_RIGHTCTRL)
-        return WLR_MODIFIER_CTRL;
-    if (key == KEY_LEFTSHIFT || key == KEY_RIGHTSHIFT)
-        return WLR_MODIFIER_SHIFT;
-    if (key == KEY_LEFTMETA || key == KEY_RIGHTMETA)
-        return WLR_MODIFIER_LOGO;
+    xkb_keycode_t keycode = key + 8;
+    auto keyboard = wlr_seat_get_keyboard(seat);
+    const xkb_keysym_t *keysyms;
+    auto keysyms_len = xkb_state_key_get_syms(keyboard->xkb_state, keycode, &keysyms);
+
+    for (int i = 0; i < keysyms_len; i++)
+    {
+        auto key = keysyms[i];
+        if (key == XKB_KEY_Alt_L || key == XKB_KEY_Alt_R)
+            return WLR_MODIFIER_ALT;
+        if (key == XKB_KEY_Control_L || key == XKB_KEY_Control_R)
+            return WLR_MODIFIER_CTRL;
+        if (key == XKB_KEY_Shift_L || key == XKB_KEY_Shift_R)
+            return WLR_MODIFIER_SHIFT;
+        if (key == XKB_KEY_Super_L || key == XKB_KEY_Super_R)
+            return WLR_MODIFIER_LOGO;
+    }
 
     return 0;
 }
 
-std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state, uint32_t key)
+std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state, uint32_t key, uint32_t mod_binding_key)
 {
     std::vector<std::function<void()>> callbacks;
+
+    uint32_t actual_key = key == 0 ? mod_binding_key : key;
 
     for (auto& binding : bindings[WF_BINDING_KEY])
     {
@@ -171,8 +183,8 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
             /* We must be careful because the callback might be erased,
              * so force copy the callback into the lambda */
             auto callback = binding->call.key;
-            callbacks.push_back([key, callback] () {
-                (*callback) (key);
+            callbacks.push_back([actual_key, callback] () {
+                (*callback) (actual_key);
             });
         }
     }
@@ -189,7 +201,7 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
             auto callback = binding->call.activator;
             callbacks.push_back([=] () {
                 (*callback) (ACTIVATOR_SOURCE_KEYBINDING,
-                    mod_from_key(key) ? 0 : key);
+                    mod_from_key(seat, actual_key) ? 0 : actual_key);
             });
         }
     }
@@ -199,10 +211,12 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
 
 bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
 {
+    using namespace std::chrono;
+
     if (active_grab && active_grab->callbacks.keyboard.key)
         active_grab->callbacks.keyboard.key(key, state);
 
-    auto mod = mod_from_key(key);
+    auto mod = mod_from_key(seat, key);
     if (mod)
         handle_keyboard_mod(mod, state);
 
@@ -219,25 +233,33 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
         {
             bool modifiers_only = !count_other_inputs;
             for (size_t i = 0; i < kbd->num_keycodes; i++)
-                if (!mod_from_key(kbd->keycodes[i]))
+                if (!mod_from_key(seat, kbd->keycodes[i]))
                     modifiers_only = false;
 
             if (modifiers_only)
-                in_mod_binding = true;
-            else
-                in_mod_binding = false;
+            {
+                mod_binding_start = steady_clock::now();
+                mod_binding_key = key;
+            }
         } else
         {
-            in_mod_binding = false;
+            mod_binding_key = 0;
         }
 
         callbacks = match_keys(get_modifiers(), key);
     } else
     {
-        if (in_mod_binding)
-            callbacks = match_keys(get_modifiers() | mod, 0);
+        if (mod_binding_key != 0)
+        {
+            auto section = core->config->get_section("input");
+            auto timeout = section->get_option("modifier_binding_timeout", "0")->as_int();
+            if (timeout <= 0 ||
+                    duration_cast<milliseconds>(steady_clock::now() - mod_binding_start)
+                    <= milliseconds(timeout))
+                callbacks = match_keys(get_modifiers() | mod, 0, mod_binding_key);
+        }
 
-        in_mod_binding = false;
+        mod_binding_key = 0;
     }
 
     for (auto call : callbacks)
