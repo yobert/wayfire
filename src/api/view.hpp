@@ -323,6 +323,11 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
 
         /* Returns the wlr_surface which should receive focus if this view is activated */
         virtual wlr_surface *get_keyboard_focus_surface();
+        /* Returns whether this view is focuseable. Note that if
+         * get_keyboard_focus() returns a non-null surface, the view is
+         * focuseable. However, a focuseable view might have a null focus surface,
+         * for ex. if it is unmapped */
+        virtual bool is_focuseable() const;
 
         virtual void set_geometry(wf_geometry g);
 

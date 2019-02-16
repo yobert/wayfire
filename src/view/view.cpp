@@ -423,6 +423,11 @@ wlr_surface *wayfire_view_t::get_keyboard_focus_surface()
     return NULL;
 }
 
+bool wayfire_view_t::is_focuseable() const
+{
+    return _keyboard_focus_enabled;
+}
+
 void wayfire_view_t::set_geometry(wf_geometry g)
 {
     move(g.x, g.y, false);
