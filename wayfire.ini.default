@@ -116,7 +116,7 @@ open_animation = zoom
 close_animation = zoom
 
 # Types of windows to be animated
-enabled_for = type is toplevel
+enabled_for = (type is toplevel || (type is x-or && focuseable is true))
 
 # Exceptions to the enabled_for rule
 fade_enabled_for = type is overlay

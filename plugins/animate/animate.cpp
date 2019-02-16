@@ -123,7 +123,8 @@ class wayfire_animation : public wayfire_plugin_t
         duration         = section->get_option("duration", "300");
         startup_duration = section->get_option("startup_duration", "600");
 
-        animation_enabled_for = section->get_option("enabled_for", "type is toplevel");
+        animation_enabled_for = section->get_option("enabled_for",
+            "(type is toplevel || (type is x-or && focuseable is true))");
         fade_enabled_for = section->get_option("fade_enabled_for", "type is overlay");
         zoom_enabled_for = section->get_option("zoom_enabled_for", "none");
         fire_enabled_for = section->get_option("fire_enabled_for", "none");
