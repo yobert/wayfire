@@ -14,6 +14,7 @@ namespace wf
             std::string type;
             std::string title;
             std::string app_id;
+            std::string focuseable;
         };
 
         /* A base class for expressions */

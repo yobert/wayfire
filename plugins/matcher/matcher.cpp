@@ -70,6 +70,7 @@ namespace wf
                 data.title = view->get_title();
                 data.app_id = view->get_app_id();
                 data.type = get_view_type(view);
+                data.focuseable = view->is_focuseable() ?  "true" : "false";
 
                 return expr->evaluate(data);
             }

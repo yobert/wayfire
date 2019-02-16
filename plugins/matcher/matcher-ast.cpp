@@ -95,12 +95,14 @@ namespace wf
             FIELD_TITLE,
             FIELD_APP_ID,
             FIELD_TYPE,
+            FIELD_FOCUSEABLE,
         };
 
         std::map<string, match_field> match_fields = {
             {"title", FIELD_TITLE},
             {"app-id", FIELD_APP_ID},
             {"type", FIELD_TYPE},
+            {"focuseable", FIELD_FOCUSEABLE},
         };
 
         /* Represents the lowest-level criterium to match against (i.e no logic operators) */
@@ -143,6 +145,8 @@ namespace wf
                     case FIELD_TYPE:
                         view_field_data = view.type;
                         break;
+                    case FIELD_FOCUSEABLE:
+                        view_field_data = view.focuseable;
                 }
 
                 return this->matcher(view_field_data, this->matcher_arg);
