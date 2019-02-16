@@ -100,16 +100,16 @@ class workspace_manager
 
         virtual wf_geometry calculate_anchored_geometry(const anchored_area& area) = 0;
 
-        /* add the reserved area for keeping track of,
-         * if you change the given anchored area,
-         * call recalculate_reserved_areas() to refresh */
+        /* Add a reserved area. The actual recalculation must be manually
+         * triggered by calling reflow_reserved_areas() */
         virtual void add_reserved_area(anchored_area *area) = 0;
 
-        /* force recalculate reserved area for each added anchored area */
-        virtual void reflow_reserved_areas() = 0;
-
-        /* remove the given area from the list */
+        /* Remove a reserved area. The actual recalculation must be manually
+         * triggered by calling reflow_reserved_areas() */
         virtual void remove_reserved_area(anchored_area *area) = 0;
+
+        /* Recalculate reserved area for each anchored area */
+        virtual void reflow_reserved_areas() = 0;
 
         /* returns the available area for views, it is basically
          * the output geometry minus the area reserved for panels */

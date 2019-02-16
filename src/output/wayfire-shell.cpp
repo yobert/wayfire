@@ -99,7 +99,10 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         /* If the view's output has been reset, we have already reset the needed state
          * in the output changed handler */
         if (output && view->get_output() && area)
+        {
             output->workspace->remove_reserved_area(area.get());
+            output->workspace->reflow_reserved_areas();
+        }
     }
 
     signal_callback_t on_view_output_changed = [=] (signal_data *data)
@@ -115,6 +118,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
             if (view->get_output() == nullptr && area)
             {
                 output->workspace->remove_reserved_area(area.get());
+                output->workspace->reflow_reserved_areas();
                 area = nullptr;
             }
         }
@@ -301,11 +305,10 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         area->reserved_size = size;
         area->real_size = size;
 
-        if (new_area) {
+        if (new_area)
             output->workspace->add_reserved_area(area.get());
-        } else {
-            output->workspace->reflow_reserved_areas();
-        }
+
+        output->workspace->reflow_reserved_areas();
     }
 };
 

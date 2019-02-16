@@ -439,15 +439,12 @@ wf_geometry viewport_manager::calculate_anchored_geometry(const anchored_area& a
 void viewport_manager::add_reserved_area(anchored_area *area)
 {
     anchors.push_back(area);
-    reflow_reserved_areas();
 }
 
 void viewport_manager::remove_reserved_area(anchored_area *area)
 {
     auto it = std::remove(anchors.begin(), anchors.end(), area);
     anchors.erase(it, anchors.end());
-
-    reflow_reserved_areas();
 }
 
 void viewport_manager::reflow_reserved_areas()

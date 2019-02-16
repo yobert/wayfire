@@ -138,18 +138,21 @@ struct wf_layer_shell_manager
             return;
         }
 
-        v->anchored_area = std::unique_ptr<workspace_manager::anchored_area>
-            (new workspace_manager::anchored_area);
-
-        v->anchored_area->reflowed = [v] (wf_geometry geometry, wf_geometry _)
-        { v->configure(geometry); };
+        if (!v->anchored_area)
+        {
+            v->anchored_area = std::make_unique<workspace_manager::anchored_area>();
+            v->anchored_area->reflowed = [v] (wf_geometry geometry, wf_geometry _)
+            { v->configure(geometry); };
+            /* Notice that the reflowed areas won't be changed until we call
+             * reflow_reserved_areas(). However, by that time the information
+             * in anchored_area will have been populated */
+            v->get_output()->workspace->add_reserved_area(v->anchored_area.get());
+        }
 
         v->anchored_area->edge = anchor_to_edge(edges);
         v->anchored_area->reserved_size = v->lsurface->current.exclusive_zone;
         v->anchored_area->real_size = v->anchored_area->edge <= workspace_manager::WORKSPACE_ANCHORED_EDGE_BOTTOM ?
             v->lsurface->current.desired_height : v->lsurface->current.desired_width;
-
-        v->get_output()->workspace->add_reserved_area(v->anchored_area.get());
     }
 
     void pin_view(wayfire_layer_shell_view *v, wf_geometry usable_workarea)
@@ -205,25 +208,34 @@ struct wf_layer_shell_manager
         uint32_t focus_mask = 0;
         auto views = filter_views(output, layer);
 
-        /* set all views that have exclusive zones first */
+        /* First we need to put all views that have exclusive zone set.
+         * The rest are then placed into the free area */
         for (auto v : views)
         {
+            if (!v->is_mapped())
+                continue;
+
             if (v->lsurface->client_pending.keyboard_interactive && v->is_mapped())
                 focus_mask = zwlr_layer_to_wf_layer(v->lsurface->layer);
 
             if (v->lsurface->client_pending.exclusive_zone > 0)
+            {
                 set_exclusive_zone(v);
+            }
+            else if (v->anchored_area)
+            {
+                /* Make sure the view doesn't have a reserved area anymore */
+                output->workspace->remove_reserved_area(v->anchored_area.get());
+                v->anchored_area = nullptr;
+            }
         }
 
         auto usable_workarea = output->workspace->get_workarea();
         for (auto v : views)
         {
-            if (v->lsurface->client_pending.keyboard_interactive)
-                focus_mask = zwlr_layer_to_wf_layer(v->lsurface->layer);
-
-            /* anchored area is cleared in arrange_layers(), so if it's NULL,
-             * then this view doesn't have exclusive zone */
-            if (!v->anchored_area)
+            /* The protocol dictates that the values -1 and 0 for exclusive zone
+             * mean that it doesn't have one */
+            if (v->lsurface->client_pending.exclusive_zone < 1)
                 pin_view(v, usable_workarea);
         }
 
@@ -233,13 +245,6 @@ struct wf_layer_shell_manager
     void arrange_layers(wayfire_output *output)
     {
         auto views = filter_views(output);
-        for (auto v : views)
-        {
-            if (v->anchored_area)
-                output->workspace->remove_reserved_area(v->anchored_area.get());
-
-            v->anchored_area = nullptr;
-        }
 
         uint32_t focus1 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY);
         uint32_t focus2 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_TOP);
@@ -248,6 +253,7 @@ struct wf_layer_shell_manager
 
         auto focus_mask = std::max({focus1, focus2, focus3, focus4});
         core->focus_layer(focus_mask);
+        output->workspace->reflow_reserved_areas();
     }
 };
 
