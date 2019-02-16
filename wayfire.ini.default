@@ -115,6 +115,14 @@ startup_duration = 1000
 open_animation = zoom
 close_animation = zoom
 
+# Types of windows to be animated
+enabled_for = type is toplevel
+
+# Exceptions to the enabled_for rule
+fade_enabled_for = type is overlay
+zoom_enabled_for = none
+fire_enabled_for = none
+
 # how to position newly opened windows.
 # supported modes: center, cascade, random
 [place]

@@ -9,6 +9,8 @@
 #include "basic_animations.hpp"
 #include "fire/fire.hpp"
 
+#include "../matcher/matcher.hpp"
+
 void animation_base::init(wayfire_view, wf_option, wf_animation_type) {}
 bool animation_base::step() {return false;}
 animation_base::~animation_base() {}
@@ -103,6 +105,11 @@ class wayfire_animation : public wayfire_plugin_t
 {
     wf_option open_animation, close_animation;
     wf_option duration, startup_duration;
+    wf_option animation_enabled_for, fade_enabled_for,
+              zoom_enabled_for, fire_enabled_for;
+
+    std::unique_ptr<wf::matcher::view_matcher> animation_enabled_matcher,
+        fade_enabled_matcher, zoom_enabled_matcher, fire_enabled_matcher;
 
     public:
     void init(wayfire_config *config)
@@ -116,6 +123,11 @@ class wayfire_animation : public wayfire_plugin_t
         duration         = section->get_option("duration", "300");
         startup_duration = section->get_option("startup_duration", "600");
 
+        animation_enabled_for = section->get_option("enabled_for", "type is toplevel");
+        fade_enabled_for = section->get_option("fade_enabled_for", "type is overlay");
+        zoom_enabled_for = section->get_option("zoom_enabled_for", "none");
+        fire_enabled_for = section->get_option("fire_enabled_for", "none");
+
         FireAnimation::fire_particles =
             section->get_option("fire_particles", "2000");
         FireAnimation::fire_particle_size =
@@ -125,15 +137,24 @@ class wayfire_animation : public wayfire_plugin_t
         output->connect_signal("unmap-view", &on_view_unmapped);
         output->connect_signal("start-rendering", &on_render_start);
         output->connect_signal("view-minimize-request", &on_minimize_request);
+
+        animation_enabled_matcher =
+            wf::matcher::get_matcher(*output, animation_enabled_for);
+        fade_enabled_matcher = wf::matcher::get_matcher(*output, fade_enabled_for);
+        zoom_enabled_matcher = wf::matcher::get_matcher(*output, zoom_enabled_for);
+        fire_enabled_matcher = wf::matcher::get_matcher(*output, fire_enabled_for);
     }
 
     std::string get_animation_for_view(wf_option& anim_type, wayfire_view view)
     {
-        if (view->role != WF_VIEW_ROLE_SHELL_VIEW)
-            return anim_type->as_string();
-
-        if (output->workspace->get_view_layer(view) >= WF_LAYER_LOCK)
+        if (WF_MATCHER_MATCHES(fade_enabled_matcher, view))
             return "fade";
+        if (WF_MATCHER_MATCHES(zoom_enabled_matcher, view))
+            return "zoom";
+        if (WF_MATCHER_MATCHES(fire_enabled_matcher, view))
+            return "fire";
+        if (WF_MATCHER_MATCHES(animation_enabled_matcher, view))
+            return anim_type->as_string();
 
         return "none";
     }
