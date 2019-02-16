@@ -53,6 +53,7 @@ class wayfire_layer_shell_view : public wayfire_view_t
         void close();
         virtual void destroy();
         virtual wlr_surface *get_keyboard_focus_surface();
+        virtual std::string get_app_id();
 
         void configure(wf_geometry geometry);
 };
@@ -363,6 +364,11 @@ wlr_surface *wayfire_layer_shell_view::get_keyboard_focus_surface()
     if (lsurface->current.keyboard_interactive)
         return surface;
     return nullptr;
+}
+
+std::string wayfire_layer_shell_view::get_app_id()
+{
+    return nonull(lsurface->namespace_t);
 }
 
 void wayfire_layer_shell_view::configure(wf_geometry box)
