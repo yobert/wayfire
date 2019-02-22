@@ -270,11 +270,10 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         };
 
         /* We force-focused a layer, unfocus it now */
-        if (this->focus_mode == ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS
-            && new_mode != ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS)
-        {
+        if (this->focus_mode == ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS)
             core->focus_layer(0);
-        }
+
+        this->focus_mode = new_mode;
     }
 
     /* We keep an exclusive zone even if its size is 0, because
