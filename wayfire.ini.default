@@ -123,6 +123,8 @@ mode = cascade
 # show the current workspace row as a cube
 [cube]
 activate = <ctrl> <alt> BTN_LEFT
+rotate_left = <ctrl> <alt> KEY_LEFT
+rotate_right = <ctrl> <alt> KEY_RIGHT
 # deform values 1 and 2 are supported only with OpenGL ES 3.2 support
 deform = 0
 zoom = 3.0
