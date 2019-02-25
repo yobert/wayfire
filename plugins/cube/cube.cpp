@@ -3,7 +3,6 @@
 #include <core.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
-#include <nonstd/make_unique.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <img.hpp>
@@ -65,16 +64,16 @@ class wayfire_cube : public wayfire_plugin_t
         last_background_mode = background_mode->as_string();
 
         if (last_background_mode == "simple")
-            background = nonstd::make_unique<wf_cube_simple_background> ();
+            background = std::make_unique<wf_cube_simple_background> ();
         else if (last_background_mode == "skydome")
-            background = nonstd::make_unique<wf_cube_background_skydome> (output);
+            background = std::make_unique<wf_cube_background_skydome> (output);
         else if (last_background_mode == "cubemap")
-            background = nonstd::make_unique<wf_cube_background_cubemap> ();
+            background = std::make_unique<wf_cube_background_cubemap> ();
         else
         {
             log_error("cube: Unrecognized background mode %s. Using default \"simple\"",
                 last_background_mode.c_str());
-            background = nonstd::make_unique<wf_cube_simple_background> ();
+            background = std::make_unique<wf_cube_simple_background> ();
         }
     }
 
@@ -159,7 +158,8 @@ class wayfire_cube : public wayfire_plugin_t
     void schedule_next_frame()
     {
         output->render->schedule_redraw();
-        output->render->damage_whole();
+        /* Damage a minimal area of the screen so that next frame gets scheduled */
+        output->render->damage({0, 0, 1, 1});
     }
 
     void load_program()
@@ -235,7 +235,7 @@ class wayfire_cube : public wayfire_plugin_t
 
         streams.resize(vw);
         for(int i = 0; i < vw; i++)
-            streams[i] = nonstd::make_unique<wf_workspace_stream>();
+            streams[i] = std::make_unique<wf_workspace_stream>();
 
         animation.projection = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
     }
@@ -461,12 +461,14 @@ class wayfire_cube : public wayfire_plugin_t
 
         OpenGL::render_begin(dest);
         GL_CALL(glClear(GL_DEPTH_BUFFER_BIT));
+        OpenGL::render_end();
 
         reload_background();
         background->render_frame(dest, animation);
 
         auto vp = calculate_vp_matrix(dest);
 
+        OpenGL::render_begin(dest);
         GL_CALL(glUseProgram(program.id));
         GL_CALL(glEnable(GL_DEPTH_TEST));
         GL_CALL(glDepthFunc(GL_LESS));
@@ -513,6 +515,7 @@ class wayfire_cube : public wayfire_plugin_t
         GL_CALL(glUseProgram(0));
         GL_CALL(glDisableVertexAttribArray(program.posID));
         GL_CALL(glDisableVertexAttribArray(program.uvID));
+        OpenGL::render_end();
 
         update_view_matrix();
         if (animation.duration.running())

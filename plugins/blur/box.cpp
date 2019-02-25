@@ -165,5 +165,5 @@ class wf_box_blur : public wf_blur_base
 
 std::unique_ptr<wf_blur_base> create_box_blur(wayfire_output *output)
 {
-    return nonstd::make_unique<wf_box_blur> (output);
+    return std::make_unique<wf_box_blur> (output);
 }

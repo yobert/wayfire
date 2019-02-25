@@ -44,7 +44,7 @@ executable('wayfire', wayfire_sources,
         link_args: '-ldl',
         install: true)
 
-install_headers(['api/nonstd/make_unique.hpp',
+install_headers(['api/nonstd/safe-list.hpp',
                  'api/nonstd/noncopyable.hpp',
                  'api/nonstd/observer_ptr.h'],
                 subdir: 'wayfire/nonstd')

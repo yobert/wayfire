@@ -174,7 +174,7 @@ class vswitch : public wayfire_plugin_t
             if (!view->get_transformer(vswitch_view_transformer::name))
             {
                 view->add_transformer(
-                    nonstd::make_unique<vswitch_view_transformer>(view),
+                    std::make_unique<vswitch_view_transformer>(view),
                     vswitch_view_transformer::name);
             }
         }
@@ -236,7 +236,7 @@ class vswitch : public wayfire_plugin_t
             view->pop_transformer(vswitch_view_transformer::name);
 
         output->deactivate_plugin(grab_interface);
-        output->render->rem_effect(&update_animation, WF_OUTPUT_EFFECT_PRE);
+        output->render->rem_effect(&update_animation);
         output->render->auto_redraw(false);
     }
 

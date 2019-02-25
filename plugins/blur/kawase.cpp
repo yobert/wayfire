@@ -154,5 +154,5 @@ class wf_kawase_blur : public wf_blur_base
 
 std::unique_ptr<wf_blur_base> create_kawase_blur(wayfire_output *output)
 {
-    return nonstd::make_unique<wf_kawase_blur> (output);
+    return std::make_unique<wf_kawase_blur> (output);
 }

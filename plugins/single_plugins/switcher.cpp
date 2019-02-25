@@ -1,5 +1,3 @@
-#include <nonstd/make_unique.hpp>
-
 #include <opengl.hpp>
 #include <view-transform.hpp>
 #include <debug.hpp>
@@ -267,7 +265,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     {
         output->deactivate_plugin(grab_interface);
 
-        output->render->rem_effect(&damage, WF_OUTPUT_EFFECT_PRE);
+        output->render->rem_effect(&damage);
         output->render->reset_renderer();
         output->render->auto_redraw(false);
 
@@ -542,7 +540,7 @@ class WayfireSwitcher : public wayfire_plugin_t
             {
                 if (!view->get_transformer(switcher_transformer_background))
                 {
-                    view->add_transformer(nonstd::make_unique<wf_3D_view> (view),
+                    view->add_transformer(std::make_unique<wf_3D_view> (view),
                         switcher_transformer_background);
                 }
 
@@ -562,7 +560,7 @@ class WayfireSwitcher : public wayfire_plugin_t
          * the whole output */
         if (!view->get_transformer(switcher_transformer))
         {
-            view->add_transformer(nonstd::make_unique<wf_3D_view> (view),
+            view->add_transformer(std::make_unique<wf_3D_view> (view),
                 switcher_transformer);
         }
 

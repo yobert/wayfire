@@ -1,7 +1,6 @@
 #include <cassert>
 #include <algorithm>
 #include <libinput.h>
-#include <nonstd/make_unique.hpp>
 
 #include <iostream>
 
@@ -51,10 +50,10 @@ void input_manager::handle_new_input(wlr_input_device *dev)
         create_seat();
 
     log_info("handle new input: %s, default mapping: %s", dev->name, dev->output_name);
-    input_devices.push_back(nonstd::make_unique<wf_input_device> (dev));
+    input_devices.push_back(std::make_unique<wf_input_device> (dev));
 
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
-        keyboards.push_back(nonstd::make_unique<wf_keyboard> (dev, core->config));
+        keyboards.push_back(std::make_unique<wf_keyboard> (dev, core->config));
 
     if (dev->type == WLR_INPUT_DEVICE_POINTER)
     {
@@ -290,7 +289,7 @@ void input_manager::set_exclusive_focus(wl_client *client)
 wf_binding* input_manager::new_binding(wf_binding_type type, wf_option value,
     wayfire_output *output, void *callback)
 {
-    auto binding = nonstd::make_unique<wf_binding>();
+    auto binding = std::make_unique<wf_binding>();
 
     assert(value && output && callback);
 

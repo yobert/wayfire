@@ -187,8 +187,6 @@ class wayfire_fisheye : public wayfire_plugin_t
 
             OpenGL::render_begin(dest);
 
-            log_info("doing from %d %d to %d %d", source.fb, source.tex, dest.fb, dest.tex);
-
             GL_CALL(glUseProgram(program));
             GL_CALL(glBindTexture(GL_TEXTURE_2D, source.tex));
             GL_CALL(glActiveTexture(GL_TEXTURE0));

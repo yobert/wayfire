@@ -193,18 +193,17 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         // the last buffer_age of this view for which the buffer was made
         int64_t last_offscreen_buffer_age = -1;
 
-        struct transform_t
+        struct transform_t : public noncopyable_t
         {
             std::string plugin_name = "";
-            bool to_remove = false;
             std::unique_ptr<wf_view_transformer_t> transform;
             wf_framebuffer fb;
+
+            transform_t();
+            ~transform_t();
         };
 
-        bool in_paint = false;
-        std::vector<std::unique_ptr<transform_t>> transforms;
-        void _pop_transformer(nonstd::observer_ptr<transform_t>);
-        void cleanup_transforms();
+        wf::safe_list_t<std::shared_ptr<transform_t>> transforms;
 
         virtual wf_geometry get_untransformed_bounding_box();
         void reposition_relative_to_parent();

@@ -3,7 +3,6 @@
 #include <core.hpp>
 #include <view-transform.hpp>
 #include <workspace-manager.hpp>
-#include <nonstd/make_unique.hpp>
 #include <render-manager.hpp>
 
 extern "C"
@@ -149,7 +148,7 @@ class wf_wobbly : public wf_view_transformer_t
     {
         this->iface = iface;
         this->view = view;
-        model = nonstd::make_unique<wobbly_surface> ();
+        model = std::make_unique<wobbly_surface> ();
         auto g = view->get_bounding_box();
 
         model->x = g.x;
@@ -192,7 +191,7 @@ class wf_wobbly : public wf_view_transformer_t
             /* Wobbly is active only when there's already been an output */
             assert(sig->output);
 
-            sig->output->render->rem_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+            sig->output->render->rem_effect(&pre_hook);
             view->get_output()->render->add_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
         };
 
@@ -255,9 +254,6 @@ class wf_wobbly : public wf_view_transformer_t
         OpenGL::render_begin(target_fb);
         target_fb.scissor(scissor_box);
 
-        auto ortho = glm::ortho(1.0f * target_fb.geometry.x, 1.0f * target_fb.geometry.x + 1.0f * target_fb.geometry.width,
-                                1.0f * target_fb.geometry.y + 1.0f * target_fb.geometry.height, 1.0f * target_fb.geometry.y);
-
         float x = src_box.x, y = src_box.y, w = src_box.width, h = src_box.height;
 
         std::vector<float> vert, uv;
@@ -307,9 +303,9 @@ class wf_wobbly : public wf_view_transformer_t
             }
         }
 
-        wobbly_graphics::render_triangles(src_tex, target_fb.transform * ortho,
-                                          vert.data(), uv.data(),
-                                          model->x_cells * model->y_cells * 2);
+        wobbly_graphics::render_triangles(src_tex,
+            target_fb.get_orthographic_projection(),
+            vert.data(), uv.data(), model->x_cells * model->y_cells * 2);
 
         OpenGL::render_end();
     }
@@ -382,7 +378,7 @@ class wf_wobbly : public wf_view_transformer_t
     virtual ~wf_wobbly()
     {
         wobbly_fini(model.get());
-        view->get_output()->render->rem_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+        view->get_output()->render->rem_effect(&pre_hook);
 
         view->disconnect_signal("unmap", &view_removed);
         view->disconnect_signal("set-output", &view_output_changed);
@@ -417,7 +413,7 @@ class wayfire_wobbly : public wayfire_plugin_t
 
             if ((data->events & (WOBBLY_EVENT_GRAB | WOBBLY_EVENT_SNAP))
                 && data->view->get_transformer("wobbly") == nullptr)
-                data->view->add_transformer(nonstd::make_unique<wf_wobbly> (data->view, grab_interface), "wobbly");
+                data->view->add_transformer(std::make_unique<wf_wobbly> (data->view, grab_interface), "wobbly");
 
             auto wobbly = dynamic_cast<wf_wobbly*> (data->view->get_transformer("wobbly").get());
             if (!wobbly)

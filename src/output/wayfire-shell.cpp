@@ -1,5 +1,4 @@
 #include <algorithm>
-#include "nonstd/make_unique.hpp"
 #include "output.hpp"
 #include "core.hpp"
 #include "debug.hpp"
@@ -259,7 +258,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         bool new_area = false;
         if (!area)
         {
-            area = nonstd::make_unique<workspace_manager::anchored_area> ();
+            area = std::make_unique<workspace_manager::anchored_area> ();
             area->reflowed = on_reflow;
             new_area = true;
         }
@@ -347,7 +346,7 @@ static void zwf_output_get_wm_surface(struct wl_client *client,
         return;
     }
 
-    auto wf_wm_surface = nonstd::make_unique<wayfire_shell_wm_surface> (wo, view);
+    auto wf_wm_surface = std::make_unique<wayfire_shell_wm_surface> (wo, view);
     view->store_data<wayfire_shell_wm_surface> (std::move(wf_wm_surface));
 
     auto wfo = wl_resource_create(client, &zwf_wm_surface_v1_interface, 1, id);

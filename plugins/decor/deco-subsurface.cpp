@@ -160,15 +160,14 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
                     view->get_title(), font_option->as_string());
             }
 
-            auto ortho = glm::ortho(0.0f, 1.0f * fb.geometry.width,
-                1.0f * fb.geometry.height, 0.0f);
-
             gl_geometry gg;
-            gg.x1 = x; gg.y1 = y;
-            gg.x2 = x + width;
-            gg.y2 = y + titlebar;
+            gg.x1 = x + fb.geometry.x;
+            gg.y1 = y + fb.geometry.y;
+            gg.x2 = gg.x1 + width;
+            gg.y2 = gg.y1 + titlebar;
 
-            OpenGL::render_transformed_texture(tex, gg, {}, fb.transform * ortho, {1, 1, 1, 1},
+            OpenGL::render_transformed_texture(tex, gg, {},
+                fb.get_orthographic_projection(), {1, 1, 1, 1},
                 TEXTURE_TRANSFORM_INVERT_Y);
 
             GL_CALL(glUseProgram(0));

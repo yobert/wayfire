@@ -3,7 +3,6 @@
 #include <plugin.hpp>
 #include <opengl.hpp>
 #include <view-transform.hpp>
-#include <nonstd/make_unique.hpp>
 #include <output.hpp>
 
 class fade_animation : public animation_base
@@ -26,7 +25,7 @@ class fade_animation : public animation_base
             std::swap(start, end);
 
         name = "animation-fade-" + std::to_string(type);
-        view->add_transformer(nonstd::make_unique<wf_2D_view> (view), name);
+        view->add_transformer(std::make_unique<wf_2D_view> (view), name);
     }
 
     bool step()

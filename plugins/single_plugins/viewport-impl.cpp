@@ -5,7 +5,6 @@
 #include <workspace-manager.hpp>
 #include <render-manager.hpp>
 #include <signal-definitions.hpp>
-#include <nonstd/make_unique.hpp>
 #include <opengl.hpp>
 #include <list>
 #include <algorithm>

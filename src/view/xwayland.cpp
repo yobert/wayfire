@@ -218,7 +218,7 @@ class wayfire_xwayland_view : public wayfire_view_t
             auto xsurface = xw; // keep the xsurface in stack, because destroy will likely free this
             destroy();
 
-            auto view = nonstd::make_unique<wayfire_unmanaged_xwayland_view> (xsurface);
+            auto view = std::make_unique<wayfire_unmanaged_xwayland_view> (xsurface);
             auto raw = view.get();
 
             core->add_view(std::move(view));
@@ -464,12 +464,12 @@ void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
     wayfire_surface_t::map(surface);
     output->workspace->add_view_to_layer(self(), WF_LAYER_XWAYLAND);
 
+    emit_view_map(self());
     if (wlr_xwayland_or_surface_wants_focus(xw))
     {
         auto wa = output->workspace->get_workarea();
         move(xw->x + wa.x - real_output.x, xw->y + wa.y - real_output.y, false);
 
-        emit_view_map(self());
         output->focus_view(self());
     }
 }
@@ -477,10 +477,7 @@ void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
 void wayfire_unmanaged_xwayland_view::unmap()
 {
     _is_mapped = false;
-
-    if (wlr_xwayland_or_surface_wants_focus(xw))
-        emit_view_unmap(self());
-
+    emit_view_unmap(self());
     wayfire_surface_t::unmap();
 }
 
@@ -577,10 +574,10 @@ void notify_xwayland_created(wl_listener *, void *data)
 
     if (xsurf->override_redirect)
     {
-        core->add_view(nonstd::make_unique<wayfire_unmanaged_xwayland_view>(xsurf));
+        core->add_view(std::make_unique<wayfire_unmanaged_xwayland_view>(xsurf));
     } else
     {
-        core->add_view(nonstd::make_unique<wayfire_xwayland_view> (xsurf));
+        core->add_view(std::make_unique<wayfire_xwayland_view> (xsurf));
     }
 }
 

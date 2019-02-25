@@ -134,7 +134,7 @@ void input_manager::update_drag_icons()
 
 void input_manager::create_seat()
 {
-    cursor = nonstd::make_unique<wf_cursor> ();
+    cursor = std::make_unique<wf_cursor> ();
 
     request_set_cursor.notify = handle_request_set_cursor;
     wl_signal_add(&seat->events.request_set_cursor, &request_set_cursor);

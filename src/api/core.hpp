@@ -76,8 +76,6 @@ class wayfire_core : public wf_object_base
 
     public:
         std::map<wlr_surface*, uint32_t> uses_csd;
-
-        std::vector<wl_resource*> shell_clients;
         wayfire_config *config;
 
         wl_display *display;

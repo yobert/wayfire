@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <linux/input-event-codes.h>
 #include "signal-definitions.hpp"
-#include <nonstd/make_unique.hpp>
 #include <animation.hpp>
 
 #include "snap_signal.hpp"
@@ -128,7 +127,7 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
         if (!is_active)
             return;
 
-        output->render->rem_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+        output->render->rem_effect(&pre_hook);
         output->deactivate_plugin(iface);
         output->render->auto_redraw(false);
         output->disconnect_signal("view-disappeared", &unmapped);
@@ -148,7 +147,7 @@ nonstd::observer_ptr<wayfire_grid_view_cdata> ensure_grid_view(wayfire_view view
 {
     if (!view->has_data<wayfire_grid_view_cdata>())
     {
-        view->store_data(nonstd::make_unique<wayfire_grid_view_cdata>
+        view->store_data(std::make_unique<wayfire_grid_view_cdata>
             (view, iface, animation_type, animation_duration));
     }
 

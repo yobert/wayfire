@@ -13,7 +13,7 @@ extern "C"
 
 #define max_frames 100
 
-void print_trace()
+void wf_print_trace()
 {
     log_error ("stack trace");
 
@@ -64,13 +64,11 @@ void print_trace()
 
     free(funcname);
     free(symbollist);
-
-    exit(-1);
 }
 
 void signalHandle(int sig) {
     log_error ("crash detected!");
-    print_trace();
+    wf_print_trace();
     raise(SIGTRAP);
 }
 

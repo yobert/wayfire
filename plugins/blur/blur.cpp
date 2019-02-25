@@ -3,7 +3,6 @@
 #include <view-transform.hpp>
 #include <workspace-manager.hpp>
 #include <signal-definitions.hpp>
-#include <nonstd/make_unique.hpp>
 
 #include "blur.hpp"
 
@@ -89,7 +88,7 @@ class wayfire_blur : public wayfire_plugin_t
         if (view->get_transformer(transformer_name))
             return;
 
-        view->add_transformer(nonstd::make_unique<wf_blur_transformer> (
+        view->add_transformer(std::make_unique<wf_blur_transformer> (
                 [=] () {return nonstd::make_observer(blur_algorithm.get()); },
                 output),
             transformer_name);
@@ -333,7 +332,7 @@ class wayfire_blur : public wayfire_plugin_t
         output->disconnect_signal("detach-view", &view_detached);
         mode_opt->rem_updated_handler(&mode_changed);
         method_opt->rem_updated_handler(&blur_method_changed);
-        output->render->rem_effect(&frame_pre_paint, WF_OUTPUT_EFFECT_PRE);
+        output->render->rem_effect(&frame_pre_paint);
         output->render->disconnect_signal("workspace-stream-pre", &workspace_stream_pre);
         output->render->disconnect_signal("workspace-stream-post", &workspace_stream_post);
 

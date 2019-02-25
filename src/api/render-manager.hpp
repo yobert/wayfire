@@ -5,7 +5,7 @@
 #include "opengl.hpp"
 #include "object.hpp"
 #include "util.hpp"
-#include <vector>
+#include <list>
 
 /* Emitted whenever a workspace stream is being started or stopped */
 struct wf_stream_signal : public signal_data
@@ -74,15 +74,13 @@ class render_manager : public wf_signal_provider_t
 
         wf_region get_ws_damage(std::tuple<int, int> ws);
 
-        using effect_container_t = std::vector<effect_hook_t*>;
+        using effect_container_t = wf::safe_list_t<effect_hook_t*>;
         effect_container_t effects[WF_OUTPUT_EFFECT_TOTAL];
 
-        struct wf_post_effect;
-        /* TODO: use unique_ptr */
-        using post_container_t = std::vector<wf_post_effect*>;
+        using post_container_t = wf::safe_list_t<post_hook_t*>;
         post_container_t post_effects;
-
-        wf_framebuffer_base default_buffer;
+        wf_framebuffer_base post_buffers[3];
+        static constexpr uint32_t default_out_buffer = 0;
 
         int constant_redraw = 0;
         int output_inhibit = 0;
@@ -91,10 +89,10 @@ class render_manager : public wf_signal_provider_t
         void paint();
         void post_paint();
 
-        void run_effects(effect_container_t&);
+        void default_renderer();
 
-        void _rem_post(wf_post_effect *hook);
-        void cleanup_post_hooks();
+        void run_effects(effect_container_t&);
+        void run_post_effects();
 
         void init_default_streams();
 
@@ -113,7 +111,7 @@ class render_manager : public wf_signal_provider_t
         void add_inhibit(bool add);
 
         void add_effect(effect_hook_t*, wf_output_effect_type type);
-        void rem_effect(const effect_hook_t*, wf_output_effect_type type);
+        void rem_effect(effect_hook_t*);
 
         /* add a new postprocessing effect */
         void add_post(post_hook_t*);
@@ -131,6 +129,8 @@ class render_manager : public wf_signal_provider_t
         wf_region get_scheduled_damage();
 
         void damage_whole();
+        /* Safe to call while repainting the frame */
+        void damage_whole_idle();
         void damage(const wlr_box& box);
         void damage(const wf_region& region);
 
