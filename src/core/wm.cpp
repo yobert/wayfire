@@ -34,7 +34,7 @@ void wayfire_close::init(wayfire_config *config)
 
         output->deactivate_plugin(grab_interface);
         auto view = output->get_active_view();
-        if (view) view->close();
+        if (view && view->role == WF_VIEW_ROLE_TOPLEVEL) view->close();
     };
 
     output->add_activator(key, &callback);
