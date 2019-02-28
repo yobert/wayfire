@@ -281,7 +281,11 @@ class wayfire_xwayland_view : public wayfire_view_t
             configure_y += real_output.y;
         }
 
-        wlr_xwayland_surface_configure(xw, configure_x, configure_y, width, height);
+        if (_is_mapped)
+        {
+            wlr_xwayland_surface_configure(xw,
+                configure_x, configure_y, width, height);
+        }
     }
 
     void send_configure()
@@ -496,7 +500,6 @@ void wayfire_unmanaged_xwayland_view::send_configure()
         return;
     }
 
-
     if (output)
     {
         auto real_output = output->get_layout_geometry();
@@ -508,7 +511,12 @@ void wayfire_unmanaged_xwayland_view::send_configure()
         global_y = geometry.y;
     }
 
-    wlr_xwayland_surface_configure(xw, global_x, global_y, geometry.width, geometry.height);
+    if (_is_mapped)
+    {
+        wlr_xwayland_surface_configure(xw,
+            global_x, global_y, geometry.width, geometry.height);
+    }
+
     damage();
 }
 
