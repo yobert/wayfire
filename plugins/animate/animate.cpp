@@ -140,10 +140,10 @@ class wayfire_animation : public wayfire_plugin_t
         output->connect_signal("view-minimize-request", &on_minimize_request);
 
         animation_enabled_matcher =
-            wf::matcher::get_matcher(*output, animation_enabled_for);
-        fade_enabled_matcher = wf::matcher::get_matcher(*output, fade_enabled_for);
-        zoom_enabled_matcher = wf::matcher::get_matcher(*output, zoom_enabled_for);
-        fire_enabled_matcher = wf::matcher::get_matcher(*output, fire_enabled_for);
+            wf::matcher::get_matcher(*core, animation_enabled_for);
+        fade_enabled_matcher = wf::matcher::get_matcher(*core, fade_enabled_for);
+        zoom_enabled_matcher = wf::matcher::get_matcher(*core, zoom_enabled_for);
+        fire_enabled_matcher = wf::matcher::get_matcher(*core, fire_enabled_for);
     }
 
     std::string get_animation_for_view(wf_option& anim_type, wayfire_view view)

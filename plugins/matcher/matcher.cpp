@@ -3,6 +3,7 @@
 
 #include <debug.hpp>
 #include <plugin.hpp>
+#include <core.hpp>
 #include <output.hpp>
 #include <workspace-manager.hpp>
 
@@ -76,23 +77,28 @@ namespace wf
             }
         };
 
-        class matcher_plugin : public wayfire_plugin_t
+        class match_core_data : public wf_custom_data_t
         {
-            public:
             signal_callback_t on_new_matcher_request = [=] (signal_data *data)
             {
                 auto ev = static_cast<match_signal*> (data);
                 ev->result = std::make_unique<default_view_matcher> (ev->expression);
             };
 
+            public:
+            match_core_data()
+            {
+                core->connect_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &on_new_matcher_request);
+            }
+        };
+
+        class matcher_plugin : public wayfire_plugin_t
+        {
+            public:
             void init(wayfire_config *conf) override
             {
-                output->connect_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &on_new_matcher_request);
-            }
-
-            void fini() override
-            {
-                output->connect_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &on_new_matcher_request);
+                /* Will add the data if not existing, otherwise no-op */
+                core->get_data_safe<match_core_data>();
             }
 
             bool is_unloadable() override {return false;}
