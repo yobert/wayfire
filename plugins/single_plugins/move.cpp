@@ -334,7 +334,7 @@ class wayfire_move : public wayfire_plugin_t
             grab_start = {sx, sy};
 
             output->bring_to_front(view);
-            if (enable_snap)
+            if (enable_snap->as_int())
                 slot.slot_id = 0;
 
             this->view = view;
@@ -392,6 +392,9 @@ class wayfire_move : public wayfire_plugin_t
         {
             auto g = output->workspace->get_workarea();
             if (!(output->get_relative_geometry() & wf_point{x, y}))
+                return 0;
+
+            if (view && output->workspace->get_view_layer(view) != WF_LAYER_WORKSPACE)
                 return 0;
 
             int threshold = snap_threshold->as_cached_int();
