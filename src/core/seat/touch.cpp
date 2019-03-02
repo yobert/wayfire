@@ -219,6 +219,7 @@ static void handle_touch_down(wl_listener* listener, void *data)
     double lx, ly;
     wlr_cursor_absolute_to_layout_coords(core->input->cursor->cursor,
                                          ev->device, ev->x, ev->y, &lx, &ly);
+    wlr_output_layout_closest_point(core->output_layout, NULL, lx, ly, &lx, &ly);
 
     touch->gesture_recognizer.register_touch(ev->time_msec, ev->touch_id, lx, ly);
     wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
