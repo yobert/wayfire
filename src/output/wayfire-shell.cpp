@@ -56,7 +56,8 @@ static workspace_manager::anchored_edge anchor_edge_to_workspace_edge(uint32_t e
 class wayfire_shell_wm_surface : public wf_custom_data_t
 {
     std::unique_ptr<workspace_manager::anchored_area> area;
-    wayfire_output *output;
+    /* output may be null, in which case the wm surface isn't tied to an output */
+    wayfire_output *output = nullptr;
     wayfire_view view;
 
     uint32_t anchors = 0;
@@ -68,7 +69,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         bool margins_set = false;
     } margin;
 
-    uint32_t focus_mode = 0;
+    uint32_t focus_mode = -1;
     uint32_t exclusive_zone_size = 0;
 
     /* width/height with which the view position was last calculated */
@@ -79,8 +80,12 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
     {
         this->output = output;
         this->view = view;
-        view->connect_signal("geometry-changed", &on_geometry_changed);
-        view->connect_signal("set-output", &on_view_output_changed);
+
+        if (output)
+        {
+            view->connect_signal("geometry-changed", &on_geometry_changed);
+            view->connect_signal("set-output", &on_view_output_changed);
+        }
     }
 
     ~wayfire_shell_wm_surface()
@@ -93,7 +98,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
 
         /* If the view's output has been reset, we have already reset the needed state
          * in the output changed handler */
-        if (view->get_output() && area)
+        if (output && view->get_output() && area)
             output->workspace->remove_reserved_area(area.get());
     }
 
@@ -130,6 +135,12 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
 
     void set_anchor(uint32_t anchors)
     {
+        if (!output)
+        {
+            log_error("wayfire-shell: attempt to set anchor for an outputless wm-surface");
+            return;
+        }
+
         /* Just a warning, the result will be wrong, but won't crash */
         if ((anchors & both_vert) == both_vert || (anchors & both_horiz) == both_horiz)
         {
@@ -194,6 +205,12 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
 
     void set_margin(int32_t top, int32_t bottom, int32_t left, int32_t right)
     {
+        if (!output)
+        {
+            log_error("wayfire-shell: attempt to set margin for an outputless wm-surface");
+            return;
+        }
+
         margin.top = top;
         margin.bottom = bottom;
         margin.left = left;
@@ -206,6 +223,13 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
 
     void set_keyboard_mode(uint32_t new_mode)
     {
+        if (!output && new_mode == ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS)
+        {
+            log_error("wayfire-shell: cannot set exclusive focus for outputless"
+                " wm surface");
+            return;
+        }
+
         /* Nothing to do */
         if (focus_mode == new_mode)
             return;
@@ -213,8 +237,9 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         switch(new_mode)
         {
             case ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_NO_FOCUS:
+                log_info("set no focus");
                 view->set_keyboard_focus_enabled(false);
-                output->refocus(nullptr);
+                view->get_output()->refocus(nullptr);
                 break;
 
             case ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_CLICK_TO_FOCUS:
@@ -228,6 +253,8 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
                     return;
                 }
 
+                /* Notice: using output here is safe, because we do not allow
+                 * exclusive focus for outputless surfaces */
                 view->set_keyboard_focus_enabled(true);
                 core->focus_layer(output->workspace->get_view_layer(view));
                 output->focus_view(view);
@@ -250,6 +277,13 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
      * margin positioning depends on the reflow callback */
     void set_exclusive_zone(uint32_t size)
     {
+        if (!output)
+        {
+            log_error("wayfire-shell: attempt to set exlusive zone for an "
+                " outputless wm-surface");
+            return;
+        }
+
         this->exclusive_zone_size = size;
 
         if (__builtin_popcount(anchors) != 1)
@@ -332,12 +366,13 @@ const struct zwf_wm_surface_v1_interface zwf_wm_surface_v1_implementation = {
     .set_exclusive_zone = handle_wm_surface_set_exclusive_zone
 };
 
-static void zwf_output_get_wm_surface(struct wl_client *client,
-                                      struct wl_resource *resource,
-                                      struct wl_resource *surface,
-                                      uint32_t role, uint32_t id)
+static void zwf_shell_manager_get_wm_surface(struct wl_client *client,
+    struct wl_resource *resource, struct wl_resource *surface,
+    uint32_t role, struct wl_resource *output, uint32_t id)
 {
-    auto wo = (wayfire_output*)wl_resource_get_user_data(resource);
+    wayfire_output *wo = output ?
+        core->get_output(wlr_output_from_resource(output)) : nullptr;
+
     auto view = wl_surface_to_wayfire_view(surface);
 
     if (!view)
@@ -353,22 +388,25 @@ static void zwf_output_get_wm_surface(struct wl_client *client,
     wl_resource_set_implementation(wfo, &zwf_wm_surface_v1_implementation, view.get(), NULL);
 
     view->set_role(WF_VIEW_ROLE_SHELL_VIEW);
-    view->get_output()->detach_view(view);
-    view->set_output(wo);
+    if (wo)
+    {
+        view->get_output()->detach_view(view);
+        view->set_output(wo);
+    }
 
     uint32_t layer = 0;
     switch(role)
     {
-        case ZWF_OUTPUT_V1_WM_ROLE_BACKGROUND:
+        case ZWF_WM_SURFACE_V1_ROLE_BACKGROUND:
             layer = WF_LAYER_BACKGROUND;
             break;
-        case ZWF_OUTPUT_V1_WM_ROLE_BOTTOM:
+        case ZWF_WM_SURFACE_V1_ROLE_BOTTOM:
             layer = WF_LAYER_BOTTOM;
             break;
-        case ZWF_OUTPUT_V1_WM_ROLE_PANEL:
+        case ZWF_WM_SURFACE_V1_ROLE_PANEL:
             layer = WF_LAYER_TOP;
             break;
-        case ZWF_OUTPUT_V1_WM_ROLE_OVERLAY:
+        case ZWF_WM_SURFACE_V1_ROLE_OVERLAY:
             layer = WF_LAYER_LOCK;
             break;
 
@@ -376,7 +414,7 @@ static void zwf_output_get_wm_surface(struct wl_client *client,
             log_error ("Invalid role for shell view");
     }
 
-    wo->workspace->add_view_to_layer(view, layer);
+    view->get_output()->workspace->add_view_to_layer(view, layer);
     view->activate(true);
 }
 
@@ -404,7 +442,6 @@ static void zwf_output_inhibit_output_done(struct wl_client *client,
 
 const struct zwf_output_v1_interface zwf_output_v1_implementation =
 {
-    zwf_output_get_wm_surface,
     zwf_output_inhibit_output,
     zwf_output_inhibit_output_done,
 };
@@ -449,7 +486,8 @@ void zwf_shell_manager_get_wf_output(struct wl_client *client,
 
 const struct zwf_shell_manager_v1_interface zwf_shell_manager_v1_implementation =
 {
-    zwf_shell_manager_get_wf_output
+    zwf_shell_manager_get_wf_output,
+    zwf_shell_manager_get_wm_surface,
 };
 
 static void destroy_zwf_shell_manager(wl_resource *resource)

@@ -80,8 +80,11 @@ void wayfire_focus::check_focus_surface(wayfire_surface_t* focus)
     if (last_focus != view)
         send_done(last_focus);
 
-    if (!view || !view->is_mapped() || !output->activate_plugin(grab_interface))
+    if (!view || !view->is_mapped() || !view->get_keyboard_focus_surface()
+        || !output->activate_plugin(grab_interface))
+    {
         return;
+    }
 
     output->deactivate_plugin(grab_interface);
     view->get_output()->focus_view(view);
