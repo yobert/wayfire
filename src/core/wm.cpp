@@ -7,6 +7,7 @@
 
 #include "../view/xdg-shell.hpp"
 #include "../view/xdg-shell-v6.hpp"
+#include "seat/input-inhibit.hpp"
 
 #include <linux/input.h>
 #include "signal-definitions.hpp"
@@ -15,6 +16,9 @@ void wayfire_exit::init(wayfire_config*)
 {
     key = [](uint32_t key)
     {
+        if (is_output_inhibited(core->get_active_output()))
+            return;
+
         wl_display_terminate(core->display);
     };
 
