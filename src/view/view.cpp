@@ -360,6 +360,11 @@ void wayfire_view_t::resize(int w, int h, bool send_signal)
     }
 }
 
+void wayfire_view_t::request_native_size()
+{
+    /* Nothing here */
+}
+
 wayfire_surface_t *wayfire_view_t::map_input_coordinates(int cx, int cy, int& sx, int& sy)
 {
     if (!_is_mapped || !is_mapped())

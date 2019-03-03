@@ -275,6 +275,8 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
          * However, maximized surfaces typically do resize to the dimensions
          * they are asked */
         virtual void resize(int w, int h, bool send_signal = true);
+        /* Request that the window resizes itself to its preferred size */
+        virtual void request_native_size();
         virtual void activate(bool active);
         virtual void close();
 

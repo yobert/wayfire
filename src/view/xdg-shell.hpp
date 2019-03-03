@@ -56,6 +56,7 @@ class wayfire_xdg_view : public wayfire_view_t
     virtual void set_fullscreen(bool full);
     virtual void move(int w, int h, bool send);
     virtual void resize(int w, int h, bool send);
+    virtual void request_native_size();
 
     virtual void on_xdg_geometry_updated();
     virtual void commit();

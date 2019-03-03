@@ -291,6 +291,7 @@ class wayfire_xwayland_view : public wayfire_view_t
 
         if (_is_mapped)
         {
+            log_info("configure %d %d %d %d", configure_x, configure_y, width, height);
             wlr_xwayland_surface_configure(xw,
                 configure_x, configure_y, width, height);
         }
@@ -298,8 +299,7 @@ class wayfire_xwayland_view : public wayfire_view_t
 
     void send_configure()
     {
-        send_configure(last_server_width ?: geometry.width,
-            last_server_height ?: geometry.height);
+        send_configure(last_server_width, last_server_height);
     }
 
     void set_output(wayfire_output *wo)
@@ -341,6 +341,19 @@ class wayfire_xwayland_view : public wayfire_view_t
         last_server_width = w;
         last_server_height = h;
         send_configure(w, h);
+    }
+
+    virtual void request_native_size()
+    {
+        if (!_is_mapped)
+            return;
+
+        if (xw->size_hints->base_width > 0 && xw->size_hints->base_height > 0)
+        {
+            last_server_width = xw->size_hints->base_width;
+            last_server_height = xw->size_hints->base_height;
+            send_configure();
+        }
     }
 
     /* TODO: bad with decoration */

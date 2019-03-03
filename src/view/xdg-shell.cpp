@@ -348,6 +348,11 @@ void wayfire_xdg_view::resize(int w, int h, bool send)
     wlr_xdg_toplevel_set_size(xdg_surface, w, h);
 }
 
+void wayfire_xdg_view::request_native_size()
+{
+    wlr_xdg_toplevel_set_size(xdg_surface, 0, 0);
+}
+
 std::string wayfire_xdg_view::get_app_id()
 {
     return nonull(xdg_surface->toplevel->app_id);

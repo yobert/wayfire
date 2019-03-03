@@ -244,6 +244,8 @@ class wayfire_grid : public wayfire_plugin_t
         }
         else if (!view->has_data<wf_grid_saved_view_geometry>())
         {
+            view->set_maximized(slot > 0 ? true : false);
+            view->request_native_size();
             return;
         }
 
