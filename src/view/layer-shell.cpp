@@ -213,9 +213,6 @@ struct wf_layer_shell_manager
          * The rest are then placed into the free area */
         for (auto v : views)
         {
-            if (!v->is_mapped())
-                continue;
-
             if (v->lsurface->client_pending.keyboard_interactive && v->is_mapped())
                 focus_mask = zwlr_layer_to_wf_layer(v->lsurface->layer);
 
