@@ -79,8 +79,7 @@ namespace wf
 
             func_t contains = [] (string text, string pattern)
             {
-                /* TODO */
-                return true;
+                return text.find(pattern) != text.npos;
             };
 
             std::map<string, func_t> matchers = {
