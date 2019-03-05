@@ -158,6 +158,16 @@ class vswitch : public wayfire_plugin_t
         return views;
     }
 
+    void ensure_transformer(wayfire_view view)
+    {
+        if (!view->get_transformer(vswitch_view_transformer::name))
+        {
+            view->add_transformer(
+                std::make_unique<vswitch_view_transformer>(view),
+                vswitch_view_transformer::name);
+        }
+    }
+
     bool start_switch()
     {
         if (!output->activate_plugin(grab_interface))
@@ -168,16 +178,6 @@ class vswitch : public wayfire_plugin_t
 
         duration.start();
         dx = dy = {0, 0};
-
-        for (auto view : get_ws_views())
-        {
-            if (!view->get_transformer(vswitch_view_transformer::name))
-            {
-                view->add_transformer(
-                    std::make_unique<vswitch_view_transformer>(view),
-                    vswitch_view_transformer::name);
-            }
-        }
 
         return true;
     }
@@ -190,6 +190,7 @@ class vswitch : public wayfire_plugin_t
         GetTuple(sw, sh, output->get_screen_size());
         for (auto view : get_ws_views())
         {
+            ensure_transformer(view);
             auto tr = dynamic_cast<vswitch_view_transformer*> (
                 view->get_transformer(vswitch_view_transformer::name).get());
 

@@ -40,6 +40,7 @@ class wayfire_unmanaged_xwayland_view : public wayfire_view_t
     void set_output(wayfire_output *wo);
     void close();
     wlr_surface *get_keyboard_focus_surface();
+
     virtual bool should_be_decorated() { return false; }
     ~wayfire_unmanaged_xwayland_view() { }
     virtual void destroy();
@@ -456,7 +457,6 @@ void wayfire_unmanaged_xwayland_view::commit()
 void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
 {
     _is_mapped = true;
-
     /* move to the output where our center is
      * FIXME: this is a bad idea, because a dropdown menu might get sent to
      * an incorrect output. However, no matter how we calculate the real
@@ -491,8 +491,11 @@ void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
     damage();
 
     wayfire_surface_t::map(surface);
-    output->workspace->add_view_to_layer(self(), WF_LAYER_XWAYLAND);
+    /* We update the keyboard focus before emitting the map event, so that
+     * plugins can detect that this view can have keyboard focus */
+    _keyboard_focus_enabled = wlr_xwayland_or_surface_wants_focus(xw);
 
+    output->workspace->add_view_to_layer(self(), WF_LAYER_XWAYLAND);
     emit_view_map(self());
     if (wlr_xwayland_or_surface_wants_focus(xw))
     {
@@ -586,9 +589,10 @@ void wayfire_unmanaged_xwayland_view::close()
 
 wlr_surface *wayfire_unmanaged_xwayland_view::get_keyboard_focus_surface()
 {
-    if (!wlr_xwayland_or_surface_wants_focus(xw))
-        return nullptr;
-    return wayfire_view_t::get_keyboard_focus_surface();
+    if (wlr_xwayland_or_surface_wants_focus(xw))
+        return wayfire_view_t::get_keyboard_focus_surface();
+
+    return nullptr;
 }
 
 void wayfire_unmanaged_xwayland_view::destroy()
