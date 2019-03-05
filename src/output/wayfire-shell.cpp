@@ -435,11 +435,17 @@ static void zwf_output_inhibit_output_done(struct wl_client *client,
                                            struct wl_resource *resource)
 {
     auto wo = (wayfire_output*)wl_resource_get_user_data(resource);
-    wo->render->add_inhibit(false);
-
     auto& cl = wayfire_shell::get_instance().clients[client];
     auto& out = cl.output_resources[wo];
+
+    if (out.inhibits <= 0)
+    {
+        log_error ("wayfire-shell: inhibit_output_done but no active inhibits?");
+        return;
+    }
+
     --out.inhibits;
+    wo->render->add_inhibit(false);
 }
 
 const struct zwf_output_v1_interface zwf_output_v1_implementation =
@@ -498,7 +504,7 @@ static void destroy_zwf_shell_manager(wl_resource *resource)
 
     for (auto& out : wayfire_shell::get_instance().clients[client].output_resources)
     {
-        while(out.second.inhibits--)
+        while(out.second.inhibits > 0)
             out.first->render->add_inhibit(false);
     }
 
