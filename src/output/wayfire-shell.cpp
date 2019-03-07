@@ -91,7 +91,11 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
     ~wayfire_shell_wm_surface()
     {
         /* Make sure we unfocus the current layer, if it was focused */
-        set_keyboard_mode(ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_NO_FOCUS);
+        if (view->get_output()) {
+            set_keyboard_mode(ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_NO_FOCUS);
+        } else if (this->focus_mode == ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS) {
+            core->focus_layer(0);
+        }
 
         view->disconnect_signal("geometry-changed", &on_geometry_changed);
         view->disconnect_signal("set-output", &on_view_output_changed);
