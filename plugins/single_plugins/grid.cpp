@@ -238,7 +238,7 @@ class wayfire_grid : public wayfire_plugin_t
                 if (!view || view->role != WF_VIEW_ROLE_TOPLEVEL)
                     return;
 
-                handle_slot(view, i);
+                handle_slot(view, i, false);
             };
 
             output->add_activator(keys[i], &bindings[i]);
@@ -251,11 +251,9 @@ class wayfire_grid : public wayfire_plugin_t
         output->connect_signal("view-fullscreen-request", &on_fullscreen_signal);
     }
 
-    void handle_slot(wayfire_view view, const wf_geometry workarea, int slot)
+    void handle_slot(wayfire_view view, const wf_geometry workarea, int slot, bool comes_from_maximize_request)
     {
         wf_geometry target = get_slot_dimensions(slot, workarea);
-        bool tiled = true;
-
         if (view->maximized && view->get_wm_geometry() == target)
         {
             return;
@@ -267,9 +265,14 @@ class wayfire_grid : public wayfire_plugin_t
         }
         else if (view->has_data<wf_grid_saved_view_geometry>() && slot == 0)
         {
-            tiled = false;
-            target = calculate_restored_geometry(
-                view->get_data_safe<wf_grid_saved_view_geometry>()->geometry);
+            target = view->get_data_safe<wf_grid_saved_view_geometry>()->geometry;
+            /* If we have a request from another plugin, for ex. move, we want
+             * to make sure the view stays under the pointer. However, when it was
+             * a normal restore caused by a client request, we want to restore the
+             * view to where it was */
+            if (!comes_from_maximize_request)
+                target = calculate_restored_geometry(target);
+
             view->erase_data<wf_grid_saved_view_geometry>();
         }
         else if (!view->has_data<wf_grid_saved_view_geometry>())
@@ -285,9 +288,9 @@ class wayfire_grid : public wayfire_plugin_t
             get_tiled_edges_for_slot(slot));
     }
 
-    void handle_slot(wayfire_view view, int slot)
+    void handle_slot(wayfire_view view, int slot, bool comes_from_maximize_request)
     {
-        handle_slot(view, output->workspace->get_workarea(), slot);
+        handle_slot(view, output->workspace->get_workarea(), slot, comes_from_maximize_request);
     }
 
     /* calculates the target geometry so that it is centered around the pointer */
@@ -368,7 +371,7 @@ class wayfire_grid : public wayfire_plugin_t
             workarea.x += vx * output_geometry.width;
             workarea.y += vy * output_geometry.height;
 
-            handle_slot(view, workarea, data->slot);
+            handle_slot(view, workarea, data->slot, false);
         }, WF_LAYER_WORKSPACE);
     };
 
@@ -384,13 +387,13 @@ class wayfire_grid : public wayfire_plugin_t
     signal_callback_t on_snap_signal = [=] (signal_data *ddata)
     {
         snap_signal *data = static_cast<snap_signal*>(ddata);
-        handle_slot(data->view, data->slot);
+        handle_slot(data->view, data->slot, false);
     };
 
     signal_callback_t on_maximize_signal = [=] (signal_data *ddata)
     {
         auto data = static_cast<view_maximized_signal*> (ddata);
-        handle_slot(data->view, data->state ? 5 : 0);
+        handle_slot(data->view, data->state ? 5 : 0, true);
     };
 
     signal_callback_t on_fullscreen_signal = [=] (signal_data *ev)
