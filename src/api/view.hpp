@@ -226,7 +226,8 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         wl_listener toplevel_handle_v1_maximize_request,
                     toplevel_handle_v1_activate_request,
                     toplevel_handle_v1_minimize_request,
-                    toplevel_handle_v1_set_rectangle_request;
+                    toplevel_handle_v1_set_rectangle_request,
+                    toplevel_handle_v1_close_request;
 
         wlr_box minimize_hint;
 

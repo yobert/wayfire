@@ -94,6 +94,14 @@ static void handle_toplevel_handle_v1_set_rectangle_request(wl_listener*, void *
     view->handle_minimize_hint(box);
 }
 
+static void handle_toplevel_handle_v1_close_request(wl_listener*, void *data)
+{
+    auto toplevel = static_cast<wlr_foreign_toplevel_handle_v1*> (data);
+    auto view = wf_view_from_void(toplevel->data);
+
+    view->close();
+}
+
 void wayfire_view_t::create_toplevel()
 {
     if (toplevel_handle)
@@ -115,6 +123,8 @@ void wayfire_view_t::create_toplevel()
         handle_toplevel_handle_v1_activate_request;
     toplevel_handle_v1_set_rectangle_request.notify =
         handle_toplevel_handle_v1_set_rectangle_request;
+    toplevel_handle_v1_close_request.notify =
+        handle_toplevel_handle_v1_close_request;
     wl_signal_add(&toplevel_handle->events.request_maximize,
         &toplevel_handle_v1_maximize_request);
     wl_signal_add(&toplevel_handle->events.request_minimize,
@@ -123,6 +133,8 @@ void wayfire_view_t::create_toplevel()
         &toplevel_handle_v1_activate_request);
     wl_signal_add(&toplevel_handle->events.set_rectangle,
         &toplevel_handle_v1_set_rectangle_request);
+    wl_signal_add(&toplevel_handle->events.request_close,
+        &toplevel_handle_v1_close_request);
 
     toplevel_send_title();
     toplevel_send_app_id();
@@ -140,6 +152,7 @@ void wayfire_view_t::destroy_toplevel()
     wl_list_remove(&toplevel_handle_v1_activate_request.link);
     wl_list_remove(&toplevel_handle_v1_minimize_request.link);
     wl_list_remove(&toplevel_handle_v1_set_rectangle_request.link);
+    wl_list_remove(&toplevel_handle_v1_close_request.link);
 
     wlr_foreign_toplevel_handle_v1_destroy(toplevel_handle);
     toplevel_handle = NULL;
