@@ -23,7 +23,7 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
     effect_hook_t pre_hook;
     signal_callback_t unmapped;
 
-    bool tiled;
+    uint32_t tiled_edges;
     wf_geometry target, initial;
     wayfire_grab_interface iface;
     wf_option animation_type;
@@ -66,11 +66,11 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
         view->erase_data<wayfire_grid_view_cdata>();
     }
 
-    void adjust_target_geometry(wf_geometry geometry, bool tiled)
+    void adjust_target_geometry(wf_geometry geometry, uint32_t tiled_edges)
     {
         target = geometry;
         initial = view->get_wm_geometry();
-        this->tiled = tiled;
+        this->tiled_edges = tiled_edges;
 
         auto type = animation_type->as_string();
         if (view->get_transformer("wobbly") || !is_active)
@@ -78,19 +78,16 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
 
         if (type == "none")
         {
-            view->set_maximized(tiled);
-            view->set_geometry(geometry);
-
+            set_end_state(geometry, tiled_edges);
             return destroy();
         }
 
         if (type == "wobbly")
         {
             snap_wobbly(view, geometry);
-            view->set_maximized(tiled);
-            view->set_geometry(geometry);
+            set_end_state(geometry, tiled_edges);
 
-            if (!tiled) // release snap, so subsequent size changes don't bother us
+            if (!tiled_edges) // release snap, so subsequent size changes don't bother us
                 snap_wobbly(view, geometry, false);
 
             return destroy();
@@ -102,12 +99,25 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
         duration.start();
     }
 
+    void set_end_state(wf_geometry geometry, uint32_t edges)
+    {
+        view->set_geometry(geometry);
+        if (__builtin_popcount(edges) == 4)
+        {
+            view->set_maximized(true);
+        } else
+        {
+            view->set_maximized(false);
+        }
+
+        view->set_tiled(edges);
+    }
+
     void adjust_geometry()
     {
         if (!duration.running())
         {
-            view->set_geometry(target);
-            view->set_maximized(tiled);
+            set_end_state(target, tiled_edges);
             view->set_moving(0);
             view->set_resizing(0);
 
@@ -158,8 +168,28 @@ class wf_grid_saved_view_geometry : public wf_custom_data_t
 {
     public:
     wf_geometry geometry;
-    bool was_maximized; // used by fullscreen-request
+    uint32_t tiled_edges;
 };
+
+static uint32_t get_tiled_edges_for_slot(uint32_t slot)
+{
+    if (slot == 0)
+        return 0;
+    if (slot == SLOT_CENTER)
+        return WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT | WLR_EDGE_RIGHT;
+
+    uint32_t edges = 0;
+    if (slot < 4)
+        edges |= WLR_EDGE_BOTTOM;
+    if (slot >= 7)
+        edges |= WLR_EDGE_TOP;
+    if (slot % 3 == 1)
+        edges |= WLR_EDGE_LEFT;
+    if (slot % 3 == 0)
+        edges |= WLR_EDGE_RIGHT;
+
+    return edges;
+}
 
 class wayfire_grid : public wayfire_plugin_t
 {
@@ -208,7 +238,7 @@ class wayfire_grid : public wayfire_plugin_t
                 if (!view || view->role != WF_VIEW_ROLE_TOPLEVEL)
                     return;
 
-                handle_slot(view, i);
+                handle_slot(view, i, false);
             };
 
             output->add_activator(keys[i], &bindings[i]);
@@ -221,11 +251,9 @@ class wayfire_grid : public wayfire_plugin_t
         output->connect_signal("view-fullscreen-request", &on_fullscreen_signal);
     }
 
-    void handle_slot(wayfire_view view, const wf_geometry workarea, int slot)
+    void handle_slot(wayfire_view view, const wf_geometry workarea, int slot, bool comes_from_maximize_request)
     {
         wf_geometry target = get_slot_dimensions(slot, workarea);
-        bool tiled = true;
-
         if (view->maximized && view->get_wm_geometry() == target)
         {
             return;
@@ -237,25 +265,32 @@ class wayfire_grid : public wayfire_plugin_t
         }
         else if (view->has_data<wf_grid_saved_view_geometry>() && slot == 0)
         {
-            tiled = false;
-            target = calculate_restored_geometry(
-                view->get_data_safe<wf_grid_saved_view_geometry>()->geometry);
+            target = view->get_data_safe<wf_grid_saved_view_geometry>()->geometry;
+            /* If we have a request from another plugin, for ex. move, we want
+             * to make sure the view stays under the pointer. However, when it was
+             * a normal restore caused by a client request, we want to restore the
+             * view to where it was */
+            if (!comes_from_maximize_request)
+                target = calculate_restored_geometry(target);
+
             view->erase_data<wf_grid_saved_view_geometry>();
         }
         else if (!view->has_data<wf_grid_saved_view_geometry>())
         {
             view->set_maximized(slot > 0 ? true : false);
+            view->set_tiled(0);
             view->request_native_size();
             return;
         }
 
         view->get_data_safe<wf_grid_slot_data>()->slot = slot;
-        ensure_grid_view(view)->adjust_target_geometry(target, tiled);
+        ensure_grid_view(view)->adjust_target_geometry(target,
+            get_tiled_edges_for_slot(slot));
     }
 
-    void handle_slot(wayfire_view view, int slot)
+    void handle_slot(wayfire_view view, int slot, bool comes_from_maximize_request)
     {
-        handle_slot(view, output->workspace->get_workarea(), slot);
+        handle_slot(view, output->workspace->get_workarea(), slot, comes_from_maximize_request);
     }
 
     /* calculates the target geometry so that it is centered around the pointer */
@@ -315,7 +350,7 @@ class wayfire_grid : public wayfire_plugin_t
 
             /* Detect if the view was maximized outside of the grid plugin */
             auto wm = view->get_wm_geometry();
-            if (view->maximized && wm.width == ev->old_workarea.width
+            if (view->tiled_edges && wm.width == ev->old_workarea.width
                 && wm.height == ev->old_workarea.height)
             {
                 data->slot = SLOT_CENTER;
@@ -336,7 +371,7 @@ class wayfire_grid : public wayfire_plugin_t
             workarea.x += vx * output_geometry.width;
             workarea.y += vy * output_geometry.height;
 
-            handle_slot(view, workarea, data->slot);
+            handle_slot(view, workarea, data->slot, false);
         }, WF_LAYER_WORKSPACE);
     };
 
@@ -352,13 +387,13 @@ class wayfire_grid : public wayfire_plugin_t
     signal_callback_t on_snap_signal = [=] (signal_data *ddata)
     {
         snap_signal *data = static_cast<snap_signal*>(ddata);
-        handle_slot(data->view, data->tslot);
+        handle_slot(data->view, data->slot, false);
     };
 
     signal_callback_t on_maximize_signal = [=] (signal_data *ddata)
     {
         auto data = static_cast<view_maximized_signal*> (ddata);
-        handle_slot(data->view, data->state ? 5 : 0);
+        handle_slot(data->view, data->state ? 5 : 0, true);
     };
 
     signal_callback_t on_fullscreen_signal = [=] (signal_data *ev)
@@ -374,11 +409,11 @@ class wayfire_grid : public wayfire_plugin_t
                     (fs_data_name);
 
                 sg->geometry = data->view->get_wm_geometry();
-                sg->was_maximized = data->view->maximized;
+                sg->tiled_edges = data->view->tiled_edges;
             }
 
             ensure_grid_view(data->view)->adjust_target_geometry(
-                output->get_relative_geometry(), true);
+                output->get_relative_geometry(), 0);
             data->view->set_fullscreen(true);
         } else
         {
@@ -388,11 +423,11 @@ class wayfire_grid : public wayfire_plugin_t
                     (fs_data_name);
 
                 auto target_geometry = sg->geometry;
-                auto maximized = sg->was_maximized;
+                auto edges = sg->tiled_edges;
                 data->view->erase_data(fs_data_name);
 
                 ensure_grid_view(data->view)->adjust_target_geometry(
-                    target_geometry, maximized);
+                    target_geometry, edges);
             }
 
             data->view->set_fullscreen(false);

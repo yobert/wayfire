@@ -206,6 +206,8 @@ class wayfire_resize : public wayfire_plugin_t
             view->set_fullscreen(false);
         if (view->maximized)
             view->set_maximized(false);
+        if (view->tiled_edges)
+            view->set_tiled(0);
 
         if (edges == 0) /* simply deactivate */
             input_pressed(WL_POINTER_BUTTON_STATE_RELEASED);

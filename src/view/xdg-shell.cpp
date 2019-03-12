@@ -321,6 +321,12 @@ void wayfire_xdg_view::activate(bool act)
     wayfire_view_t::activate(act);
 }
 
+void wayfire_xdg_view::set_tiled(uint32_t edges)
+{
+    wlr_xdg_toplevel_set_tiled(xdg_surface, edges);
+    this->tiled_edges = edges;
+}
+
 void wayfire_xdg_view::set_maximized(bool max)
 {
     wayfire_view_t::set_maximized(max);

@@ -177,7 +177,6 @@ modelSetMiddleAnchor (Model *model,
 		      int   width,
 		      int   height)
 {
-    fprintf(stderr, "set middle anchor");
     float gx, gy;
 
     gx = ((GRID_WIDTH  - 1) / 2 * width)  / (float) (GRID_WIDTH  - 1);
@@ -221,10 +220,7 @@ modelInitObjects (Model *model,
     }
 
     if (!model->anchorObject)
-    {
-        fprintf(stderr, "init model");
         modelSetMiddleAnchor (model, x, y, width, height);
-    }
 }
 
 static void
@@ -478,7 +474,7 @@ modelFindNearestObject (Model *model,
 {
     Object *object = &model->objects[0];
     float  distance, minDistance = 0.0;
-    int    i, final_i;
+    int    i;
 
     for (i = 0; i < model->numObjects; i++)
     {
@@ -487,11 +483,9 @@ modelFindNearestObject (Model *model,
 	{
 	    minDistance = distance;
 	    object = &model->objects[i];
-        final_i = i;
 	}
     }
 
-    fprintf(stderr, "choosing a final i %d", final_i);
     return object;
 }
 
@@ -810,7 +804,6 @@ void wobbly_unenforce_geometry(struct wobbly_surface *surface)
 
     if (wobblyEnsureModel(surface))
     {
-        fprintf(stderr, "unenfoce");
         if (modelRemoveEdgeAnchors(ww->model))
         {
             modelSetMiddleAnchor(ww->model, surface->x, surface->y, surface->width, surface->height);
