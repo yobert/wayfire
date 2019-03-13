@@ -1,4 +1,5 @@
 #include "cursor.hpp"
+#include "touch.hpp"
 #include "core.hpp"
 #include "input-manager.hpp"
 #include "workspace-manager.hpp"
@@ -10,6 +11,11 @@ static void handle_pointer_button_cb(wl_listener*, void *data)
     auto ev = static_cast<wlr_event_pointer_button*> (data);
     if (!core->input->handle_pointer_button(ev))
     {
+        /* start a button held grab, so that the window will receive all the
+         * subsequent events, no matter what happens */
+        if (core->input->cursor->count_pressed_buttons == 1 && core->get_cursor_focus())
+            core->input->cursor->start_held_grab(core->get_cursor_focus());
+
         wlr_seat_pointer_notify_button(core->input->seat, ev->time_msec,
             ev->button, ev->state);
     }
@@ -93,11 +99,13 @@ bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
     std::vector<std::function<void()>> callbacks;
     if (ev->state == WLR_BUTTON_PRESSED)
     {
-        count_other_inputs++;
-
-        GetTuple(gx, gy, core->get_cursor_position());
-        auto output = core->get_output_at(gx, gy);
-        core->focus_output(output);
+        cursor->count_pressed_buttons++;
+        if (cursor->count_pressed_buttons == 1)
+        {
+            GetTuple(gx, gy, core->get_cursor_position());
+            auto output = core->get_output_at(gx, gy);
+            core->focus_output(output);
+        }
 
         GetTuple(ox, oy, core->get_active_output()->get_cursor_position());
 
@@ -134,7 +142,9 @@ bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
     }
     else
     {
-        count_other_inputs--;
+        cursor->count_pressed_buttons--;
+        if (cursor->count_pressed_buttons == 0)
+            cursor->end_held_grab();
     }
 
     if (active_grab)
@@ -182,17 +192,37 @@ void input_manager::update_cursor_focus(wayfire_surface_t *focus, int x, int y)
 void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 {
     GetTuple(x, y, core->get_cursor_position());
-    if (input_grabbed() && real_update)
+    if (input_grabbed())
     {
         GetTuple(sx, sy, core->get_active_output()->get_cursor_position());
-        if (active_grab->callbacks.pointer.motion)
+        if (active_grab->callbacks.pointer.motion && real_update)
             active_grab->callbacks.pointer.motion(sx, sy);
+
         return;
     }
 
     int lx, ly;
-    wayfire_surface_t *new_focus = input_surface_at(x, y, lx, ly);
-    update_cursor_focus(new_focus, lx, ly);
+    wayfire_surface_t *new_focus = nullptr;
+    /* If we have a grabbed surface, but no drag, we want to continue sending
+     * events to the grabbed surface, even if the pointer goes outside of it.
+     * This enables Xwayland DnD to work correctly, and also lets the user for
+     * ex. grab a scrollbar and move their mouse freely.
+     *
+     * Notice in case of active wayland DnD we need to send events to the surfaces
+     * which are actually under the mouse */
+    if (cursor->grabbed_surface && !this->drag_icon)
+    {
+        new_focus = cursor->grabbed_surface;
+        GetTuple(ox, oy, cursor->grabbed_surface->get_output()->get_cursor_position());
+        auto local = cursor->grabbed_surface->get_relative_position({ox, oy});
+
+        lx = local.x;
+        ly = local.y;
+    } else
+    {
+        new_focus = input_surface_at(x, y, lx, ly);
+        update_cursor_focus(new_focus, lx, ly);
+    }
 
     auto compositor_surface = wf_compositor_surface_from_surface(new_focus);
     if (compositor_surface)
@@ -204,7 +234,7 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
         wlr_seat_pointer_notify_motion(core->input->seat, time_msec, lx, ly);
     }
 
-    update_drag_icons();
+    update_drag_icon();
 }
 
 void input_manager::handle_pointer_motion(wlr_event_pointer_motion *ev)
@@ -399,6 +429,20 @@ void wf_cursor::set_cursor(wlr_seat_pointer_request_set_cursor_event *ev)
 
     if (client == ev->seat_client->client && !core->input->input_grabbed())
         wlr_cursor_set_surface(cursor, ev->surface, ev->hotspot_x, ev->hotspot_y);
+}
+
+void wf_cursor::start_held_grab(wayfire_surface_t *surface)
+{
+    grabbed_surface = surface;
+}
+
+void wf_cursor::end_held_grab()
+{
+    if (grabbed_surface)
+    {
+        grabbed_surface = nullptr;
+        core->input->update_cursor_position(get_current_time(), false);
+    }
 }
 
 wf_cursor::~wf_cursor()
