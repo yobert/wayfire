@@ -270,7 +270,11 @@ void wayfire_core::add_output(wlr_output *output)
 
     wayfire_output *wo = outputs[output] = new wayfire_output(output, config);
     wo->id = _last_output_id++;
-    focus_output(wo);
+
+    /* Focus the first output, but do not change the focus on subsequently
+     * added outputs */
+    if (outputs.size() == 1)
+        focus_output(wo);
 
     wo->connect_signal("_surface_mapped", &input->surface_map_state_changed);
     wo->connect_signal("_surface_unmapped", &input->surface_map_state_changed);
