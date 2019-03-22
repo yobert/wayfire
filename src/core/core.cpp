@@ -532,6 +532,7 @@ void wayfire_core::run(const char *command)
      * otherwise they will simply stay as zombie processes */
     if (!pid) {
         if (!fork()) {
+            setenv("_JAVA_AWT_WM_NONREPARENTING", "1", 1);
             setenv("WAYLAND_DISPLAY", wayland_display.c_str(), 1);
 #if WLR_HAS_XWAYLAND
             auto xdisp = ":" + xwayland_get_display();
