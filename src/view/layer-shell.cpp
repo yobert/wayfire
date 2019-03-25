@@ -359,7 +359,7 @@ void wayfire_layer_shell_view::close()
 
 wlr_surface *wayfire_layer_shell_view::get_keyboard_focus_surface()
 {
-    if (lsurface->current.keyboard_interactive)
+    if (_is_mapped && lsurface->current.keyboard_interactive)
         return surface;
     return nullptr;
 }

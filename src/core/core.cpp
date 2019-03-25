@@ -486,11 +486,9 @@ int wayfire_core::focus_layer(uint32_t layer, int32_t request_uid_hint)
     auto request_uid = request_uid_hint < 0 ?
         ++last_request_uid : request_uid_hint;
     layer_focus_requests.insert({layer, request_uid});
-
-    if (get_focused_layer() > 0)
-        active_output->refocus();
-
     log_debug("focusing layer %d", get_focused_layer());
+
+    active_output->refocus();
     return request_uid;
 }
 
@@ -510,6 +508,8 @@ void wayfire_core::unfocus_layer(int request)
         {
             layer_focus_requests.erase(freq);
             log_debug("focusing layer %d", get_focused_layer());
+
+            active_output->refocus(nullptr);
             return;
         }
     }

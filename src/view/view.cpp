@@ -1112,8 +1112,6 @@ void wayfire_view_t::unmap()
     for (auto c : copy)
         c->set_toplevel_parent(nullptr);
 
-    log_info("unmap %s %s %p", get_title().c_str(), get_app_id().c_str(), this);
-
     emit_view_unmap(self());
     wayfire_surface_t::unmap();
 }
