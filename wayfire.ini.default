@@ -15,8 +15,8 @@ close_top_view = <super> KEY_Q | <alt> KEY_FN_F4
 # by default, wayfire tries to run the clients from
 # https://github.com/WayfireWM/wf-shell
 [autostart]
-background = /usr/bin/wf-background
-panel = /usr/bin/wf-panel
+background = wf-background
+panel = wf-panel
 
 # run a certain application when the user presses a keybinding
 # useful to setup a screenshot, brightness control, sound control bindings
