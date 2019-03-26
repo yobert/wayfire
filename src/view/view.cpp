@@ -83,6 +83,7 @@ static void handle_toplevel_handle_v1_set_rectangle_request(wl_listener*, void *
     {
         log_info("Minimize hint set to surface on a different output, "
             "problems might arise");
+        /* TODO: translate coordinates in case minimize hint is on another output */
     }
 
     auto box = surface->get_output_geometry();
@@ -574,22 +575,20 @@ void wayfire_view_t::set_minimized(bool minim)
          * Because the minimized layer doesn't move when switching workspaces,
          * we know that making it "visible" in the minimize layer will ensure
          * it is visible when we restore it */
-        auto bbox = get_bounding_box();
-        auto workspace = output->get_relative_geometry();
+        auto box = get_wm_geometry();
+        auto visible = output->get_relative_geometry();
 
-        if (!(bbox & workspace))
+        if (!(box & visible))
         {
             /* Make the center of the view on the current workspace */
-            int cx = bbox.x + bbox.width / 2;
-            int cy = bbox.y + bbox.height / 2;
+            int cx = box.x + box.width / 2;
+            int cy = box.y + box.height / 2;
 
-            int width = workspace.width, height = workspace.height;
+            int width = visible.width, height = visible.height;
             /* compute center coordinates when moved to the current workspace */
             int local_cx = (cx % width + width) % width;
             int local_cy = (cy % height + height) % height;
-
-            auto wm_geometry = get_wm_geometry();
-            move(wm_geometry.x + local_cx - cx, wm_geometry.y + local_cy - cy);
+            move(box.x + local_cx - cx, box.y + local_cy - cy);
         }
     } else
     {
