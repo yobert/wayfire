@@ -151,7 +151,6 @@ void wayfire_handle_focus_parent::init(wayfire_config*)
         if (!view || intercept_recursion)
             return;
 
-
         auto to_focus = view;
         while(to_focus->parent)
             to_focus = to_focus->parent;

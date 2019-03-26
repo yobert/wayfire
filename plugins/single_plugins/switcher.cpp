@@ -611,12 +611,8 @@ class WayfireSwitcher : public wayfire_plugin_t
             view->render_fb(fb.get_damage_region(), fb);
 
         /* Render in the reverse order because we don't use depth testing */
-        auto it = views.rbegin();
-        while (it != views.rend())
-        {
-            render_view(*it, fb);
-            ++it;
-        }
+        for (auto& view : wf::reverse(views))
+            render_view(view, fb);
 
         for (auto view : get_overlay_views())
             view->render_fb(fb.get_damage_region(), fb);

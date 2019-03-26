@@ -215,12 +215,8 @@ void viewport_manager::add_view_to_layer(wayfire_view view, uint32_t layer)
         auto views = get_views_on_workspace(get_current_workspace(),
             WF_LAYER_FULLSCREEN, true);
 
-        auto it = views.rbegin();
-        while (it != views.rend())
-        {
-            _add_view_to_layer(*it, WF_LAYER_WORKSPACE);
-            ++it;
-        }
+        for (auto& v : wf::reverse(views))
+            _add_view_to_layer(v, WF_LAYER_WORKSPACE);
 
         return _add_view_to_layer(view, layer);
     }
@@ -293,9 +289,8 @@ void viewport_manager::for_each_view_reverse(view_callback_proc_t call, uint32_t
                 views.push_back(v);
     }
 
-    auto it = views.rbegin();
-    while(it != views.rend())
-        call(*it++);
+    for (auto& view : wf::reverse(views))
+        call(view);
 }
 
 wf_workspace_implementation* viewport_manager::get_implementation(std::tuple<int, int> vt)
@@ -365,11 +360,10 @@ void viewport_manager::set_workspace(std::tuple<int, int> nPos)
     /* we iterate through views on current viewport from bottom to top
      * that way we ensure that they will be focused befor all others */
     auto views = get_views_on_workspace(std::make_tuple(vx, vy), WF_MIDDLE_LAYERS, true);
-    auto it = views.rbegin();
-    while(it != views.rend()) {
-        if ((*it)->is_mapped() && !(*it)->destroyed)
-            output->focus_view(*it);
-        ++it;
+    for (auto& view : wf::reverse(views))
+    {
+        if (view->is_mapped() && !view->destroyed)
+            output->focus_view(view);
     }
 
     check_lower_panel_layer(0);

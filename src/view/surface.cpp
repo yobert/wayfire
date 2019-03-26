@@ -394,41 +394,29 @@ void wayfire_surface_t::set_output(wayfire_output *out)
 void wayfire_surface_t::for_each_surface_recursive(wf_surface_iterator_callback call,
                                                    int x, int y, bool reverse)
 {
+    if (!is_mapped())
+        return;
+
+    auto handle_child = [&] (wayfire_surface_t *child)
+    {
+        if (!child->is_mapped())
+            return;
+
+        int dx, dy;
+        child->get_child_position(dx, dy);
+        child->for_each_surface_recursive(call, x + dx, y + dy, reverse);
+    };
+
     if (reverse)
     {
-        if (is_mapped())
-            call(this, x, y);
-
-        int dx, dy;
-
-        for (auto c : surface_children)
-        {
-            if (!c->is_mapped())
-                continue;
-
-            c->get_child_position(dx, dy);
-            c->for_each_surface_recursive(call, x + dx, y + dy, reverse);
-        }
+        call(this, x, y);
+        for (auto& c : surface_children)
+            handle_child(c);
     } else
     {
-        auto it = surface_children.rbegin();
-        int dx, dy;
-
-        while(it != surface_children.rend())
-        {
-            auto& c = *it;
-
-            if (c->is_mapped())
-            {
-                c->get_child_position(dx, dy);
-                c->for_each_surface_recursive(call, x + dx, y + dy, reverse);
-            }
-
-            ++it;
-        }
-
-        if (is_mapped())
-            call(this, x, y);
+        for (auto& c : wf::reverse(surface_children))
+            handle_child(c);
+        call(this, x, y);
     }
 }
 

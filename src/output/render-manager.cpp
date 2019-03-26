@@ -692,15 +692,10 @@ void render_manager::workspace_stream_update(wf_workspace_stream *stream,
     }
     OpenGL::render_end();
 
-    auto rev_it = to_render.rbegin();
-    while(rev_it != to_render.rend())
+    for (auto& ds : wf::reverse(to_render))
     {
-        auto ds = std::move(*rev_it);
-
         fb.geometry.x = ds->x; fb.geometry.y = ds->y;
         ds->surface->render_fb(ds->damage, fb);
-
-        ++rev_it;
     }
 
    // std::swap(wayfire_view_transform::global_scale, scale);

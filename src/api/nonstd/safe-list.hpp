@@ -8,6 +8,8 @@
 
 #include <wayland-server.h>
 
+#include "reverse.hpp"
+
 /* This is a trimmed-down wrapper of std::list<T>.
  *
  * It supports safe iteration over all elements in the collection, where any
@@ -182,15 +184,12 @@ namespace wf
         /* Call func for each non-erased element of the list in reversed order */
         void for_each_reverse(std::function<void(T&)> func) const
         {
-            auto it = list.rbegin();
-            while (it != list.rend())
+            for (auto& el : wf::reverse(list))
             {
                 /* The loop here is safe, because no elements will be erased
                  * util the event loop goes idle */
-                if (*it)
-                    func(**it);
-
-                ++it;
+                if (el)
+                    func(*el);
             }
         }
 
