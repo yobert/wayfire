@@ -25,6 +25,11 @@ void wayfire_exit::init(wayfire_config*)
     output->add_key(new_static_option("<ctrl> <alt> KEY_BACKSPACE"), &key);
 }
 
+void wayfire_exit::fini()
+{
+    output->rem_binding(&key);
+}
+
 void wayfire_close::init(wayfire_config *config)
 {
     grab_interface->abilities_mask = WF_ABILITY_GRAB_INPUT;
@@ -42,6 +47,11 @@ void wayfire_close::init(wayfire_config *config)
     };
 
     output->add_activator(key, &callback);
+}
+
+void wayfire_close::fini()
+{
+    output->rem_binding(&callback);
 }
 
 void wayfire_focus::init(wayfire_config *)
@@ -135,6 +145,13 @@ void wayfire_focus::set_last_focus(wayfire_view view)
     }
 }
 
+void wayfire_focus::fini()
+{
+    output->rem_binding(&on_button);
+    output->rem_binding(&on_touch);
+    set_last_focus(nullptr);
+}
+
 void wayfire_handle_focus_parent::focus_view(wayfire_view view)
 {
     last_view = view;
@@ -168,4 +185,9 @@ void wayfire_handle_focus_parent::init(wayfire_config*)
         last_view.reset();
     };
     output->connect_signal("focus-view", &focus_event);
+}
+
+void wayfire_handle_focus_parent::fini()
+{
+    output->disconnect_signal("focus-view", &focus_event);
 }

@@ -7,7 +7,8 @@
 class wayfire_close : public wayfire_plugin_t {
     activator_callback callback;
     public:
-        void init(wayfire_config*);
+        void init(wayfire_config*) override;
+        void fini() override;
 };
 
 class wayfire_focus : public wayfire_plugin_t {
@@ -22,13 +23,15 @@ class wayfire_focus : public wayfire_plugin_t {
     void check_focus_surface(wayfire_surface_t *surface);
 
     public:
-        void init(wayfire_config*);
+        void init(wayfire_config*) override;
+        void fini() override;
 };
 
 class wayfire_exit : public wayfire_plugin_t {
     key_callback key;
     public:
-        void init(wayfire_config*);
+        void init(wayfire_config*) override;
+        void fini() override;
 };
 
 class wayfire_handle_focus_parent : public wayfire_plugin_t {
@@ -39,7 +42,8 @@ class wayfire_handle_focus_parent : public wayfire_plugin_t {
     bool intercept_recursion = false;
 
     public:
-    void init(wayfire_config *config);
+    void init(wayfire_config *config) override;
+    void fini() override;
 };
 
 #endif

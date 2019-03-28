@@ -302,7 +302,24 @@ void wayfire_output::refocus(wayfire_view skip_view)
 {
     uint32_t focused_layer = core->get_focused_layer();
     uint32_t layers = focused_layer <= WF_LAYER_WORKSPACE ?
-        WF_WM_LAYERS : wf_all_layers_not_below(focused_layer);
+        WF_WM_LAYERS : focused_layer;
+
+    auto views = workspace->get_views_on_workspace(
+        workspace->get_current_workspace(), layers, true);
+
+    if (views.empty())
+    {
+        if (core->get_active_output() == this)
+            log_debug("warning: no focused views in the focused layer, probably a bug");
+
+        /* Usually, we focus a layer so that a particular view has focus, i.e
+         * we expect that there is a view in the focused layer. However we
+         * should try to find reasonable focus in any focuseable layers if
+         * that is not the case, for ex. if there is a focused layer by a
+         * layer surface on another output */
+        layers = wf_all_layers_not_below(focused_layer);
+    }
+
     refocus(skip_view, layers);
 }
 

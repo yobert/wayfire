@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <map>
+#include <set>
 #include <nonstd/observer_ptr.h>
 
 extern "C"
@@ -72,7 +73,8 @@ class wayfire_core : public wf_object_base
         void configure(wayfire_config *config);
 
         int times_wake = 0;
-        uint32_t focused_layer = 0;
+        /* pairs (layer, request_id) */
+        std::set<std::pair<uint32_t, int>> layer_focus_requests;
 
     public:
         std::map<wlr_surface*, uint32_t> uses_csd;
@@ -169,7 +171,15 @@ class wayfire_core : public wf_object_base
 
         void for_each_output(output_callback_proc);
 
-        void focus_layer(uint32_t layer);
+        /* Add a request to focus the given layer, or update an existing request.
+         * Returns the UID of the request which was added/modified.
+         *
+         * Calling this with request >= 0 will have no effect if the given
+         * request doesn't exist, in which case -1 is returned */
+        int focus_layer(uint32_t layer, int request);
+        /* Removes a request from the list. No-op for requests that do not exist
+         * currently or for request < 0 */
+        void unfocus_layer(int request);
         uint32_t get_focused_layer();
 
         void run(const char *command);

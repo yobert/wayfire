@@ -463,19 +463,56 @@ void wayfire_core::for_each_output(output_callback_proc call)
         call(o.second);
 }
 
-void wayfire_core::focus_layer(uint32_t layer)
+int wayfire_core::focus_layer(uint32_t layer, int32_t request_uid_hint)
 {
-    if (get_focused_layer() == layer)
-        return;
+    static int32_t last_request_uid = -1;
+    if (request_uid_hint >= 0)
+    {
+        /* Remove the old request, and insert the new one */
+        uint32_t old_layer = -1;
+        for (auto& req : layer_focus_requests)
+        {
+            if (req.second == request_uid_hint)
+                old_layer = req.first;
+        }
 
-    focused_layer = layer;
-    if (focused_layer > 0)
-        active_output->refocus();
+        /* Request UID isn't valid */
+        if (old_layer == (uint32_t)-1)
+            return -1;
+
+        layer_focus_requests.erase({old_layer, request_uid_hint});
+    }
+
+    auto request_uid = request_uid_hint < 0 ?
+        ++last_request_uid : request_uid_hint;
+    layer_focus_requests.insert({layer, request_uid});
+    log_debug("focusing layer %d", get_focused_layer());
+
+    active_output->refocus();
+    return request_uid;
 }
 
 uint32_t wayfire_core::get_focused_layer()
 {
-    return focused_layer;
+    if (layer_focus_requests.empty())
+        return 0;
+
+    return (--layer_focus_requests.end())->first;
+}
+
+void wayfire_core::unfocus_layer(int request)
+{
+    for (auto& freq : layer_focus_requests)
+    {
+        if (freq.second == request)
+        {
+            layer_focus_requests.erase(freq);
+            log_debug("focusing layer %d", get_focused_layer());
+
+            active_output->refocus(nullptr);
+            return;
+        }
+    }
 }
 
 void wayfire_core::add_view(std::unique_ptr<wayfire_view_t> view)

@@ -59,6 +59,7 @@ class viewport_manager : public workspace_manager
         virtual ~viewport_manager();
 
         bool view_visible_on(wayfire_view, std::tuple<int, int>);
+        bool view_visible_on(wayfire_view, std::tuple<int, int>, bool use_bbox);
 
         std::vector<wayfire_view>
             get_views_on_workspace(std::tuple<int, int> ws, uint32_t layer_mask, bool wm_only);
@@ -163,10 +164,7 @@ void viewport_manager::_add_view_to_layer(wayfire_view view, uint32_t layer)
     assert(layer == 0 || layer == uint32_t(-1) ||
         (__builtin_popcount(layer) == 1 && layer < (1 << WF_TOTAL_LAYERS)));
 
-    log_info("add to layer %d", layer);
-
     view->damage();
-
     auto& current_layer = _get_view_layer(view);
 
     /* Just remove from layer */
@@ -248,6 +246,11 @@ uint32_t viewport_manager::get_view_layer(wayfire_view view)
 
 bool viewport_manager::view_visible_on(wayfire_view view, std::tuple<int, int> vp)
 {
+    return view_visible_on(view, vp, true);
+}
+
+bool viewport_manager::view_visible_on(wayfire_view view, std::tuple<int, int> vp, bool use_bbox)
+{
     GetTuple(tx, ty, vp);
 
     auto g = output->get_relative_geometry();
@@ -257,7 +260,7 @@ bool viewport_manager::view_visible_on(wayfire_view view, std::tuple<int, int> v
         g.y += (ty - vy) * g.height;
     }
 
-    if (view->has_transformer())
+    if (view->has_transformer() & use_bbox)
         return view->intersects_region(g);
     else
         return g & view->get_wm_geometry();
@@ -382,15 +385,8 @@ viewport_manager::get_views_on_workspace(std::tuple<int, int> vp,
         {
             for (auto v : layers[i])
             {
-                if (wm_only &&
-                    (output->get_relative_geometry() & v->get_wm_geometry()))
-                {
+                if (view_visible_on(v, vp, !wm_only))
                     views.push_back(v);
-                }
-                else if (!wm_only && view_visible_on(v, vp))
-                {
-                    views.push_back(v);
-                }
             }
         }
     }

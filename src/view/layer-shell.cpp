@@ -37,7 +37,6 @@ static uint32_t zwlr_layer_to_wf_layer(zwlr_layer_shell_v1_layer layer)
 
 class wayfire_layer_shell_view : public wayfire_view_t
 {
-    bool first_map = true;
     wl_listener map_ev, unmap_ev, destroy_ev, new_popup;
     public:
         wlr_layer_surface_v1 *lsurface;
@@ -240,6 +239,16 @@ struct wf_layer_shell_manager
         return focus_mask;
     }
 
+    void arrange_unmapped_view(wayfire_layer_shell_view* view)
+    {
+        if (view->lsurface->client_pending.exclusive_zone < 1)
+            return pin_view(view, view->get_output()->workspace->get_workarea());
+
+        set_exclusive_zone(view);
+        view->get_output()->workspace->reflow_reserved_areas();
+    }
+
+    uint32_t focused_layer_request_uid = -1;
     void arrange_layers(wayfire_output *output)
     {
         auto views = filter_views(output);
@@ -250,7 +259,8 @@ struct wf_layer_shell_manager
         uint32_t focus4 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND);
 
         auto focus_mask = std::max({focus1, focus2, focus3, focus4});
-        core->focus_layer(focus_mask);
+        focused_layer_request_uid = core->focus_layer(focus_mask,
+            focused_layer_request_uid);
         output->workspace->reflow_reserved_areas();
     }
 };
@@ -301,7 +311,7 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
     wl_signal_add(&lsurface->events.new_popup, &new_popup);
     wl_signal_add(&lsurface->events.destroy,   &destroy_ev);
 
-    layer_shell_manager.handle_map(this);
+    layer_shell_manager.arrange_unmapped_view(this);
 }
 
 void wayfire_layer_shell_view::destroy()
@@ -320,16 +330,7 @@ void wayfire_layer_shell_view::map(wlr_surface *surface)
         zwlr_layer_to_wf_layer(lsurface->layer));
 
     wayfire_view_t::map(surface);
-
-    /* we already called handle_map in constructor to get proper size */
-    /* TODO: maybe we can circumvent this? */
-    if (!first_map)
-        layer_shell_manager.handle_map(this);
-
-    first_map = false;
-
-    if (lsurface->current.keyboard_interactive)
-        output->focus_view(self());
+    layer_shell_manager.handle_map(this);
 }
 
 void wayfire_layer_shell_view::unmap()
@@ -358,7 +359,7 @@ void wayfire_layer_shell_view::close()
 
 wlr_surface *wayfire_layer_shell_view::get_keyboard_focus_surface()
 {
-    if (lsurface->current.keyboard_interactive)
+    if (_is_mapped && lsurface->current.keyboard_interactive)
         return surface;
     return nullptr;
 }

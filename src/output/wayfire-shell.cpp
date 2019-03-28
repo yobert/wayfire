@@ -75,6 +75,14 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
     /* width/height with which the view position was last calculated */
     int32_t previous_width = 0, previous_height = 0;
 
+    /* Requested layer focus in core */
+    int32_t layer_focus_request = -1;
+    inline void drop_focus_request()
+    {
+        core->unfocus_layer(layer_focus_request);
+        layer_focus_request = -1;
+    }
+
     public:
     wayfire_shell_wm_surface(wayfire_output *output, wayfire_view view)
     {
@@ -91,11 +99,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
     ~wayfire_shell_wm_surface()
     {
         /* Make sure we unfocus the current layer, if it was focused */
-        if (view->get_output()) {
-            set_keyboard_mode(ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_NO_FOCUS);
-        } else if (this->focus_mode == ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS) {
-            core->focus_layer(0);
-        }
+        drop_focus_request();
 
         view->disconnect_signal("geometry-changed", &on_geometry_changed);
         view->disconnect_signal("set-output", &on_view_output_changed);
@@ -131,7 +135,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         if (focus_mode == ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS
             && view->get_output() == nullptr)
         {
-            core->focus_layer(0);
+            drop_focus_request();
             focus_mode = ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_CLICK_TO_FOCUS;
         }
     };
@@ -242,10 +246,13 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         if (focus_mode == new_mode)
             return;
 
+        if (this->focus_mode == ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS)
+            drop_focus_request();
+
+        this->focus_mode = new_mode;
         switch(new_mode)
         {
             case ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_NO_FOCUS:
-                log_info("set no focus");
                 view->set_keyboard_focus_enabled(false);
                 view->get_output()->refocus(nullptr);
                 break;
@@ -255,16 +262,11 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
                 break;
 
             case ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS:
-                if (core->get_focused_layer() != 0)
-                {
-                    log_error("wayfire-shell: denying exlusive focus request");
-                    return;
-                }
-
                 /* Notice: using output here is safe, because we do not allow
                  * exclusive focus for outputless surfaces */
                 view->set_keyboard_focus_enabled(true);
-                core->focus_layer(output->workspace->get_view_layer(view));
+                layer_focus_request = core->focus_layer(
+                    output->workspace->get_view_layer(view), layer_focus_request);
                 output->focus_view(view);
                 break;
 
@@ -272,12 +274,6 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
                 log_error ("wayfire-shell: Invalid keyboard mode!");
                 break;
         };
-
-        /* We force-focused a layer, unfocus it now */
-        if (this->focus_mode == ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS)
-            core->focus_layer(0);
-
-        this->focus_mode = new_mode;
     }
 
     /* We keep an exclusive zone even if its size is 0, because
