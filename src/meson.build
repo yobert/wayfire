@@ -46,7 +46,8 @@ executable('wayfire', wayfire_sources,
 
 install_headers(['api/nonstd/safe-list.hpp',
                  'api/nonstd/noncopyable.hpp',
-                 'api/nonstd/observer_ptr.h'],
+                 'api/nonstd/observer_ptr.h',
+                 'api/nonstd/reverse.hpp'],
                 subdir: 'wayfire/nonstd')
 
 install_headers(['api/compositor-surface.hpp',
