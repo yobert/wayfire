@@ -32,7 +32,7 @@ struct animation_hook : public wf_custom_data_t
     wayfire_output *output;
 
     /* Update animation right before each frame */
-    effect_hook_t update_animation_hook = [=] ()
+    wf::effect_hook_t update_animation_hook = [=] ()
     {
         view->damage();
         bool result = animation->step();
@@ -65,7 +65,7 @@ struct animation_hook : public wf_custom_data_t
         animation = std::make_unique<animation_t> ();
         animation->init(view, duration, type);
 
-        output->render->add_effect(&update_animation_hook, WF_OUTPUT_EFFECT_PRE);
+        output->render->add_effect(&update_animation_hook, wf::OUTPUT_EFFECT_PRE);
 
         /* We listen for just the detach-view signal. If the state changes in
          * some other way (i.e view unmapped while map animation), the hook

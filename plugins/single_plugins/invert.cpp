@@ -36,8 +36,7 @@ void main()
 
 class wayfire_invert_screen : public wayfire_plugin_t
 {
-
-    post_hook_t hook;
+    wf::post_hook_t hook;
     activator_callback toggle_cb;
 
     bool active = false;

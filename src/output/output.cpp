@@ -20,7 +20,7 @@ wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
 {
     this->handle = handle;
 
-    render = new render_manager(this);
+    render = new wf::render_manager(this);
     plugin = new plugin_manager(this, c);
 
     view_disappeared_cb = [=] (signal_data *data) { refocus(get_signaled_view(data)); };

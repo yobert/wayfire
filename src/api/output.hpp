@@ -18,7 +18,10 @@ extern "C"
 struct plugin_manager;
 
 class workspace_manager;
+namespace wf
+{
 class render_manager;
+}
 
 class wayfire_output : public wf_object_base
 {
@@ -36,7 +39,7 @@ class wayfire_output : public wf_object_base
        wlr_output* handle;
        std::tuple<int, int> get_screen_size();
 
-       render_manager *render;
+       wf::render_manager *render;
        workspace_manager *workspace;
 
        wayfire_output(wlr_output*, wayfire_config *config);

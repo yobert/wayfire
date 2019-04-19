@@ -20,7 +20,7 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
 
     wayfire_view view;
     wayfire_output *output;
-    effect_hook_t pre_hook;
+    wf::effect_hook_t pre_hook;
     signal_callback_t unmapped;
 
     uint32_t tiled_edges;
@@ -48,7 +48,7 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
         pre_hook = [=] () {
             adjust_geometry();
         };
-        output->render->add_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+        output->render->add_effect(&pre_hook, wf::OUTPUT_EFFECT_PRE);
 
         unmapped = [=] (signal_data *data)
         {
@@ -56,7 +56,7 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
                 destroy();
         };
 
-        output->render->auto_redraw(true);
+        output->render->set_redraw_always(true);
         output->connect_signal("view-disappeared", &unmapped);
         output->connect_signal("detach-view", &unmapped);
     }
@@ -139,7 +139,7 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
 
         output->render->rem_effect(&pre_hook);
         output->deactivate_plugin(iface);
-        output->render->auto_redraw(false);
+        output->render->set_redraw_always(false);
         output->disconnect_signal("view-disappeared", &unmapped);
         output->disconnect_signal("detach-view", &unmapped);
     }

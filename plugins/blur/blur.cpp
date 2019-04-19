@@ -64,7 +64,7 @@ class wayfire_blur : public wayfire_plugin_t
 {
     button_callback button_toggle;
 
-    effect_hook_t frame_pre_paint;
+    wf::effect_hook_t frame_pre_paint;
     signal_callback_t workspace_stream_pre, workspace_stream_post,
                       view_attached, view_detached;
 
@@ -219,7 +219,7 @@ class wayfire_blur : public wayfire_plugin_t
                 });
             }
         };
-        output->render->add_effect(&frame_pre_paint, WF_OUTPUT_EFFECT_PRE);
+        output->render->add_effect(&frame_pre_paint, wf::OUTPUT_EFFECT_PRE);
 
         /* workspace_stream_pre is called before rendering each frame
          * when rendering a workspace. It gives us a chance to pad
@@ -229,8 +229,8 @@ class wayfire_blur : public wayfire_plugin_t
          * pixels back. */
         workspace_stream_pre = [=] (signal_data *data)
         {
-            auto& damage = static_cast<wf_stream_signal*>(data)->raw_damage;
-            const auto& target_fb = static_cast<wf_stream_signal*>(data)->fb;
+            auto& damage = static_cast<wf::stream_signal_t*>(data)->raw_damage;
+            const auto& target_fb = static_cast<wf::stream_signal_t*>(data)->fb;
 
             /* As long as the padding is big enough to cover the
              * furthest sampled pixel by the shader, there should
@@ -293,7 +293,7 @@ class wayfire_blur : public wayfire_plugin_t
          * workspace_stream_pre. */
         workspace_stream_post = [=] (signal_data *data)
         {
-            const auto& target_fb = static_cast<wf_stream_signal*>(data)->fb;
+            const auto& target_fb = static_cast<wf::stream_signal_t*>(data)->fb;
             OpenGL::render_begin(target_fb);
             /* Setup framebuffer I/O. target_fb contains the frame
              * rendered with expanded damage and artifacts on the edges.

@@ -163,8 +163,8 @@ class vswitch : public wayfire_plugin_t
         if (!output->activate_plugin(grab_interface))
             return false;
 
-        output->render->add_effect(&update_animation, WF_OUTPUT_EFFECT_PRE);
-        output->render->auto_redraw(true);
+        output->render->add_effect(&update_animation, wf::OUTPUT_EFFECT_PRE);
+        output->render->set_redraw_always();
 
         duration.start();
         dx = dy = {0, 0};
@@ -172,7 +172,7 @@ class vswitch : public wayfire_plugin_t
         return true;
     }
 
-    effect_hook_t update_animation = [=] ()
+    wf::effect_hook_t update_animation = [=] ()
     {
         if (!duration.running())
             return stop_switch();
@@ -228,7 +228,7 @@ class vswitch : public wayfire_plugin_t
 
         output->deactivate_plugin(grab_interface);
         output->render->rem_effect(&update_animation);
-        output->render->auto_redraw(false);
+        output->render->set_redraw_always(false);
     }
 
     void fini()

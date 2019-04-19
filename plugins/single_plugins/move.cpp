@@ -77,7 +77,7 @@ struct move_snap_preview_animation
 
 class wf_move_snap_preview : public wayfire_color_rect_view_t
 {
-    effect_hook_t pre_paint;
+    wf::effect_hook_t pre_paint;
 
     const wf_color base_color = {0.5, 0.5, 1, 0.5};
     const wf_color base_border = {0.25, 0.25, 0.5, 0.8};
@@ -94,7 +94,7 @@ class wf_move_snap_preview : public wayfire_color_rect_view_t
 
         duration = wf_duration{new_static_option("200")};
         pre_paint = [=] () { update_animation(); };
-        output->render->add_effect(&pre_paint, WF_OUTPUT_EFFECT_PRE);
+        output->render->add_effect(&pre_paint, wf::OUTPUT_EFFECT_PRE);
 
         set_color(base_color);
         set_border_color(base_border);
@@ -339,7 +339,7 @@ class wayfire_move : public wayfire_plugin_t
                 slot.slot_id = 0;
 
             this->view = view;
-            output->render->auto_redraw(true);
+            output->render->set_redraw_always();
 
             start_wobbly(view, sx, sy);
             if (!stuck_in_slot)
@@ -356,7 +356,7 @@ class wayfire_move : public wayfire_plugin_t
 
             grab_interface->ungrab();
             output->deactivate_plugin(grab_interface);
-            output->render->auto_redraw(false);
+            output->render->set_redraw_always(false);
 
             /* The view was moved to another output or was destroyed,
              * we don't have to do anything more */

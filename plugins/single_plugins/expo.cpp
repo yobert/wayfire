@@ -33,7 +33,7 @@ class wayfire_expo : public wayfire_plugin_t
 
     wf_duration zoom_animation;
 
-    render_hook_t renderer;
+    wf::render_hook_t renderer;
 
     struct {
         bool active = false;
@@ -45,7 +45,7 @@ class wayfire_expo : public wayfire_plugin_t
     int target_vx, target_vy;
     std::tuple<int, int> move_started_ws;
 
-    std::vector<std::vector<std::unique_ptr<wf_workspace_stream>>> streams;
+    std::vector<std::vector<wf::workspace_stream_t>> streams;
 
     public:
     void init(wayfire_config *config)
@@ -60,11 +60,11 @@ class wayfire_expo : public wayfire_plugin_t
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
         streams.resize(vw);
 
-        for (int i = 0; i < vw; i++) {
-            for (int j = 0; j < vh; j++) {
-                streams[i].emplace_back(std::make_unique<wf_workspace_stream>());
-                streams[i][j]->ws = std::make_tuple(i, j);
-            }
+        for (int i = 0; i < vw; i++)
+        {
+            streams[i].resize(vh);
+            for (int j = 0; j < vh; j++)
+                streams[i][j].ws = std::make_tuple(i, j);
         }
 
         zoom_animation_duration = section->get_option("duration", "300");
@@ -136,7 +136,7 @@ class wayfire_expo : public wayfire_plugin_t
         calculate_zoom(true);
 
         output->render->set_renderer(renderer);
-        output->render->auto_redraw(true);
+        output->render->set_redraw_always();
     }
 
     void deactivate()
@@ -335,12 +335,12 @@ class wayfire_expo : public wayfire_plugin_t
         {
             for(int i = 0; i < vw; i++)
             {
-                if (!streams[i][j]->running)
+                if (!streams[i][j].running)
                 {
-                    output->render->workspace_stream_start(streams[i][j].get());
+                    output->render->workspace_stream_start(streams[i][j]);
                 } else
                 {
-                    output->render->workspace_stream_update(streams[i][j].get(),
+                    output->render->workspace_stream_update(streams[i][j],
                         render_params.scale_x, render_params.scale_y);
                 }
             }
@@ -396,7 +396,7 @@ class wayfire_expo : public wayfire_plugin_t
                 /* Undo rotation of the workspace */
                 workspace_transform = workspace_transform * glm::inverse(fb.transform);
 
-                OpenGL::render_transformed_texture(streams[i][j]->buffer.tex,
+                OpenGL::render_transformed_texture(streams[i][j].buffer.tex,
                     out_geometry, {}, workspace_transform);
             }
         }
@@ -479,12 +479,12 @@ class wayfire_expo : public wayfire_plugin_t
 
         for (int i = 0; i < vw; i++) {
             for (int j = 0; j < vh; j++) {
-                output->render->workspace_stream_stop(streams[i][j].get());
+                output->render->workspace_stream_stop(streams[i][j]);
             }
         }
 
-        output->render->reset_renderer();
-        output->render->auto_redraw(false);
+        output->render->set_renderer(nullptr);
+        output->render->set_redraw_always(false);
     }
 
     void fini()
@@ -496,7 +496,7 @@ class wayfire_expo : public wayfire_plugin_t
         for (auto& row : streams)
         {
             for (auto& stream: row)
-                stream->buffer.release();
+                stream.buffer.release();
         }
         OpenGL::render_end();
 

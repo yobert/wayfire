@@ -79,8 +79,8 @@ class WayfireSwitcher : public wayfire_plugin_t
     key_callback next_view_binding, prev_view_binding;
     gesture_callback touch_activate;
 
-    effect_hook_t damage;
-    render_hook_t switcher_renderer;
+    wf::effect_hook_t damage;
+    wf::render_hook_t switcher_renderer;
 
     signal_callback_t view_removed;
 
@@ -254,9 +254,9 @@ class WayfireSwitcher : public wayfire_plugin_t
         if (!output->activate_plugin(grab_interface))
             return false;
 
-        output->render->add_effect(&damage, WF_OUTPUT_EFFECT_PRE);
+        output->render->add_effect(&damage, wf::OUTPUT_EFFECT_PRE);
         output->render->set_renderer(switcher_renderer);
-        output->render->auto_redraw(true);
+        output->render->set_redraw_always();
         return true;
     }
 
@@ -266,8 +266,8 @@ class WayfireSwitcher : public wayfire_plugin_t
         output->deactivate_plugin(grab_interface);
 
         output->render->rem_effect(&damage);
-        output->render->reset_renderer();
-        output->render->auto_redraw(false);
+        output->render->set_renderer(nullptr);
+        output->render->set_redraw_always(false);
 
         output->workspace->for_each_view([=] (wayfire_view view) {
             view->pop_transformer(switcher_transformer);

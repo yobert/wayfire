@@ -8,7 +8,7 @@
 class wayfire_zoom_screen : public wayfire_plugin_t
 {
 
-    post_hook_t hook;
+    wf::post_hook_t hook;
     axis_callback axis;
 
     wf_option speed, modifier, smoothing_duration;
@@ -58,7 +58,7 @@ class wayfire_zoom_screen : public wayfire_plugin_t
                 {
                     hook_set = true;
                     output->render->add_post(&hook);
-                    output->render->auto_redraw(true);
+                    output->render->set_redraw_always();
                 }
             }
         }
@@ -97,7 +97,7 @@ class wayfire_zoom_screen : public wayfire_plugin_t
 
             if (!duration.running() && current_zoom - 1 <= 0.01)
             {
-                output->render->auto_redraw(false);
+                output->render->set_redraw_always(false);
                 output->render->rem_post(&hook);
                 hook_set = false;
             }

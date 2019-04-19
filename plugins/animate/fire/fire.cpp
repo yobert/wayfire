@@ -24,7 +24,6 @@ static int particle_count_for_width(int width)
 
 class FireTransformer : public wf_view_transformer_t
 {
-    effect_hook_t pre_paint;
     wf_geometry last_boundingbox;
     wf_duration duration;
 

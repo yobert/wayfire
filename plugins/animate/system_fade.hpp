@@ -22,7 +22,7 @@ class wf_system_fade
 
     wayfire_output *output;
 
-    effect_hook_t damage_hook, render_hook;
+    wf::effect_hook_t damage_hook, render_hook;
 
     public:
         wf_system_fade(wayfire_output *out, wf_duration&& dur) :
@@ -34,9 +34,9 @@ class wf_system_fade
             render_hook = [=] ()
             { render(); };
 
-            output->render->add_effect(&damage_hook, WF_OUTPUT_EFFECT_PRE);
-            output->render->add_effect(&render_hook, WF_OUTPUT_EFFECT_OVERLAY);
-            output->render->auto_redraw(true);
+            output->render->add_effect(&damage_hook, wf::OUTPUT_EFFECT_PRE);
+            output->render->add_effect(&render_hook, wf::OUTPUT_EFFECT_OVERLAY);
+            output->render->set_redraw_always();
 
             duration.start(1, 0);
         }
@@ -67,7 +67,7 @@ class wf_system_fade
         {
             output->render->rem_effect(&damage_hook);
             output->render->rem_effect(&render_hook);
-            output->render->auto_redraw(false);
+            output->render->set_redraw_always(false);
 
             delete this;
         }

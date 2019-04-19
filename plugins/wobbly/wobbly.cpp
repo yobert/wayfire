@@ -129,7 +129,7 @@ extern "C"
 class wf_wobbly : public wf_view_transformer_t
 {
     wayfire_view view;
-    effect_hook_t pre_hook;
+    wf::effect_hook_t pre_hook;
     signal_callback_t view_removed, view_geometry_changed, view_output_changed;
     wayfire_grab_interface iface;
 
@@ -169,7 +169,7 @@ class wf_wobbly : public wf_view_transformer_t
         pre_hook = [=] () {
             update_model();
         };
-        view->get_output()->render->add_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+        view->get_output()->render->add_effect(&pre_hook, wf::OUTPUT_EFFECT_PRE);
 
         view_removed = [=] (signal_data *data) {
             destroy_self();
@@ -190,7 +190,7 @@ class wf_wobbly : public wf_view_transformer_t
             assert(sig->output);
 
             sig->output->render->rem_effect(&pre_hook);
-            view->get_output()->render->add_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+            view->get_output()->render->add_effect(&pre_hook, wf::OUTPUT_EFFECT_PRE);
         };
 
         view->connect_signal("unmap", &view_removed);
