@@ -365,8 +365,8 @@ class wayfire_grid : public wayfire_plugin_t
             auto workarea = ev->new_workarea;
             auto output_geometry = output->get_relative_geometry();
 
-            int vx = std::floor(wm.x / output_geometry.width);
-            int vy = std::floor(wm.y / output_geometry.height);
+            int vx = std::floor(1.0 * wm.x / output_geometry.width);
+            int vy = std::floor(1.0 * wm.y / output_geometry.height);
 
             workarea.x += vx * output_geometry.width;
             workarea.y += vy * output_geometry.height;
