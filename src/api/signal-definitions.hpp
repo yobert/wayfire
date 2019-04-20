@@ -79,10 +79,10 @@ struct _surface_map_state_changed_signal : public signal_data
 /* Part 2: Signals from wf::output_layout_t */
 struct _output_signal : public signal_data
 {
-    wayfire_output *output;
+    wf::output_t *output;
 };
 
-wayfire_output *get_signaled_output(signal_data *data);
+wf::output_t *get_signaled_output(signal_data *data);
 
 using output_added_signal = _output_signal;
 using output_removed_signal = _output_signal;

@@ -109,7 +109,7 @@ class wf_blur_base
     wf_option offset_opt, degrade_opt, iterations_opt;
     wf_option_callback options_changed;
 
-    wayfire_output *output;
+    wf::output_t *output;
 
     /* renders the in texture to the out framebuffer.
      * assumes a properly bound and initialized GL program */
@@ -127,7 +127,7 @@ class wf_blur_base
     virtual int blur_fb0(int width, int height) = 0;
 
     public:
-    wf_blur_base(wayfire_output *output,
+    wf_blur_base(wf::output_t *output,
         const wf_blur_default_option_values& values);
     virtual ~wf_blur_base();
 
@@ -141,10 +141,10 @@ class wf_blur_base
         const wf_framebuffer& target_fb);
 };
 
-std::unique_ptr<wf_blur_base> create_box_blur(wayfire_output *output);
-std::unique_ptr<wf_blur_base> create_bokeh_blur(wayfire_output *output);
-std::unique_ptr<wf_blur_base> create_kawase_blur(wayfire_output *output);
-std::unique_ptr<wf_blur_base> create_gaussian_blur(wayfire_output *output);
+std::unique_ptr<wf_blur_base> create_box_blur(wf::output_t *output);
+std::unique_ptr<wf_blur_base> create_bokeh_blur(wf::output_t *output);
+std::unique_ptr<wf_blur_base> create_kawase_blur(wf::output_t *output);
+std::unique_ptr<wf_blur_base> create_gaussian_blur(wf::output_t *output);
 
-std::unique_ptr<wf_blur_base> create_blur_from_name(wayfire_output *output,
+std::unique_ptr<wf_blur_base> create_blur_from_name(wf::output_t *output,
     std::string algorithm_name);

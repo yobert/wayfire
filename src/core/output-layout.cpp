@@ -9,6 +9,7 @@
 #include "seat/input-inhibit.hpp"
 #include "util.hpp"
 #include "view-transform.hpp"
+#include "../output/output-impl.hpp"
 #include <xf86drmMode.h>
 #include <sstream>
 
@@ -138,7 +139,7 @@ static bool parse_modeline(const char *modeline, drmModeModeInfo &mode)
 
 namespace wf
 {
-    void transfer_views(wayfire_output *from, wayfire_output *to)
+    void transfer_views(wf::output_t *from, wf::output_t *to)
     {
         assert(from);
 
@@ -214,7 +215,7 @@ namespace wf
         wlr_output *handle;
         output_state_t current_state;
 
-        std::unique_ptr<wayfire_output> output;
+        std::unique_ptr<wf::output_t> output;
         wl_listener_wrapper on_destroy;
         wf_option mode_opt, position_opt, scale_opt, transform_opt;
         const std::string default_value = "default";
@@ -363,7 +364,7 @@ namespace wf
             if (this->output)
                 return;
 
-            this->output = std::make_unique<wayfire_output> (handle, core->config);
+            this->output = std::make_unique<wf::output_impl_t> (handle);
             auto wo = output.get();
 
             /* Focus the first output, but do not change the focus on subsequently
@@ -792,7 +793,7 @@ namespace wf
             auto active_outputs = get_outputs();
             log_info("remove output: %s", to_remove->name);
 
-            /* Unset mode, plus destroy wayfire_output */
+            /* Unset mode, plus destroy the wayfire output */
             auto configuration = get_current_configuration();
             configuration[to_remove].source = OUTPUT_IMAGE_SOURCE_NONE;
             apply_configuration(configuration);
@@ -993,7 +994,7 @@ namespace wf
         wlr_output_layout *get_handle() { return output_layout; }
         size_t get_num_outputs() { return get_outputs().size(); }
 
-        wayfire_output *find_output(wlr_output *output)
+        wf::output_t *find_output(wlr_output *output)
         {
             if (outputs.count(output))
                 return outputs[output]->output.get();
@@ -1004,7 +1005,7 @@ namespace wf
             return nullptr;
         }
 
-        wayfire_output *find_output(std::string name)
+        wf::output_t *find_output(std::string name)
         {
             for (auto& entry : outputs)
             {
@@ -1018,9 +1019,9 @@ namespace wf
             return nullptr;
         }
 
-        std::vector<wayfire_output*> get_outputs()
+        std::vector<wf::output_t*> get_outputs()
         {
-            std::vector<wayfire_output*> result;
+            std::vector<wf::output_t*> result;
             for (auto& entry : outputs)
             {
                 if (entry.second->current_state.source & OUTPUT_IMAGE_SOURCE_SELF)
@@ -1036,7 +1037,7 @@ namespace wf
             return result;
         }
 
-        wayfire_output *get_next_output(wayfire_output *output)
+        wf::output_t *get_next_output(wf::output_t *output)
         {
             auto os = get_outputs();
 
@@ -1048,7 +1049,7 @@ namespace wf
             }
         }
 
-        wayfire_output *get_output_coords_at(int x, int y, int& rx, int& ry)
+        wf::output_t *get_output_coords_at(int x, int y, int& rx, int& ry)
         {
             double lx = x, ly = y;
             wlr_output_layout_closest_point(output_layout, NULL, lx, ly, &lx, &ly);
@@ -1068,7 +1069,7 @@ namespace wf
             }
         }
 
-        wayfire_output *get_output_at(int x, int y)
+        wf::output_t *get_output_at(int x, int y)
         {
             int dummy_x, dummy_y;
             return get_output_coords_at(x, y, dummy_x, dummy_y);
@@ -1090,19 +1091,19 @@ namespace wf
     output_layout_t::~output_layout_t() = default;
     wlr_output_layout *output_layout_t::get_handle()
     { return pimpl->get_handle(); }
-    wayfire_output *output_layout_t::get_output_at(int x, int y)
+    wf::output_t *output_layout_t::get_output_at(int x, int y)
     { return pimpl->get_output_at(x, y); }
-    wayfire_output *output_layout_t::get_output_coords_at(int x, int y, int& lx, int& ly)
+    wf::output_t *output_layout_t::get_output_coords_at(int x, int y, int& lx, int& ly)
     { return pimpl->get_output_coords_at(x, y, lx, ly); }
     size_t output_layout_t::get_num_outputs()
     { return pimpl->get_num_outputs(); }
-    std::vector<wayfire_output*> output_layout_t::get_outputs()
+    std::vector<wf::output_t*> output_layout_t::get_outputs()
     { return pimpl->get_outputs(); }
-    wayfire_output *output_layout_t::get_next_output(wayfire_output *output)
+    wf::output_t *output_layout_t::get_next_output(wf::output_t *output)
     { return pimpl->get_next_output(output); }
-    wayfire_output *output_layout_t::find_output(wlr_output *output)
+    wf::output_t *output_layout_t::find_output(wlr_output *output)
     { return pimpl->find_output(output); }
-    wayfire_output *output_layout_t::find_output(std::string name)
+    wf::output_t *output_layout_t::find_output(std::string name)
     { return pimpl->find_output(name); }
     output_configuration_t output_layout_t::get_current_configuration()
     { return pimpl->get_current_configuration(); }

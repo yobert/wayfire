@@ -66,7 +66,7 @@ class wf_bokeh_blur : public wf_blur_base
     GLuint posID, offsetID, iterID, halfpixelID;
 
     public:
-    wf_bokeh_blur(wayfire_output* output) : wf_blur_base(output, bokeh_defaults)
+    wf_bokeh_blur(wf::output_t* output) : wf_blur_base(output, bokeh_defaults)
     {
 
         OpenGL::render_begin();
@@ -124,7 +124,7 @@ class wf_bokeh_blur : public wf_blur_base
     }
 };
 
-std::unique_ptr<wf_blur_base> create_bokeh_blur(wayfire_output *output)
+std::unique_ptr<wf_blur_base> create_bokeh_blur(wf::output_t *output)
 {
     return std::make_unique<wf_bokeh_blur> (output);
 }

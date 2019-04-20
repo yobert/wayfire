@@ -127,7 +127,7 @@ class wayfire_xwayland_view_base : public wayfire_view_t
         send_configure(last_server_width, last_server_height);
     }
 
-    virtual void set_output(wayfire_output *wo) override
+    virtual void set_output(wf::output_t *wo) override
     {
         if (output)
             output->disconnect_signal("output-configuration-changed", &output_geometry_changed);

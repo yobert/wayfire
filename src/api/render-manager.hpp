@@ -1,11 +1,8 @@
 #ifndef RENDER_MANAGER_HPP
 #define RENDER_MANAGER_HPP
 
-#include "plugin.hpp"
 #include "opengl.hpp"
 #include "object.hpp"
-#include "util.hpp"
-#include <list>
 
 namespace wf
 {
@@ -84,7 +81,7 @@ class render_manager : public wf_signal_provider_t
     /** Create a render manager for the given output. Plugins do not need
      * to manually create render managers, as one is created for each output
      * automatically */
-    render_manager(wayfire_output *o);
+    render_manager(output_t *o);
     ~render_manager();
 
     /**

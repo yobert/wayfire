@@ -143,15 +143,15 @@ namespace OpenGL
 
     namespace
     {
-        wayfire_output *current_output = NULL;
+        wf::output_t *current_output = NULL;
     }
 
-    void bind_output(wayfire_output *output)
+    void bind_output(wf::output_t *output)
     {
         current_output = output;
     }
 
-    void unbind_output(wayfire_output *output)
+    void unbind_output(wf::output_t *output)
     {
         current_output = NULL;
     }
@@ -445,7 +445,7 @@ glm::mat4 get_output_matrix_from_transform(wl_output_transform transform)
     return rotation_matrix * scale;
 }
 
-glm::mat4 output_get_projection(wayfire_output *output)
+glm::mat4 output_get_projection(wf::output_t *output)
 {
     auto rotation = get_output_matrix_from_transform(output->handle->transform);
 

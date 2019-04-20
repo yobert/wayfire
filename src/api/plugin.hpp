@@ -37,7 +37,11 @@ enum wf_activator_source
  * but the second argument is 0 */
 using activator_callback = std::function<void(wf_activator_source, uint32_t)>;
 
-class wayfire_output;
+namespace wf
+{
+class output_t;
+}
+
 class wayfire_config;
 using owner_t = std::string;
 
@@ -78,9 +82,9 @@ struct wayfire_grab_interface_t {
     public:
     owner_t name;
     uint32_t abilities_mask = 0;
-    wayfire_output *output;
+    wf::output_t *output;
 
-    wayfire_grab_interface_t(wayfire_output *_output) : output(_output) {}
+    wayfire_grab_interface_t(wf::output_t *_output) : output(_output) {}
 
     bool grab();
     bool is_grabbed();
@@ -119,7 +123,7 @@ class wayfire_plugin_t {
         /* the output this plugin is running on
          * each output has an instance of each plugin, so that the two monitors act independently
          * in the future there should be an option for mirroring displays */
-        wayfire_output *output;
+        wf::output_t *output;
 
         wayfire_grab_interface grab_interface;
 

@@ -17,7 +17,10 @@ extern "C"
 #include <glm/glm.hpp>
 #include <map>
 
-class wayfire_output;
+namespace wf
+{
+    class output_t;
+}
 using wf_geometry = wlr_box;
 
 void gl_call(const char*, uint32_t, const char*);
@@ -133,10 +136,10 @@ namespace OpenGL
     void fini();
     /* NOT API
      * Indicate we have started repainting the given output */
-    void bind_output(wayfire_output *output);
+    void bind_output(wf::output_t *output);
     /* NOT API
      * Indicate the output frame has been finished */
-    void unbind_output(wayfire_output *output);
+    void unbind_output(wf::output_t *output);
 
     /* "Begin" rendering to the given framebuffer and the given viewport.
      * All rendering operations should happen between render_begin and render_end, because
@@ -179,6 +182,6 @@ namespace OpenGL
 
 /* utils */
 glm::mat4 get_output_matrix_from_transform(wl_output_transform transform);
-glm::mat4 output_get_projection(wayfire_output *output);
+glm::mat4 output_get_projection(wf::output_t *output);
 
 #endif

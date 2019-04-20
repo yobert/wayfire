@@ -123,6 +123,6 @@ class wf_3D_view : public wf_view_transformer_t
 glm::mat4 get_output_matrix_from_transform(wl_output_transform transform);
 
 /* a matrix which can be used to render wf_geometry directly */
-glm::mat4 output_get_projection(wayfire_output *output);
+glm::mat4 output_get_projection(wf::output_t *output);
 
 #endif /* end of include guard: VIEW_TRANSFORM_HPP */

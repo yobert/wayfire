@@ -285,7 +285,7 @@ void input_manager::set_exclusive_focus(wl_client *client)
 /* add/remove bindings */
 
 wf_binding* input_manager::new_binding(wf_binding_type type, wf_option value,
-    wayfire_output *output, void *callback)
+    wf::output_t *output, void *callback)
 {
     auto binding = std::make_unique<wf_binding>();
 
@@ -329,7 +329,7 @@ void input_manager::rem_binding(void *callback)
     rem_binding([=] (wf_binding* ptr) {return ptr->call.raw == callback; });
 }
 
-void input_manager::free_output_bindings(wayfire_output *output)
+void input_manager::free_output_bindings(wf::output_t *output)
 {
     rem_binding([=] (wf_binding* binding) {
         return binding->output == output;

@@ -19,7 +19,7 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
     bool is_active = true;
 
     wayfire_view view;
-    wayfire_output *output;
+    wf::output_t *output;
     wf::effect_hook_t pre_hook;
     signal_callback_t unmapped;
 

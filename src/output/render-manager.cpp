@@ -1,6 +1,7 @@
 #include "render-manager.hpp"
 #include "output.hpp"
 #include "core.hpp"
+#include "util.hpp"
 #include "workspace-manager.hpp"
 #include "../core/seat/input-manager.hpp"
 #include "opengl.hpp"
@@ -32,9 +33,9 @@ struct output_damage_t
     wf_region frame_damage;
     wlr_output *output;
     wlr_output_damage *damage_manager;
-    wayfire_output *wo;
+    output_t *wo;
 
-    output_damage_t(wayfire_output *output)
+    output_damage_t(output_t *output)
     {
         this->output = output->handle;
         this->wo = output;
@@ -241,9 +242,9 @@ struct postprocessing_manager_t
     /* Buffer to which other operations render to */
     static constexpr uint32_t default_out_buffer = 0;
 
-    wayfire_output *output;
+    output_t *output;
     uint32_t output_width, output_height;
-    postprocessing_manager_t(wayfire_output *output)
+    postprocessing_manager_t(output_t *output)
     {
         this->output = output;
     }
@@ -329,12 +330,12 @@ class wf::render_manager::impl
   public:
     wf::wl_listener_wrapper on_frame;
 
-    wayfire_output *output;
+    output_t *output;
     std::unique_ptr<output_damage_t> output_damage;
     std::unique_ptr<effect_hook_manager_t> effects;
     std::unique_ptr<postprocessing_manager_t> postprocessing;
 
-    impl(wayfire_output *o)
+    impl(output_t *o)
         : output(o)
     {
         output_damage = std::make_unique<output_damage_t> (o);
@@ -869,7 +870,7 @@ class wf::render_manager::impl
     }
 };
 
-render_manager::render_manager(wayfire_output *o)
+render_manager::render_manager(output_t *o)
     : pimpl(new impl(o)) { }
 render_manager::~render_manager() = default;
 void render_manager::set_renderer(render_hook_t rh) { pimpl->set_renderer(rh); }

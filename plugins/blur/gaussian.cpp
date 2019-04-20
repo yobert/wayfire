@@ -98,7 +98,7 @@ class wf_gaussian_blur : public wf_blur_base
         offsetID[i] = GL_CALL(glGetUniformLocation(program[i], "offset"));
     }
 
-    wf_gaussian_blur(wayfire_output *output) : wf_blur_base(output, gaussian_defaults)
+    wf_gaussian_blur(wf::output_t *output) : wf_blur_base(output, gaussian_defaults)
     {
         OpenGL::render_begin();
         program[0] = OpenGL::create_program_from_source(
@@ -171,7 +171,7 @@ class wf_gaussian_blur : public wf_blur_base
     }
 };
 
-std::unique_ptr<wf_blur_base> create_gaussian_blur(wayfire_output *output)
+std::unique_ptr<wf_blur_base> create_gaussian_blur(wf::output_t *output)
 {
     return std::make_unique<wf_gaussian_blur> (output);
 }

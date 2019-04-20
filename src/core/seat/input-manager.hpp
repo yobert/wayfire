@@ -39,7 +39,7 @@ struct wf_binding
 {
     wf_option value;
     wf_binding_type type;
-    wayfire_output *output;
+    wf::output_t *output;
 
     union {
         void *raw;
@@ -136,7 +136,7 @@ class input_manager
         void toggle_session();
         uint32_t get_modifiers();
 
-        void free_output_bindings(wayfire_output *output);
+        void free_output_bindings(wf::output_t *output);
 
         void handle_pointer_axis  (wlr_event_pointer_axis *ev);
         void handle_pointer_motion(wlr_event_pointer_motion *ev);
@@ -162,7 +162,7 @@ class input_manager
 
         void check_touch_bindings(int32_t x, int32_t y);
 
-        wf_binding* new_binding(wf_binding_type type, wf_option value, wayfire_output *output, void *callback);
+        wf_binding* new_binding(wf_binding_type type, wf_option value, wf::output_t *output, void *callback);
         void rem_binding(void *callback);
         void rem_binding(wf_binding *binding);
 };

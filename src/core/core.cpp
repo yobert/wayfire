@@ -33,6 +33,7 @@ extern "C"
 #include "seat/input-inhibit.hpp"
 #include "seat/touch.hpp"
 #include "../output/wayfire-shell.hpp"
+#include "../output/output-impl.hpp"
 #include "../output/gtk-shell.hpp"
 #include "view/priv-view.hpp"
 #include "config.h"
@@ -246,7 +247,7 @@ void wayfire_core::refocus_active_output_active_view()
     }
 }
 
-void wayfire_core::focus_output(wayfire_output *wo)
+void wayfire_core::focus_output(wf::output_t *wo)
 {
     assert(wo);
     if (active_output == wo)
@@ -258,7 +259,8 @@ void wayfire_core::focus_output(wayfire_output *wo)
 
     if (active_output)
     {
-        old_grab = active_output->get_input_grab_interface();
+        auto output_impl = dynamic_cast<wf::output_impl_t*> (active_output);
+        old_grab = output_impl->get_input_grab_interface();
         active_output->focus_view(nullptr);
     }
 
@@ -275,7 +277,8 @@ void wayfire_core::focus_output(wayfire_output *wo)
         input->ungrab_input();
     }
 
-    wayfire_grab_interface iface = wo->get_input_grab_interface();
+    auto output_impl = dynamic_cast<wf::output_impl_t*> (wo);
+    wayfire_grab_interface iface = output_impl->get_input_grab_interface();
     /* this cannot be recursion as active_output will be equal to wo,
      * and wo->active_view->output == wo */
     if (!iface)
@@ -290,7 +293,7 @@ void wayfire_core::focus_output(wayfire_output *wo)
     }
 }
 
-wayfire_output* wayfire_core::get_active_output()
+wf::output_t* wayfire_core::get_active_output()
 {
     return active_output;
 }
@@ -421,7 +424,7 @@ void wayfire_core::run(const char *command)
     }
 }
 
-void wayfire_core::move_view_to_output(wayfire_view v, wayfire_output *new_output)
+void wayfire_core::move_view_to_output(wayfire_view v, wf::output_t *new_output)
 {
     assert(new_output);
     if (v->get_output())

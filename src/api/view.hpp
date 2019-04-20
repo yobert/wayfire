@@ -18,7 +18,10 @@ extern "C"
 #include <wlr/util/edges.h>
 }
 
-class wayfire_output;
+namespace wf
+{
+class output_t;
+}
 
 /* General TODO: mark member functions const where appropriate */
 class wayfire_view_t;
@@ -44,7 +47,7 @@ class wayfire_surface_t
         wf::wl_listener_wrapper on_commit, on_destroy, on_new_subsurface;
         virtual void for_each_surface_recursive(wf_surface_iterator_callback callback,
                                                 int x, int y, bool reverse = false);
-        wayfire_output *output = nullptr;
+        wf::output_t *output = nullptr;
 
         /* position relative to parent */
         virtual void get_child_position(int &x, int &y);
@@ -134,8 +137,8 @@ class wayfire_surface_t
         /* NOT API */
         virtual void commit();
 
-        virtual wayfire_output *get_output() { return output; };
-        virtual void set_output(wayfire_output*);
+        virtual wf::output_t *get_output() { return output; };
+        virtual void set_output(wf::output_t*);
 
         /* Render the surface at the given coordinates,
          * usually you need render_fb() */
@@ -246,7 +249,7 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         virtual void toplevel_send_title();
         virtual void toplevel_send_app_id();
         virtual void toplevel_send_state();
-        virtual void toplevel_update_output(wayfire_output *output, bool enter);
+        virtual void toplevel_update_output(wf::output_t *output, bool enter);
 
     public: // NOT API
         /* The handle_{app_id, title}_changed emit the corresponding signal
@@ -265,7 +268,7 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         wayfire_view parent = nullptr;
         std::vector<wayfire_view> children;
         virtual void set_toplevel_parent(wayfire_view parent);
-        virtual void set_output(wayfire_output*);
+        virtual void set_output(wf::output_t*);
 
         virtual void set_role(wf_view_role new_role);
         wf_view_role role = WF_VIEW_ROLE_TOPLEVEL;
@@ -378,7 +381,7 @@ class wayfire_view_t : public wayfire_surface_t, public wf_object_base
         virtual void resize_request(uint32_t edges = 0);
         virtual void minimize_request(bool state);
         virtual void maximize_request(bool state);
-        virtual void fullscreen_request(wayfire_output *output, bool state);
+        virtual void fullscreen_request(wf::output_t *output, bool state);
 
         /* Returns the rectangle on the output to which to minimize towards.
          * Returns a box with width = height = 0 if no hint is set */

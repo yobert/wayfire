@@ -27,7 +27,7 @@ static const std::string default_plugins = "viewport_impl move resize animate \
                                             switcher vswitch cube expo command \
                                             grid";
 
-plugin_manager::plugin_manager(wayfire_output *o, wayfire_config *config)
+plugin_manager::plugin_manager(wf::output_t *o, wayfire_config *config)
 {
     this->config = config;
     this->output = o;

@@ -94,7 +94,7 @@ struct wf_layer_shell_manager
         arrange_layers(view->get_output());
     }
 
-    layer_t filter_views(wayfire_output *output, int layer)
+    layer_t filter_views(wf::output_t *output, int layer)
     {
         layer_t result;
         for (auto view : layers[layer])
@@ -106,7 +106,7 @@ struct wf_layer_shell_manager
         return result;
     }
 
-    layer_t filter_views(wayfire_output *output)
+    layer_t filter_views(wf::output_t *output)
     {
         layer_t result;
         for (int i = 0; i < 4; i++)
@@ -203,7 +203,7 @@ struct wf_layer_shell_manager
         v->configure(box);
     }
 
-    uint32_t arrange_layer(wayfire_output *output, int layer)
+    uint32_t arrange_layer(wf::output_t *output, int layer)
     {
         uint32_t focus_mask = 0;
         auto views = filter_views(output, layer);
@@ -249,7 +249,7 @@ struct wf_layer_shell_manager
     }
 
     uint32_t focused_layer_request_uid = -1;
-    void arrange_layers(wayfire_output *output)
+    void arrange_layers(wf::output_t *output)
     {
         auto views = filter_views(output);
 

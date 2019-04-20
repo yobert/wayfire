@@ -12,7 +12,7 @@
 #define SKYDOME_GRID_WIDTH 128
 #define SKYDOME_GRID_HEIGHT 128
 
-wf_cube_background_skydome::wf_cube_background_skydome(wayfire_output *output)
+wf_cube_background_skydome::wf_cube_background_skydome(wf::output_t *output)
 {
     this->output = output;
     load_program();

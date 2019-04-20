@@ -48,9 +48,13 @@ struct wlr_pointer_gestures_v1;
 class decorator_base_t;
 class input_manager;
 class wayfire_config;
-class wayfire_output;
 class wayfire_view_t;
 class wayfire_surface_t;
+
+namespace wf
+{
+class output_t;
+}
 
 using wayfire_view = nonstd::observer_ptr<wayfire_view_t>;
 
@@ -59,7 +63,7 @@ struct wf_server_decoration;
 class wayfire_core : public wf_object_base
 {
         friend struct plugin_manager;
-        friend class wayfire_output;
+        friend class wf::output_t;
 
         wf::wl_listener_wrapper output_layout_changed;
         wf::wl_listener_wrapper decoration_created;
@@ -67,7 +71,7 @@ class wayfire_core : public wf_object_base
         wf::wl_listener_wrapper input_inhibit_activated;
         wf::wl_listener_wrapper input_inhibit_deactivated;
 
-        wayfire_output *active_output = nullptr;
+        wf::output_t *active_output = nullptr;
         std::vector<std::unique_ptr<wayfire_view_t>> views;
 
         void configure(wayfire_config *config);
@@ -161,10 +165,10 @@ class wayfire_core : public wf_object_base
          * isn't changed - the caller needs to make sure that the view doesn't
          * become unreachable, for ex. by going out of the output bounds
          */
-        void move_view_to_output(wayfire_view v, wayfire_output *new_output);
+        void move_view_to_output(wayfire_view v, wf::output_t *new_output);
 
-        void focus_output(wayfire_output *o);
-        wayfire_output *get_active_output();
+        void focus_output(wf::output_t *o);
+        wf::output_t *get_active_output();
         /* Add a request to focus the given layer, or update an existing request.
          * Returns the UID of the request which was added/modified.
          *

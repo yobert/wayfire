@@ -5,114 +5,174 @@
 #include "object.hpp"
 #include "view.hpp"
 
-#include <unordered_map>
-#include <unordered_set>
-#include <nonstd/safe-list.hpp>
-
-extern "C"
-{
-#include <wlr/types/wlr_output.h>
-#include <wlr/types/wlr_seat.h>
-}
-
-struct plugin_manager;
-
 class workspace_manager;
+
 namespace wf
 {
 class render_manager;
-}
 
-class wayfire_output : public wf_object_base
+class output_t : public wf_object_base
 {
-    friend class wayfire_core;
+  public:
+    /**
+     * The wlr_output that this output represents
+     */
+    wlr_output* handle;
 
-    private:
-       std::unordered_map<std::string, wf::safe_list_t<signal_callback_t*>> signals;
-       std::unordered_multiset<wayfire_grab_interface> active_plugins;
+    /**
+     * The render manager of this output
+     */
+    std::unique_ptr<render_manager> render;
 
-       plugin_manager *plugin;
-       wayfire_view active_view, last_active_toplevel;
+    /**
+     * The workspace manager of this output
+     */
+    std::unique_ptr<workspace_manager> workspace;
 
-       signal_callback_t view_disappeared_cb;
-    public:
-       wlr_output* handle;
-       std::tuple<int, int> get_screen_size();
+    /**
+     * Get a textual representation of the output
+     */
+    std::string to_string() const;
 
-       wf::render_manager *render;
-       workspace_manager *workspace;
+    /**
+     * Get the logical resolution of the output, i.e if an output has mode
+     * 3860x2160, scale 2 and transform 90, then get_screen_size will report
+     * that it has logical resolution of 1080x1920
+     */
+    std::tuple<int, int> get_screen_size() const;
 
-       wayfire_output(wlr_output*, wayfire_config *config);
-       ~wayfire_output();
+    /**
+     * Same as get_screen_size() but returns a wf_geometry with x,y = 0
+     */
+    wf_geometry get_relative_geometry() const;
 
-       std::string to_string() const;
+    /**
+     * Returns the output geometry as the output layout sees it. This is
+     * typically the same as get_relative_geometry() but with meaningful x and y
+     */
+    wf_geometry get_layout_geometry() const;
 
-       /* output-local geometry of the output */
-       wf_geometry get_relative_geometry();
+    /**
+     * Moves the pointer so that it is inside the output
+     */
+    void ensure_pointer() const;
 
-       /* geometry with respect to the output-layout */
-       wf_geometry get_layout_geometry();
+    /**
+     * Gets the cursor position relative to the output
+     */
+    std::tuple<int, int> get_cursor_position() const;
 
-       /* makes sure that the pointer is inside the output's geometry */
-       void ensure_pointer();
+    /**
+     * Activates a plugin. Note that this may not succeed, if a plugin with the
+     * same abilities is already active. However the same plugin might be
+     * activated twice.
+     *
+     * @return true if the plugin was successfully activated, false otherwise.
+     */
+    virtual bool activate_plugin(wayfire_grab_interface owner) = 0;
 
-       /* in output-local coordinates */
-       std::tuple<int, int> get_cursor_position();
+    /**
+     * Deactivates a plugin once, i.e if the plugin was activated more than
+     * once, only one activation is removed.
+     *
+     * @return true if the plugin remains activated, false otherwise.
+     */
+    virtual bool deactivate_plugin(wayfire_grab_interface owner) = 0;
 
-       /* @param break_fs - lower fullscreen windows if any */
-       bool activate_plugin  (wayfire_grab_interface owner, bool lower_fs = true);
-       bool deactivate_plugin(wayfire_grab_interface owner);
-       bool is_plugin_active (owner_t owner_name);
+    /**
+     * @return true if a grab interface with the given name is activated, false
+     *              otherwise.
+     */
+    virtual bool is_plugin_active(owner_t owner_name) const = 0;
 
-       void activate();
-       void deactivate();
+    /**
+     * @return The topmost view in the workspace layer
+     */
+    wayfire_view get_top_view() const;
 
-       wayfire_view get_top_view();
-       wayfire_view get_active_view() { return active_view; }
-       wayfire_view get_view_at_point(int x, int y);
+    /**
+     * @return The currently focused view for the given output. The might not,
+     * however, be actually focused, if the output isn't focused itself.
+     */
+    virtual wayfire_view get_active_view() const = 0;
 
-       void attach_view(wayfire_view v);
-       void detach_view(wayfire_view v);
+    /**
+     * Move view to the top of its layer without changing keyboard focus
+     */
+    void bring_to_front(wayfire_view v);
 
-       /* sets keyboard focus and active_view */
-       void set_active_view(wayfire_view v, wlr_seat *seat = nullptr);
+    /**
+     * Sets the active view for the given seat, but without changing stacking
+     * order.
+     */
+    virtual void set_active_view(wayfire_view v, wlr_seat *seat = nullptr) = 0;
 
-       /* same as set_active_view(), but will bring the view to the front */
-       void focus_view(wayfire_view v, wlr_seat *seat = nullptr);
+    /**
+     * Focuses the given view and raises it to the top of the stack.
+     */
+    void focus_view(wayfire_view v, wlr_seat *seat = nullptr);
 
-       /* Switch the workspace so that view becomes visible.
-        * @return true if workspace switch really occured */
-       bool ensure_visible(wayfire_view view);
+    /**
+     * Attach the view to the current output. This will change its output to
+     * this output, and add it to the workspace layer.
+     */
+    void attach_view(wayfire_view v);
 
-       /* Move view to the top of its layer without changing keyboard focus */
-       void bring_to_front(wayfire_view v);
+    /**
+     * Detach the view from the current output, and remove it from its layer.
+     * Note that the view output isn't reset.
+     */
+    void detach_view(wayfire_view v);
 
-       /* force refocus the topmost view in one of the layers marked in layers
-        * and which isn't skip_view */
-       void refocus(wayfire_view skip_view, uint32_t layers);
-       /* refocus the topmost focuseable view != skip_view, preferring regular views */
-       void refocus(wayfire_view skip_view = nullptr);
+    /**
+     * Switch the workspace so that view becomes visible.
+     * @return true if workspace switch really occured
+     */
+    bool ensure_visible(wayfire_view view);
 
-       wf_binding *add_key(wf_option key, key_callback *);
-       wf_binding *add_axis(wf_option axis, axis_callback *);
-       wf_binding *add_touch(wf_option mod, touch_callback *);
-       wf_binding *add_button(wf_option button, button_callback *);
-       wf_binding *add_gesture(wf_option gesture, gesture_callback *);
-       wf_binding *add_activator(wf_option activator, activator_callback *);
+    /**
+     * Force refocus the topmost view in one of the layers marked in layers
+     * and which isn't skip_view
+     */
+    void refocus(wayfire_view skip_view, uint32_t layers);
 
-       /* remove the given binding, regardless of its type */
-       void rem_binding(wf_binding *binding);
+    /**
+     * Refocus the topmost focuseable view != skip_view, preferring regular views
+     */
+    void refocus(wayfire_view skip_view = nullptr);
 
-       /* remove all the bindings that have the given callback,
-        * regardless of the type (key/button/etc) */
-       void rem_binding(void *callback);
+    /**
+     * the add_* functions are used by plugins to register bindings. They pass
+     * a wf_option, which means that core will always use the latest binding
+     * which is in the option.
+     *
+     * Adding a binding happens on a per-output basis. If a plugin registers
+     * bindings on each output, it will receive for ex. a keybinding only on
+     * the currently focused one.
+     *
+     * @return The wf_binding which can be used to unregister the binding.
+     */
+    wf_binding *add_key(wf_option key, key_callback *);
+    wf_binding *add_axis(wf_option axis, axis_callback *);
+    wf_binding *add_touch(wf_option mod, touch_callback *);
+    wf_binding *add_button(wf_option button, button_callback *);
+    wf_binding *add_gesture(wf_option gesture, gesture_callback *);
+    wf_binding *add_activator(wf_option activator, activator_callback *);
 
-       /* send cancel to all active plugins, NOT API */
-       void break_active_plugins();
+    /**
+     * Remove the given binding, regardless of its type.
+     */
+    void rem_binding(wf_binding *binding);
 
-       /* return an active wayfire_grab_interface on this output
-        * which has grabbed the input. If none, then return nullptr
-        * NOT API */
-       wayfire_grab_interface get_input_grab_interface();
+    /**
+     * Remove all bindings which have the given callback, regardless of the type.
+     */
+    void rem_binding(void *callback);
+
+    virtual ~output_t();
+  protected:
+    /* outputs are instantiated internally by core */
+    output_t(wlr_output *handle);
 };
+}
 #endif /* end of include guard: OUTPUT_HPP */

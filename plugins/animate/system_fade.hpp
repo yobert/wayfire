@@ -20,12 +20,12 @@ class wf_system_fade
 {
     wf_duration duration;
 
-    wayfire_output *output;
+    wf::output_t *output;
 
     wf::effect_hook_t damage_hook, render_hook;
 
     public:
-        wf_system_fade(wayfire_output *out, wf_duration&& dur) :
+        wf_system_fade(wf::output_t *out, wf_duration&& dur) :
             duration(std::move(dur)), output(out)
         {
             damage_hook = [=] ()

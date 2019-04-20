@@ -32,7 +32,7 @@ class viewport_manager : public workspace_manager
 
     private:
         int vwidth, vheight, vx, vy;
-        wayfire_output *output;
+        wf::output_t *output;
         wf_geometry output_geometry;
 
         wf_layer_container layers[WF_TOTAL_LAYERS];
@@ -55,7 +55,7 @@ class viewport_manager : public workspace_manager
         void remove_from_layer(wayfire_view view, uint32_t layer);
 
     public:
-        void init(wayfire_output *output);
+        void init(wf::output_t *output);
         virtual ~viewport_manager();
 
         bool view_visible_on(wayfire_view, std::tuple<int, int>);
@@ -97,7 +97,7 @@ class viewport_manager : public workspace_manager
 };
 
 /* Start viewport_manager */
-void viewport_manager::init(wayfire_output *o)
+void viewport_manager::init(wf::output_t *o)
 {
     output = o;
     vx = vy = 0;
@@ -563,15 +563,14 @@ class viewport_impl_plugin : public wayfire_plugin_t {
 
     void init(wayfire_config *config)
     {
-        auto vp = new viewport_manager();
+        auto vp = std::make_unique<viewport_manager>();
         vp->init(output);
-        output->workspace = vp;
+        output->workspace = std::move(vp);
     }
 
     void fini()
     {
-        delete output->workspace;
-        output->workspace = NULL;
+        output->workspace = nullptr;
     }
 
     bool is_unloadable() { return false; }

@@ -509,7 +509,7 @@ class wayfire_move : public wayfire_plugin_t
         }
 
         /* Moves the view to another output and sends a move request */
-        void move_to_output(wayfire_output *new_output)
+        void move_to_output(wf::output_t *new_output)
         {
             move_request_signal req;
             req.view = view;
@@ -544,7 +544,7 @@ class wayfire_move : public wayfire_plugin_t
 
         /* Delete the mirror view on the given output.
          * If the view hasn't been unmapped yet, then do so. */
-        void delete_mirror_view_from_output(wayfire_output *wo,
+        void delete_mirror_view_from_output(wf::output_t *wo,
             bool show_animation, bool already_unmapped)
         {
             if (!wo->has_data(get_data_name()))
@@ -584,7 +584,7 @@ class wayfire_move : public wayfire_plugin_t
         };
 
         /* Creates a new mirror view on output wo if it doesn't exist already */
-        void ensure_mirror_view(wayfire_output *wo)
+        void ensure_mirror_view(wf::output_t *wo)
         {
             if (wo->has_data(get_data_name()))
                 return;

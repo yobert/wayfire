@@ -166,7 +166,7 @@ void wayfire_view_t::toplevel_send_state()
     wlr_foreign_toplevel_handle_v1_set_minimized(toplevel_handle, minimized);
 }
 
-void wayfire_view_t::toplevel_update_output(wayfire_output *wo, bool enter)
+void wayfire_view_t::toplevel_update_output(wf::output_t *wo, bool enter)
 {
     if (!wo || !toplevel_handle)
         return;
@@ -212,7 +212,7 @@ wlr_box wayfire_view_t::get_minimize_hint()
     return minimize_hint;
 }
 
-void wayfire_view_t::set_output(wayfire_output *wo)
+void wayfire_view_t::set_output(wf::output_t *wo)
 {
     _output_signal data;
     data.output = output;
@@ -1136,7 +1136,7 @@ void wayfire_view_t::minimize_request(bool state)
     }
 }
 
-void wayfire_view_t::fullscreen_request(wayfire_output *out, bool state)
+void wayfire_view_t::fullscreen_request(wf::output_t *out, bool state)
 {
     if (fullscreen == state)
         return;

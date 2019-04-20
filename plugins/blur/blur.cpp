@@ -10,11 +10,11 @@ using blur_algorithm_provider = std::function<nonstd::observer_ptr<wf_blur_base>
 class wf_blur_transformer : public wf_view_transformer_t
 {
     blur_algorithm_provider provider;
-    wayfire_output *output;
+    wf::output_t *output;
     public:
 
         wf_blur_transformer(blur_algorithm_provider blur_algorithm_provider,
-            wayfire_output *output)
+            wf::output_t *output)
         {
             provider = blur_algorithm_provider;
             this->output = output;

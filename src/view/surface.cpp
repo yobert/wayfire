@@ -347,7 +347,7 @@ void wayfire_surface_t::commit()
     }
 }
 
-void wayfire_surface_t::set_output(wayfire_output *out)
+void wayfire_surface_t::set_output(wf::output_t *out)
 {
     if (output && surface)
         wlr_surface_send_leave(surface, output->handle);

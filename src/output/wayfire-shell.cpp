@@ -16,13 +16,13 @@ struct wayfire_shell_output
 
 struct wayfire_shell_client
 {
-    std::map<wayfire_output*, wayfire_shell_output> output_resources;
+    std::map<wf::output_t*, wayfire_shell_output> output_resources;
 };
 
 struct wayfire_shell
 {
     std::map<wl_client*, wayfire_shell_client> clients;
-    std::map<wayfire_output*, signal_callback_t> output_autohide_callback;
+    std::map<wf::output_t*, signal_callback_t> output_autohide_callback;
 
     signal_callback_t output_added, output_removed;
     static wayfire_shell& get_instance()
@@ -57,7 +57,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
 {
     std::unique_ptr<workspace_manager::anchored_area> area;
     /* output may be null, in which case the wm surface isn't tied to an output */
-    wayfire_output *output = nullptr;
+    wf::output_t *output = nullptr;
     wayfire_view view;
 
     uint32_t anchors = 0;
@@ -84,7 +84,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
     }
 
     public:
-    wayfire_shell_wm_surface(wayfire_output *output, wayfire_view view)
+    wayfire_shell_wm_surface(wf::output_t *output, wayfire_view view)
     {
         this->output = output;
         this->view = view;
@@ -372,7 +372,7 @@ static void zwf_shell_manager_get_wm_surface(struct wl_client *client,
     struct wl_resource *resource, struct wl_resource *surface,
     uint32_t role, struct wl_resource *output, uint32_t id)
 {
-    wayfire_output *wo = output ?
+    wf::output_t *wo = output ?
         core->output_layout->find_output(wlr_output_from_resource(output)) : nullptr;
 
     auto view = wl_surface_to_wayfire_view(surface);
@@ -423,7 +423,7 @@ static void zwf_shell_manager_get_wm_surface(struct wl_client *client,
 static void zwf_output_inhibit_output(struct wl_client *client,
                                       struct wl_resource *resource)
 {
-    auto wo = (wayfire_output*)wl_resource_get_user_data(resource);
+    auto wo = (wf::output_t*)wl_resource_get_user_data(resource);
     wo->render->add_inhibit(true);
 
     auto& cl = wayfire_shell::get_instance().clients[client];
@@ -434,7 +434,7 @@ static void zwf_output_inhibit_output(struct wl_client *client,
 static void zwf_output_inhibit_output_done(struct wl_client *client,
                                            struct wl_resource *resource)
 {
-    auto wo = (wayfire_output*)wl_resource_get_user_data(resource);
+    auto wo = (wf::output_t*)wl_resource_get_user_data(resource);
     auto& cl = wayfire_shell::get_instance().clients[client];
     auto& out = cl.output_resources[wo];
 
@@ -457,7 +457,7 @@ const struct zwf_output_v1_interface zwf_output_v1_implementation =
 static void destroy_zwf_output(wl_resource *resource)
 {
     auto client = wl_resource_get_client(resource);
-    auto wo = (wayfire_output*) wl_resource_get_user_data(resource);
+    auto wo = (wf::output_t*) wl_resource_get_user_data(resource);
     if (wayfire_shell::get_instance().clients.count(client) == 0)
         return;
 
@@ -518,7 +518,7 @@ void bind_zwf_shell_manager(wl_client *client, void *data, uint32_t version, uin
 }
 
 
-void zwf_output_send_autohide(wayfire_shell *shell, wayfire_output *output, int value)
+void zwf_output_send_autohide(wayfire_shell *shell, wf::output_t *output, int value)
 {
     for (auto& client : shell->clients)
     {
@@ -530,7 +530,7 @@ void zwf_output_send_autohide(wayfire_shell *shell, wayfire_output *output, int 
     }
 }
 
-static void wayfire_shell_handle_output_created(wayfire_output *output)
+static void wayfire_shell_handle_output_created(wf::output_t *output)
 {
     auto& shell = wayfire_shell::get_instance();
     shell.output_autohide_callback[output] = [=] (signal_data *flag)
@@ -543,7 +543,7 @@ static void wayfire_shell_handle_output_created(wayfire_output *output)
     output->connect_signal("autohide-panels", &shell.output_autohide_callback[output]);
 }
 
-static void wayfire_shell_handle_output_destroyed(wayfire_output *output)
+static void wayfire_shell_handle_output_destroyed(wf::output_t *output)
 {
 }
 

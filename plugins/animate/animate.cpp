@@ -29,7 +29,7 @@ struct animation_hook : public wf_custom_data_t
     std::unique_ptr<animation_base> animation;
 
     wayfire_view view;
-    wayfire_output *output;
+    wf::output_t *output;
 
     /* Update animation right before each frame */
     wf::effect_hook_t update_animation_hook = [=] ()

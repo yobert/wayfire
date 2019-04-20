@@ -73,7 +73,7 @@ class wf_kawase_blur : public wf_blur_base
         halfpixelID[i]   = GL_CALL(glGetUniformLocation(program[i], "halfpixel"));
     }
 
-    wf_kawase_blur(wayfire_output *output)
+    wf_kawase_blur(wf::output_t *output)
         : wf_blur_base(output, kawase_defaults)
     {
         OpenGL::render_begin();
@@ -152,7 +152,7 @@ class wf_kawase_blur : public wf_blur_base
     }
 };
 
-std::unique_ptr<wf_blur_base> create_kawase_blur(wayfire_output *output)
+std::unique_ptr<wf_blur_base> create_kawase_blur(wf::output_t *output)
 {
     return std::make_unique<wf_kawase_blur> (output);
 }

@@ -103,7 +103,7 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
             };
         }
 
-        virtual void set_output(wayfire_output *next_output)
+        virtual void set_output(wf::output_t *next_output)
         {
             if (this->output)
                 this->output->disconnect_signal("view-title-changed", &title_set);
