@@ -140,10 +140,10 @@ class wayfire_animation : public wayfire_plugin_t
         output->connect_signal("view-minimize-request", &on_minimize_request);
 
         animation_enabled_matcher =
-            wf::matcher::get_matcher(*core, animation_enabled_for);
-        fade_enabled_matcher = wf::matcher::get_matcher(*core, fade_enabled_for);
-        zoom_enabled_matcher = wf::matcher::get_matcher(*core, zoom_enabled_for);
-        fire_enabled_matcher = wf::matcher::get_matcher(*core, fire_enabled_for);
+            wf::matcher::get_matcher(animation_enabled_for);
+        fade_enabled_matcher = wf::matcher::get_matcher(fade_enabled_for);
+        zoom_enabled_matcher = wf::matcher::get_matcher(zoom_enabled_for);
+        fire_enabled_matcher = wf::matcher::get_matcher(fire_enabled_for);
     }
 
     std::string get_animation_for_view(wf_option& anim_type, wayfire_view view)
@@ -153,13 +153,13 @@ class wayfire_animation : public wayfire_plugin_t
          * we need to have a fallback algorithm */
         if (animation_enabled_matcher)
         {
-            if (WF_MATCHER_MATCHES(fade_enabled_matcher, view))
+            if (wf::matcher::evaluate(fade_enabled_matcher, view))
                 return "fade";
-            if (WF_MATCHER_MATCHES(zoom_enabled_matcher, view))
+            if (wf::matcher::evaluate(zoom_enabled_matcher, view))
                 return "zoom";
-            if (WF_MATCHER_MATCHES(fire_enabled_matcher, view))
+            if (wf::matcher::evaluate(fire_enabled_matcher, view))
                 return "fire";
-            if (WF_MATCHER_MATCHES(animation_enabled_matcher, view))
+            if (wf::matcher::evaluate(animation_enabled_matcher, view))
                 return anim_type->as_string();
         }
         else if (view->role == WF_VIEW_ROLE_TOPLEVEL ||

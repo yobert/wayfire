@@ -62,7 +62,7 @@ namespace wf
                 match_option->rem_updated_handler(&on_match_string_updated);
             }
 
-            bool matches(wayfire_view view) const override
+            virtual bool matches(wayfire_view view) const
             {
                 if (!expr || !view->is_mapped())
                     return false;
@@ -85,10 +85,21 @@ namespace wf
                 ev->result = std::make_unique<default_view_matcher> (ev->expression);
             };
 
+            signal_callback_t on_matcher_evaluate = [=] (signal_data *data)
+            {
+                auto ev = static_cast<match_evaluate_signal*> (data);
+                auto expr =
+                    dynamic_cast<default_view_matcher*> (ev->matcher.get());
+
+                if (expr)
+                    ev->result = expr->matches(ev->view);
+            };
+
             public:
             match_core_data()
             {
                 core->connect_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &on_new_matcher_request);
+                core->connect_signal(WF_MATCHER_EVALUATE_SIGNAL, &on_matcher_evaluate);
             }
         };
 

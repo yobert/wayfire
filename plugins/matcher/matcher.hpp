@@ -1,6 +1,7 @@
 #ifndef WF_MATCHER_PLUGIN_HPP
 #define WF_MATCHER_PLUGIN_HPP
 
+#include <core.hpp>
 #include <view.hpp>
 #include <config.hpp>
 
@@ -11,10 +12,8 @@ namespace wf
         class view_matcher
         {
             public:
-            virtual bool matches(wayfire_view view) const = 0;
             virtual ~view_matcher() = default;
         };
-#define WF_MATCHER_MATCHES(matcher,view) (matcher ? matcher->matches(view) : false)
 
         struct match_signal : public signal_data
         {
@@ -26,13 +25,32 @@ namespace wf
 
         /* Tries to create a view matcher on the given domain (usually the output
          * of the plugin) with the given expression. May return null */
-        std::unique_ptr<view_matcher> get_matcher(wf_signal_provider_t& domain,
-            wf_option expression)
+        std::unique_ptr<view_matcher> get_matcher(wf_option expression)
         {
             match_signal data;
             data.expression = expression;
-            domain.emit_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &data);
+            core->emit_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &data);
             return std::move(data.result);
+        }
+
+        struct match_evaluate_signal : public signal_data
+        {
+            nonstd::observer_ptr<view_matcher> matcher;
+            wayfire_view view;
+            bool result;
+        };
+
+#define WF_MATCHER_EVALUATE_SIGNAL "matcher-evaluate-match"
+        bool evaluate(const std::unique_ptr<view_matcher>& matcher,
+            wayfire_view view)
+        {
+            match_evaluate_signal data;
+            data.matcher = nonstd::make_observer(matcher.get());
+            data.view = view;
+            data.result = false; // by default
+
+            core->emit_signal(WF_MATCHER_EVALUATE_SIGNAL, &data);
+            return data.result;
         }
     }
 }
