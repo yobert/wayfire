@@ -269,10 +269,11 @@ class WayfireSwitcher : public wayfire_plugin_t
         output->render->set_renderer(nullptr);
         output->render->set_redraw_always(false);
 
-        output->workspace->for_each_view([=] (wayfire_view view) {
+        for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
+        {
             view->pop_transformer(switcher_transformer);
             view->pop_transformer(switcher_transformer_background);
-        }, WF_ALL_LAYERS);
+        }
 
         views.clear();
     }
@@ -420,7 +421,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     {
         auto all_views = output->workspace->get_views_on_workspace(
             output->workspace->get_current_workspace(),
-            WF_WM_LAYERS | WF_LAYER_MINIMIZED, true);
+            wf::WM_LAYERS | wf::LAYER_MINIMIZED, true);
 
         decltype(all_views) mapped_views;
         for (auto view : all_views)
@@ -520,13 +521,13 @@ class WayfireSwitcher : public wayfire_plugin_t
     std::vector<wayfire_view> get_background_views() const
     {
         return output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), WF_BELOW_LAYERS, false);
+            output->workspace->get_current_workspace(), wf::BELOW_LAYERS, false);
     }
 
     std::vector<wayfire_view> get_overlay_views() const
     {
         return output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), WF_ABOVE_LAYERS, false);
+            output->workspace->get_current_workspace(), wf::ABOVE_LAYERS, false);
     }
 
     void dim_background(float dim)

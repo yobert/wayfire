@@ -531,7 +531,7 @@ void wayfire_view_t::set_minimized(bool minim)
         emit_signal("disappeared", &data);
 
         output->emit_signal("view-disappeared", &data);
-        output->workspace->add_view_to_layer(self(), WF_LAYER_MINIMIZED);
+        output->workspace->add_view(self(), wf::LAYER_MINIMIZED);
 
         /* We want to be sure that when we restore the view, it will be visible
          * on the then current workspace
@@ -543,7 +543,7 @@ void wayfire_view_t::set_minimized(bool minim)
             output->workspace->get_current_workspace());
     } else
     {
-        output->workspace->add_view_to_layer(self(), WF_LAYER_WORKSPACE);
+        output->workspace->add_view(self(), wf::LAYER_WORKSPACE);
         output->focus_view(self());
     }
 
@@ -563,14 +563,14 @@ void wayfire_view_t::set_fullscreen(bool full)
             saved_layer = output->workspace->get_view_layer(self());
 
         /* Will trigger raising to fullscreen layer in workspace-manager */
-        output->bring_to_front(self());
+        output->workspace->bring_to_front(self());
     }
 
     if (!fullscreen && output &&
-        output->workspace->get_view_layer(self()) == WF_LAYER_FULLSCREEN)
+        output->workspace->get_view_layer(self()) == wf::LAYER_FULLSCREEN)
     {
-        output->workspace->add_view_to_layer(self(),
-            saved_layer == 0 ? (uint32_t)WF_LAYER_WORKSPACE : saved_layer);
+        output->workspace->add_view(self(),
+            saved_layer == 0 ? wf::LAYER_WORKSPACE : (wf::layer_t)saved_layer);
         saved_layer = 0;
     }
 
@@ -1028,7 +1028,7 @@ void wayfire_view_t::map(wlr_surface *surface)
 
     if (role != WF_VIEW_ROLE_SHELL_VIEW)
     {
-        output->attach_view(self());
+        output->workspace->add_view(self(), wf::LAYER_WORKSPACE);
         output->focus_view(self());
     }
 

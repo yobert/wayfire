@@ -41,7 +41,7 @@ class vswitch : public wayfire_plugin_t
     wayfire_view get_top_view()
     {
         auto ws = output->workspace->get_current_workspace();
-        auto views = output->workspace->get_views_on_workspace(ws, WF_LAYER_WORKSPACE, true);
+        auto views = output->workspace->get_views_on_workspace(ws, wf::LAYER_WORKSPACE, true);
 
         return views.empty() ? nullptr : views[0];
     }
@@ -139,11 +139,11 @@ class vswitch : public wayfire_plugin_t
     std::vector<wayfire_view> get_ws_views()
     {
         std::vector<wayfire_view> views;
-        output->workspace->for_each_view([&](wayfire_view view)
+        for (auto& view : output->workspace->get_views_in_layer(wf::MIDDLE_LAYERS))
         {
             if (view != grabbed_view)
                 views.push_back(view);
-        }, WF_MIDDLE_LAYERS);
+        }
 
         return views;
     }

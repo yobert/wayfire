@@ -45,9 +45,6 @@ void wayfire_core::configure(wayfire_config *config)
 {
     this->config = config;
     auto section = config->get_section("core");
-
-    vwidth  = *section->get_option("vwidth", "3");
-    vheight = *section->get_option("vheight", "3");
 }
 
 /* decorations impl */
@@ -390,7 +387,7 @@ void wayfire_core::erase_view(wayfire_view v)
     if (!v) return;
 
     if (v->get_output())
-        v->get_output()->detach_view(v);
+        v->get_output()->workspace->remove_view(v);
 
     auto it = std::find_if(views.begin(), views.end(),
                            [&v] (const std::unique_ptr<wayfire_view_t>& k)
@@ -428,9 +425,10 @@ void wayfire_core::move_view_to_output(wayfire_view v, wf::output_t *new_output)
 {
     assert(new_output);
     if (v->get_output())
-        v->get_output()->detach_view(v);
+        v->get_output()->workspace->remove_view(v);
 
-    new_output->attach_view(v);
+    v->set_output(new_output);
+    new_output->workspace->add_view(v, wf::LAYER_WORKSPACE);
     new_output->focus_view(v);
 }
 

@@ -18,18 +18,18 @@ extern "C"
 static const uint32_t both_vert = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
 static const uint32_t both_horiz = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
 
-static uint32_t zwlr_layer_to_wf_layer(zwlr_layer_shell_v1_layer layer)
+static wf::layer_t zwlr_layer_to_wf_layer(zwlr_layer_shell_v1_layer layer)
 {
     switch (layer)
     {
         case ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY:
-            return WF_LAYER_LOCK;
+            return wf::LAYER_LOCK;
         case ZWLR_LAYER_SHELL_V1_LAYER_TOP:
-            return WF_LAYER_TOP;
+            return wf::LAYER_TOP;
         case ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM:
-            return WF_LAYER_BOTTOM;
+            return wf::LAYER_BOTTOM;
         case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND:
-            return WF_LAYER_BACKGROUND;
+            return wf::LAYER_BACKGROUND;
         default:
             throw std::domain_error("Invalid layer for layer surface!");
     }
@@ -42,7 +42,7 @@ class wayfire_layer_shell_view : public wayfire_view_t
         wlr_layer_surface_v1 *lsurface;
         wlr_layer_surface_v1_state prev_state;
 
-        std::unique_ptr<workspace_manager::anchored_area> anchored_area;
+        std::unique_ptr<wf::workspace_manager::anchored_area> anchored_area;
 
         wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf);
 
@@ -57,16 +57,16 @@ class wayfire_layer_shell_view : public wayfire_view_t
         void configure(wf_geometry geometry);
 };
 
-workspace_manager::anchored_edge anchor_to_edge(uint32_t edges)
+wf::workspace_manager::anchored_edge anchor_to_edge(uint32_t edges)
 {
     if (edges == ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_TOP;
+        return wf::workspace_manager::ANCHORED_EDGE_TOP;
     if (edges == ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_BOTTOM;
+        return wf::workspace_manager::ANCHORED_EDGE_BOTTOM;
     if (edges == ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_LEFT;
+        return wf::workspace_manager::ANCHORED_EDGE_LEFT;
     if (edges == ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_RIGHT;
+        return wf::workspace_manager::ANCHORED_EDGE_RIGHT;
 
     assert(false);
 }
@@ -140,7 +140,7 @@ struct wf_layer_shell_manager
 
         if (!v->anchored_area)
         {
-            v->anchored_area = std::make_unique<workspace_manager::anchored_area>();
+            v->anchored_area = std::make_unique<wf::workspace_manager::anchored_area>();
             v->anchored_area->reflowed = [v] (wf_geometry geometry, wf_geometry _)
             { v->configure(geometry); };
             /* Notice that the reflowed areas won't be changed until we call
@@ -151,7 +151,7 @@ struct wf_layer_shell_manager
 
         v->anchored_area->edge = anchor_to_edge(edges);
         v->anchored_area->reserved_size = v->lsurface->current.exclusive_zone;
-        v->anchored_area->real_size = v->anchored_area->edge <= workspace_manager::WORKSPACE_ANCHORED_EDGE_BOTTOM ?
+        v->anchored_area->real_size = v->anchored_area->edge <= wf::workspace_manager::ANCHORED_EDGE_BOTTOM ?
             v->lsurface->current.desired_height : v->lsurface->current.desired_width;
     }
 
@@ -323,7 +323,7 @@ void wayfire_layer_shell_view::destroy()
 
 void wayfire_layer_shell_view::map(wlr_surface *surface)
 {
-    output->workspace->add_view_to_layer(self(),
+    output->workspace->add_view(self(),
         zwlr_layer_to_wf_layer(lsurface->layer));
 
     wayfire_view_t::map(surface);

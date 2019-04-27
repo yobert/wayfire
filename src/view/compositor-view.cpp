@@ -49,7 +49,7 @@ void wayfire_compositor_view_t::map()
         return;
     _is_mapped = true;
 
-    output->attach_view(self());
+    output->workspace->add_view(self(), wf::LAYER_WORKSPACE);
     emit_view_map(self());
     emit_map_state_change(this);
 }

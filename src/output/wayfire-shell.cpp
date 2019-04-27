@@ -38,24 +38,24 @@ struct wayfire_shell
     wayfire_shell() {}
 };
 
-static workspace_manager::anchored_edge anchor_edge_to_workspace_edge(uint32_t edge)
+static wf::workspace_manager::anchored_edge anchor_edge_to_workspace_edge(uint32_t edge)
 {
     if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_TOP)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_TOP;
+        return wf::workspace_manager::ANCHORED_EDGE_TOP;
     if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_BOTTOM)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_BOTTOM;
+        return wf::workspace_manager::ANCHORED_EDGE_BOTTOM;
     if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_LEFT)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_LEFT;
+        return wf::workspace_manager::ANCHORED_EDGE_LEFT;
     if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_RIGHT)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_RIGHT;
+        return wf::workspace_manager::ANCHORED_EDGE_RIGHT;
 
     log_error ("Unrecognized anchor edge %d", edge);
-    return workspace_manager::WORKSPACE_ANCHORED_EDGE_TOP;
+    return wf::workspace_manager::ANCHORED_EDGE_TOP;
 }
 
 class wayfire_shell_wm_surface : public wf_custom_data_t
 {
-    std::unique_ptr<workspace_manager::anchored_area> area;
+    std::unique_ptr<wf::workspace_manager::anchored_area> area;
     /* output may be null, in which case the wm surface isn't tied to an output */
     wf::output_t *output = nullptr;
     wayfire_view view;
@@ -295,7 +295,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         bool new_area = false;
         if (!area)
         {
-            area = std::make_unique<workspace_manager::anchored_area> ();
+            area = std::make_unique<wf::workspace_manager::anchored_area> ();
             area->reflowed = on_reflow;
             new_area = true;
         }
@@ -392,7 +392,7 @@ static void zwf_shell_manager_get_wm_surface(struct wl_client *client,
     view->set_role(WF_VIEW_ROLE_SHELL_VIEW);
     if (wo)
     {
-        view->get_output()->detach_view(view);
+        view->get_output()->workspace->remove_view(view);
         view->set_output(wo);
     }
 
@@ -400,23 +400,23 @@ static void zwf_shell_manager_get_wm_surface(struct wl_client *client,
     switch(role)
     {
         case ZWF_WM_SURFACE_V1_ROLE_BACKGROUND:
-            layer = WF_LAYER_BACKGROUND;
+            layer = wf::LAYER_BACKGROUND;
             break;
         case ZWF_WM_SURFACE_V1_ROLE_BOTTOM:
-            layer = WF_LAYER_BOTTOM;
+            layer = wf::LAYER_BOTTOM;
             break;
         case ZWF_WM_SURFACE_V1_ROLE_PANEL:
-            layer = WF_LAYER_TOP;
+            layer = wf::LAYER_TOP;
             break;
         case ZWF_WM_SURFACE_V1_ROLE_OVERLAY:
-            layer = WF_LAYER_LOCK;
+            layer = wf::LAYER_LOCK;
             break;
 
         default:
             log_error ("Invalid role for shell view");
     }
 
-    view->get_output()->workspace->add_view_to_layer(view, layer);
+    view->get_output()->workspace->add_view(view, (wf::layer_t)layer);
     view->activate(true);
 }
 

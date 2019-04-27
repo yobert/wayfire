@@ -22,6 +22,7 @@ extern "C"
 wf::output_t::output_t(wlr_output *handle)
 {
     this->handle = handle;
+    workspace = std::make_unique<workspace_manager> (this);
     render = std::make_unique<render_manager> (this);
 }
 
@@ -32,6 +33,7 @@ wf::output_impl_t::output_impl_t(wlr_output *handle)
 
     view_disappeared_cb = [=] (signal_data *data) { refocus(get_signaled_view(data)); };
     connect_signal("view-disappeared", &view_disappeared_cb);
+    connect_signal("detach-view", &view_disappeared_cb);
 }
 
 std::string wf::output_t::to_string() const
@@ -60,8 +62,7 @@ void wf::output_t::refocus(wayfire_view skip_view, uint32_t layers)
 void wf::output_t::refocus(wayfire_view skip_view)
 {
     uint32_t focused_layer = core->get_focused_layer();
-    uint32_t layers = focused_layer <= WF_LAYER_WORKSPACE ?
-        WF_WM_LAYERS : focused_layer;
+    uint32_t layers = focused_layer <= LAYER_WORKSPACE ?  WM_LAYERS : focused_layer;
 
     auto views = workspace->get_views_on_workspace(
         workspace->get_current_workspace(), layers, true);
@@ -76,14 +77,11 @@ void wf::output_t::refocus(wayfire_view skip_view)
          * should try to find reasonable focus in any focuseable layers if
          * that is not the case, for ex. if there is a focused layer by a
          * layer surface on another output */
-        layers = wf_all_layers_not_below(focused_layer);
+        layers = all_layers_not_below(focused_layer);
     }
 
     refocus(skip_view, layers);
 }
-
-workspace_manager::~workspace_manager()
-{ }
 
 wf::output_t::~output_t()
 {
@@ -147,54 +145,6 @@ std::tuple<int, int> wf::output_t::get_cursor_position() const
     auto og = get_layout_geometry();
 
     return std::make_tuple(x - og.x, y - og.y);
-}
-
-void wf::output_t::attach_view(wayfire_view v)
-{
-    v->set_output(this);
-    workspace->add_view_to_layer(v, WF_LAYER_WORKSPACE);
-
-    _view_signal data;
-    data.view = v;
-    emit_signal("attach-view", &data);
-}
-
-void wf::output_t::detach_view(wayfire_view v)
-{
-    _view_signal data;
-    data.view = v;
-    emit_signal("detach-view", &data);
-
-    workspace->add_view_to_layer(v, 0);
-
-    wayfire_view next = nullptr;
-    auto views = workspace->get_views_on_workspace(
-        workspace->get_current_workspace(), WF_MIDDLE_LAYERS, true);
-
-    for (auto wview : views)
-    {
-        if (wview->is_mapped())
-        {
-            next = wview;
-            break;
-        }
-    }
-
-    if (next == nullptr)
-    {
-        set_active_view(nullptr);
-    }
-    else
-    {
-        focus_view(next);
-    }
-}
-
-void wf::output_t::bring_to_front(wayfire_view v) {
-    assert(v);
-
-    workspace->add_view_to_layer(v, -1);
-    v->damage();
 }
 
 /* sets the "active" view and gives it keyboard focus
@@ -297,7 +247,7 @@ void wf::output_t::focus_view(wayfire_view v, wlr_seat *seat)
          * But at least we can bring it to front */
         set_active_view(nullptr, seat);
         if (v)
-            bring_to_front(v);
+            workspace->bring_to_front(v);
 
         return;
     }
@@ -311,7 +261,7 @@ void wf::output_t::focus_view(wayfire_view v, wlr_seat *seat)
             v->minimize_request(false);
 
         set_active_view(v, seat);
-        bring_to_front(v);
+        workspace->bring_to_front(v);
 
         focus_view_signal data;
         data.view = v;
@@ -321,13 +271,10 @@ void wf::output_t::focus_view(wayfire_view v, wlr_seat *seat)
 
 wayfire_view wf::output_t::get_top_view() const
 {
-    wayfire_view view = nullptr;
-    workspace->for_each_view([&view] (wayfire_view v) {
-        if (!view)
-            view = v;
-    }, WF_LAYER_WORKSPACE);
+    auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(),
+        LAYER_WORKSPACE, false);
 
-    return view;
+    return views.empty() ? nullptr : views[0];
 }
 
 wayfire_view wf::output_impl_t::get_active_view() const
@@ -461,14 +408,17 @@ void wf::output_t::rem_binding(void *callback)
     core->input->rem_binding(callback);
 }
 
-uint32_t wf_all_layers_not_below(uint32_t layer)
+namespace wf
+{
+uint32_t all_layers_not_below(uint32_t layer)
 {
     uint32_t mask = 0;
-    for (int i = 0; i < WF_TOTAL_LAYERS; i++)
+    for (int i = 0; i < wf::TOTAL_LAYERS; i++)
     {
         if ((1u << i) >= layer)
             mask |= (1 << i);
     }
 
     return mask;
+}
 }

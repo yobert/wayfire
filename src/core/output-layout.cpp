@@ -151,17 +151,18 @@ namespace wf
         {
             /* If we aren't moving to another output, then there is no need to
              * enumerate views either */
-            from->workspace->for_each_view_reverse(
-                [&views] (wayfire_view view) { views.push_back(view); },
-                WF_MIDDLE_LAYERS | WF_LAYER_MINIMIZED);
+            views = from->workspace->get_views_in_layer(
+                wf::MIDDLE_LAYERS | wf::LAYER_MINIMIZED);
+            std::reverse(views.begin(), views.end());
         }
 
         for (auto& view : views)
-            from->detach_view(view);
+            from->workspace->remove_view(view);
 
         for (auto& view : views)
         {
-            to->attach_view(view);
+            to->workspace->add_view(view, view->minimized ?
+                wf::LAYER_MINIMIZED : wf::LAYER_WORKSPACE);
             to->workspace->move_to_workspace(view,
                 to->workspace->get_current_workspace());
             to->focus_view(view);
@@ -175,12 +176,14 @@ namespace wf
 
         /* just remove all other views - backgrounds, panels, etc.
          * desktop views have been removed by the previous cycle */
-        from->workspace->for_each_view([=] (wayfire_view view) {
+        for (auto& view : from->workspace->get_views_in_layer(wf::ALL_LAYERS))
+        {
             if (view->is_mapped())
                 view->close();
-            from->detach_view(view);
+
+            from->workspace->remove_view(view);
             view->set_output(nullptr);
-        }, WF_ALL_LAYERS);
+        }
         /* A note: at this point, some views might already have been deleted */
     }
 

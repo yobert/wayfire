@@ -22,11 +22,11 @@ namespace wf
                 return "unknown";
 
             uint32_t layer = view->get_output()->workspace->get_view_layer(view);
-            if (layer == WF_LAYER_BACKGROUND || layer == WF_LAYER_BOTTOM)
+            if (layer == LAYER_BACKGROUND || layer == LAYER_BOTTOM)
                 return "background";
-            if (layer == WF_LAYER_TOP)
+            if (layer == LAYER_TOP)
                 return "panel";
-            if (layer == WF_LAYER_LOCK)
+            if (layer == LAYER_LOCK)
                 return "overlay";
 
             return "unknown";

@@ -251,18 +251,17 @@ wayfire_surface_t* input_manager::input_surface_at(int x, int y,
     x -= og.x;
     y -= og.y;
 
-    wayfire_surface_t *new_focus = nullptr;
-    output->workspace->for_each_view(
-        [&] (wayfire_view view)
+    for (auto& view : output->workspace->get_views_in_layer(wf::VISIBLE_LAYERS))
+    {
+        if (can_focus_surface(view.get()))
         {
-            if (new_focus) return; // we already found a focus surface
+            auto surface = view->map_input_coordinates(x, y, lx, ly);
+            if (surface)
+                return surface;
+        }
+    }
 
-            if (can_focus_surface(view.get())) // make sure focusing this surface isn't disabled
-                new_focus = view->map_input_coordinates(x, y, lx, ly);
-        },
-        WF_VISIBLE_LAYERS);
-
-    return new_focus;
+    return nullptr;
 }
 
 void input_manager::set_exclusive_focus(wl_client *client)

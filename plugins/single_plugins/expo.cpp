@@ -211,7 +211,7 @@ class wayfire_expo : public wayfire_plugin_t
 
         move_started_ws = std::tuple<int, int> {target_vx, target_vy};
         state.moving = true;
-        output->bring_to_front(moving_view);
+        output->workspace->bring_to_front(moving_view);
 
         moving_view->set_moving(true);
 
@@ -278,13 +278,12 @@ class wayfire_expo : public wayfire_plugin_t
 
         /* TODO: adjust to delimiter offset */
 
-        wayfire_view search = nullptr;
-        output->workspace->for_each_view([&search, sx, sy] (wayfire_view v) {
-            if (!search && (v->get_wm_geometry() & wf_point{sx, sy}))
-            search = v;
-        }, WF_WM_LAYERS);
-
-        return search;
+        for (auto& view : output->workspace->get_views_in_layer(wf::WM_LAYERS))
+        {
+            if (view->get_wm_geometry() & wf_point{sx, sy})
+                return view;
+        }
+        return nullptr;
     }
 
     void update_target_workspace(int x, int y) {

@@ -47,7 +47,7 @@ class wf_move_mirror_view : public wayfire_mirror_view_t
     virtual void map()
     {
         _is_mapped = true;
-        output->attach_view(self());
+        output->workspace->add_view(self(), wf::LAYER_WORKSPACE);
         emit_map_state_change(this);
     }
 
@@ -107,7 +107,7 @@ class wf_move_snap_preview : public wayfire_color_rect_view_t
             return;
         _is_mapped = true;
 
-        output->attach_view(self());
+        output->workspace->add_view(self(), wf::LAYER_TOP);
         emit_map_state_change(this);
     }
 
@@ -312,9 +312,10 @@ class wayfire_move : public wayfire_plugin_t
             if (!view || view->destroyed)
                 return;
 
-            if (!output->workspace->
-                    get_implementation(output->workspace->get_current_workspace())->
-                        view_movable(view))
+            auto current_ws = output->workspace->get_current_workspace();
+            auto current_ws_impl =
+                output->workspace->get_workspace_implementation(current_ws);
+            if (!current_ws_impl->view_movable(view))
                 return;
 
             if (view->get_output() != output)
@@ -334,7 +335,7 @@ class wayfire_move : public wayfire_plugin_t
             GetTuple(sx, sy, get_input_coords());
             grab_start = {sx, sy};
 
-            output->bring_to_front(view);
+            output->workspace->bring_to_front(view);
             if (enable_snap->as_int())
                 slot.slot_id = 0;
 
@@ -395,7 +396,7 @@ class wayfire_move : public wayfire_plugin_t
             if (!(output->get_relative_geometry() & wf_point{x, y}))
                 return 0;
 
-            if (view && output->workspace->get_view_layer(view) != WF_LAYER_WORKSPACE)
+            if (view && output->workspace->get_view_layer(view) != wf::LAYER_WORKSPACE)
                 return 0;
 
             int threshold = snap_threshold->as_cached_int();

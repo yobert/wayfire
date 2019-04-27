@@ -357,13 +357,12 @@ class wf::render_manager::impl
     nonstd::observer_ptr<workspace_stream_t> current_ws_stream;
     void init_default_streams()
     {
-        /* FIXME: We use core->vwidth/vheight directly because it is likely
-         * workspace_manager hasn't been initialized yet */
-        default_streams.resize(core->vwidth);
-        for (int i = 0; i < core->vwidth; i++)
+        GetTuple(vwidth, vheight, output->workspace->get_workspace_grid_size());
+        default_streams.resize(vwidth);
+        for (int i = 0; i < vwidth; i++)
         {
-            default_streams[i].resize(core->vheight);
-            for (int j = 0; j < core->vheight; j++)
+            default_streams[i].resize(vheight);
+            for (int j = 0; j < vheight; j++)
             {
                 default_streams[i][j].buffer.fb = 0;
                 default_streams[i][j].buffer.tex = 0;
@@ -553,33 +552,36 @@ class wf::render_manager::impl
         if (constant_redraw_counter)
             output_damage->schedule_repaint();
 
-        timespec repaint_ended;
-        clock_gettime(CLOCK_MONOTONIC, &repaint_ended);
-        auto view_send_frame_done = [=] (wayfire_view v)
-        {
-            if (!v->is_mapped())
-                return;
-
-            v->for_each_surface([=] (wayfire_surface_t *surface, int, int) {
-                surface->send_frame_done(repaint_ended);
-            });
-        };
-
         /* TODO: do this only if the view isn't fully occluded by another */
+        std::vector<wayfire_view> visible_views;
         if (renderer)
         {
-            output->workspace->for_each_view(view_send_frame_done, WF_VISIBLE_LAYERS);
+            visible_views = output->workspace->get_views_in_layer(
+                wf::VISIBLE_LAYERS);
         } else
         {
-            auto views = output->workspace->get_views_on_workspace(
-                output->workspace->get_current_workspace(), WF_MIDDLE_LAYERS, false);
-
-            for (auto v : views)
-                view_send_frame_done(v);
+            visible_views = output->workspace->get_views_on_workspace(
+                output->workspace->get_current_workspace(),
+                wf::MIDDLE_LAYERS, false);
 
             // send to all panels/backgrounds/etc
-            output->workspace->for_each_view(view_send_frame_done,
-                WF_BELOW_LAYERS | WF_ABOVE_LAYERS);
+            auto additional_views = output->workspace->get_views_in_layer(
+                wf::BELOW_LAYERS | wf::ABOVE_LAYERS);
+
+            visible_views.insert(visible_views.end(),
+                additional_views.begin(), additional_views.end());
+        }
+
+        timespec repaint_ended;
+        clock_gettime(CLOCK_MONOTONIC, &repaint_ended);
+        for (auto& view : visible_views)
+        {
+            if (!view->is_mapped())
+                continue;
+
+            view->for_each_surface([=] (wayfire_surface_t *surface, int, int) {
+                surface->send_frame_done(repaint_ended);
+            });
         }
     }
 
@@ -722,7 +724,7 @@ class wf::render_manager::impl
         workspace_stream_t& stream)
     {
         auto views = output->workspace->get_views_on_workspace(stream.ws,
-            WF_VISIBLE_LAYERS, false);
+            wf::VISIBLE_LAYERS, false);
 
         schedule_drag_icon(repaint);
 

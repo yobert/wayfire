@@ -178,9 +178,10 @@ class wayfire_resize : public wayfire_plugin_t
         if (!view || view->role == WF_VIEW_ROLE_SHELL_VIEW || view->destroyed)
             return;
 
-        if (!output->workspace->
-                get_implementation(output->workspace->get_current_workspace())->
-                    view_resizable(view))
+        auto current_ws = output->workspace->get_current_workspace();
+        auto current_ws_impl =
+            output->workspace->get_workspace_implementation(current_ws);
+        if (!current_ws_impl->view_resizable(view))
             return;
 
         if (!output->activate_plugin(grab_interface))

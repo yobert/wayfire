@@ -91,7 +91,7 @@ class wayfire_alpha : public wayfire_plugin_t
         auto view = core->find_view(focus->get_main_surface());
         auto layer = output->workspace->get_view_layer(view);
 
-        if (layer == WF_LAYER_BACKGROUND)
+        if (layer == wf::LAYER_BACKGROUND)
             return;
 
         if (ev->orientation == WLR_AXIS_ORIENTATION_VERTICAL)
@@ -100,10 +100,10 @@ class wayfire_alpha : public wayfire_plugin_t
 
     wf_option_callback min_value_changed = [=] ()
     {
-        output->workspace->for_each_view([=] (wayfire_view view)
+        for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
         {
             if (!view->get_transformer("alpha"))
-                return;
+                continue;
 
             wf_2D_view *transformer = dynamic_cast<wf_2D_view*> (view->get_transformer("alpha").get());
 
@@ -113,16 +113,16 @@ class wayfire_alpha : public wayfire_plugin_t
                 view->damage();
             }
 
-        }, WF_ALL_LAYERS);
-};
+        }
+    };
 
     void fini()
     {
-        output->workspace->for_each_view([] (wayfire_view view)
+        for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
         {
             if (view->get_transformer("alpha"))
                 view->pop_transformer("alpha");
-        }, WF_ALL_LAYERS);
+        }
 
         min_value->rem_updated_handler(&min_value_changed);
         output->rem_binding(&axis_cb);

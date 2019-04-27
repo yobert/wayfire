@@ -28,6 +28,7 @@ wayfire_sources = ['main.cpp',
                    'output/plugin-loader.cpp',
                    'output/output.cpp',
                    'output/render-manager.cpp',
+                   'output/workspace-impl.cpp',
                    'output/wayfire-shell.cpp',
                    'output/gtk-shell.cpp']
 

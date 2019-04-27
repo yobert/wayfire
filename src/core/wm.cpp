@@ -156,7 +156,7 @@ void wayfire_focus::fini()
 void wayfire_handle_focus_parent::focus_view(wayfire_view view)
 {
     last_view = view;
-    view->get_output()->bring_to_front(view);
+    view->get_output()->workspace->bring_to_front(view);
     for (auto child : view->children)
         focus_view(child);
 }

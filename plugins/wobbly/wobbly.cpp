@@ -438,12 +438,12 @@ class wayfire_wobbly : public wayfire_plugin_t
 
         void fini()
         {
-            output->workspace->for_each_view([] (wayfire_view view)
+            for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
             {
                 auto wobbly = dynamic_cast<wf_wobbly*> (view->get_transformer("wobbly").get());
                 if (wobbly)
                     wobbly->destroy_self();
-            }, WF_ALL_LAYERS);
+            }
 
             wobbly_graphics::destroy_program();
             output->disconnect_signal("wobbly-event", &wobbly_changed);

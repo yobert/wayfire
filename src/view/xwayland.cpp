@@ -436,7 +436,7 @@ void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
     if (wo != output)
     {
         if (output)
-            output->workspace->add_view_to_layer(self(), 0);
+            output->workspace->remove_view(self());
 
         set_output(wo);
     }
@@ -448,7 +448,7 @@ void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
      * plugins can detect that this view can have keyboard focus */
     _keyboard_focus_enabled = wlr_xwayland_or_surface_wants_focus(xw);
 
-    output->workspace->add_view_to_layer(self(), WF_LAYER_XWAYLAND);
+    output->workspace->add_view(self(), wf::LAYER_XWAYLAND);
     emit_view_map(self());
     if (wlr_xwayland_or_surface_wants_focus(xw))
     {

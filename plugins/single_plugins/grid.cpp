@@ -344,10 +344,10 @@ class wayfire_grid : public wayfire_plugin_t
     signal_callback_t on_workarea_changed = [=] (signal_data *data)
     {
         auto ev = static_cast<reserved_workarea_signal*> (data);
-        output->workspace->for_each_view([=] (wayfire_view view)
+        for (auto& view : output->workspace->get_views_in_layer(wf::LAYER_WORKSPACE))
         {
             if (!view->is_mapped())
-                return;
+                continue;
 
             auto data = view->get_data_safe<wf_grid_slot_data>();
 
@@ -360,7 +360,7 @@ class wayfire_grid : public wayfire_plugin_t
             }
 
             if (!data->slot)
-                return;
+                continue;
 
             /* Workarea changed, and we have a view which is tiled into some slot.
              * We need to make sure it remains in its slot. So we calculate the
@@ -375,7 +375,7 @@ class wayfire_grid : public wayfire_plugin_t
             workarea.y += vy * output_geometry.height;
 
             handle_slot(view, workarea, data->slot, false);
-        }, WF_LAYER_WORKSPACE);
+        }
     };
 
     signal_callback_t on_snap_query = [=] (signal_data *data)

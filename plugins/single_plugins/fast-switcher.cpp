@@ -73,14 +73,14 @@ class wayfire_fast_switcher : public wayfire_plugin_t
     void update_views()
     {
         current_view_index = 0;
-        views = output->workspace->get_views_on_workspace(output->workspace->get_current_workspace(),
-                                                          WF_WM_LAYERS, true);
+        views = output->workspace->get_views_on_workspace(
+            output->workspace->get_current_workspace(), wf::WM_LAYERS, true);
     }
 
     void view_chosen(int i)
     {
         for (int i = views.size() - 1; i >= 0; i--)
-            output->bring_to_front(views[i]);
+            output->workspace->bring_to_front(views[i]);
 
         output->focus_view(views[i]);
     }
@@ -161,7 +161,7 @@ class wayfire_fast_switcher : public wayfire_plugin_t
             views[index]->damage();
         }
 
-        output->bring_to_front(views[index]);
+        output->workspace->bring_to_front(views[index]);
 #undef index
         view_chosen(current_view_index);
     }

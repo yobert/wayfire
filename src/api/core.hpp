@@ -62,9 +62,6 @@ struct wf_server_decoration;
 
 class wayfire_core : public wf_object_base
 {
-        friend struct plugin_manager;
-        friend class wf::output_t;
-
         wf::wl_listener_wrapper output_layout_changed;
         wf::wl_listener_wrapper decoration_created;
         wf::wl_listener_wrapper vkbd_created;
@@ -181,11 +178,6 @@ class wayfire_core : public wf_object_base
         uint32_t get_focused_layer();
 
         void run(const char *command);
-
-        int vwidth, vheight;
-
-        std::string shadersrc;
-        bool run_panel;
 };
 
 extern wayfire_core *core;

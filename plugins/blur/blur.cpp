@@ -77,7 +77,7 @@ class wayfire_blur : public wayfire_plugin_t
     std::unique_ptr<wf_blur_base> blur_algorithm;
 
     const std::string transformer_name = "blur";
-    const uint32_t blur_layers = WF_MIDDLE_LAYERS | WF_ABOVE_LAYERS;
+    const uint32_t blur_layers = wf::MIDDLE_LAYERS | wf::ABOVE_LAYERS;
 
     /* the pixels from padded_region */
     wf_framebuffer_base saved_pixels;
@@ -102,9 +102,8 @@ class wayfire_blur : public wayfire_plugin_t
 
     void remove_transformers()
     {
-        output->workspace->for_each_view([=] (wayfire_view view) {
+        for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
             pop_transformer(view);
-        }, WF_ALL_LAYERS);
     }
 
     public:
@@ -139,9 +138,8 @@ class wayfire_blur : public wayfire_plugin_t
 
             if (mode_opt->as_string() == normal_mode)
             {
-                output->workspace->for_each_view([=] (wayfire_view view) {
+                for (auto& view : output->workspace->get_views_in_layer(blur_layers))
                     add_transformer(view);
-                }, blur_layers);
             }
 
             last_mode = mode_opt->as_string();

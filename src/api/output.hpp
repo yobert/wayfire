@@ -5,11 +5,10 @@
 #include "object.hpp"
 #include "view.hpp"
 
-class workspace_manager;
-
 namespace wf
 {
 class render_manager;
+class workspace_manager;
 
 class output_t : public wf_object_base
 {
@@ -97,11 +96,6 @@ class output_t : public wf_object_base
     virtual wayfire_view get_active_view() const = 0;
 
     /**
-     * Move view to the top of its layer without changing keyboard focus
-     */
-    void bring_to_front(wayfire_view v);
-
-    /**
      * Sets the active view for the given seat, but without changing stacking
      * order.
      */
@@ -111,18 +105,6 @@ class output_t : public wf_object_base
      * Focuses the given view and raises it to the top of the stack.
      */
     void focus_view(wayfire_view v, wlr_seat *seat = nullptr);
-
-    /**
-     * Attach the view to the current output. This will change its output to
-     * this output, and add it to the workspace layer.
-     */
-    void attach_view(wayfire_view v);
-
-    /**
-     * Detach the view from the current output, and remove it from its layer.
-     * Note that the view output isn't reset.
-     */
-    void detach_view(wayfire_view v);
 
     /**
      * Switch the workspace so that view becomes visible.

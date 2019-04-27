@@ -31,10 +31,9 @@ class wayfire_decoration : public wayfire_plugin_t
 
     void fini()
     {
-        output->workspace->for_each_view([] (wayfire_view view)
-        {
+        for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
             view->set_decoration(nullptr);
-        }, WF_ALL_LAYERS);
+
         output->disconnect_signal("map-view", &view_created);
     }
 };
