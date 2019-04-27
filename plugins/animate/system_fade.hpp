@@ -12,6 +12,7 @@ extern "C"
 {
 #define static
 #include <wlr/types/wlr_matrix.h>
+#include <wlr/render/wlr_renderer.h>
 #undef static
 }
 
@@ -56,7 +57,7 @@ class wf_system_fade
                                    WL_OUTPUT_TRANSFORM_NORMAL,
                                    0, output->handle->transform_matrix);
 
-            wlr_render_quad_with_matrix(core->renderer, color, matrix);
+            wlr_render_quad_with_matrix(wf::get_core().renderer, color, matrix);
 
             OpenGL::render_end();
             if (!duration.running())

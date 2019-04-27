@@ -12,6 +12,7 @@
 #include "../output/output-impl.hpp"
 #include <xf86drmMode.h>
 #include <sstream>
+#include <unordered_set>
 
 extern "C"
 {
@@ -23,6 +24,7 @@ extern "C"
 #include <wlr/types/wlr_matrix.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_output_management_v1.h>
+#include <wlr/render/wlr_renderer.h>
 #undef static
 }
 
@@ -228,7 +230,8 @@ namespace wf
             this->handle = handle;
             on_destroy.connect(&handle->events.destroy);
 
-            auto output_section = core->config->get_section(handle->name);
+            auto output_section =
+                wf::get_core().config->get_section(handle->name);
             mode_opt      = output_section->get_option("mode", default_value);
             position_opt  = output_section->get_option("layout", default_value);
             scale_opt     = output_section->get_option("scale", "1");
@@ -373,14 +376,14 @@ namespace wf
             /* Focus the first output, but do not change the focus on subsequently
              * added outputs. We also change the focus if the noop output was
              * focused */
-            wlr_output *focused = core->get_active_output() ?
-                core->get_active_output()->handle : nullptr;
+            wlr_output *focused = get_core().get_active_output() ?
+                get_core().get_active_output()->handle : nullptr;
             if (!focused || wlr_output_is_noop(focused))
-                core->focus_output(wo);
+                get_core().focus_output(wo);
 
             output_added_signal data;
             data.output = wo;
-            core->output_layout->emit_signal("output-added", &data);
+            get_core().output_layout->emit_signal("output-added", &data);
         }
 
         void destroy_wayfire_output(bool shutdown)
@@ -391,20 +394,24 @@ namespace wf
             log_info("disable output: %s", output->handle->name);
             auto wo = output.get();
 
-            if (core->get_active_output() == wo && !shutdown)
-                core->focus_output(core->output_layout->get_next_output(wo));
+            if (get_core().get_active_output() == wo && !shutdown)
+            {
+                get_core().focus_output(
+                    get_core().output_layout->get_next_output(wo));
+            }
 
             /* It doesn't make sense to transfer to another output if we're
              * going to shut down the compositor */
-            transfer_views(wo, shutdown ? nullptr : core->get_active_output());
+            transfer_views(wo,
+                shutdown ? nullptr : get_core().get_active_output());
 
             output_removed_signal data;
             data.output = wo;
-            core->output_layout->emit_signal("output-removed", &data);
+            get_core().output_layout->emit_signal("output-removed", &data);
             this->output = nullptr;
         }
 
-        std::set<std::string> added_custom_modes;
+        std::unordered_set<std::string> added_custom_modes;
         void add_custom_mode(std::string modeline)
         {
             if (added_custom_modes.count(modeline))
@@ -426,7 +433,7 @@ namespace wf
         void refresh_custom_modes()
         {
             static const std::string custom_mode_prefix = "custom_mode";
-            auto section = core->config->get_section(handle->name);
+            auto section = get_core().config->get_section(handle->name);
             for (auto& opt : section->options)
             {
                 if (custom_mode_prefix == opt->name.substr(0, custom_mode_prefix.length()))
@@ -484,8 +491,9 @@ namespace wf
         /** Render the output using texture as source */
         void render_output(wlr_texture *texture)
         {
+            auto renderer = get_core().renderer;
             wlr_output_attach_render(handle, NULL);
-            wlr_renderer_begin(core->renderer, handle->width, handle->height);
+            wlr_renderer_begin(renderer, handle->width, handle->height);
 
             /* Project a box filling the whole screen */
             float projection[9], box[9];
@@ -496,15 +504,16 @@ namespace wf
             wlr_matrix_project_box(box, &geometry, WL_OUTPUT_TRANSFORM_NORMAL,
                 0.0, projection);
 
-            wlr_render_texture_with_matrix(core->renderer, texture, box, 1.0);
-            wlr_renderer_end(core->renderer);
+            wlr_render_texture_with_matrix(renderer, texture, box, 1.0);
+            wlr_renderer_end(renderer);
             wlr_output_commit(handle);
         }
 
         /* Load output contents and render them */
         void handle_frame()
         {
-            auto wo = core->output_layout->find_output(current_state.mirror_from);
+            auto wo = get_core().output_layout->find_output(
+                current_state.mirror_from);
             if (!wo)
             {
                 log_error("Cannot find mirrored output %s.",
@@ -521,7 +530,8 @@ namespace wf
 
             /* We export the output to mirror from to a dmabuf, then create
              * a texture from this and use it to render "our" output */
-            auto texture = wlr_texture_from_dmabuf(core->renderer, &attributes);
+            auto texture = wlr_texture_from_dmabuf(
+                get_core().renderer, &attributes);
             render_output(texture);
 
             wlr_texture_destroy(texture);
@@ -531,12 +541,14 @@ namespace wf
         void setup_mirror()
         {
             /* Check if we can mirror */
-            auto wo = core->output_layout->find_output(current_state.mirror_from);
-            bool mirror_active = (wo != nullptr);
+            auto wo = get_core().output_layout->find_output(
+                current_state.mirror_from);
 
+            bool mirror_active = (wo != nullptr);
             if (wo)
             {
-                auto config = core->output_layout->get_current_configuration();
+                auto config =
+                    get_core().output_layout->get_current_configuration();
                 auto& wo_state = config[wo->handle];
 
                 if (wo_state.source & OUTPUT_IMAGE_SOURCE_NONE)
@@ -661,13 +673,13 @@ namespace wf
             output_layout = wlr_output_layout_create();
 
             on_config_reload = [=] (void*) { reconfigure_from_config(); };
-            core->connect_signal("reload-config", &on_config_reload);
+            get_core().connect_signal("reload-config", &on_config_reload);
             on_shutdown = [=] (void*) {
                 shutdown_received = true;
             };
-            core->connect_signal("shutdown", &on_shutdown);
+            get_core().connect_signal("shutdown", &on_shutdown);
 
-            noop_backend = wlr_noop_backend_create(core->display);
+            noop_backend = wlr_noop_backend_create(get_core().display);
             /* The noop output will be typically destroyed on the first
              * plugged monitor, however we need to create it here so that we
              * support booting with 0 monitors */
@@ -676,7 +688,7 @@ namespace wf
                     ensure_noop_output();
             });
 
-            output_manager = wlr_output_manager_v1_create(core->display);
+            output_manager = wlr_output_manager_v1_create(get_core().display);
             on_output_manager_test.set_callback([=] (void *data) {
                 apply_wlr_configuration((wlr_output_configuration_v1*) data, true);
             });
@@ -694,7 +706,7 @@ namespace wf
                 noop_output->destroy_wayfire_output(true);
             wlr_backend_destroy(noop_backend);
 
-            core->disconnect_signal("reload-config", &on_config_reload);
+            get_core().disconnect_signal("reload-config", &on_config_reload);
         }
 
         output_configuration_t output_configuration_from_wlr_configuration(
@@ -954,7 +966,7 @@ namespace wf
                 }
             }
 
-            core->output_layout->emit_signal("configuration-changed", nullptr);
+            get_core().output_layout->emit_signal("configuration-changed", nullptr);
 
             if (count_enabled > 0)
             {

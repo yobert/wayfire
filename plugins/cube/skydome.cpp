@@ -17,8 +17,9 @@ wf_cube_background_skydome::wf_cube_background_skydome(wf::output_t *output)
     this->output = output;
     load_program();
 
-    background_image = (*core->config)["cube"]->get_option("skydome_texture", "");
-    mirror_opt = (*core->config)["cube"]->get_option("skydome_mirror", "1");
+    auto section = wf::get_core().config->get_section("cube");
+    background_image = section->get_option("skydome_texture", "");
+    mirror_opt = section->get_option("skydome_mirror", "1");
     reload_texture();
 }
 

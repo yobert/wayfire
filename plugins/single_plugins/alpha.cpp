@@ -83,12 +83,10 @@ class wayfire_alpha : public wayfire_plugin_t
 
         output->deactivate_plugin(grab_interface);
 
-        auto focus = core->get_cursor_focus();
-
-        if (!focus)
+        auto view = wf::get_core().get_cursor_focus_view();
+        if (!view)
             return;
 
-        auto view = core->find_view(focus->get_main_surface());
         auto layer = output->workspace->get_view_layer(view);
 
         if (layer == wf::LAYER_BACKGROUND)

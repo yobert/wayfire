@@ -41,7 +41,7 @@ wf_blur_base::wf_blur_base(wf::output_t *output,
     this->output = output;
     this->algorithm_name = defaults.algorithm_name;
 
-    auto section = core->config->get_section("blur");
+    auto section = wf::get_core().config->get_section("blur");
     this->offset_opt = section->get_option(algorithm_name + "_offset",
         defaults.offset);
     this->degrade_opt = section->get_option(algorithm_name + "_degrade",

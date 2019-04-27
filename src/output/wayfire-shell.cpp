@@ -3,6 +3,7 @@
 #include "core.hpp"
 #include "debug.hpp"
 #include "workspace-manager.hpp"
+#include "output-layout.hpp"
 #include "render-manager.hpp"
 #include "wayfire-shell.hpp"
 #include "wayfire-shell-protocol.h"
@@ -79,7 +80,7 @@ class wayfire_shell_wm_surface : public wf::custom_data_t
     int32_t layer_focus_request = -1;
     inline void drop_focus_request()
     {
-        core->unfocus_layer(layer_focus_request);
+        wf::get_core().unfocus_layer(layer_focus_request);
         layer_focus_request = -1;
     }
 
@@ -265,7 +266,7 @@ class wayfire_shell_wm_surface : public wf::custom_data_t
                 /* Notice: using output here is safe, because we do not allow
                  * exclusive focus for outputless surfaces */
                 view->set_keyboard_focus_enabled(true);
-                layer_focus_request = core->focus_layer(
+                layer_focus_request = wf::get_core().focus_layer(
                     output->workspace->get_view_layer(view), layer_focus_request);
                 output->focus_view(view);
                 break;
@@ -373,7 +374,8 @@ static void zwf_shell_manager_get_wm_surface(struct wl_client *client,
     uint32_t role, struct wl_resource *output, uint32_t id)
 {
     wf::output_t *wo = output ?
-        core->output_layout->find_output(wlr_output_from_resource(output)) : nullptr;
+        wf::get_core().output_layout->find_output(
+            wlr_output_from_resource(output)) : nullptr;
 
     auto view = wl_surface_to_wayfire_view(surface);
 
@@ -481,7 +483,7 @@ void zwf_shell_manager_get_wf_output(struct wl_client *client,
                                      uint32_t id)
 {
     auto wlr_out = (wlr_output*) wl_resource_get_user_data(output);
-    auto wo = core->output_layout->find_output(wlr_out);
+    auto wo = wf::get_core().output_layout->find_output(wlr_out);
 
     auto wfo = wl_resource_create(client, &zwf_output_v1_interface, 1, id);
     wl_resource_set_implementation(wfo, &zwf_output_v1_implementation, wo, destroy_zwf_output);
@@ -563,7 +565,7 @@ wayfire_shell* wayfire_shell_create(wl_display *display)
         wayfire_shell_handle_output_destroyed( get_signaled_output(data));
     };
 
-    core->output_layout->connect_signal("output-added", &shell.output_added);
-    core->output_layout->connect_signal("output-removed", &shell.output_removed);
+    wf::get_core().output_layout->connect_signal("output-added", &shell.output_added);
+    wf::get_core().output_layout->connect_signal("output-removed", &shell.output_removed);
     return &shell;
 }

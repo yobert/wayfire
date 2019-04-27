@@ -202,7 +202,7 @@ class WayfireSwitcher : public wayfire_plugin_t
 
             focus_next(dir);
             arrange();
-            activating_modifiers = core->get_keyboard_modifiers();
+            activating_modifiers = wf::get_core().get_keyboard_modifiers();
         } else
         {
             next_view(dir);

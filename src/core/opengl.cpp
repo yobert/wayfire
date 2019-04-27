@@ -2,8 +2,16 @@
 #include "opengl.hpp"
 #include "debug.hpp"
 #include "output.hpp"
-#include "core.hpp"
+#include "core-impl.hpp"
 #include "render-manager.hpp"
+
+extern "C"
+{
+#define static
+#include <wlr/render/egl.h>
+#include <wlr/render/gles2.h>
+#undef static
+}
 
 // #include "gldebug.hpp"
 
@@ -222,10 +230,11 @@ namespace OpenGL
 
     void render_begin(int32_t viewport_width, int32_t viewport_height, uint32_t fb)
     {
-        if (!current_output && !wlr_egl_is_current(core->egl))
-            wlr_egl_make_current(core->egl, EGL_NO_SURFACE, NULL);
+        if (!current_output && !wlr_egl_is_current(wf::get_core_impl().egl))
+            wlr_egl_make_current(wf::get_core_impl().egl, EGL_NO_SURFACE, NULL);
 
-        wlr_renderer_begin(core->renderer, viewport_width, viewport_height);
+        wlr_renderer_begin(wf::get_core_impl().renderer,
+            viewport_width, viewport_height);
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fb));
     }
 
@@ -238,8 +247,8 @@ namespace OpenGL
     void render_end()
     {
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-        wlr_renderer_scissor(core->renderer, NULL);
-        wlr_renderer_end(core->renderer);
+        wlr_renderer_scissor(wf::get_core().renderer, NULL);
+        wlr_renderer_end(wf::get_core().renderer);
     }
 }
 

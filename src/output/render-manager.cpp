@@ -1,6 +1,6 @@
 #include "render-manager.hpp"
 #include "output.hpp"
-#include "core.hpp"
+#include "../core/core-impl.hpp"
 #include "util.hpp"
 #include "workspace-manager.hpp"
 #include "../core/seat/input-manager.hpp"
@@ -694,14 +694,14 @@ class wf::render_manager::impl
      */
     void schedule_drag_icon(workspace_stream_repaint_t& repaint)
     {
-        if (renderer || !core->input->drag_icon)
+        if (renderer || !wf::get_core_impl().input->drag_icon)
             return;
 
-        if (!core->input->drag_icon->is_mapped())
+        if (!wf::get_core_impl().input->drag_icon->is_mapped())
             return;
 
-        core->input->drag_icon->set_output(output);
-        core->input->drag_icon->for_each_surface(
+        wf::get_core_impl().input->drag_icon->set_output(output);
+        wf::get_core_impl().input->drag_icon->for_each_surface(
             [&] (wayfire_surface_t *surface, int x, int y) {
                 schedule_surface(repaint, surface, x, y, 0, 0);
             });
@@ -712,8 +712,11 @@ class wf::render_manager::impl
      */
     void unschedule_drag_icon()
     {
-        if (core->input->drag_icon && core->input->drag_icon->is_mapped())
-            core->input->drag_icon->set_output(nullptr);
+        if (wf::get_core_impl().input->drag_icon &&
+            wf::get_core_impl().input->drag_icon->is_mapped())
+        {
+            wf::get_core_impl().input->drag_icon->set_output(nullptr);
+        }
     }
 
     /**

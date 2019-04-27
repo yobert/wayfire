@@ -320,9 +320,9 @@ class wayfire_cube : public wayfire_plugin_t
         if (!activate())
             return;
 
-        GetTuple(px, py, core->get_cursor_position());
+        GetTuple(px, py, wf::get_core().get_cursor_position());
         saved_pointer_position = {px, py};
-        core->hide_cursor();
+        wf::get_core().hide_cursor();
 
         /* Rotations, offset_y and zoom stay as they are now, as they have been grabbed.
          * offset_z changes to the default one.
@@ -350,8 +350,9 @@ class wayfire_cube : public wayfire_plugin_t
     /* Mouse grab was released */
     void input_ungrabbed()
     {
-        core->set_cursor("default");
-        core->warp_cursor(saved_pointer_position.x, saved_pointer_position.y);
+        wf::get_core().set_cursor("default");
+        wf::get_core().warp_cursor(
+            saved_pointer_position.x, saved_pointer_position.y);
 
         animation.in_exit = true;
 

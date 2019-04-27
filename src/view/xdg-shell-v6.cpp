@@ -104,7 +104,7 @@ wayfire_xdg6_view::wayfire_xdg6_view(wlr_xdg_surface_v6 *s)
     });
     on_request_fullscreen.set_callback([&] (void* data) {
         auto ev = static_cast<wlr_xdg_toplevel_v6_set_fullscreen_event*> (data);
-        auto wo = core->output_layout->find_output(ev->output);
+        auto wo = wf::get_core().output_layout->find_output(ev->output);
         fullscreen_request(wo, ev->fullscreen);
     });
 
@@ -273,13 +273,13 @@ static wlr_xdg_shell_v6 *v6_handle;
 void init_xdg_shell_v6()
 {
     static wf::wl_listener_wrapper on_created;
-    v6_handle = wlr_xdg_shell_v6_create(core->display);
+    v6_handle = wlr_xdg_shell_v6_create(wf::get_core().display);
     if (v6_handle)
     {
         on_created.set_callback([=] (void *data) {
             auto surf = static_cast<wlr_xdg_surface_v6*> (data);
             if (surf->role == WLR_XDG_SURFACE_V6_ROLE_TOPLEVEL)
-                core->add_view(std::make_unique<wayfire_xdg6_view> (surf));
+                wf::get_core().add_view(std::make_unique<wayfire_xdg6_view> (surf));
         });
         on_created.connect(&v6_handle->events.new_surface);
     }

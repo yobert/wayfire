@@ -3,7 +3,8 @@
 
 wf_cube_simple_background::wf_cube_simple_background()
 {
-    background_color = (*core->config)["cube"]->get_option("background", "0 0 0 1");
+    background_color = (*wf::get_core().config)["cube"]
+        ->get_option("background", "0 0 0 1");
 }
 
 void wf_cube_simple_background::render_frame(const wf_framebuffer& fb,

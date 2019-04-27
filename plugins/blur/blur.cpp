@@ -150,12 +150,9 @@ class wayfire_blur : public wayfire_plugin_t
         /* Toggles the blur state of the view the user clicked on */
         button_toggle = [=] (uint32_t, int, int)
         {
-            auto focus = core->get_cursor_focus();
-
-            if (!focus)
+            auto view = wf::get_core().get_cursor_focus_view();
+            if (!view)
                 return;
-
-            auto view = core->find_view(focus->get_main_surface());
 
             if (view->get_transformer(transformer_name)) {
                 view->pop_transformer(transformer_name);

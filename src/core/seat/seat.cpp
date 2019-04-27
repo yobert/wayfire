@@ -1,7 +1,8 @@
 #include "seat.hpp"
-#include "core.hpp"
+#include "../core-impl.hpp"
 #include "input-manager.hpp"
 #include "render-manager.hpp"
+#include "output-layout.hpp"
 #include "debug.hpp"
 #include "signal-definitions.hpp"
 #include "../../view/priv-view.hpp"
@@ -19,8 +20,8 @@ wf_drag_icon::wf_drag_icon(wlr_drag_icon *ic)
     on_destroy.set_callback([&] (void*) {
         /* we don't dec_keep_count() because the surface memory is
          * managed by the unique_ptr */
-        core->input->drag_icon = nullptr;
-        core->emit_signal("drag-stopped", nullptr);
+        wf::get_core_impl().input->drag_icon = nullptr;
+        wf::get_core().emit_signal("drag-stopped", nullptr);
     });
 
     on_map.connect(&icon->events.map);
@@ -31,7 +32,8 @@ wf_drag_icon::wf_drag_icon(wlr_drag_icon *ic)
 wf_point wf_drag_icon::get_output_position()
 {
     auto pos = icon->drag->grab_type == WLR_DRAG_GRAB_KEYBOARD_TOUCH ?
-        core->get_touch_position(icon->drag->touch_id) : core->get_cursor_position();
+        wf::get_core().get_touch_position(icon->drag->touch_id) :
+            wf::get_core().get_cursor_position();
 
     GetTuple(x, y, pos);
 
@@ -56,7 +58,7 @@ void wf_drag_icon::damage(const wlr_box& box)
     if (!is_mapped())
         return;
 
-    for (auto& output : core->output_layout->get_outputs())
+    for (auto& output : wf::get_core().output_layout->get_outputs())
     {
         auto output_geometry = output->get_layout_geometry();
         if (output_geometry & box)
@@ -73,7 +75,7 @@ void wf_drag_icon::damage(const wlr_box& box)
 
 void input_manager::validate_drag_request(wlr_seat_request_start_drag_event *ev)
 {
-    auto seat = core->get_current_seat();
+    auto seat = wf::get_core().get_current_seat();
 
     if (wlr_seat_validate_pointer_grab_serial(seat, ev->origin, ev->serial))
     {
@@ -101,12 +103,12 @@ void input_manager::update_drag_icon()
 
 void input_manager::create_seat()
 {
-    seat = wlr_seat_create(core->display, "default");
+    seat = wlr_seat_create(wf::get_core().display, "default");
     cursor = std::make_unique<wf_cursor> ();
 
     request_set_cursor.set_callback([&] (void* data) {
         auto ev = static_cast<wlr_seat_pointer_request_set_cursor_event*> (data);
-        core->input->cursor->set_cursor(ev);
+        wf::get_core_impl().input->cursor->set_cursor(ev);
     });
     request_set_cursor.connect(&seat->events.request_set_cursor);
 
@@ -118,22 +120,27 @@ void input_manager::create_seat()
 
     start_drag.set_callback([&] (void *data) {
         auto d = static_cast<wlr_drag*> (data);
-        core->input->drag_icon = std::make_unique<wf_drag_icon> (d->icon);
-        core->emit_signal("drag-started", nullptr);
+        wf::get_core_impl().input->drag_icon =
+            std::make_unique<wf_drag_icon> (d->icon);
+        wf::get_core().emit_signal("drag-started", nullptr);
     });
     start_drag.connect(&seat->events.start_drag);
 
     request_set_selection.set_callback([&] (void *data) {
         auto ev = static_cast<wlr_seat_request_set_selection_event*> (data);
-        wlr_seat_set_selection(core->get_current_seat(), ev->source, ev->serial);
+        wlr_seat_set_selection(wf::get_core().get_current_seat(),
+            ev->source, ev->serial);
     });
     request_set_selection.connect(&seat->events.request_set_selection);
 
     request_set_primary_selection.set_callback([&] (void *data) {
-        auto ev = static_cast<wlr_seat_request_set_primary_selection_event*> (data);
-        wlr_seat_set_primary_selection(core->get_current_seat(), ev->source, ev->serial);
+        auto ev =
+            static_cast<wlr_seat_request_set_primary_selection_event*> (data);
+        wlr_seat_set_primary_selection(wf::get_core().get_current_seat(),
+            ev->source, ev->serial);
     });
-    request_set_primary_selection.connect(&seat->events.request_set_primary_selection);
+    request_set_primary_selection.connect(
+        &seat->events.request_set_primary_selection);
 }
 
 namespace wf
@@ -201,7 +208,7 @@ wf_input_device_internal::wf_input_device_internal(wlr_input_device *dev)
     update_options();
 
     on_destroy.set_callback([&] (void*) {
-        core->input->handle_input_destroyed(this->get_wlr_handle());
+        wf::get_core_impl().input->handle_input_destroyed(this->get_wlr_handle());
     });
     on_destroy.connect(&dev->events.destroy);
 
@@ -231,7 +238,7 @@ void wf_input_device_internal::handle_switched(wlr_event_switch_toggle *ev)
             break;
     }
 
-    core->emit_signal(event_name, &data);
+    wf::get_core().emit_signal(event_name, &data);
 }
 
 void wf_input_device_internal::update_options()

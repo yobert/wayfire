@@ -10,8 +10,8 @@
 wf_cube_background_cubemap::wf_cube_background_cubemap()
 {
     create_program();
-
-    background_image = (*core->config)["cube"]->get_option("cubemap_image", "");
+    background_image = (*wf::get_core().config)["cube"]
+        ->get_option("cubemap_image", "");
     reload_texture();
 }
 

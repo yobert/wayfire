@@ -409,7 +409,7 @@ namespace wf
         if (!call || source)
             return;
 
-        auto use_loop = loop ?: core->ev_loop;
+        auto use_loop = loop ?: get_core().ev_loop;
         source = wl_event_loop_add_idle(use_loop, handle_idle_listener, this);
     }
 
@@ -450,7 +450,7 @@ namespace wf
     {
         this->call = call;
         if (!source)
-            source = wl_event_loop_add_timer(core->ev_loop, handle_timeout, this);
+            source = wl_event_loop_add_timer(get_core().ev_loop, handle_timeout, this);
 
         wl_event_source_timer_update(source, timeout_ms);
     }

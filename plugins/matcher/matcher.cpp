@@ -98,8 +98,10 @@ namespace wf
             public:
             match_core_data()
             {
-                core->connect_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &on_new_matcher_request);
-                core->connect_signal(WF_MATCHER_EVALUATE_SIGNAL, &on_matcher_evaluate);
+                wf::get_core().connect_signal(WF_MATCHER_CREATE_QUERY_SIGNAL,
+                    &on_new_matcher_request);
+                wf::get_core().connect_signal(WF_MATCHER_EVALUATE_SIGNAL,
+                    &on_matcher_evaluate);
             }
         };
 
@@ -109,7 +111,7 @@ namespace wf
             void init(wayfire_config *conf) override
             {
                 /* Will add the data if not existing, otherwise no-op */
-                core->get_data_safe<match_core_data>();
+                wf::get_core().get_data_safe<match_core_data>();
             }
 
             bool is_unloadable() override {return false;}

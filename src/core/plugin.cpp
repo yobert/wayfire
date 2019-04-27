@@ -1,4 +1,4 @@
-#include "core.hpp"
+#include "core-impl.hpp"
 #include "output.hpp"
 #include "seat/input-manager.hpp"
 #include "signal-definitions.hpp"
@@ -21,8 +21,8 @@ bool wayfire_grab_interface_t::grab()
 
     grabbed = true;
 
-    if (output == core->get_active_output())
-        return core->input->grab_input(this);
+    if (output == wf::get_core_impl().get_active_output())
+        return wf::get_core_impl().input->grab_input(this);
     else
         return true;
 }
@@ -33,8 +33,8 @@ void wayfire_grab_interface_t::ungrab()
         return;
 
     grabbed = false;
-    if (output == core->get_active_output())
-        core->input->ungrab_input();
+    if (output == wf::get_core_impl().get_active_output())
+        wf::get_core_impl().input->ungrab_input();
 }
 
 bool wayfire_grab_interface_t::is_grabbed()

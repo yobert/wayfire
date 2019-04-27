@@ -263,7 +263,7 @@ void wayfire_color_rect_view_t::_render_rect(const wf_framebuffer& fb,
     wlr_matrix_project_box(matrix, &render_geometry, WL_OUTPUT_TRANSFORM_NORMAL, 0, projection);
 
     float col[4] = {color.r * color.a, color.g * color.a, color.b * color.a, color.a};
-    wlr_render_quad_with_matrix(core->renderer, col, matrix);
+    wlr_render_quad_with_matrix(wf::get_core().renderer, col, matrix);
 }
 
 void wayfire_color_rect_view_t::_wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor)
@@ -273,7 +273,7 @@ void wayfire_color_rect_view_t::_wlr_render_box(const wf_framebuffer& fb, int x,
         (wl_output_transform)fb.wl_transform);
 
     OpenGL::render_begin(fb);
-    auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
+    auto sbox = scissor; wlr_renderer_scissor(wf::get_core().renderer, &sbox);
 
     /* Draw the border, making sure border parts don't overlap, otherwise
      * we will get wrong corners if border has alpha != 1.0 */

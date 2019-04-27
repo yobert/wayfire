@@ -29,7 +29,7 @@ namespace wf
         {
             match_signal data;
             data.expression = expression;
-            core->emit_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &data);
+            get_core().emit_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &data);
             return std::move(data.result);
         }
 
@@ -49,7 +49,7 @@ namespace wf
             data.view = view;
             data.result = false; // by default
 
-            core->emit_signal(WF_MATCHER_EVALUATE_SIGNAL, &data);
+            get_core().emit_signal(WF_MATCHER_EVALUATE_SIGNAL, &data);
             return data.result;
         }
     }

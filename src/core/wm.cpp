@@ -16,11 +16,11 @@ void wayfire_exit::init(wayfire_config*)
 {
     key = [](uint32_t key)
     {
-        if (is_output_inhibited(core->get_active_output()))
+        if (is_output_inhibited(wf::get_core().get_active_output()))
             return;
 
-        core->emit_signal("shutdown", nullptr);
-        wl_display_terminate(core->display);
+        wf::get_core().emit_signal("shutdown", nullptr);
+        wl_display_terminate(wf::get_core().display);
     };
 
     output->add_key(new_static_option("<ctrl> <alt> KEY_BACKSPACE"), &key);
@@ -61,12 +61,12 @@ void wayfire_focus::init(wayfire_config *)
     grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY;
 
     on_button = [=] (uint32_t button, int x, int y) {
-        this->check_focus_surface(core->get_cursor_focus());
+        this->check_focus_surface(wf::get_core().get_cursor_focus());
     };
     output->add_button(new_static_option("BTN_LEFT"), &on_button);
 
     on_touch = [=] (int x, int y) {
-        this->check_focus_surface(core->get_touch_focus());
+        this->check_focus_surface(wf::get_core().get_touch_focus());
     };
     output->add_touch(new_static_option(""), &on_touch);
 
@@ -85,10 +85,10 @@ void wayfire_focus::check_focus_surface(wayfire_surface_t* focus)
 {
     /* Find the main view */
     auto main_surface = focus ? focus->get_main_surface() : nullptr;
-    auto view = main_surface ? core->find_view(main_surface) : nullptr;
+    auto view = dynamic_cast<wayfire_view_t*> (main_surface);
 
     /* Close popups from the lastly focused view */
-    if (last_focus != view)
+    if (last_focus.get() != view)
         send_done(last_focus);
 
     if (!view || !view->is_mapped() || !view->get_keyboard_focus_surface()
@@ -98,8 +98,8 @@ void wayfire_focus::check_focus_surface(wayfire_surface_t* focus)
     }
 
     output->deactivate_plugin(grab_interface);
-    view->get_output()->focus_view(view);
-    set_last_focus(view);
+    view->get_output()->focus_view(view->self());
+    set_last_focus(view->self());
 }
 
 void wayfire_focus::send_done(wayfire_view view)

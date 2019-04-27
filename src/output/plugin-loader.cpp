@@ -90,7 +90,7 @@ void plugin_manager::destroy_plugin(wayfire_plugin& p)
 
     /* we load the same plugins for each output, so we must dlclose() the handle
      * only when we remove the last output */
-    if (core->output_layout->get_num_outputs() < 1)
+    if (wf::get_core().output_layout->get_num_outputs() < 1)
     {
         if (p->dynamic)
             dlclose(p->handle);

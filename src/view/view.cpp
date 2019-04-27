@@ -1,5 +1,5 @@
 #include "debug.hpp"
-#include "core.hpp"
+#include "../core/core-impl.hpp"
 #include "opengl.hpp"
 #include "output.hpp"
 #include "view.hpp"
@@ -35,7 +35,7 @@ extern "C"
 wayfire_view_t::wayfire_view_t()
     : wayfire_surface_t (NULL)
 {
-    set_output(core->get_active_output());
+    set_output(wf::get_core().get_active_output());
 }
 
 std::string wayfire_view_t::to_string() const
@@ -53,7 +53,7 @@ void wayfire_view_t::create_toplevel()
         return;
 
     toplevel_handle = wlr_foreign_toplevel_handle_v1_create(
-        core->protocols.toplevel_manager);
+        wf::get_core().protocols.toplevel_manager);
 
     toplevel_handle_v1_maximize_request.set_callback([&] (void *data) {
         auto ev = static_cast<wlr_foreign_toplevel_handle_v1_maximized_event*> (data);
@@ -140,9 +140,9 @@ void wayfire_view_t::toplevel_send_app_id()
 
     auto default_app_id = get_app_id();
     auto gtk_shell_app_id = wf_gtk_shell_get_custom_app_id(
-        core->protocols.gtk_shell, surface->resource);
+        wf::get_core_impl().gtk_shell, surface->resource);
 
-    auto app_id_mode = (*core->config)["workarounds"]
+    auto app_id_mode = (*wf::get_core().config)["workarounds"]
         ->get_option("app_id_mode", "stock");
 
     if (app_id_mode->as_string() == "gtk-shell" && gtk_shell_app_id.length() > 0) {
@@ -1075,7 +1075,7 @@ void wayfire_view_t::move_request()
 
 void wayfire_view_t::focus_request()
 {
-    core->focus_view(self(), nullptr);
+    wf::get_core().focus_view(self());
     output->ensure_visible(self());
 }
 
@@ -1141,13 +1141,13 @@ void wayfire_view_t::fullscreen_request(wf::output_t *out, bool state)
     if (fullscreen == state)
         return;
 
-    auto wo = (out ? out : (output ? output : core->get_active_output()));
+    auto wo = (out ? out : (output ? output : wf::get_core().get_active_output()));
     assert(wo);
 
     /* TODO: what happens if the view is moved to the other output, but not
      * fullscreened? We should make sure that it stays visible there */
     if (output != wo)
-        core->move_view_to_output(self(), wo);
+        wf::get_core().move_view_to_output(self(), wo);
 
     view_fullscreen_signal data;
     data.view = self();
@@ -1190,7 +1190,7 @@ void wayfire_view_t::damage()
 void wayfire_view_t::destruct()
 {
     set_decoration(nullptr);
-    idle_destruct.run_once([&] () {core->erase_view(self());});
+    idle_destruct.run_once([&] () {wf::get_core_impl().erase_view(self());});
 }
 
 void wayfire_view_t::destroy()

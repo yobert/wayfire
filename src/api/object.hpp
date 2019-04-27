@@ -2,7 +2,6 @@
 #define OBJECT_HPP
 
 #include <unordered_map>
-#include <list>
 #include <typeinfo>
 
 #include <nonstd/observer_ptr.h>

@@ -209,8 +209,7 @@ class wayfire_move : public wayfire_plugin_t
             {
                 is_using_touch = false;
                 was_client_request = false;
-                auto focus = core->get_cursor_focus();
-                auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+                auto view = wf::get_core().get_cursor_focus_view();
 
                 if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
                     initiate(view);
@@ -220,8 +219,7 @@ class wayfire_move : public wayfire_plugin_t
             {
                 is_using_touch = true;
                 was_client_request = false;
-                auto focus = core->get_touch_focus();
-                auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
+                auto view = wf::get_core().get_touch_focus_view();
 
                 if (view && view->role != WF_VIEW_ROLE_SHELL_VIEW)
                     initiate(view);
@@ -293,9 +291,9 @@ class wayfire_move : public wayfire_plugin_t
             if (!view)
                 return;
 
-            GetTuple(tx, ty, core->get_touch_position(0));
-            if (tx != wayfire_core::invalid_coordinate &&
-                ty != wayfire_core::invalid_coordinate)
+            GetTuple(tx, ty, wf::get_core().get_touch_position(0));
+            if (tx != wf::compositor_core_t::invalid_coordinate &&
+                ty != wf::compositor_core_t::invalid_coordinate)
             {
                 is_using_touch = true;
             } else
@@ -459,7 +457,7 @@ class wayfire_move : public wayfire_plugin_t
                 GetTuple(ix, iy, get_input_coords());
                 auto preview = new wf_move_snap_preview({ix, iy, 1, 1});
 
-                core->add_view(std::unique_ptr<wayfire_view_t> (preview));
+                wf::get_core().add_view(std::unique_ptr<wayfire_view_t> (preview));
 
                 preview->set_output(output);
                 preview->set_target_geometry(query.out_geometry, 1);
@@ -494,9 +492,9 @@ class wayfire_move : public wayfire_plugin_t
         std::tuple<int, int> get_global_input_coords()
         {
             if (is_using_touch) {
-                return core->get_touch_position(0);
+                return wf::get_core().get_touch_position(0);
             } else {
-                return core->get_cursor_position();
+                return wf::get_core().get_cursor_position();
             }
         }
 
@@ -527,8 +525,8 @@ class wayfire_move : public wayfire_plugin_t
 
             view->set_moving(false);
 
-            core->move_view_to_output(view, new_output);
-            core->focus_output(new_output);
+            wf::get_core().move_view_to_output(view, new_output);
+            wf::get_core().focus_output(new_output);
 
             new_output->emit_signal("move-request", &req);
         }
@@ -570,7 +568,7 @@ class wayfire_move : public wayfire_plugin_t
         /* Destroys all mirror views created by this plugin */
         void delete_mirror_views(bool show_animation)
         {
-            for (auto& wo : core->output_layout->get_outputs())
+            for (auto& wo : wf::get_core().output_layout->get_outputs())
             {
                 delete_mirror_view_from_output(wo,
                     show_animation, false);
@@ -596,7 +594,7 @@ class wayfire_move : public wayfire_plugin_t
             auto mirror = new wf_move_mirror_view(view, base_output.x - mirror_output.x,
                 base_output.y - mirror_output.y);
 
-            core->add_view(std::unique_ptr<wayfire_view_t> (mirror));
+            wf::get_core().add_view(std::unique_ptr<wayfire_view_t> (mirror));
 
             auto wo_state = wo->get_data_safe<wf_move_output_state> (get_data_name());
             wo_state->view = nonstd::make_observer(mirror);
@@ -618,7 +616,8 @@ class wayfire_move : public wayfire_plugin_t
             /* The mouse isn't on our output anymore -> transfer ownership of
              * the move operation to the other output where the input currently is */
             GetTuple(global_x, global_y, get_global_input_coords());
-            auto target_output = core->output_layout->get_output_at(global_x, global_y);
+            auto target_output =
+                wf::get_core().output_layout->get_output_at(global_x, global_y);
             if (target_output != output)
             {
                 /* The move plugin on the next output will create new mirror views */
@@ -628,9 +627,10 @@ class wayfire_move : public wayfire_plugin_t
             }
 
             auto current_og = output->get_layout_geometry();
-            auto current_geometry = view->get_bounding_box() + wf_point{current_og.x, current_og.y};
+            auto current_geometry =
+                view->get_bounding_box() + wf_point{current_og.x, current_og.y};
 
-            for (auto& wo : core->output_layout->get_outputs())
+            for (auto& wo : wf::get_core().output_layout->get_outputs())
             {
                 if (wo == output) // skip the same output
                     return;

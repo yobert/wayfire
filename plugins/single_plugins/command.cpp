@@ -58,7 +58,7 @@ class wayfire_command : public wayfire_plugin_t
         if (!output->activate_plugin(grab_interface))
             return;
 
-        core->run(command.c_str());
+        wf::get_core().run(command.c_str());
         /* No repeat necessary in any of those cases */
         if (!enable_repeat || source == ACTIVATOR_SOURCE_GESTURE || value == 0)
         {
@@ -77,30 +77,31 @@ class wayfire_command : public wayfire_plugin_t
             repeat.pressed_button = value;
         }
 
-        repeat_delay_source = wl_event_loop_add_timer(core->ev_loop,
+        repeat_delay_source = wl_event_loop_add_timer(wf::get_core().ev_loop,
             repeat_delay_timeout_handler, &on_repeat_delay_timeout);
 
         wl_event_source_timer_update(repeat_delay_source,
-            core->config->get_section("input")->get_option("kb_repeat_delay", "400")->as_int());
+            wf::get_core().config->get_section("input")
+                ->get_option("kb_repeat_delay", "400")->as_int());
     }
 
     std::function<void()> on_repeat_delay_timeout = [=] ()
     {
         repeat_delay_source = NULL;
-        repeat_source = wl_event_loop_add_timer(core->ev_loop,
+        repeat_source = wl_event_loop_add_timer(wf::get_core().ev_loop,
             repeat_once_handler, &on_repeat_once);
         on_repeat_once();
     };
 
     std::function<void()> on_repeat_once = [=] ()
     {
-        uint32_t repeat_rate = core->config->get_section("input")
+        uint32_t repeat_rate = wf::get_core().config->get_section("input")
             ->get_option("kb_repeat_rate", "40")->as_int();
         if (repeat_rate <= 0 || repeat_rate > 1000)
             return reset_repeat();
 
         wl_event_source_timer_update(repeat_source, 1000 / repeat_rate);
-        core->run(repeat.repeat_command.c_str());
+        wf::get_core().run(repeat.repeat_command.c_str());
     };
 
     void reset_repeat()
@@ -208,15 +209,15 @@ class wayfire_command : public wayfire_plugin_t
         reload_config = [=] (signal_data*)
         {
             clear_bindings();
-            setup_bindings_from_config(core->config);
+            setup_bindings_from_config(wf::get_core().config);
         };
 
-        core->connect_signal("reload-config", &reload_config);
+        wf::get_core().connect_signal("reload-config", &reload_config);
     }
 
     void fini()
     {
-        core->disconnect_signal("reload-config", &reload_config);
+        wf::get_core().disconnect_signal("reload-config", &reload_config);
         clear_bindings();
     }
 };

@@ -32,9 +32,7 @@ class wf_wrot : public wayfire_plugin_t
                 if (!output->activate_plugin(grab_interface))
                     return;
 
-                auto focus = core->get_cursor_focus();
-                current_view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
-
+                current_view = wf::get_core().get_cursor_focus_view();
                 if (!current_view || current_view->role != WF_VIEW_ROLE_TOPLEVEL)
                 {
                     output->deactivate_plugin(grab_interface);

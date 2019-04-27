@@ -61,6 +61,7 @@ wayfire_view wl_surface_to_wayfire_view(wl_resource *resource)
         handle = wlr_xwayland_surface_from_wlr_surface(surface)->data;
 #endif
 
-    return core->find_view(wf_surface_from_void(handle));
+    return nonstd::make_observer(
+        dynamic_cast<wayfire_view_t*> (wf_surface_from_void(handle)));
 }
 

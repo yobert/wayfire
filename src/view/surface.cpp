@@ -1,7 +1,9 @@
 #include <algorithm>
 extern "C"
 {
+#include <wlr/types/wlr_surface.h>
 #define static
+#include <wlr/types/wlr_compositor.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_matrix.h>
 #include <wlr/types/wlr_buffer.h>
@@ -11,7 +13,7 @@ extern "C"
 
 #include "priv-view.hpp"
 #include "opengl.hpp"
-#include "core.hpp"
+#include "../core/core-impl.hpp"
 #include "output.hpp"
 #include "debug.hpp"
 #include "render-manager.hpp"
@@ -207,7 +209,7 @@ void emit_map_state_change(wayfire_surface_t *surface)
     if (surface->get_output())
         surface->get_output()->emit_signal(state, &data);
 
-    core->emit_signal(state, &data);
+    wf::get_core().emit_signal(state, &data);
 }
 
 void wayfire_surface_t::map(wlr_surface *surface)
@@ -236,8 +238,8 @@ void wayfire_surface_t::map(wlr_surface *surface)
     wl_list_for_each(sub, &surface->subsurfaces, parent_link)
         handle_new_subsurface(sub);
 
-    if (core->uses_csd.count(surface))
-        this->has_client_decoration = core->uses_csd[surface];
+    if (wf::get_core_impl().uses_csd.count(surface))
+        this->has_client_decoration = wf::get_core_impl().uses_csd[surface];
 
     if (is_subsurface())
         emit_map_state_change(this);
@@ -408,12 +410,13 @@ void wayfire_surface_t::_wlr_render_box(const wf_framebuffer& fb, int x, int y, 
         (wl_output_transform)fb.wl_transform);
 
     float matrix[9];
-    wlr_matrix_project_box(matrix, &geometry, wlr_output_transform_invert(surface->current.transform),
-                           0, projection);
+    wlr_matrix_project_box(matrix, &geometry,
+        wlr_output_transform_invert(surface->current.transform), 0, projection);
 
     OpenGL::render_begin(fb);
-    auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
-    wlr_render_texture_with_matrix(core->renderer, get_buffer()->texture, matrix, alpha);
+    auto sbox = scissor; wlr_renderer_scissor(wf::get_core().renderer, &sbox);
+    wlr_render_texture_with_matrix(wf::get_core().renderer,
+        get_buffer()->texture, matrix, alpha);
 
 #ifdef WAYFIRE_GRAPHICS_DEBUG
     float scissor_proj[9];
@@ -421,7 +424,7 @@ void wayfire_surface_t::_wlr_render_box(const wf_framebuffer& fb, int x, int y, 
         WL_OUTPUT_TRANSFORM_NORMAL);
 
     float col[4] = {0, 0.2, 0, 0.5};
-    wlr_render_rect(core->renderer, &scissor, col, scissor_proj);
+    wlr_render_rect(wf::get_core().renderer, &scissor, col, scissor_proj);
 #endif
 
     OpenGL::render_end();

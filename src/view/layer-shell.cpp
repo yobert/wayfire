@@ -7,6 +7,7 @@
 #include "debug.hpp"
 #include "output.hpp"
 #include "workspace-manager.hpp"
+#include "output-layout.hpp"
 
 extern "C"
 {
@@ -259,7 +260,7 @@ struct wf_layer_shell_manager
         uint32_t focus4 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND);
 
         auto focus_mask = std::max({focus1, focus2, focus3, focus4});
-        focused_layer_request_uid = core->focus_layer(focus_mask,
+        focused_layer_request_uid = wf::get_core().focus_layer(focus_mask,
             focused_layer_request_uid);
         output->workspace->reflow_reserved_areas();
     }
@@ -280,7 +281,7 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
 
     if (lsurf->output)
     {
-        auto wo = core->output_layout->find_output(lsurf->output);
+        auto wo = wf::get_core().output_layout->find_output(lsurf->output);
         set_output(wo);
     }
 
@@ -413,12 +414,13 @@ void init_layer_shell()
 {
     static wf::wl_listener_wrapper on_created;
 
-    layer_shell_handle = wlr_layer_shell_v1_create(core->display);
+    layer_shell_handle = wlr_layer_shell_v1_create(wf::get_core().display);
     if (layer_shell_handle)
     {
         on_created.set_callback([] (void *data) {
             auto lsurf = static_cast<wlr_layer_surface_v1*> (data);
-            core->add_view(std::make_unique<wayfire_layer_shell_view> (lsurf));
+            wf::get_core().add_view(
+                std::make_unique<wayfire_layer_shell_view> (lsurf));
         });
 
         on_created.connect(&layer_shell_handle->events.new_surface);

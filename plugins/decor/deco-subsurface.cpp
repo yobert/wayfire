@@ -137,22 +137,26 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
 
         GLuint tex = -1;
 
-        virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y, const wlr_box& scissor)
+        virtual void _wlr_render_box(const wf_framebuffer& fb, int x, int y,
+            const wlr_box& scissor)
         {
             wlr_box geometry {x, y, width, height};
             geometry = fb.damage_box_from_geometry_box(geometry);
 
             float projection[9];
-            wlr_matrix_projection(projection, fb.viewport_width, fb.viewport_height,
+            wlr_matrix_projection(projection,
+                fb.viewport_width, fb.viewport_height,
                 (wl_output_transform)fb.wl_transform);
 
             float matrix[9];
-            wlr_matrix_project_box(matrix, &geometry, WL_OUTPUT_TRANSFORM_NORMAL, 0, projection);
+            wlr_matrix_project_box(matrix, &geometry,
+                WL_OUTPUT_TRANSFORM_NORMAL, 0, projection);
 
             OpenGL::render_begin(fb);
             fb.scissor(scissor);
 
-            wlr_render_quad_with_matrix(core->renderer, active ? border_color : border_color_inactive, matrix);
+            wlr_render_quad_with_matrix(wf::get_core().renderer,
+                active ? border_color : border_color_inactive, matrix);
 
             if (tex == (uint)-1)
             {
@@ -270,7 +274,7 @@ class simple_decoration_surface : public wayfire_compositor_subsurface_t, public
 
         void update_cursor()
         {
-            core->set_cursor(get_cursor(get_edges(cursor_x, cursor_y)));
+            wf::get_core().set_cursor(get_cursor(get_edges(cursor_x, cursor_y)));
         }
 
         virtual void on_pointer_button(uint32_t button, uint32_t state)

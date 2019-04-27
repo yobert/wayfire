@@ -1,9 +1,10 @@
 #include "debug.hpp"
 #include "output-impl.hpp"
 #include "view.hpp"
-#include "core.hpp"
+#include "../core/core-impl.hpp"
 #include "signal-definitions.hpp"
 #include "render-manager.hpp"
+#include "output-layout.hpp"
 #include "workspace-manager.hpp"
 #include "compositor-view.hpp"
 #include "wayfire-shell.hpp"
@@ -29,7 +30,7 @@ wf::output_t::output_t(wlr_output *handle)
 wf::output_impl_t::output_impl_t(wlr_output *handle)
     : output_t(handle)
 {
-    plugin = std::make_unique<plugin_manager> (this, core->config);
+    plugin = std::make_unique<plugin_manager> (this, wf::get_core().config);
 
     view_disappeared_cb = [=] (signal_data *data) { refocus(get_signaled_view(data)); };
     connect_signal("view-disappeared", &view_disappeared_cb);
@@ -61,7 +62,7 @@ void wf::output_t::refocus(wayfire_view skip_view, uint32_t layers)
 
 void wf::output_t::refocus(wayfire_view skip_view)
 {
-    uint32_t focused_layer = core->get_focused_layer();
+    uint32_t focused_layer = wf::get_core().get_focused_layer();
     uint32_t layers = focused_layer <= LAYER_WORKSPACE ?  WM_LAYERS : focused_layer;
 
     auto views = workspace->get_views_on_workspace(
@@ -69,7 +70,7 @@ void wf::output_t::refocus(wayfire_view skip_view)
 
     if (views.empty())
     {
-        if (core->get_active_output() == this)
+        if (wf::get_core().get_active_output() == this)
             log_debug("warning: no focused views in the focused layer, probably a bug");
 
         /* Usually, we focus a layer so that a particular view has focus, i.e
@@ -85,7 +86,7 @@ void wf::output_t::refocus(wayfire_view skip_view)
 
 wf::output_t::~output_t()
 {
-    core->input->free_output_bindings(this);
+    wf::get_core_impl().input->free_output_bindings(this);
 }
 wf::output_impl_t::~output_impl_t() { }
 
@@ -107,7 +108,8 @@ wf_geometry wf::output_t::get_relative_geometry() const
 
 wf_geometry wf::output_t::get_layout_geometry() const
 {
-    auto box = wlr_output_layout_get_box(core->output_layout->get_handle(), handle);
+    auto box = wlr_output_layout_get_box(
+        wf::get_core().output_layout->get_handle(), handle);
     if (box) {
         return *box;
     } else {
@@ -120,7 +122,7 @@ wf_geometry wf::output_t::get_layout_geometry() const
 void wf::output_t::ensure_pointer() const
 {
     /*
-    auto ptr = weston_seat_get_pointer(core->get_current_seat());
+    auto ptr = weston_seat_get_pointer(wf::get_core().get_current_seat());
     if (!ptr) return;
 
     int px = wl_fixed_to_int(ptr->x), py = wl_fixed_to_int(ptr->y);
@@ -141,7 +143,7 @@ void wf::output_t::ensure_pointer() const
 
 std::tuple<int, int> wf::output_t::get_cursor_position() const
 {
-    GetTuple(x, y, core->get_cursor_position());
+    GetTuple(x, y, wf::get_core().get_cursor_position());
     auto og = get_layout_geometry();
 
     return std::make_tuple(x - og.x, y - og.y);
@@ -162,7 +164,7 @@ void wf::output_impl_t::set_active_view(wayfire_view v, wlr_seat *seat)
         return set_active_view(nullptr, seat);
 
     if (seat == nullptr)
-        seat = core->get_current_seat();
+        seat = wf::get_core().get_current_seat();
 
     bool refocus = (active_view == v);
 
@@ -180,17 +182,17 @@ void wf::output_impl_t::set_active_view(wayfire_view v, wlr_seat *seat)
     active_view = v;
 
     /* If the output isn't focused, we shouldn't touch focus */
-    if (core->get_active_output() == this)
+    if (wf::get_core().get_active_output() == this)
     {
         if (active_view)
         {
-            core->input->set_keyboard_focus(active_view, seat);
+            wf::get_core_impl().input->set_keyboard_focus(active_view, seat);
 
             if (!refocus)
                 active_view->activate(true);
         } else
         {
-            core->input->set_keyboard_focus(NULL, seat);
+            wf::get_core_impl().input->set_keyboard_focus(NULL, seat);
 
         }
     }
@@ -235,7 +237,7 @@ bool wf::output_t::ensure_visible(wayfire_view v)
 
 void wf::output_t::focus_view(wayfire_view v, wlr_seat *seat)
 {
-    if (v && workspace->get_view_layer(v) < core->get_focused_layer())
+    if (v && workspace->get_view_layer(v) < wf::get_core().get_focused_layer())
     {
         log_info("Denying focus request for a view from a lower layer than the focused layer");
         return;
@@ -287,7 +289,7 @@ bool wf::output_impl_t::activate_plugin(wayfire_grab_interface owner)
     if (!owner)
         return false;
 
-    if (core->get_active_output() != this)
+    if (wf::get_core().get_active_output() != this)
         return false;
 
     if (active_plugins.find(owner) != active_plugins.end())
@@ -360,52 +362,52 @@ void wf::output_impl_t::break_active_plugins()
         p->callbacks.cancel();
 }
 
-/* simple wrappers for core->input, as it isn't exposed to plugins */
+/* simple wrappers for wf::get_core_impl().input, as it isn't exposed to plugins */
 
 wf_binding *wf::output_t::add_key(wf_option key, key_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_KEY, key, this, callback);
+    return wf::get_core_impl().input->new_binding(WF_BINDING_KEY, key, this, callback);
 }
 
 wf_binding *wf::output_t::add_axis(wf_option axis, axis_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_AXIS, axis, this, callback);
+    return wf::get_core_impl().input->new_binding(WF_BINDING_AXIS, axis, this, callback);
 }
 
 wf_binding *wf::output_t::add_touch(wf_option mod, touch_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_TOUCH, mod, this, callback);
+    return wf::get_core_impl().input->new_binding(WF_BINDING_TOUCH, mod, this, callback);
 }
 
 wf_binding *wf::output_t::add_button(wf_option button,
     button_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_BUTTON, button,
+    return wf::get_core_impl().input->new_binding(WF_BINDING_BUTTON, button,
         this, callback);
 }
 
 wf_binding *wf::output_t::add_gesture(wf_option gesture,
     gesture_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_GESTURE, gesture,
+    return wf::get_core_impl().input->new_binding(WF_BINDING_GESTURE, gesture,
         this, callback);
 }
 
 wf_binding *wf::output_t::add_activator(wf_option activator,
     activator_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_ACTIVATOR, activator,
+    return wf::get_core_impl().input->new_binding(WF_BINDING_ACTIVATOR, activator,
         this, callback);
 }
 
 void wf::output_t::rem_binding(wf_binding *binding)
 {
-    core->input->rem_binding(binding);
+    wf::get_core_impl().input->rem_binding(binding);
 }
 
 void wf::output_t::rem_binding(void *callback)
 {
-    core->input->rem_binding(callback);
+    wf::get_core_impl().input->rem_binding(callback);
 }
 
 namespace wf

@@ -9,7 +9,7 @@ extern "C"
 #include "input-inhibit.hpp"
 #include "output.hpp"
 #include "plugin.hpp"
-#include "core.hpp"
+#include "../core-impl.hpp"
 #include "input-manager.hpp"
 #include "../output/output-impl.hpp"
 
@@ -26,7 +26,7 @@ static signal_callback_t on_output_changed = [] (signal_data *data)
     {
         uninhibit_output(wo);
     }
-    else if (core->input->exclusive_client)
+    else if (wf::get_core_impl().input->exclusive_client)
     {
         inhibit_output(wo);
     }
@@ -34,10 +34,10 @@ static signal_callback_t on_output_changed = [] (signal_data *data)
 
 wlr_input_inhibit_manager* create_input_inhibit()
 {
-    core->connect_signal("output-added", &on_output_changed);
-    core->connect_signal("output-removed", &on_output_changed);
+    wf::get_core().connect_signal("output-added", &on_output_changed);
+    wf::get_core().connect_signal("output-removed", &on_output_changed);
 
-    return wlr_input_inhibit_manager_create(core->display);
+    return wlr_input_inhibit_manager_create(wf::get_core().display);
 }
 
 void inhibit_output(wf::output_t *output)

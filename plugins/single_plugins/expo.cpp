@@ -228,13 +228,13 @@ class wayfire_expo : public wayfire_plugin_t
         if (moving_view->fullscreen)
             moving_view->fullscreen_request(moving_view->get_output(), false);
 
-        core->set_cursor("grabbing");
+        wf::get_core().set_cursor("grabbing");
     }
 
     void end_move()
     {
         state.moving = false;
-        core->set_cursor("default");
+        wf::get_core().set_cursor("default");
 
         if (moving_view)
         {

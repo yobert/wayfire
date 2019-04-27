@@ -65,7 +65,7 @@ void set_virtual_keyboard(struct wl_client *client,
     auto vk = (vkeyboard*) wl_resource_get_user_data(resource);
 
     auto wsurf = (weston_surface*) wl_resource_get_user_data(surface);
-    auto view = core->find_view(wsurf);
+    auto view = wf::get_core().find_view(wsurf);
 
     vk->resource = resource;
     vk->set_keyboard(view);
@@ -80,7 +80,7 @@ void configure_keyboard(struct wl_client *client,
     auto vk = (vkeyboard*) wl_resource_get_user_data(resource);
 
     auto wsurf = (weston_surface*) wl_resource_get_user_data(surface);
-    auto view = core->find_view(wsurf);
+    auto view = wf::get_core().find_view(wsurf);
 
     vk->configure_keyboard(view, x, y);
 }
@@ -90,15 +90,15 @@ void start_interactive_move(struct wl_client *client,
                         struct wl_resource *surface)
 {
     auto wsurf = (weston_surface*) wl_resource_get_user_data(surface);
-    auto view = core->find_view(wsurf);
+    auto view = wf::get_core().find_view(wsurf);
 
     move_request_signal data;
     data.view = view;
 
-    auto touch = weston_seat_get_touch(core->get_current_seat());
+    auto touch = weston_seat_get_touch(wf::get_core().get_current_seat());
     if (!touch)
     {
-        auto ptr = weston_seat_get_pointer(core->get_current_seat());
+        auto ptr = weston_seat_get_pointer(wf::get_core().get_current_seat());
         data.serial = ptr->grab_serial;
     } else {
         data.serial = touch->grab_serial;
@@ -150,16 +150,16 @@ void vkeyboard::init(wayfire_config *config)
     grab_interface->abilities_mask = 0;
 
     /* we must make sure that we do not create multiple interfaces */
-    if (core->get_num_outputs() == 0)
+    if (wf::get_core().get_num_outputs() == 0)
     {
         wl_global *kbd;
-        if ((kbd = wl_global_create(core->ec->wl_display, &wayfire_virtual_keyboard_interface,
+        if ((kbd = wl_global_create(wf::get_core().ec->wl_display, &wayfire_virtual_keyboard_interface,
                                     1, this, bind_virtual_keyboard)) == NULL)
         {
             errio << "Failed to create wayfire_shell interface" << std::endl;
         }
 
-        weston_layer_init(&input_layer, core->ec);
+        weston_layer_init(&input_layer, wf::get_core().ec);
         weston_layer_set_position(&input_layer, WESTON_LAYER_POSITION_TOP_UI);
     }
 
@@ -210,7 +210,7 @@ void vkeyboard::bind(wl_resource *res)
     if (!vseat)
     {
         vseat = new weston_seat;
-        weston_seat_init(vseat, core->ec, "virtual-input");
+        weston_seat_init(vseat, wf::get_core().ec, "virtual-input");
         weston_seat_init_keyboard(vseat, NULL);
 
         vkbd = weston_seat_get_keyboard(vseat);
@@ -219,7 +219,7 @@ void vkeyboard::bind(wl_resource *res)
 
 void vkeyboard::send_key_down(uint32_t key)
 {
-    auto kbd = weston_seat_get_keyboard(core->get_current_seat());
+    auto kbd = weston_seat_get_keyboard(wf::get_core().get_current_seat());
     weston_seat_set_keyboard_focus(vseat, kbd->focus);
 
     timespec t;
@@ -265,7 +265,7 @@ void vkeyboard::show_keyboard()
 {
     if (!resource)
     {
-        core->run(keyboard_exec_path.c_str());
+        wf::get_core().run(keyboard_exec_path.c_str());
     } else
     {
         wayfire_virtual_keyboard_send_show_virtual_keyboard(resource);

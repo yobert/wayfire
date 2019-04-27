@@ -4,6 +4,7 @@
 #include "output.hpp"
 #include "workspace-manager.hpp"
 #include "output-layout.hpp"
+#include "../core/core-impl.hpp"
 
 extern "C"
 {
@@ -226,7 +227,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
             auto view = std::make_unique<wayfire_unmanaged_xwayland_view> (xsurface);
             auto raw = view.get();
 
-            core->add_view(std::move(view));
+            wf::get_core().add_view(std::move(view));
             raw->map(xsurface->surface);
             return;
         }
@@ -348,7 +349,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         auto default_app_id = get_app_id();
         auto instance_app_id = nonull(xw->instance);
 
-        auto app_id_mode = (*core->config)["workarounds"]
+        auto app_id_mode = (*wf::get_core().config)["workarounds"]
             ->get_option("app_id_mode", "stock");
 
         if (app_id_mode->as_string() == "full") {
@@ -412,17 +413,19 @@ void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
      * an incorrect output. However, no matter how we calculate the real
      * output, we just can't be 100% compatible because in X all windows are
      * positioned in a global coordinate space */
-    auto wo = core->output_layout->get_output_at(xw->x + surface->current.width / 2, xw->y + surface->current.height / 2);
+    auto wo = wf::get_core().output_layout->get_output_at(
+        xw->x + surface->current.width / 2, xw->y + surface->current.height / 2);
 
     if (!wo)
     {
-        /* if surface center is outside of anything, try to check the output where the pointer is */
-        GetTuple(cx, cy, core->get_cursor_position());
-        wo = core->output_layout->get_output_at(cx, cy);
+        /* if surface center is outside of anything, try to check the output
+         * where the pointer is */
+        GetTuple(cx, cy, wf::get_core().get_cursor_position());
+        wo = wf::get_core().output_layout->get_output_at(cx, cy);
     }
 
     if (!wo)
-        wo = core->get_active_output();
+        wo = wf::get_core().get_active_output();
     assert(wo);
 
 
@@ -517,18 +520,24 @@ void init_xwayland()
 
     on_created.set_callback([] (void *data) {
         auto xsurf = (wlr_xwayland_surface*) data;
-        if (xsurf->override_redirect) {
-            core->add_view(std::make_unique<wayfire_unmanaged_xwayland_view>(xsurf));
-        } else {
-            core->add_view(std::make_unique<wayfire_xwayland_view> (xsurf));
+        if (xsurf->override_redirect)
+        {
+            wf::get_core().add_view(
+                std::make_unique<wayfire_unmanaged_xwayland_view>(xsurf));
+        }
+        else
+        {
+            wf::get_core().add_view(
+                std::make_unique<wayfire_xwayland_view> (xsurf));
         }
     });
 
-    xwayland_handle = wlr_xwayland_create(core->display, core->compositor, false);
+    xwayland_handle = wlr_xwayland_create(wf::get_core().display,
+        wf::get_core_impl().compositor, false);
     if (xwayland_handle)
     {
         on_created.connect(&xwayland_handle->events.new_surface);
-        core->connect_signal("shutdown", &on_shutdown);
+        wf::get_core().connect_signal("shutdown", &on_shutdown);
     }
 #endif
 }
@@ -537,7 +546,10 @@ void xwayland_set_seat(wlr_seat *seat)
 {
 #if WLR_HAS_XWAYLAND
     if (xwayland_handle)
-        wlr_xwayland_set_seat(xwayland_handle, core->get_current_seat());
+    {
+        wlr_xwayland_set_seat(xwayland_handle,
+            wf::get_core().get_current_seat());
+    }
 #endif
 }
 

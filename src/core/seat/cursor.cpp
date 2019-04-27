@@ -1,10 +1,11 @@
 #include "cursor.hpp"
 #include "touch.hpp"
-#include "core.hpp"
+#include "../core-impl.hpp"
 #include "input-manager.hpp"
 #include "workspace-manager.hpp"
 #include "debug.hpp"
 #include "compositor-surface.hpp"
+#include "output-layout.hpp"
 
 
 bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
@@ -17,17 +18,18 @@ bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         cursor->count_pressed_buttons++;
         if (cursor->count_pressed_buttons == 1)
         {
-            GetTuple(gx, gy, core->get_cursor_position());
-            auto output = core->output_layout->get_output_at(gx, gy);
-            core->focus_output(output);
+            GetTuple(gx, gy, wf::get_core().get_cursor_position());
+            auto output = wf::get_core().output_layout->get_output_at(gx, gy);
+            wf::get_core().focus_output(output);
         }
 
-        GetTuple(ox, oy, core->get_active_output()->get_cursor_position());
+        GetTuple(ox, oy,
+            wf::get_core().get_active_output()->get_cursor_position());
 
         auto mod_state = get_modifiers();
         for (auto& binding : bindings[WF_BINDING_BUTTON])
         {
-            if (binding->output == core->get_active_output() &&
+            if (binding->output == wf::get_core().get_active_output() &&
                 binding->value->as_cached_button().matches(
                     {mod_state, ev->button}))
             {
@@ -40,7 +42,7 @@ bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
 
         for (auto& binding : bindings[WF_BINDING_ACTIVATOR])
         {
-            if (binding->output == core->get_active_output() &&
+            if (binding->output == wf::get_core().get_active_output() &&
                 binding->value->matches_button({mod_state, ev->button}))
             {
                 /* We must be careful because the callback might be erased,
@@ -82,7 +84,8 @@ void input_manager::update_cursor_focus(wayfire_surface_t *focus, int x, int y)
     if (focus && !can_focus_surface(focus))
         return;
 
-    wayfire_compositor_surface_t *compositor_surface = wf_compositor_surface_from_surface(cursor_focus);
+    wayfire_compositor_surface_t *compositor_surface =
+        wf_compositor_surface_from_surface(cursor_focus);
     if (compositor_surface)
         compositor_surface->on_pointer_leave();
 
@@ -104,10 +107,11 @@ void input_manager::update_cursor_focus(wayfire_surface_t *focus, int x, int y)
 
 void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 {
-    GetTuple(x, y, core->get_cursor_position());
+    GetTuple(x, y, wf::get_core().get_cursor_position());
     if (input_grabbed())
     {
-        GetTuple(sx, sy, core->get_active_output()->get_cursor_position());
+        GetTuple(sx, sy,
+            wf::get_core().get_active_output()->get_cursor_position());
         if (active_grab->callbacks.pointer.motion && real_update)
             active_grab->callbacks.pointer.motion(sx, sy);
 
@@ -126,7 +130,8 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
     if (cursor->grabbed_surface && !this->drag_icon)
     {
         new_focus = cursor->grabbed_surface;
-        GetTuple(ox, oy, cursor->grabbed_surface->get_output()->get_cursor_position());
+        GetTuple(ox, oy,
+            cursor->grabbed_surface->get_output()->get_cursor_position());
         auto local = cursor->grabbed_surface->get_relative_position({ox, oy});
 
         lx = local.x;
@@ -144,7 +149,8 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
     }
     else if (real_update)
     {
-        wlr_seat_pointer_notify_motion(core->input->seat, time_msec, lx, ly);
+        wlr_seat_pointer_notify_motion(wf::get_core_impl().input->seat,
+            time_msec, lx, ly);
     }
 
     update_drag_icon();
@@ -173,7 +179,7 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
 
     for (auto& binding : bindings[WF_BINDING_AXIS])
     {
-        if (binding->output == core->get_active_output() &&
+        if (binding->output == wf::get_core().get_active_output() &&
             binding->value->as_cached_key().matches({mod_state, 0}))
             callbacks.push_back(binding->call.axis);
     }
@@ -199,43 +205,49 @@ void input_manager::handle_pointer_axis(wlr_event_pointer_axis *ev)
         cursor->touchpad_scroll_speed->as_cached_double() :
         cursor->mouse_scroll_speed->as_cached_double();
     wlr_seat_pointer_notify_axis(seat, ev->time_msec, ev->orientation,
-                                 mult * ev->delta, mult * ev->delta_discrete, ev->source);
+        mult * ev->delta, mult * ev->delta_discrete, ev->source);
 }
 
 void input_manager::handle_pointer_swipe_begin(wlr_event_pointer_swipe_begin *ev)
 {
-    wlr_pointer_gestures_v1_send_swipe_begin(core->protocols.pointer_gestures, seat,
-            ev->time_msec, ev->fingers);
+    wlr_pointer_gestures_v1_send_swipe_begin(
+        wf::get_core().protocols.pointer_gestures, seat,
+        ev->time_msec, ev->fingers);
 }
 
 void input_manager::handle_pointer_swipe_update(wlr_event_pointer_swipe_update *ev)
 {
-    wlr_pointer_gestures_v1_send_swipe_update(core->protocols.pointer_gestures, seat,
-            ev->time_msec, ev->dx, ev->dy);
+    wlr_pointer_gestures_v1_send_swipe_update(
+        wf::get_core().protocols.pointer_gestures, seat,
+        ev->time_msec, ev->dx, ev->dy);
 }
 
 void input_manager::handle_pointer_swipe_end(wlr_event_pointer_swipe_end *ev)
 {
-    wlr_pointer_gestures_v1_send_swipe_end(core->protocols.pointer_gestures, seat,
-            ev->time_msec, ev->cancelled);
+    wlr_pointer_gestures_v1_send_swipe_end(
+        wf::get_core().protocols.pointer_gestures, seat,
+        ev->time_msec, ev->cancelled);
 }
 
 void input_manager::handle_pointer_pinch_begin(wlr_event_pointer_pinch_begin *ev)
 {
-    wlr_pointer_gestures_v1_send_pinch_begin(core->protocols.pointer_gestures, seat,
-            ev->time_msec, ev->fingers);
+    wlr_pointer_gestures_v1_send_pinch_begin(
+        wf::get_core().protocols.pointer_gestures, seat,
+        ev->time_msec, ev->fingers);
 }
 
 void input_manager::handle_pointer_pinch_update(wlr_event_pointer_pinch_update *ev)
 {
-    wlr_pointer_gestures_v1_send_pinch_update(core->protocols.pointer_gestures, seat,
-            ev->time_msec, ev->dx, ev->dy, ev->scale, ev->rotation);
+    wlr_pointer_gestures_v1_send_pinch_update(
+        wf::get_core().protocols.pointer_gestures, seat,
+        ev->time_msec, ev->dx, ev->dy, ev->scale, ev->rotation);
 }
 
 void input_manager::handle_pointer_pinch_end(wlr_event_pointer_pinch_end *ev)
 {
-    wlr_pointer_gestures_v1_send_pinch_end(core->protocols.pointer_gestures, seat,
-            ev->time_msec, ev->cancelled);
+    wlr_pointer_gestures_v1_send_pinch_end(
+        wf::get_core().protocols.pointer_gestures, seat,
+        ev->time_msec, ev->cancelled);
 }
 
 void input_manager::handle_pointer_frame()
@@ -247,7 +259,9 @@ wf_cursor::wf_cursor()
 {
     cursor = wlr_cursor_create();
 
-    wlr_cursor_attach_output_layout(cursor, core->output_layout->get_handle());
+    wlr_cursor_attach_output_layout(cursor,
+        wf::get_core().output_layout->get_handle());
+
     wlr_cursor_map_to_output(cursor, NULL);
     wlr_cursor_warp(cursor, NULL, cursor->x, cursor->y);
 
@@ -258,32 +272,36 @@ wf_cursor::wf_cursor()
         init_xcursor();
     };
 
-    auto section = core->config->get_section("input");
+    auto section = wf::get_core().config->get_section("input");
     mouse_scroll_speed    = section->get_option("mouse_scroll_speed", "1");
     touchpad_scroll_speed = section->get_option("touchpad_scroll_speed", "1");
 
-    core->connect_signal("reload-config", &config_reloaded);
+    wf::get_core().connect_signal("reload-config", &config_reloaded);
 }
 
 void wf_cursor::setup_listeners()
 {
+    auto& core = wf::get_core_impl();
+
     on_button.set_callback([&] (void *data) {
         this->handle_pointer_button((wlr_event_pointer_button*) data);
-        wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
+        wlr_idle_notify_activity(core.protocols.idle, core.get_current_seat());
     });
     on_button.connect(&cursor->events.button);
 
     on_frame.set_callback([&] (void *) {
-        core->input->handle_pointer_frame();
-        wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat());
+        core.input->handle_pointer_frame();
+
+        wlr_idle_notify_activity(core.protocols.idle,
+            core.get_current_seat());
     });
     on_frame.connect(&cursor->events.frame);
 
 #define setup_passthrough_callback(evname) \
     on_##evname.set_callback([&] (void *data) { \
         auto ev = static_cast<wlr_event_pointer_##evname *> (data); \
-        core->input->handle_pointer_##evname (ev); \
-        wlr_idle_notify_activity(core->protocols.idle, core->get_current_seat()); \
+        core.input->handle_pointer_##evname (ev); \
+        wlr_idle_notify_activity(core.protocols.idle, core.get_current_seat()); \
     }); \
     on_##evname.connect(&cursor->events.evname);
 
@@ -301,26 +319,27 @@ void wf_cursor::setup_listeners()
 
 void wf_cursor::handle_pointer_button(wlr_event_pointer_button *ev)
 {
-    if (!core->input->handle_pointer_button(ev))
+    auto& core = wf::get_core_impl();
+    if (!core.input->handle_pointer_button(ev))
     {
         /* start a button held grab, so that the window will receive all the
          * subsequent events, no matter what happens */
-        if (core->input->cursor->count_pressed_buttons == 1 && core->get_cursor_focus())
-            core->input->cursor->start_held_grab(core->get_cursor_focus());
+        if (count_pressed_buttons == 1 && core.get_cursor_focus())
+            start_held_grab(core.get_cursor_focus());
 
-        wlr_seat_pointer_notify_button(core->input->seat, ev->time_msec,
+        wlr_seat_pointer_notify_button(core.input->seat, ev->time_msec,
             ev->button, ev->state);
 
         /* end the button held grab. We need to to this here after we have send
          * the last button release event, so that buttons don't get stuck in clients */
-        if (core->input->cursor->count_pressed_buttons == 0)
-            core->input->cursor->end_held_grab();
+        if (count_pressed_buttons == 0)
+            end_held_grab();
     }
 }
 
 void wf_cursor::init_xcursor()
 {
-    auto section = core->config->get_section("input");
+    auto section = wf::get_core().config->get_section("input");
 
     auto theme = section->get_option("cursor_theme", "default")->as_string();
     auto size = section->get_option("cursor_size", "24");
@@ -362,16 +381,20 @@ void wf_cursor::hide_cursor()
 void wf_cursor::warp_cursor(int x, int y)
 {
     wlr_cursor_warp(cursor, NULL, x, y);
-    core->input->update_cursor_position(get_current_time());
+    wf::get_core_impl().input->update_cursor_position(get_current_time());
 }
 
 void wf_cursor::set_cursor(wlr_seat_pointer_request_set_cursor_event *ev)
 {
     auto focused_surface = ev->seat_client->seat->pointer_state.focused_surface;
-    auto client = focused_surface ? wl_resource_get_client(focused_surface->resource) : NULL;
+    auto client =
+        focused_surface ? wl_resource_get_client(focused_surface->resource) : NULL;
 
-    if (client == ev->seat_client->client && !core->input->input_grabbed())
+    if (client == ev->seat_client->client &&
+        !wf::get_core_impl().input->input_grabbed())
+    {
         wlr_cursor_set_surface(cursor, ev->surface, ev->hotspot_x, ev->hotspot_y);
+    }
 }
 
 void wf_cursor::start_held_grab(wayfire_surface_t *surface)
@@ -384,11 +407,13 @@ void wf_cursor::end_held_grab()
     if (grabbed_surface)
     {
         grabbed_surface = nullptr;
-        core->input->update_cursor_position(get_current_time(), false);
+
+        wf::get_core_impl().input->update_cursor_position(
+            get_current_time(), false);
     }
 }
 
 wf_cursor::~wf_cursor()
 {
-    core->disconnect_signal("reload-config", &config_reloaded);
+    wf::get_core().disconnect_signal("reload-config", &config_reloaded);
 }
