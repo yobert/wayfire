@@ -68,10 +68,13 @@ class wayfire_zoom_screen : public wayfire_plugin_t
         {
             auto w = output->handle->width;
             auto h = output->handle->height;
-            GetTuple(x, y, output->get_cursor_position());
+            GetTuple(_x, _y, output->get_cursor_position());
+            double x, y;
+            wlr_box b = output->get_relative_geometry();
+            wlr_box_closest_point(&b, _x, _y, &x, &y);
 
             /* get rotation & scale */
-            wlr_box box = {x, y, 1, 1};
+            wlr_box box = {int(x), int(y), 1, 1};
             box = output->render->get_target_framebuffer().
                 framebuffer_box_from_geometry_box(box);
 
