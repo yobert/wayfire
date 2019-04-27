@@ -53,7 +53,7 @@ static wf::workspace_manager::anchored_edge anchor_edge_to_workspace_edge(uint32
     return wf::workspace_manager::ANCHORED_EDGE_TOP;
 }
 
-class wayfire_shell_wm_surface : public wf_custom_data_t
+class wayfire_shell_wm_surface : public wf::custom_data_t
 {
     std::unique_ptr<wf::workspace_manager::anchored_area> area;
     /* output may be null, in which case the wm surface isn't tied to an output */

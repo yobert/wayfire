@@ -60,7 +60,7 @@ using wayfire_view = nonstd::observer_ptr<wayfire_view_t>;
 
 struct wf_server_decoration;
 
-class wayfire_core : public wf_object_base
+class wayfire_core : public wf::object_base_t
 {
         wf::wl_listener_wrapper output_layout_changed;
         wf::wl_listener_wrapper decoration_created;

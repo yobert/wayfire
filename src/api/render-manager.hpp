@@ -75,7 +75,7 @@ using post_hook_t = std::function<void(const wf_framebuffer_base& source,
  *
  * Each output has a render manager, which is responsible for all rendering
  * operations that happen on it, and also for damage tracking. */
-class render_manager : public wf_signal_provider_t
+class render_manager : public wf::signal_provider_t
 {
   public:
     /** Create a render manager for the given output. Plugins do not need

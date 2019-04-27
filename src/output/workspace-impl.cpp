@@ -17,7 +17,7 @@ namespace wf
  */
 class output_layer_manager_t
 {
-    struct view_layer_data_t : public wf_custom_data_t
+    struct view_layer_data_t : public wf::custom_data_t
     {
         uint32_t layer = 0;
     };

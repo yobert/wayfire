@@ -40,7 +40,7 @@ wayfire_view_t::wayfire_view_t()
 
 std::string wayfire_view_t::to_string() const
 {
-    return "view-" + wf_object_base::to_string();
+    return "view-" + wf::object_base_t::to_string();
 }
 
 void wayfire_view_t::create_toplevel()

@@ -1,7 +1,7 @@
 #include <plugin.hpp>
 #include <core.hpp>
 
-class wayfire_autostart_core_data : public wf_custom_data_t { };
+class wayfire_autostart_core_data : public wf::custom_data_t { };
 
 class wayfire_autostart : public wayfire_plugin_t
 {

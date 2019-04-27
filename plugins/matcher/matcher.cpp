@@ -77,7 +77,7 @@ namespace wf
             }
         };
 
-        class match_core_data : public wf_custom_data_t
+        class match_core_data : public wf::custom_data_t
         {
             signal_callback_t on_new_matcher_request = [=] (signal_data *data)
             {

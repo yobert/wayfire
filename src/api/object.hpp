@@ -9,15 +9,17 @@
 #include <nonstd/safe-list.hpp>
 #include "plugin.hpp"
 
+namespace wf
+{
 /* A base class for "objects".
  * Provides signals & attaching custom data */
-class wf_custom_data_t
+class custom_data_t
 {
     public:
-    virtual ~wf_custom_data_t() {};
+    virtual ~custom_data_t() {};
 };
 
-class wf_signal_provider_t
+class signal_provider_t
 {
     public:
 
@@ -45,7 +47,7 @@ class wf_signal_provider_t
     std::unordered_map<std::string, wf::safe_list_t<signal_callback_t*>> signals;
 };
 
-class wf_object_base : public wf_signal_provider_t
+class object_base_t : public signal_provider_t
 {
     public:
     /* Get a human-readable description of the object */
@@ -126,14 +128,15 @@ class wf_object_base : public wf_signal_provider_t
     }
 
     protected:
-    wf_object_base()
+    object_base_t()
     {
         static uint32_t global_id = 0;
         object_id = global_id++;
     }
 
     uint32_t object_id;
-    std::unordered_map<std::string, std::unique_ptr<wf_custom_data_t>> data;
+    std::unordered_map<std::string, std::unique_ptr<custom_data_t>> data;
 };
+}
 
 #endif /* end of include guard: OBJECT_HPP */

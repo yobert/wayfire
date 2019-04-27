@@ -18,7 +18,7 @@ animation_base::~animation_base() {}
 /* Represents an animation running for a specific view
  * animation_t is which animation to use (i.e fire, zoom, etc). */
 template<class animation_t>
-struct animation_hook : public wf_custom_data_t
+struct animation_hook : public wf::custom_data_t
 {
     static_assert(std::is_base_of<animation_base, animation_t>::value,
             "animation_type must be derived from animation_base!");

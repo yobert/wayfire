@@ -533,7 +533,7 @@ class wayfire_move : public wayfire_plugin_t
             new_output->emit_signal("move-request", &req);
         }
 
-        struct wf_move_output_state : public wf_custom_data_t
+        struct wf_move_output_state : public wf::custom_data_t
         {
             nonstd::observer_ptr<wf_move_mirror_view> view;
         };

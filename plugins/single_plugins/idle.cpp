@@ -8,7 +8,7 @@ extern "C"
 #include "core.hpp"
 #include "config.hpp"
 
-class wayfire_idle_core : public wf_custom_data_t
+class wayfire_idle_core : public wf::custom_data_t
 {
     bool idle_enabled = true;
     wlr_idle_timeout *timeout = NULL;

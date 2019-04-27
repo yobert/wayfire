@@ -13,7 +13,7 @@
 
 const std::string grid_view_id = "grid-view";
 
-class wayfire_grid_view_cdata : public wf_custom_data_t
+class wayfire_grid_view_cdata : public wf::custom_data_t
 {
     wf_duration duration;
     bool is_active = true;
@@ -145,7 +145,7 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
     }
 };
 
-class wf_grid_slot_data : public wf_custom_data_t
+class wf_grid_slot_data : public wf::custom_data_t
 {
     public:
         int slot;
@@ -164,7 +164,7 @@ nonstd::observer_ptr<wayfire_grid_view_cdata> ensure_grid_view(wayfire_view view
     return view->get_data<wayfire_grid_view_cdata> ();
 }
 
-class wf_grid_saved_view_geometry : public wf_custom_data_t
+class wf_grid_saved_view_geometry : public wf::custom_data_t
 {
     public:
     wf_geometry geometry;

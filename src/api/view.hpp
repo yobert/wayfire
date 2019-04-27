@@ -163,7 +163,7 @@ enum wf_view_role
 };
 
 /* Represents a desktop window (not as X11 window, but like a xdg_toplevel surface) */
-class wayfire_view_t : public wayfire_surface_t, public wf_object_base
+class wayfire_view_t : public wayfire_surface_t, public wf::object_base_t
 {
     protected:
 

@@ -10,7 +10,7 @@ namespace wf
 class render_manager;
 class workspace_manager;
 
-class output_t : public wf_object_base
+class output_t : public wf::object_base_t
 {
   public:
     /**

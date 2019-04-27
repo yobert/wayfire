@@ -48,7 +48,7 @@ class wayfire_compositor_view_t : public wayfire_compositor_surface_t, public wa
         virtual wlr_surface *get_keyboard_focus_surface() { return nullptr; };
 
         virtual std::string get_app_id() { return "wayfire-compositor-view"; }
-        virtual std::string get_title() { return "wayfire-compositor-view-" + this->wf_object_base::to_string(); }
+        virtual std::string get_title() { return "wayfire-compositor-view-" + this->object_base_t::to_string(); }
 
         virtual bool should_be_decorated() { return false; }
 

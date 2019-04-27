@@ -66,7 +66,7 @@ namespace wf
 
     /* output_layout_t is responsible for managing outputs and their attributes -
      * mode, scale, position, transform. */
-    class output_layout_t : public wf_signal_provider_t
+    class output_layout_t : public wf::signal_provider_t
     {
         class impl;
         std::unique_ptr<impl> pimpl;
