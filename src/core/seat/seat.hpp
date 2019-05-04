@@ -6,14 +6,16 @@ extern "C"
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_primary_selection.h>
 #include <wlr/backend/libinput.h>
+#include <wlr/types/wlr_switch.h>
 }
 
 #include "output.hpp"
+#include "input-device.hpp"
 
 struct wf_drag_icon : public wayfire_surface_t
 {
     wlr_drag_icon *icon;
-    wl_listener map_ev, unmap_ev, destroy;
+    wf::wl_listener_wrapper on_map, on_unmap, on_destroy;
 
     wf_drag_icon(wlr_drag_icon *icon);
 
@@ -22,17 +24,14 @@ struct wf_drag_icon : public wayfire_surface_t
     void damage(const wlr_box& rect);
 };
 
-struct wf_input_device
+class wf_input_device_internal : public wf::input_device_t
 {
-    wlr_input_device *device;
-    wf_input_device(wlr_input_device* dev);
-    ~wf_input_device();
+    public:
+    wf_input_device_internal(wlr_input_device* dev);
 
-    struct wlr_wrapper {
-        wl_listener destroy;
-        wf_input_device* self;
-    } _wrapper;
+    wf::wl_listener_wrapper on_switch, on_destroy;
 
+    void handle_switched(wlr_event_switch_toggle *ev);
     void update_options();
 
     static struct config_t
@@ -50,7 +49,6 @@ struct wf_input_device
 
         void load(wayfire_config *config);
     } config;
-
 };
 
 #endif /* end of include guard: SEAT_HPP */

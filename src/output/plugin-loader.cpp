@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 
 #include "plugin-loader.hpp"
+#include "output-layout.hpp"
 #include "output.hpp"
 #include "../core/wm.hpp"
 #include "core.hpp"
@@ -26,13 +27,6 @@ static const std::string default_plugins = "viewport_impl move resize animate \
                                             switcher vswitch cube expo command \
                                             grid";
 
-static void idle_reload(void *data)
-{
-    auto manager = (plugin_manager *) data;
-    manager->reload_dynamic_plugins();
-    manager->idle_reload_dynamic_plugins = NULL;
-}
-
 plugin_manager::plugin_manager(wayfire_output *o, wayfire_config *config)
 {
     this->config = config;
@@ -47,8 +41,7 @@ plugin_manager::plugin_manager(wayfire_output *o, wayfire_config *config)
     list_updated = [=] ()
     {
         /* reload when config reload has finished */
-        idle_reload_dynamic_plugins =
-            wl_event_loop_add_idle(core->ev_loop, idle_reload, this);
+        idle_reaload_plugins.run_once([&] () {reload_dynamic_plugins(); });
     };
 
     plugins_opt->updated.push_back(&list_updated);
@@ -74,12 +67,9 @@ plugin_manager::~plugin_manager()
     deinit_plugins(false, true); // system plugins - not-unloadable, internal
 
     loaded_plugins.clear();
-
-    if (idle_reload_dynamic_plugins)
-        wl_event_source_remove(idle_reload_dynamic_plugins);
-
-    plugins_opt->updated.erase(std::remove(plugins_opt->updated.begin(), plugins_opt->updated.end(),
-                                           &list_updated), plugins_opt->updated.end());
+    plugins_opt->updated.erase(
+        std::remove(plugins_opt->updated.begin(), plugins_opt->updated.end(),
+            &list_updated), plugins_opt->updated.end());
 }
 
 void plugin_manager::init_plugin(wayfire_plugin& p)
@@ -100,7 +90,7 @@ void plugin_manager::destroy_plugin(wayfire_plugin& p)
 
     /* we load the same plugins for each output, so we must dlclose() the handle
      * only when we remove the last output */
-    if (core->get_num_outputs() < 1)
+    if (core->output_layout->get_num_outputs() < 1)
     {
         if (p->dynamic)
             dlclose(p->handle);

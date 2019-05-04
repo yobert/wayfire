@@ -62,10 +62,10 @@ class input_manager
         wayfire_grab_interface active_grab = nullptr;
         bool session_active = true;
 
-        wl_listener input_device_created, request_start_drag, start_drag,
-                    request_set_cursor, request_set_selection,
-                    request_set_primary_selection;
-
+        wf::wl_listener_wrapper input_device_created, request_start_drag, start_drag,
+                                request_set_cursor, request_set_selection,
+                                request_set_primary_selection;
+        wf::wl_idle_call idle_update_cursor;
 
         signal_callback_t config_updated;
 
@@ -84,10 +84,8 @@ class input_manager
         wayfire_surface_t* input_surface_at(int x, int y,
             int& lx, int& ly);
 
+        void validate_drag_request(wlr_seat_request_start_drag_event *ev);
         void update_drag_icon();
-
-        std::vector<std::unique_ptr<wf_keyboard>> keyboards;
-        std::vector<std::unique_ptr<wf_input_device>> input_devices;
 
         /* TODO: move this in a wf_keyboard struct,
          * This might not work with multiple keyboards */
@@ -96,6 +94,7 @@ class input_manager
         std::vector<std::function<void()>> match_keys(uint32_t mods, uint32_t key, uint32_t mod_binding_key = 0);
 
         wayfire_view keyboard_focus;
+        signal_callback_t surface_map_state_changed;
 
     public:
 
@@ -115,13 +114,15 @@ class input_manager
         std::unique_ptr<wf_cursor> cursor;
 
         wayfire_surface_t* cursor_focus = nullptr, *touch_focus = nullptr;
-        signal_callback_t surface_map_state_changed;
 
         std::unique_ptr<wf_touch> our_touch;
         std::unique_ptr<wf_drag_icon> drag_icon;
 
         int pointer_count = 0, touch_count = 0;
         void update_capabilities();
+
+        std::vector<std::unique_ptr<wf_keyboard>> keyboards;
+        std::vector<std::unique_ptr<wf_input_device_internal>> input_devices;
 
         void set_keyboard_focus(wayfire_view view, wlr_seat *seat);
 

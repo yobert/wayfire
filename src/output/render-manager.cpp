@@ -22,6 +22,8 @@ extern "C"
 
 struct wf_output_damage
 {
+    wf::wl_listener_wrapper on_damage_destroy;
+
     wf_region frame_damage;
     wlr_output *output;
     wlr_output_damage *damage_manager;
@@ -30,6 +32,9 @@ struct wf_output_damage
     {
         this->output = output;
         damage_manager = wlr_output_damage_create(output);
+
+        on_damage_destroy.set_callback([&] (void *) { damage_manager = nullptr; });
+        on_damage_destroy.connect(&damage_manager->events.destroy);
     }
 
     void add()
@@ -44,21 +49,30 @@ struct wf_output_damage
         frame_damage |= box;
 
         auto sbox = box;
-        wlr_output_damage_add_box(damage_manager, &sbox);
+        if (damage_manager)
+            wlr_output_damage_add_box(damage_manager, &sbox);
+
         schedule_repaint();
     }
 
     void add(const wf_region& region)
     {
         frame_damage |= region;
-        wlr_output_damage_add(damage_manager,
-            const_cast<wf_region&> (region).to_pixman());
+        if (damage_manager)
+        {
+            wlr_output_damage_add(damage_manager,
+                const_cast<wf_region&> (region).to_pixman());
+        }
+
         schedule_repaint();
     }
 
     bool make_current(wf_region& out_damage, bool& need_swap)
     {
-        auto r = wlr_output_damage_make_current(damage_manager, &need_swap,
+        if (!damage_manager)
+            return false;
+
+        auto r = wlr_output_damage_attach_render(damage_manager, &need_swap,
             out_damage.to_pixman());
         if (r)
         {
@@ -75,8 +89,11 @@ struct wf_output_damage
         return r;
     }
 
-    void swap_buffers(timespec *when, wf_region& swap_damage)
+    void swap_buffers(wf_region& swap_damage)
     {
+        if (!output)
+            return;
+
         int w, h;
         wlr_output_transformed_resolution(output, &w, &h);
 
@@ -85,8 +102,9 @@ struct wf_output_damage
         wlr_region_transform(swap_damage.to_pixman(), swap_damage.to_pixman(),
             transform, w, h);
 
-        wlr_output_damage_swap_buffers(damage_manager, when,
+        wlr_output_set_damage(output,
             const_cast<wf_region&> (swap_damage).to_pixman());
+        wlr_output_commit(output);
         frame_damage.clear();
     }
 
@@ -96,16 +114,6 @@ struct wf_output_damage
     }
 };
 
-void frame_cb (wl_listener*, void *data)
-{
-    auto output_damage = static_cast<wlr_output_damage*>(data);
-    assert(output_damage);
-
-    auto output = core->get_output(output_damage->output);
-    assert(output);
-    output->render->paint();
-}
-
 render_manager::render_manager(wayfire_output *o)
 {
     output = o;
@@ -114,8 +122,8 @@ render_manager::render_manager(wayfire_output *o)
     output_damage = std::unique_ptr<wf_output_damage>(new wf_output_damage(output->handle));
     output_damage->add();
 
-    frame_listener.notify = frame_cb;
-    wl_signal_add(&output_damage->damage_manager->events.frame, &frame_listener);
+    on_frame.set_callback([&] (void*) { paint(); });
+    on_frame.connect(&output_damage->damage_manager->events.frame);
 
     init_default_streams();
     schedule_redraw();
@@ -139,13 +147,6 @@ void render_manager::init_default_streams()
 
 render_manager::~render_manager()
 {
-    wl_list_remove(&frame_listener.link);
-
-    if (idle_redraw_source)
-        wl_event_source_remove(idle_redraw_source);
-    if (idle_damage_source)
-        wl_event_source_remove(idle_damage_source);
-
     for (auto& row : output_streams)
     {
         for (auto& stream : row)
@@ -155,17 +156,11 @@ render_manager::~render_manager()
 
 wf_region render_manager::get_scheduled_damage()
 {
-    if (!output->destroyed)
-        return output_damage->frame_damage;
-
-    return wf_region{};
+    return output_damage->frame_damage;
 }
 
 void render_manager::damage_whole()
 {
-    if (output->destroyed)
-        return;
-
     GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
     GetTuple(vx, vy, output->workspace->get_current_workspace());
 
@@ -174,32 +169,21 @@ void render_manager::damage_whole()
     output_damage->add({-vx * sw, -vy * sh, vw * sw, vh * sh});
 }
 
-void damage_idle_cb(void *data)
-{
-    auto rm = (render_manager*) data;
-    assert(rm);
-
-    rm->damage_whole();
-    rm->idle_damage_source = NULL;
-}
-
 void render_manager::damage_whole_idle()
 {
     damage_whole();
-    if (!idle_damage_source)
-        idle_damage_source = wl_event_loop_add_idle(core->ev_loop, damage_idle_cb, this);
+    if (!idle_damage.is_connected())
+        idle_damage.run_once([&] () { damage_whole(); });
 }
 
 void render_manager::damage(const wlr_box& box)
 {
-    if (!output->destroyed)
-        output_damage->add(box);
+    output_damage->add(box);
 }
 
 void render_manager::damage(const wf_region& region)
 {
-    if (!output->destroyed)
-        output_damage->add(region);
+    output_damage->add(region);
 }
 
 wlr_box render_manager::get_damage_box() const
@@ -225,8 +209,9 @@ wf_framebuffer render_manager::get_target_framebuffer() const
 {
     wf_framebuffer fb;
     fb.geometry = output->get_relative_geometry();
-    fb.wl_transform = output->get_transform();
-    fb.transform = get_output_matrix_from_transform(output->get_transform());
+    fb.wl_transform = output->handle->transform;
+    fb.transform = get_output_matrix_from_transform(
+        (wl_output_transform)fb.wl_transform);
     fb.scale = output->handle->scale;
 
     fb.fb = fb.tex = 0;
@@ -240,15 +225,6 @@ wf_framebuffer render_manager::get_target_framebuffer() const
     fb.viewport_height = output->handle->height;
 
     return fb;
-}
-
-void redraw_idle_cb(void *data)
-{
-    wayfire_output *output = (wayfire_output*) data;
-    assert(output);
-
-    wlr_output_schedule_frame(output->handle);
-    output->render->idle_redraw_source = NULL;
 }
 
 void render_manager::auto_redraw(bool redraw)
@@ -278,8 +254,12 @@ void render_manager::add_inhibit(bool add)
 
 void render_manager::schedule_redraw()
 {
-    if (idle_redraw_source == NULL)
-        idle_redraw_source = wl_event_loop_add_idle(core->ev_loop, redraw_idle_cb, output);
+    if (!idle_redraw.is_connected())
+    {
+        idle_redraw.run_once([&] () {
+            wlr_output_schedule_frame(output->handle);
+        });
+    }
 }
 
 /* return damage from this frame for the given workspace, coordinates
@@ -304,9 +284,6 @@ void render_manager::set_renderer(render_hook_t rh)
 void render_manager::paint()
 {
     /* Part 1: frame setup: query damage, etc. */
-    timespec repaint_started;
-    clock_gettime(CLOCK_MONOTONIC, &repaint_started);
-
     frame_damage.clear();
     run_effects(effects[WF_OUTPUT_EFFECT_PRE]);
 
@@ -378,7 +355,7 @@ void render_manager::paint()
 
     /* Part 5: finalize frame: swap buffers, send frame_done, etc */
     OpenGL::unbind_output(output);
-    output_damage->swap_buffers(&repaint_started, swap_damage);
+    output_damage->swap_buffers(swap_damage);
     post_paint();
 }
 

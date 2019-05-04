@@ -26,20 +26,6 @@ extern "C"
 
 wf_runtime_config runtime_config;
 
-static wl_listener output_created;
-void output_created_cb (wl_listener*, void *data)
-{
-    core->add_output((wlr_output*) data);
-}
-
-void compositor_wake_cb (wl_listener*, void*)
-{
-}
-
-void compositor_sleep_cb (wl_listener*, void*)
-{
-}
-
 #define INOT_BUF_SIZE (1024 * sizeof(inotify_event))
 char buf[INOT_BUF_SIZE];
 
@@ -225,16 +211,11 @@ int main(int argc, char *argv[])
     setenv("_WAYLAND_DISPLAY", server_name, 1);
 
     core->wayland_display = server_name;
-
-    output_created.notify = output_created_cb;
-    wl_signal_add(&core->backend->events.new_output, &output_created);
-
     if (!wlr_backend_start(core->backend))
     {
         log_error("failed to initialize backend, exiting");
         wlr_backend_destroy(core->backend);
         wl_display_destroy(core->display);
-
         return -1;
     }
 
@@ -245,6 +226,9 @@ int main(int argc, char *argv[])
     core->wake();
 
     wl_display_run(core->display);
+
+    /* Teardown */
+    wl_display_destroy_clients(core->display);
     wl_display_destroy(core->display);
 
     return EXIT_SUCCESS;

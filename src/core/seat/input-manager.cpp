@@ -37,20 +37,10 @@ void input_manager::update_capabilities()
     wlr_seat_set_capabilities(seat, cap);
 }
 
-void handle_new_input_cb(wl_listener*, void *data)
-{
-    auto dev = static_cast<wlr_input_device*> (data);
-    assert(dev);
-    core->input->handle_new_input(dev);
-}
-
 void input_manager::handle_new_input(wlr_input_device *dev)
 {
-    if (!cursor)
-        create_seat();
-
     log_info("handle new input: %s, default mapping: %s", dev->name, dev->output_name);
-    input_devices.push_back(std::make_unique<wf_input_device> (dev));
+    input_devices.push_back(std::make_unique<wf_input_device_internal> (dev));
 
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
         keyboards.push_back(std::make_unique<wf_keyboard> (dev, core->config));
@@ -74,7 +64,7 @@ void input_manager::handle_new_input(wlr_input_device *dev)
     auto mapped_output = section->get_option("output",
         nonull(dev->output_name))->as_string();
 
-    auto wo = core->get_output(mapped_output);
+    auto wo = core->output_layout->find_output(mapped_output);
     if (wo)
         wlr_cursor_map_input_to_output(cursor->cursor, dev, wo->handle);
 
@@ -86,7 +76,7 @@ void input_manager::handle_input_destroyed(wlr_input_device *dev)
     log_info("remove input: %s", dev->name);
 
     auto it = std::remove_if(input_devices.begin(), input_devices.end(),
-        [=] (const std::unique_ptr<wf_input_device>& idev) { return idev->device == dev; });
+        [=] (const std::unique_ptr<wf_input_device_internal>& idev) { return idev->get_wlr_handle() == dev; });
     input_devices.erase(it, input_devices.end());
 
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
@@ -111,12 +101,14 @@ void input_manager::handle_input_destroyed(wlr_input_device *dev)
 
 input_manager::input_manager()
 {
-    input_device_created.notify = handle_new_input_cb;
-    seat = wlr_seat_create(core->display, "default");
+    input_device_created.set_callback([&] (void *data) {
+        auto dev = static_cast<wlr_input_device*> (data);
+        assert(dev);
+        core->input->handle_new_input(dev);
+    });
+    input_device_created.connect(&core->backend->events.new_input);
 
-    wl_signal_add(&core->backend->events.new_input,
-                  &input_device_created);
-
+    create_seat();
     surface_map_state_changed = [=] (signal_data *data)
     {
         auto ev = static_cast<_surface_map_state_changed_signal*> (data);
@@ -137,6 +129,8 @@ input_manager::input_manager()
                 handle_touch_motion(get_current_time(), f.first, f.second.sx, f.second.sy);
         }
     };
+    core->connect_signal("_surface_mapped", &surface_map_state_changed);
+    core->connect_signal("_surface_unmapped", &surface_map_state_changed);
 
     config_updated = [=] (signal_data *)
     {
@@ -193,12 +187,6 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
     return true;
 }
 
-static void idle_update_cursor(void *data)
-{
-    auto input = (input_manager*) data;
-    input->update_cursor_position(get_current_time(), false);
-}
-
 void input_manager::ungrab_input()
 {
     if (active_grab)
@@ -209,7 +197,9 @@ void input_manager::ungrab_input()
      * pointer event (button press/release, maybe something else) will be sent to
      * the client, which shouldn't happen (at the time of the event, there was
      * still an active input grab) */
-    wl_event_loop_add_idle(core->ev_loop, idle_update_cursor, this);
+    idle_update_cursor.run_once([&] () {
+        update_cursor_position(get_current_time(), false);
+    });
 }
 
 bool input_manager::input_grabbed()
@@ -252,7 +242,7 @@ bool input_manager::can_focus_surface(wayfire_surface_t *surface)
 wayfire_surface_t* input_manager::input_surface_at(int x, int y,
     int& lx, int& ly)
 {
-    auto output = core->get_output_at(x, y);
+    auto output = core->output_layout->get_output_coords_at(x, y, x, y);
     /* If the output at these coordinates was just destroyed or some other edge case */
     if (!output)
         return nullptr;
@@ -278,14 +268,13 @@ wayfire_surface_t* input_manager::input_surface_at(int x, int y,
 void input_manager::set_exclusive_focus(wl_client *client)
 {
     exclusive_client = client;
-
-    core->for_each_output([&client] (wayfire_output *output)
+    for (auto& wo : core->output_layout->get_outputs())
     {
         if (client)
-            inhibit_output(output);
+            inhibit_output(wo);
         else
-            uninhibit_output(output);
-    });
+            uninhibit_output(wo);
+    }
 
     /* We no longer have an exclusively focused client, so we should restore
      * focus to the topmost view */

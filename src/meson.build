@@ -1,6 +1,7 @@
 wayfire_sources = ['main.cpp',
                    'util.cpp',
 
+                   'core/output-layout.cpp',
                    'core/opengl.cpp',
                    'core/plugin.cpp',
                    'core/core.cpp',
@@ -65,7 +66,9 @@ install_headers(['api/compositor-surface.hpp',
                  'api/util.hpp',
                  'api/view-transform.hpp',
                  'api/view.hpp',
-                 'api/workspace-manager.hpp'],
+                 'api/workspace-manager.hpp',
+                 'api/input-device.hpp',
+                 'api/output-layout.hpp'],
                 subdir: 'wayfire')
 
 pkgconfig = import('pkgconfig')

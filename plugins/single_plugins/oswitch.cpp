@@ -1,20 +1,13 @@
 #include <output.hpp>
 #include <core.hpp>
 #include <view.hpp>
+#include <output-layout.hpp>
 #include <linux/input-event-codes.h>
-
-/* XXX: remove next_output_idle_cb, because if an output is unplugged
- * in between switching outputs(highly unlikely, but still possible),
- * we should remove the idle source */
-void next_output_idle_cb(void *data)
-{
-    auto wo = (wayfire_output*) data;
-    core->focus_output(wo);
-}
 
 class wayfire_output_manager : public wayfire_plugin_t
 {
     activator_callback switch_output, switch_output_with_window;
+    wf::wl_idle_call idle_next_output;
 
     public:
         void init(wayfire_config *config)
@@ -32,14 +25,13 @@ class wayfire_output_manager : public wayfire_plugin_t
                 /* when we switch the output, the oswitch keybinding
                  * may be activated for the next output, which we don't want,
                  * so we postpone the switch */
-                auto next = core->get_next_output(output);
-
-                wl_event_loop_add_idle(core->ev_loop, next_output_idle_cb, next);
+                auto next = core->output_layout->get_next_output(output);
+                idle_next_output.run_once([=] () { core->focus_output(next); });
             };
 
             switch_output_with_window = [=] (wf_activator_source, uint32_t)
             {
-                auto next = core->get_next_output(output);
+                auto next = core->output_layout->get_next_output(output);
                 auto view = output->get_active_view();
 
                 if (!view)
@@ -49,7 +41,7 @@ class wayfire_output_manager : public wayfire_plugin_t
                 }
 
                 core->move_view_to_output(view, next);
-                wl_event_loop_add_idle(core->ev_loop, next_output_idle_cb, next);
+                idle_next_output.run_once([=] () { core->focus_output(next); });
             };
 
             output->add_activator(actkey, &switch_output);
@@ -60,6 +52,7 @@ class wayfire_output_manager : public wayfire_plugin_t
         {
             output->rem_binding(&switch_output);
             output->rem_binding(&switch_output_with_window);
+            idle_next_output.disconnect();
         }
 };
 

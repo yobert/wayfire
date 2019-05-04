@@ -49,94 +49,55 @@ void wayfire_core::configure(wayfire_config *config)
     vheight = *section->get_option("vheight", "3");
 }
 
-static void handle_output_layout_changed(wl_listener*, void *)
-{
-    core->for_each_output([] (wayfire_output *wo)
-    {
-        wo->emit_signal("output-resized", nullptr);
-    });
-}
-
 /* decorations impl */
 struct wf_server_decoration
 {
-    wlr_surface *surface;
-    wl_listener mode_set, destroy;
+    wlr_server_decoration *decor;
+    wf::wl_listener_wrapper on_mode_set, on_destroy;
+
+    std::function<void(void*)> mode_set = [&] (void*)
+    {
+        log_debug("set decoration mode %d", decor->mode);
+        bool use_csd = decor->mode == WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT;
+        core->uses_csd[decor->surface] = use_csd;
+
+        auto wf_surface = wf_surface_from_void(decor->surface->data);
+        if (wf_surface)
+            wf_surface->has_client_decoration = use_csd;
+    };
+
+    wf_server_decoration(wlr_server_decoration *_decor)
+        : decor(_decor)
+    {
+        on_mode_set.set_callback(mode_set);
+        on_destroy.set_callback([&] (void *) {
+            core->uses_csd.erase(decor->surface);
+            delete this;
+        });
+
+        on_mode_set.connect(&decor->events.mode);
+        on_destroy.connect(&decor->events.destroy);
+        /* Read initial decoration settings */
+        mode_set(NULL);
+    }
 };
-
-static void handle_decoration_mode(wl_listener*, void *data)
-{
-    auto decor = (wlr_server_decoration*) data;
-    auto wd = (wf_server_decoration*) decor->data;
-
-    log_info("set decoration mode %d", decor->mode);
-
-    bool use_csd = decor->mode == WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT;
-    core->uses_csd[wd->surface] = use_csd;
-
-    auto wf_surface = wf_surface_from_void(wd->surface->data);
-    if (wf_surface)
-        wf_surface->has_client_decoration = use_csd;
-}
-
-static void handle_decoration_destroyed(wl_listener*, void *data)
-{
-    auto decor = (wlr_server_decoration*) data;
-    auto wd = (wf_server_decoration*) decor->data;
-
-    wl_list_remove(&wd->mode_set.link);
-    wl_list_remove(&wd->destroy.link);
-
-    core->uses_csd.erase(wd->surface);
-    delete wd;
-}
-
-static void handle_decoration_created(wl_listener*, void *data)
-{
-    auto decor = (wlr_server_decoration*) data;
-
-    auto wf_decor = new wf_server_decoration;
-    wf_decor->mode_set.notify = handle_decoration_mode;
-    wf_decor->destroy.notify  = handle_decoration_destroyed;
-    wf_decor->surface = decor->surface;
-    decor->data = wf_decor;
-
-    handle_decoration_mode(NULL, data);
-}
-
-/* virtual keyboard */
-static void handle_virtual_keyboard(wl_listener*, void *data)
-{
-    auto kbd = (wlr_virtual_keyboard_v1*) data;
-    core->input->handle_new_input(&kbd->input_device);
-}
-
-/* input-inhibit impl */
-static void handle_input_inhibit_activated(wl_listener*, void *data)
-{
-    auto manager = (wlr_input_inhibit_manager*) data;
-    log_info("set exclusive focus");
-    core->input->set_exclusive_focus(manager->active_client);
-}
-
-static void handle_input_inhibit_deactivated(wl_listener*, void*)
-{
-    core->input->set_exclusive_focus(nullptr);
-}
 
 void wayfire_core::init(wayfire_config *conf)
 {
     configure(conf);
-    wf_input_device::config.load(conf);
+    wf_input_device_internal::config.load(conf);
 
     protocols.data_device = wlr_data_device_manager_create(display);
     protocols.data_control = wlr_data_control_manager_v1_create(display);
     wlr_renderer_init_wl_display(renderer, display);
 
-    output_layout = wlr_output_layout_create();
-    output_layout_changed.notify = handle_output_layout_changed;
-    wl_signal_add(&output_layout->events.change, &output_layout_changed);
-
+    /* Order here is important:
+     * 1. init_desktop_apis() must come after wlr_compositor_create(),
+     *    since Xwayland initialization depends on the compositor
+     * 2. input depends on output-layout
+     * 3. weston toy clients expect xdg-shell before wl_seat, i.e
+     * init_desktop_apis() should come before input */
+    output_layout = std::make_unique<wf::output_layout_t> (backend);
     core->compositor = wlr_compositor_create(display, wlr_backend_get_renderer(backend));
     init_desktop_apis();
     input = new input_manager();
@@ -147,25 +108,35 @@ void wayfire_core::init(wayfire_config *conf)
     protocols.gamma_v1 = wlr_gamma_control_manager_v1_create(display);
     protocols.linux_dmabuf = wlr_linux_dmabuf_v1_create(display, renderer);
     protocols.export_dmabuf = wlr_export_dmabuf_manager_v1_create(display);
+    protocols.output_manager = wlr_xdg_output_manager_v1_create(display,
+        output_layout->get_handle());
 
+    /* input-inhibit setup */
+    protocols.input_inhibit = create_input_inhibit();
+    input_inhibit_activated.set_callback([&] (void*) {
+        input->set_exclusive_focus(protocols.input_inhibit->active_client); });
+    input_inhibit_activated.connect(&protocols.input_inhibit->events.activate);
+
+    input_inhibit_deactivated.set_callback([&] (void*) {
+        input->set_exclusive_focus(nullptr); });
+    input_inhibit_deactivated.connect(&protocols.input_inhibit->events.deactivate);
+
+    /* decoration_manager setup */
     protocols.decorator_manager = wlr_server_decoration_manager_create(display);
     wlr_server_decoration_manager_set_default_mode(protocols.decorator_manager,
                                                    WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT);
 
-    input_inhibit_activated.notify = handle_input_inhibit_activated;
-    input_inhibit_deactivated.notify = handle_input_inhibit_deactivated;
-    protocols.input_inhibit = wlr_input_inhibit_manager_create(display);
-    wl_signal_add(&protocols.input_inhibit->events.activate, &input_inhibit_activated);
-    wl_signal_add(&protocols.input_inhibit->events.deactivate, &input_inhibit_deactivated);
-
-    decoration_created.notify = handle_decoration_created;
-    wl_signal_add(&protocols.decorator_manager->events.new_decoration, &decoration_created);
-
-    protocols.output_manager = wlr_xdg_output_manager_v1_create(display, output_layout);
+    decoration_created.set_callback([&] (void* data) {
+        /* will be freed by the destroy request */
+        new wf_server_decoration((wlr_server_decoration*)(data));});
+    decoration_created.connect(&protocols.decorator_manager->events.new_decoration);
 
     protocols.vkbd_manager = wlr_virtual_keyboard_manager_v1_create(display);
-    vkbd_created.notify = handle_virtual_keyboard;
-    wl_signal_add(&protocols.vkbd_manager->events.new_virtual_keyboard, &vkbd_created);
+    vkbd_created.set_callback([&] (void *data) {
+        auto kbd = (wlr_virtual_keyboard_v1*) data;
+        input->handle_new_input(&kbd->input_device);
+    });
+    vkbd_created.connect(&protocols.vkbd_manager->events.new_virtual_keyboard);
 
     protocols.idle = wlr_idle_create(display);
     protocols.idle_inhibit = wlr_idle_inhibit_v1_create(display);
@@ -173,26 +144,21 @@ void wayfire_core::init(wayfire_config *conf)
     protocols.wf_shell = wayfire_shell_create(display);
     protocols.gtk_shell = wf_gtk_shell_create(display);
     protocols.toplevel_manager = wlr_foreign_toplevel_manager_v1_create(display);
-
     protocols.pointer_gestures = wlr_pointer_gestures_v1_create(display);
 
     image_io::init();
     OpenGL::init();
 }
 
-void refocus_idle_cb(void *data)
-{
-    core->refocus_active_output_active_view();
-}
-
 void wayfire_core::wake()
 {
-    wl_event_loop_add_idle(ev_loop, refocus_idle_cb, 0);
+    static wf::wl_idle_call idle_refocus;
+    idle_refocus.run_once([&] () {refocus_active_output_active_view(); });
 
     if (times_wake > 0)
     {
-        for_each_output([] (wayfire_output *output)
-                        { output->emit_signal("wake", nullptr); });
+        for (auto& wo : output_layout->get_outputs())
+            wo->emit_signal("wake", nullptr);
     }
 
     ++times_wake;
@@ -200,8 +166,8 @@ void wayfire_core::wake()
 
 void wayfire_core::sleep()
 {
-    for_each_output([] (wayfire_output *output)
-            { output->emit_signal("sleep", nullptr); });
+    for (auto& wo : output_layout->get_outputs())
+        wo->emit_signal("sleep", nullptr);
 }
 
 wlr_seat* wayfire_core::get_current_seat()
@@ -258,89 +224,14 @@ wayfire_surface_t *wayfire_core::get_touch_focus()
     return input->touch_focus;
 }
 
-static int _last_output_id = 0;
-void wayfire_core::add_output(wlr_output *output)
+std::vector<nonstd::observer_ptr<wf::input_device_t>>
+wayfire_core::get_input_devices()
 {
-    log_info("add new output: %s", output->name);
-    if (outputs.find(output) != outputs.end())
-    {
-        log_info("old output");
-        return;
-    }
+    std::vector<nonstd::observer_ptr<wf::input_device_t>> list;
+    for (auto& dev : input->input_devices)
+        list.push_back(nonstd::make_observer(dev.get()));
 
-    wayfire_output *wo = outputs[output] = new wayfire_output(output, config);
-    wo->id = _last_output_id++;
-
-    /* Focus the first output, but do not change the focus on subsequently
-     * added outputs */
-    if (outputs.size() == 1)
-        focus_output(wo);
-
-    wo->connect_signal("_surface_mapped", &input->surface_map_state_changed);
-    wo->connect_signal("_surface_unmapped", &input->surface_map_state_changed);
-
-    output_added_signal data;
-    data.output = wo;
-    emit_signal("output-added", &data);
-
-    if (input->exclusive_client)
-        inhibit_output(wo);
-}
-
-void wayfire_core::remove_output(wayfire_output *output)
-{
-    log_info("removing output: %s", output->handle->name);
-
-    output->destroyed = true;
-    outputs.erase(output->handle);
-
-    output_removed_signal data;
-    data.output = output;
-    emit_signal("output-removed", &data);
-
-    /* we have no outputs, simply quit */
-    if (outputs.empty())
-        std::exit(0);
-
-    if (output == active_output)
-        focus_output(outputs.begin()->second);
-
-    /* first move each desktop view(e.g windows) to another output */
-    std::vector<wayfire_view> views;
-    output->workspace->for_each_view_reverse([&views] (wayfire_view view) { views.push_back(view); },
-        WF_MIDDLE_LAYERS | WF_LAYER_MINIMIZED);
-
-    for (auto& view : views)
-        output->detach_view(view);
-
-    for (auto& view : views)
-    {
-        active_output->attach_view(view);
-        active_output->focus_view(view);
-
-        if (view->maximized)
-            view->maximize_request(true);
-
-        if (view->fullscreen)
-            view->fullscreen_request(active_output, true);
-    }
-
-    /* just remove all other views - backgrounds, panels, etc.
-     * desktop views have been removed by the previous cycle */
-    output->workspace->for_each_view([] (wayfire_view view)
-    {
-        view->close();
-        view->set_output(nullptr);
-    }, WF_ALL_LAYERS);
-    /* A note: at this point, some views might already have been deleted */
-
-    /* FIXME: this is a hack, but depends on #46 */
-    input->surface_map_state_changed(NULL);
-
-    if (input->exclusive_client)
-        uninhibit_output(output);
-
-    delete output;
+    return list;
 }
 
 void wayfire_core::refocus_active_output_active_view()
@@ -372,6 +263,7 @@ void wayfire_core::focus_output(wayfire_output *wo)
     }
 
     active_output = wo;
+    log_debug("focusing %p", wo);
     if (wo)
         log_debug("focus output: %s", wo->handle->name);
 
@@ -398,69 +290,9 @@ void wayfire_core::focus_output(wayfire_output *wo)
     }
 }
 
-wayfire_output* wayfire_core::get_output(wlr_output *handle)
-{
-    auto it = outputs.find(handle);
-    if (it != outputs.end()) {
-        return it->second;
-    } else {
-        return nullptr;
-    }
-}
-
-wayfire_output* wayfire_core::get_output(std::string name)
-{
-    for (const auto& wo : outputs)
-        if (wo.first->name == name)
-            return wo.second;
-
-    return nullptr;
-}
-
 wayfire_output* wayfire_core::get_active_output()
 {
     return active_output;
-}
-
-wayfire_output* wayfire_core::get_output_at(int x, int y)
-{
-    wayfire_output *target = nullptr;
-    for_each_output([&] (wayfire_output *output)
-    {
-        if ((output->get_layout_geometry() & wf_point{x, y}) &&
-                target == nullptr)
-        {
-            target = output;
-        }
-    });
-
-    return target;
-}
-
-wayfire_output* wayfire_core::get_next_output(wayfire_output *output)
-{
-    if (outputs.empty())
-        return output;
-    auto id = output->handle;
-    auto it = outputs.find(id);
-    ++it;
-
-    if (it == outputs.end()) {
-        return outputs.begin()->second;
-    } else {
-        return it->second;
-    }
-}
-
-size_t wayfire_core::get_num_outputs()
-{
-    return outputs.size();
-}
-
-void wayfire_core::for_each_output(output_callback_proc call)
-{
-    for (auto o : outputs)
-        call(o.second);
 }
 
 int wayfire_core::focus_layer(uint32_t layer, int32_t request_uid_hint)

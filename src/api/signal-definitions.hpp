@@ -76,7 +76,7 @@ struct _surface_map_state_changed_signal : public signal_data
     wayfire_surface_t *surface;
 };
 
-/* Part 2: Signals from wayfire_core */
+/* Part 2: Signals from wf::output_layout_t */
 struct _output_signal : public signal_data
 {
     wayfire_output *output;
@@ -86,6 +86,17 @@ wayfire_output *get_signaled_output(signal_data *data);
 
 using output_added_signal = _output_signal;
 using output_removed_signal = _output_signal;
+
+namespace wf
+{
+    class input_device_t;
+    /* Used in the tablet-mode and lid-state signals from core */
+    struct switch_signal : public signal_data
+    {
+        nonstd::observer_ptr<input_device_t> device;
+        bool state;
+    };
+}
 
 #endif
 
