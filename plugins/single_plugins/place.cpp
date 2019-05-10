@@ -13,6 +13,8 @@ class wayfire_place_window : public wayfire_plugin_t
 	public:
 	void init(wayfire_config *config)
 	{
+		cascade_x = cascade_y = 0;
+
 		created_cb = [=] (signal_data *data)
 		{
 			auto view = get_signaled_view(data);
@@ -36,8 +38,10 @@ class wayfire_place_window : public wayfire_plugin_t
 		workarea_changed_cb = [=] (signal_data *data)
 		{
 			auto workarea = output->workspace->get_workarea();
-			cascade_x = workarea.x;
-			cascade_y = workarea.y;
+			if (cascade_x < workarea.x || cascade_x > workarea.x + workarea.width)
+				cascade_x = workarea.x;
+			if (cascade_y < workarea.y || cascade_y > workarea.y + workarea.height)
+				cascade_y = workarea.y;
 		};
 
 		auto section = config->get_section("place");
