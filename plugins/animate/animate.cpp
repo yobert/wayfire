@@ -219,7 +219,7 @@ class wayfire_animation : public wayfire_plugin_t
 
     signal_callback_t on_render_start = [=] (signal_data *data) -> void
     {
-        new wf_system_fade(output, startup_duration);
+        new wf_system_fade(output, wf_duration{startup_duration});
     };
 
     void fini()

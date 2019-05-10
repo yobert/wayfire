@@ -25,8 +25,8 @@ class wf_system_fade
     effect_hook_t damage_hook, render_hook;
 
     public:
-        wf_system_fade(wayfire_output *out, wf_duration dur) :
-            duration(dur), output(out)
+        wf_system_fade(wayfire_output *out, wf_duration&& dur) :
+            duration(std::move(dur)), output(out)
         {
             damage_hook = [=] ()
             { output->render->damage_whole(); };

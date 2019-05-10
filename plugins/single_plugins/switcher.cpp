@@ -50,7 +50,7 @@ struct SwitcherView
     int position;
 
     /* Make animation start values the current progress of duration */
-    void refresh_start(wf_duration duration)
+    void refresh_start(const wf_duration& duration)
     {
         attribs.off_x.start = duration.progress(attribs.off_x);
         attribs.off_y.start = duration.progress(attribs.off_y);
