@@ -5,108 +5,112 @@
 
 class wayfire_place_window : public wayfire_plugin_t
 {
-	signal_callback_t created_cb;
-	signal_callback_t workarea_changed_cb;
-	wf_option placement_mode;
-	int cascade_x, cascade_y;
+    signal_callback_t created_cb;
+    signal_callback_t workarea_changed_cb;
+    wf_option placement_mode;
+    int cascade_x, cascade_y;
 
-	public:
-	void init(wayfire_config *config)
-	{
-		created_cb = [=] (signal_data *data)
-		{
-			auto view = get_signaled_view(data);
+    public:
+    void init(wayfire_config *config)
+    {
+        cascade_x = cascade_y = 0;
 
-			if (view->role != WF_VIEW_ROLE_TOPLEVEL ||
-				view->parent || view->fullscreen ||
-				view->maximized)
-				return;
+        created_cb = [=] (signal_data *data)
+        {
+            auto view = get_signaled_view(data);
 
-			auto workarea = output->workspace->get_workarea();
-			auto mode = placement_mode->as_string();
+            if (view->role != WF_VIEW_ROLE_TOPLEVEL ||
+                view->parent || view->fullscreen ||
+                view->maximized)
+                return;
 
-			if (mode == "cascade")
-				cascade(view, workarea);
-			else if (mode == "random")
-				random(view, workarea);
-			else
-				center(view, workarea);
-		};
+            auto workarea = output->workspace->get_workarea();
+            auto mode = placement_mode->as_string();
 
-		workarea_changed_cb = [=] (signal_data *data)
-		{
-			auto workarea = output->workspace->get_workarea();
-			cascade_x = workarea.x;
-			cascade_y = workarea.y;
-		};
+            if (mode == "cascade")
+                cascade(view, workarea);
+            else if (mode == "random")
+                random(view, workarea);
+            else
+                center(view, workarea);
+        };
 
-		auto section = config->get_section("place");
-		placement_mode = section->get_option("mode", "center");
+        workarea_changed_cb = [=] (signal_data *data)
+        {
+            auto workarea = output->workspace->get_workarea();
+            if (cascade_x < workarea.x || cascade_x > workarea.x + workarea.width)
+                cascade_x = workarea.x;
+            if (cascade_y < workarea.y || cascade_y > workarea.y + workarea.height)
+                cascade_y = workarea.y;
+        };
 
-		output->connect_signal("reserved-workarea", &workarea_changed_cb);
-		output->connect_signal("map-view", &created_cb);
-	}
+        auto section = config->get_section("place");
+        placement_mode = section->get_option("mode", "center");
 
-	void cascade(wayfire_view &view, wf_geometry workarea)
-	{
-		wf_geometry window = view->get_wm_geometry();
+        output->connect_signal("reserved-workarea", &workarea_changed_cb);
+        output->connect_signal("map-view", &created_cb);
+    }
 
-		if (cascade_x + window.width > workarea.x + workarea.width ||
-			cascade_y + window.height > workarea.y + workarea.height)
-		{
-			cascade_x = workarea.x;
-			cascade_y = workarea.y;
-		}
+    void cascade(wayfire_view &view, wf_geometry workarea)
+    {
+        wf_geometry window = view->get_wm_geometry();
 
-		view->move(cascade_x, cascade_y);
+        if (cascade_x + window.width > workarea.x + workarea.width ||
+            cascade_y + window.height > workarea.y + workarea.height)
+        {
+            cascade_x = workarea.x;
+            cascade_y = workarea.y;
+        }
 
-		cascade_x += workarea.width * .03;
-		cascade_y += workarea.height * .03;
-	}
+        view->move(cascade_x, cascade_y);
 
-	void random(wayfire_view &view, wf_geometry workarea)
-	{
-		wf_geometry window = view->get_wm_geometry();
-		wf_geometry area;
-		int pos_x, pos_y;
+        cascade_x += workarea.width * .03;
+        cascade_y += workarea.height * .03;
+    }
 
-		area.x = workarea.x;
-		area.y = workarea.y;
-		area.width = workarea.width - window.width;
-		area.height = workarea.height - window.height;
+    void random(wayfire_view &view, wf_geometry workarea)
+    {
+        wf_geometry window = view->get_wm_geometry();
+        wf_geometry area;
+        int pos_x, pos_y;
 
-		if (area.width < 0 || area.height < 0)
-		{
-			center(view, workarea);
-			return;
-		}
+        area.x = workarea.x;
+        area.y = workarea.y;
+        area.width = workarea.width - window.width;
+        area.height = workarea.height - window.height;
 
-		pos_x = rand() % area.width + area.x;
-		pos_y = rand() % area.height + area.y;
+        if (area.width < 0 || area.height < 0)
+        {
+            center(view, workarea);
+            return;
+        }
 
-		view->move(pos_x, pos_y);
+        pos_x = rand() % area.width + area.x;
+        pos_y = rand() % area.height + area.y;
 
-	}
+        view->move(pos_x, pos_y);
 
-	void center(wayfire_view &view, wf_geometry workarea)
-	{
-		wf_geometry window = view->get_wm_geometry();
-		window.x = workarea.x + (workarea.width / 2) - (window.width / 2);
-		window.y = workarea.y + (workarea.height / 2) - (window.height / 2);
-		view->move(window.x, window.y);
-	}
+    }
+
+    void center(wayfire_view &view, wf_geometry workarea)
+    {
+        wf_geometry window = view->get_wm_geometry();
+        window.x = workarea.x + (workarea.width / 2) - (window.width / 2);
+        window.y = workarea.y + (workarea.height / 2) - (window.height / 2);
+        view->move(window.x, window.y);
+    }
 
     void fini()
     {
-		output->disconnect_signal("reserved-workarea", &workarea_changed_cb);
-		output->disconnect_signal("map-view", &created_cb);
+        output->disconnect_signal("reserved-workarea", &workarea_changed_cb);
+        output->disconnect_signal("map-view", &created_cb);
     }
 };
 
 extern "C"
 {
-	wayfire_plugin_t *newInstance()
-	{
-		return new wayfire_place_window();
-	}
+    wayfire_plugin_t *newInstance()
+    {
+        return new wayfire_place_window();
+    }
 }
