@@ -253,6 +253,13 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
 
     void commit()
     {
+        if (!xw->has_alpha)
+        {
+            pixman_region32_union_rect(
+                &surface->opaque_region, &surface->opaque_region,
+                0, 0, surface->current.width, surface->current.height);
+        }
+
         wayfire_view_t::commit();
 
         /* Avoid loops where the client wants to have a certain size but the

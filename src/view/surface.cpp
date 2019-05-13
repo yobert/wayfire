@@ -126,7 +126,7 @@ void wayfire_surface_t::subtract_opaque(wf_region& region, int x, int y)
     if (!surface)
         return;
 
-    wf_region opaque{&surface->current.opaque};
+    wf_region opaque{&surface->opaque_region};
     opaque += wf_point{x, y};
     opaque *= output->handle->scale;
     /* region scaling uses std::ceil/std::floor, so the resulting region
