@@ -418,9 +418,6 @@ void wayfire_core::run(const char *command)
         } else {
             exit(0);
         }
-    } else {
-        int status;
-        waitpid(pid, &status, 0);
     }
 }
 
