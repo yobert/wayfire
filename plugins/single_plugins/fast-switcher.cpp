@@ -97,6 +97,12 @@ class wayfire_fast_switcher : public wayfire_plugin_t
 
         views.erase(views.begin() + i);
 
+        if (views.empty())
+        {
+            switch_terminate();
+            return;
+        }
+
         if (i <= current_view_index)
         {
             current_view_index =
