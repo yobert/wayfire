@@ -83,8 +83,8 @@ class wf_bokeh_blur : public wf_blur_base
 
     int blur_fb0(int width, int height) override
     {
-        int iterations = iterations_opt->as_int();
-        float offset = offset_opt->as_double();
+        int iterations = iterations_opt->as_cached_int();
+        float offset = offset_opt->as_cached_double();
 
         static const float vertexData[] = {
             -1.0f, -1.0f,
@@ -120,7 +120,7 @@ class wf_bokeh_blur : public wf_blur_base
 
     int calculate_blur_radius() override
     {
-        return 100 * wf_blur_base::offset_opt->as_double() * wf_blur_base::degrade_opt->as_int();
+        return 100 * wf_blur_base::offset_opt->as_cached_double() * wf_blur_base::degrade_opt->as_cached_int();
     }
 };
 
