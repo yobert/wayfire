@@ -124,7 +124,6 @@ void input_manager::set_keyboard_focus(wayfire_view view, wlr_seat *seat)
     keyboard_focus = view;
 }
 
-
 static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
 {
     if (!session)

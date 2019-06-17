@@ -210,6 +210,7 @@ class vswitch : public wf::plugin_interface_t
                 wm.y + dy.end * output_g.height);
 
             output->focus_view(grabbed_view);
+            output->workspace->bring_to_front(grabbed_view);
 
             view_change_viewport_signal data;
             data.view = grabbed_view;

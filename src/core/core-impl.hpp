@@ -65,6 +65,7 @@ class compositor_core_impl_t : public compositor_core_t
     std::vector<nonstd::observer_ptr<wf::input_device_t>> get_input_devices() override;
 
     void add_view(std::unique_ptr<wf::view_interface_t> view) override;
+    void set_active_view(wayfire_view v) override;
     void focus_view(wayfire_view win) override;
     void move_view_to_output(wayfire_view v, wf::output_t *new_output) override;
 
@@ -87,6 +88,8 @@ class compositor_core_impl_t : public compositor_core_t
 
     /* pairs (layer, request_id) */
     std::set<std::pair<uint32_t, int>> layer_focus_requests;
+
+    wayfire_view last_active_toplevel;
 
     compositor_core_impl_t();
     virtual ~compositor_core_impl_t();

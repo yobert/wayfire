@@ -91,7 +91,6 @@ class input_manager
         std::chrono::steady_clock::time_point mod_binding_start;
         std::vector<std::function<void()>> match_keys(uint32_t mods, uint32_t key, uint32_t mod_binding_key = 0);
 
-        wayfire_view keyboard_focus;
         wf::signal_callback_t surface_map_state_changed;
 
     public:
@@ -111,6 +110,7 @@ class input_manager
         wlr_seat *seat = nullptr;
         std::unique_ptr<wf_cursor> cursor;
 
+        wayfire_view keyboard_focus;
         wf::surface_interface_t* cursor_focus = nullptr, *touch_focus = nullptr;
 
         std::unique_ptr<wf_touch> our_touch;

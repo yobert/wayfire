@@ -95,7 +95,13 @@ void wayfire_focus::check_focus_surface(wf::surface_interface_t* focus)
     }
 
     output->deactivate_plugin(grab_interface);
-    view->get_output()->focus_view(view->self());
+
+    /* Raise the base view. Modal views will be raised to the top by
+     * wayfire_handle_focus_parent */
+    while (view->parent)
+        view = view->parent.get();
+
+    view->get_output()->focus_view(view->self(), true);
     set_last_focus(view->self());
 }
 
@@ -148,9 +154,11 @@ void wayfire_focus::fini()
 void wayfire_handle_focus_parent::focus_view(wayfire_view view)
 {
     last_view = view;
-    view->get_output()->workspace->bring_to_front(view);
     for (auto child : view->children)
+    {
+        output->workspace->restack_above(child, view);
         focus_view(child);
+    }
 }
 
 void wayfire_handle_focus_parent::init(wayfire_config*)

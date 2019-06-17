@@ -40,7 +40,7 @@ class wf_wrot : public wf::plugin_interface_t
                     return;
                 }
 
-                output->focus_view(current_view);
+                output->focus_view(current_view, true);
                 grab_interface->grab();
 
                 last_x = x;

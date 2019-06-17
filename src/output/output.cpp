@@ -31,8 +31,10 @@ wf::output_impl_t::output_impl_t(wlr_output *handle)
     : output_t(handle)
 {
     plugin = std::make_unique<plugin_manager> (this, wf::get_core().config);
+    view_disappeared_cb = [=] (wf::signal_data_t *data) {
+        output_t::refocus(get_signaled_view(data));
+    };
 
-    view_disappeared_cb = [=] (wf::signal_data_t *data) { refocus(get_signaled_view(data)); };
     connect_signal("view-disappeared", &view_disappeared_cb);
     connect_signal("detach-view", &view_disappeared_cb);
 }
@@ -42,7 +44,7 @@ std::string wf::output_t::to_string() const
     return handle->name;
 }
 
-void wf::output_t::refocus(wayfire_view skip_view, uint32_t layers)
+void wf::output_impl_t::refocus(wayfire_view skip_view, uint32_t layers)
 {
     wayfire_view next_focus = nullptr;
     auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(), layers, true);
@@ -57,7 +59,7 @@ void wf::output_t::refocus(wayfire_view skip_view, uint32_t layers)
         }
     }
 
-    set_active_view(next_focus);
+    focus_view(next_focus, false);
 }
 
 void wf::output_t::refocus(wayfire_view skip_view)
@@ -149,56 +151,6 @@ std::tuple<int, int> wf::output_t::get_cursor_position() const
     return std::make_tuple(x - og.x, y - og.y);
 }
 
-/* sets the "active" view and gives it keyboard focus
- *
- * It maintains two different classes of "active views"
- * 1. active_view -> the view which has the current keyboard focus
- * 2. last_active_toplevel -> the toplevel view which last held the keyboard focus
- *
- * Because we don't want to deactivate views when for ex. a panel gets focus,
- * we don't deactivate the current view when this is the case. However, when the focus
- * goes back to the toplevel layer, we need to ensure the proper view is activated. */
-void wf::output_impl_t::set_active_view(wayfire_view v)
-{
-    if (v && !v->is_mapped())
-        return set_active_view(nullptr);
-
-    bool refocus = (active_view == v);
-
-    /* don't deactivate view if the next focus is not a toplevel */
-    if (v == nullptr || v->role == VIEW_ROLE_TOPLEVEL)
-    {
-        if (active_view && active_view->is_mapped() && !refocus)
-            active_view->set_activated(false);
-
-        /* make sure to deactivate the lastly activated toplevel */
-        if (last_active_toplevel && v != last_active_toplevel)
-            last_active_toplevel->set_activated(false);
-    }
-
-    active_view = v;
-
-    auto seat = wf::get_core().get_current_seat();
-    /* If the output isn't focused, we shouldn't touch focus */
-    if (wf::get_core().get_active_output() == this)
-    {
-        if (active_view)
-        {
-            wf::get_core_impl().input->set_keyboard_focus(active_view, seat);
-
-            if (!refocus)
-                active_view->set_activated(true);
-        } else
-        {
-            wf::get_core_impl().input->set_keyboard_focus(NULL, seat);
-
-        }
-    }
-
-    if (!active_view || active_view->role == VIEW_ROLE_TOPLEVEL)
-        last_active_toplevel = active_view;
-}
-
 bool wf::output_t::ensure_visible(wayfire_view v)
 {
     auto bbox = v->get_bounding_box();
@@ -233,7 +185,14 @@ bool wf::output_t::ensure_visible(wayfire_view v)
     return true;
 }
 
-void wf::output_t::focus_view(wayfire_view v)
+void wf::output_impl_t::update_active_view(wayfire_view v)
+{
+    this->active_view = v;
+    if (this == wf::get_core().get_active_output())
+        wf::get_core().set_active_view(v);
+}
+
+void wf::output_impl_t::focus_view(wayfire_view v, bool raise)
 {
     if (v && workspace->get_view_layer(v) < wf::get_core().get_focused_layer())
     {
@@ -243,12 +202,7 @@ void wf::output_t::focus_view(wayfire_view v)
 
     if (!v || !v->is_mapped())
     {
-        /* We can't really focus the view, it isn't mapped or is NULL.
-         * But at least we can bring it to front */
-        set_active_view(nullptr);
-        if (v)
-            workspace->bring_to_front(v);
-
+        update_active_view(nullptr);
         return;
     }
 
@@ -260,8 +214,9 @@ void wf::output_t::focus_view(wayfire_view v)
         if (v->minimized)
             v->minimize_request(false);
 
-        set_active_view(v);
-        workspace->bring_to_front(v);
+        update_active_view(v);
+        if (raise)
+            workspace->bring_to_front(v);
 
         focus_view_signal data;
         data.view = v;

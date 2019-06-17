@@ -447,10 +447,7 @@ class WayfireSwitcher : public wf::plugin_interface_t
         int focused_view_index = (size + dir) % size;
         auto focused_view = ws_views[focused_view_index];
 
-        /* If the focused view is minimized, we don't want to focus it
-         * even if it comes to the front, because that will unminimize it. */
-        if (!focused_view->minimized)
-            output->focus_view(focused_view);
+        output->workspace->bring_to_front(focused_view);
     }
 
     /* Create the initial arrangement on the screen
@@ -518,7 +515,7 @@ class WayfireSwitcher : public wf::plugin_interface_t
 
         /* Potentially restore view[0] if it was maximized */
         if (views.size())
-            output->focus_view(views[0].view);
+            output->focus_view(views[0].view, true);
     }
 
     std::vector<wayfire_view> get_background_views() const
@@ -719,8 +716,7 @@ class WayfireSwitcher : public wf::plugin_interface_t
         }
 
         rebuild_view_list();
-        if (!views.front().view->minimized)
-            output->focus_view(views.front().view);
+        output->workspace->bring_to_front(views.front().view);
         duration.start();
     }
 

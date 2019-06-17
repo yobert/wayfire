@@ -12,12 +12,18 @@ class output_impl_t : public output_t
     std::unordered_multiset<wf::plugin_grab_interface_t*> active_plugins;
     std::unique_ptr<plugin_manager> plugin;
 
-    wayfire_view active_view, last_active_toplevel;
     signal_callback_t view_disappeared_cb;
+
+    /**
+     * Set the given view as the active view.
+     * If the output has focus, try to focus the view as well.
+     */
+    void update_active_view(wayfire_view view);
 
   public:
     output_impl_t(wlr_output *output);
     virtual ~output_impl_t();
+    wayfire_view active_view;
 
     /**
      * Implementations of the public APIs
@@ -26,7 +32,8 @@ class output_impl_t : public output_t
     bool deactivate_plugin(const plugin_grab_interface_uptr& owner) override;
     bool is_plugin_active(std::string owner_name) const override;
     wayfire_view get_active_view() const override;
-    void set_active_view(wayfire_view v) override;
+    void focus_view(wayfire_view v, bool raise) override;
+    void refocus(wayfire_view skip_view, uint32_t layers) override;
 
     /**
      * Cancel all active grab interfaces.

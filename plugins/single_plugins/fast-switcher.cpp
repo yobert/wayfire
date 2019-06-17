@@ -20,7 +20,7 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
     size_t current_view_index;
     std::vector<wayfire_view> views; // all views on current viewport
 
-    bool active;
+    bool active = false;
 
     public:
     void init(wayfire_config *config)
@@ -85,7 +85,7 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         for (int i = views.size() - 1; i >= 0; i--)
             output->workspace->bring_to_front(views[i]);
 
-        output->focus_view(views[i]);
+        output->focus_view(views[i], true);
     }
 
     void cleanup_view(wayfire_view view)

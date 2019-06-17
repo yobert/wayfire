@@ -303,7 +303,7 @@ class wayfire_move : public wf::plugin_interface_t
             GetTuple(sx, sy, get_input_coords());
             grab_start = {sx, sy};
 
-            output->workspace->bring_to_front(view);
+            output->focus_view(view, true);
             if (enable_snap->as_int())
                 slot.slot_id = 0;
 

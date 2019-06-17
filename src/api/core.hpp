@@ -157,6 +157,12 @@ class compositor_core_t : public wf::object_base_t
     virtual void add_view(std::unique_ptr<wf::view_interface_t> view) = 0;
 
     /**
+     * Set the keyboard focus view. The stacking order on the view's output
+     * won't be changed.
+     */
+    virtual void set_active_view(wayfire_view v) = 0;
+
+    /**
      * Focus the given view and its output (if necessary).
      */
     virtual void focus_view(wayfire_view win) = 0;

@@ -79,6 +79,25 @@ class output_layer_manager_t
         add_view_to_layer(view, static_cast<layer_t>(view_layer));
     }
 
+    wayfire_view get_front_view(wf::layer_t layer)
+    {
+        auto& container = layers[layer_index_from_mask(layer)];
+        if (container.empty())
+            return nullptr;
+        return container.front();
+    }
+
+    void restack_above(wayfire_view view, wayfire_view below)
+    {
+        remove_view(view);
+        auto layer = get_view_layer(below);
+        auto& container = layers[layer_index_from_mask(layer)];
+        auto it = std::find(container.begin(), container.end(), below);
+
+        container.insert(it, view);
+        get_view_layer(view) = layer;
+    }
+
     std::vector<wayfire_view> get_views_in_layer(uint32_t layers_mask)
     {
         std::vector<wayfire_view> views;
@@ -546,6 +565,32 @@ class workspace_manager::impl
         check_autohide_panels();
     }
 
+    void restack_above(wayfire_view view, wayfire_view below)
+    {
+        uint32_t view_layer = layer_manager.get_view_layer(view);
+        uint32_t below_layer = layer_manager.get_view_layer(below);
+        if (view_layer == 0 || below_layer == 0 || view_layer != below_layer)
+        {
+            log_error("restacking views from different layers(%d vs %d!)",
+                view_layer, below_layer);
+            return;
+        }
+
+        log_info("restack %s on top of %s", view->get_title().c_str(),
+            below->get_title().c_str());
+
+        /* If we restack on top of the front-most view, then this can
+         * potentially change fullscreen state. So in this case use the
+         * bring_to_front() path */
+        auto front_view =
+            layer_manager.get_front_view(static_cast<wf::layer_t>(below_layer));
+        if (front_view == below) {
+            bring_to_front(view);
+        } else {
+            layer_manager.restack_above(view, below);
+        }
+    }
+
     void remove_view(wayfire_view view)
     {
         uint32_t view_layer = layer_manager.get_view_layer(view);
@@ -583,6 +628,7 @@ void workspace_manager::move_to_workspace(wayfire_view view, std::tuple<int, int
 
 void workspace_manager::add_view(wayfire_view view, layer_t layer) { return pimpl->add_view_to_layer(view, layer); }
 void workspace_manager::bring_to_front(wayfire_view view) { return pimpl->bring_to_front(view); }
+void workspace_manager::restack_above(wayfire_view view, wayfire_view below) { return pimpl->restack_above(view, below); }
 void workspace_manager::remove_view(wayfire_view view) { return pimpl->remove_view(view); }
 uint32_t workspace_manager::get_view_layer(wayfire_view view) { return pimpl->layer_manager.get_view_layer(view); }
 std::vector<wayfire_view> workspace_manager::get_views_in_layer(uint32_t layers_mask) { return pimpl->layer_manager.get_views_in_layer(layers_mask); }

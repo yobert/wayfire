@@ -111,15 +111,13 @@ class output_t : public wf::object_base_t
     virtual wayfire_view get_active_view() const = 0;
 
     /**
-     * Sets the active view for the given seat, but without changing stacking
-     * order.
+     * Attempt to give keyboard focus to the given view and set it as the
+     * output's active view.
+     *
+     * @param raise If set to true, the view will additionally be raised to the
+     * top of its layer.
      */
-    virtual void set_active_view(wayfire_view v) = 0;
-
-    /**
-     * Focuses the given view and raises it to the top of the stack.
-     */
-    void focus_view(wayfire_view v);
+    virtual void focus_view(wayfire_view v, bool raise = false) = 0;
 
     /**
      * Switch the workspace so that view becomes visible.
@@ -129,12 +127,15 @@ class output_t : public wf::object_base_t
 
     /**
      * Force refocus the topmost view in one of the layers marked in layers
-     * and which isn't skip_view
+     * and which isn't skip_view.
+     *
+     * The stacking order is not changed.
      */
-    void refocus(wayfire_view skip_view, uint32_t layers);
+    virtual void refocus(wayfire_view skip_view, uint32_t layers) = 0;
 
     /**
-     * Refocus the topmost focuseable view != skip_view, preferring regular views
+     * Refocus the topmost focuseable view != skip_view, preferring regular
+     * views. The stacking order is not changed.
      */
     void refocus(wayfire_view skip_view = nullptr);
 

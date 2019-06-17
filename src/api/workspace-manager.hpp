@@ -114,6 +114,12 @@ class workspace_manager
     void bring_to_front(wayfire_view view);
 
     /**
+     * Restack the view on top of the given view. The stacking order of other
+     * views is left unchanged
+     */
+    void restack_above(wayfire_view view, wayfire_view below);
+
+    /**
      * Remove the view from its layer. This effectively means that the view is
      * now invisible on the output.
      */

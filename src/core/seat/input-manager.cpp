@@ -194,7 +194,8 @@ bool input_manager::grab_input(wf::plugin_grab_interface_t* iface)
 void input_manager::ungrab_input()
 {
     if (active_grab)
-        active_grab->output->set_active_view(active_grab->output->get_active_view());
+        wf::get_core().set_active_view(active_grab->output->get_active_view());
+
     active_grab = nullptr;
 
     /* We must update cursor focus, however, if we update "too soon", the current

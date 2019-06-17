@@ -337,6 +337,62 @@ void wf::compositor_core_impl_t::add_view(
     assert(active_output);
 }
 
+/* sets the "active" view and gives it keyboard focus
+ *
+ * It maintains two different classes of "active views"
+ * 1. active_view -> the view which has the current keyboard focus
+ * 2. last_active_toplevel -> the toplevel view which last held the keyboard focus
+ *
+ * Because we don't want to deactivate views when for ex. a panel gets focus,
+ * we don't deactivate the current view when this is the case. However, when
+ * the focus goes back to the toplevel layer, we need to ensure the proper view
+ * is activated.
+ */
+void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
+{
+    if (new_focus && !new_focus->is_mapped())
+        return set_active_view(nullptr);
+
+    bool refocus = (input->keyboard_focus == new_focus);
+    log_debug("set active view to %s", new_focus ? new_focus->get_title().c_str() : "nil");
+
+    /* don't deactivate view if the next focus is not a toplevel */
+    if (new_focus == nullptr || new_focus->role == VIEW_ROLE_TOPLEVEL)
+    {
+        if (input->keyboard_focus &&
+            input->keyboard_focus->is_mapped() && !refocus)
+        {
+            input->keyboard_focus->set_activated(false);
+        }
+
+        /* make sure to deactivate the lastly activated toplevel */
+        if (last_active_toplevel && new_focus != last_active_toplevel)
+            last_active_toplevel->set_activated(false);
+    }
+
+    auto seat = get_current_seat();
+    if (new_focus)
+    {
+        wf::get_core_impl().input->set_keyboard_focus(new_focus, seat);
+
+        /* Don't resend activated if focusing the exact same view, some Xwayland
+         * programs have problems with this.
+         *
+         * And we need to check that the view was actually focused */
+        if (!refocus && input->keyboard_focus == new_focus)
+            new_focus->set_activated(true);
+    } else
+    {
+        wf::get_core_impl().input->set_keyboard_focus(nullptr, seat);
+    }
+
+    if (!input->keyboard_focus ||
+        input->keyboard_focus->role == VIEW_ROLE_TOPLEVEL)
+    {
+        last_active_toplevel = new_focus;
+    }
+}
+
 void wf::compositor_core_impl_t::focus_view(wayfire_view v)
 {
     if (!v)
