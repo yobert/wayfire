@@ -4,6 +4,7 @@
 #include <thread>
 #include <output.hpp>
 #include <core.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 wf_option FireAnimation::fire_particles;
 wf_option FireAnimation::fire_particle_size;
@@ -24,7 +25,6 @@ static int particle_count_for_width(int width)
 
 class FireTransformer : public wf_view_transformer_t
 {
-    effect_hook_t pre_paint;
     wf_geometry last_boundingbox;
     wf_duration duration;
 

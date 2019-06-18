@@ -1,12 +1,13 @@
+#include <plugin.hpp>
 #include <view.hpp>
 #include <core.hpp>
 #include <workspace-manager.hpp>
 #include <signal-definitions.hpp>
 
-class wayfire_place_window : public wayfire_plugin_t
+class wayfire_place_window : public wf::plugin_interface_t
 {
-    signal_callback_t created_cb;
-    signal_callback_t workarea_changed_cb;
+    wf::signal_callback_t created_cb;
+    wf::signal_callback_t workarea_changed_cb;
     wf_option placement_mode;
     int cascade_x, cascade_y;
 
@@ -15,11 +16,11 @@ class wayfire_place_window : public wayfire_plugin_t
     {
         cascade_x = cascade_y = 0;
 
-        created_cb = [=] (signal_data *data)
+        created_cb = [=] (wf::signal_data_t *data)
         {
             auto view = get_signaled_view(data);
 
-            if (view->role != WF_VIEW_ROLE_TOPLEVEL ||
+            if (view->role != wf::VIEW_ROLE_TOPLEVEL ||
                 view->parent || view->fullscreen ||
                 view->maximized)
                 return;
@@ -35,7 +36,7 @@ class wayfire_place_window : public wayfire_plugin_t
                 center(view, workarea);
         };
 
-        workarea_changed_cb = [=] (signal_data *data)
+        workarea_changed_cb = [=] (wf::signal_data_t *data)
         {
             auto workarea = output->workspace->get_workarea();
             if (cascade_x < workarea.x || cascade_x > workarea.x + workarea.width)
@@ -107,10 +108,4 @@ class wayfire_place_window : public wayfire_plugin_t
     }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_place_window();
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wayfire_place_window);

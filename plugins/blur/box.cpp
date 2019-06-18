@@ -90,7 +90,7 @@ class wf_box_blur : public wf_blur_base
         offsetID[i] = GL_CALL(glGetUniformLocation(program[i], "offset"));
     }
 
-    wf_box_blur(wayfire_output *output) : wf_blur_base(output, box_defaults)
+    wf_box_blur(wf::output_t *output) : wf_blur_base(output, box_defaults)
     {
         OpenGL::render_begin();
         program[0] = OpenGL::create_program_from_source(
@@ -126,7 +126,7 @@ class wf_box_blur : public wf_blur_base
         GL_CALL(glDisableVertexAttribArray(posID[i]));
     }
 
-    int blur_fb0(int width, int height)
+    int blur_fb0(int width, int height) override
     {
         int i, iterations = iterations_opt->as_int();
 
@@ -157,13 +157,13 @@ class wf_box_blur : public wf_blur_base
         return 0;
     }
 
-    virtual int calculate_blur_radius()
+    int calculate_blur_radius() override
     {
         return 4 * wf_blur_base::calculate_blur_radius();
     }
 };
 
-std::unique_ptr<wf_blur_base> create_box_blur(wayfire_output *output)
+std::unique_ptr<wf_blur_base> create_box_blur(wf::output_t *output)
 {
     return std::make_unique<wf_box_blur> (output);
 }

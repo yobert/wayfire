@@ -1,7 +1,6 @@
 #ifndef INPUT_MANAGER_HPP
 #define INPUT_MANAGER_HPP
 
-#include <unordered_set>
 #include <map>
 #include <vector>
 #include <chrono>
@@ -13,7 +12,6 @@
 
 extern "C"
 {
-#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_idle.h>
 #include <wlr/types/wlr_seat.h>
 struct wlr_drag_icon;
@@ -39,7 +37,7 @@ struct wf_binding
 {
     wf_option value;
     wf_binding_type type;
-    wayfire_output *output;
+    wf::output_t *output;
 
     union {
         void *raw;
@@ -59,7 +57,7 @@ using wf_binding_ptr = std::unique_ptr<wf_binding>;
 class input_manager
 {
     private:
-        wayfire_grab_interface active_grab = nullptr;
+      wf::plugin_grab_interface_t* active_grab = nullptr;
         bool session_active = true;
 
         wf::wl_listener_wrapper input_device_created, request_start_drag, start_drag,
@@ -67,7 +65,7 @@ class input_manager
                                 request_set_primary_selection;
         wf::wl_idle_call idle_update_cursor;
 
-        signal_callback_t config_updated;
+        wf::signal_callback_t config_updated;
 
         int gesture_id;
 
@@ -81,7 +79,7 @@ class input_manager
 
         // returns the surface under the given global coordinates
         // if no such surface (return NULL), lx and ly are undefined
-        wayfire_surface_t* input_surface_at(int x, int y,
+        wf::surface_interface_t* input_surface_at(int x, int y,
             int& lx, int& ly);
 
         void validate_drag_request(wlr_seat_request_start_drag_event *ev);
@@ -93,8 +91,7 @@ class input_manager
         std::chrono::steady_clock::time_point mod_binding_start;
         std::vector<std::function<void()>> match_keys(uint32_t mods, uint32_t key, uint32_t mod_binding_key = 0);
 
-        wayfire_view keyboard_focus;
-        signal_callback_t surface_map_state_changed;
+        wf::signal_callback_t surface_map_state_changed;
 
     public:
 
@@ -105,15 +102,16 @@ class input_manager
         void handle_input_destroyed(wlr_input_device *dev);
 
         void update_cursor_position(uint32_t time_msec, bool real_update = true);
-        void update_cursor_focus(wayfire_surface_t *surface, int lx, int ly);
-        void set_touch_focus(wayfire_surface_t *surface, uint32_t time, int id, int lx, int ly);
+        void update_cursor_focus(wf::surface_interface_t *surface, int lx, int ly);
+        void set_touch_focus(wf::surface_interface_t *surface, uint32_t time, int id, int lx, int ly);
 
         wl_client *exclusive_client = NULL;
 
         wlr_seat *seat = nullptr;
         std::unique_ptr<wf_cursor> cursor;
 
-        wayfire_surface_t* cursor_focus = nullptr, *touch_focus = nullptr;
+        wayfire_view keyboard_focus;
+        wf::surface_interface_t* cursor_focus = nullptr, *touch_focus = nullptr;
 
         std::unique_ptr<wf_touch> our_touch;
         std::unique_ptr<wf_drag_icon> drag_icon;
@@ -126,17 +124,17 @@ class input_manager
 
         void set_keyboard_focus(wayfire_view view, wlr_seat *seat);
 
-        bool grab_input(wayfire_grab_interface);
+        bool grab_input(wf::plugin_grab_interface_t*);
         void ungrab_input();
         bool input_grabbed();
 
-        bool can_focus_surface(wayfire_surface_t *surface);
+        bool can_focus_surface(wf::surface_interface_t *surface);
         void set_exclusive_focus(wl_client *client);
 
         void toggle_session();
         uint32_t get_modifiers();
 
-        void free_output_bindings(wayfire_output *output);
+        void free_output_bindings(wf::output_t *output);
 
         void handle_pointer_axis  (wlr_event_pointer_axis *ev);
         void handle_pointer_motion(wlr_event_pointer_motion *ev);
@@ -162,7 +160,7 @@ class input_manager
 
         void check_touch_bindings(int32_t x, int32_t y);
 
-        wf_binding* new_binding(wf_binding_type type, wf_option value, wayfire_output *output, void *callback);
+        wf_binding* new_binding(wf_binding_type type, wf_option value, wf::output_t *output, void *callback);
         void rem_binding(void *callback);
         void rem_binding(wf_binding *binding);
 };

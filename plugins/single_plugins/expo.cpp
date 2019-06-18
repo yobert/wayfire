@@ -1,8 +1,10 @@
+#include <plugin.hpp>
 #include <output.hpp>
 #include <debug.hpp>
 #include <opengl.hpp>
 #include <core.hpp>
 #include <render-manager.hpp>
+#include <workspace-stream.hpp>
 #include <workspace-manager.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -13,7 +15,7 @@
 #include "view-change-viewport-signal.hpp"
 #include "../wobbly/wobbly-signal.hpp"
 
-class wayfire_expo : public wayfire_plugin_t
+class wayfire_expo : public wf::plugin_interface_t
 {
     private:
 
@@ -33,7 +35,7 @@ class wayfire_expo : public wayfire_plugin_t
 
     wf_duration zoom_animation;
 
-    render_hook_t renderer;
+    wf::render_hook_t renderer;
 
     struct {
         bool active = false;
@@ -45,13 +47,13 @@ class wayfire_expo : public wayfire_plugin_t
     int target_vx, target_vy;
     std::tuple<int, int> move_started_ws;
 
-    std::vector<std::vector<std::unique_ptr<wf_workspace_stream>>> streams;
+    std::vector<std::vector<wf::workspace_stream_t>> streams;
 
     public:
     void init(wayfire_config *config)
     {
         grab_interface->name = "expo";
-        grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
+        grab_interface->capabilities = wf::CAPABILITY_MANAGE_COMPOSITOR;
 
         auto section = config->get_section("expo");
         auto toggle_binding = section->get_option("toggle",
@@ -60,11 +62,11 @@ class wayfire_expo : public wayfire_plugin_t
         GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
         streams.resize(vw);
 
-        for (int i = 0; i < vw; i++) {
-            for (int j = 0; j < vh; j++) {
-                streams[i].emplace_back(std::make_unique<wf_workspace_stream>());
-                streams[i][j]->ws = std::make_tuple(i, j);
-            }
+        for (int i = 0; i < vw; i++)
+        {
+            streams[i].resize(vh);
+            for (int j = 0; j < vh; j++)
+                streams[i][j].ws = std::make_tuple(i, j);
         }
 
         zoom_animation_duration = section->get_option("duration", "300");
@@ -136,7 +138,7 @@ class wayfire_expo : public wayfire_plugin_t
         calculate_zoom(true);
 
         output->render->set_renderer(renderer);
-        output->render->auto_redraw(true);
+        output->render->set_redraw_always();
     }
 
     void deactivate()
@@ -211,7 +213,7 @@ class wayfire_expo : public wayfire_plugin_t
 
         move_started_ws = std::tuple<int, int> {target_vx, target_vy};
         state.moving = true;
-        output->bring_to_front(moving_view);
+        output->workspace->bring_to_front(moving_view);
 
         moving_view->set_moving(true);
 
@@ -228,13 +230,13 @@ class wayfire_expo : public wayfire_plugin_t
         if (moving_view->fullscreen)
             moving_view->fullscreen_request(moving_view->get_output(), false);
 
-        core->set_cursor("grabbing");
+        wf::get_core().set_cursor("grabbing");
     }
 
     void end_move()
     {
         state.moving = false;
-        core->set_cursor("default");
+        wf::get_core().set_cursor("default");
 
         if (moving_view)
         {
@@ -278,13 +280,12 @@ class wayfire_expo : public wayfire_plugin_t
 
         /* TODO: adjust to delimiter offset */
 
-        wayfire_view search = nullptr;
-        output->workspace->for_each_view([&search, sx, sy] (wayfire_view v) {
-            if (!search && (v->get_wm_geometry() & wf_point{sx, sy}))
-            search = v;
-        }, WF_WM_LAYERS);
-
-        return search;
+        for (auto& view : output->workspace->get_views_in_layer(wf::WM_LAYERS))
+        {
+            if (view->get_wm_geometry() & wf_point{sx, sy})
+                return view;
+        }
+        return nullptr;
     }
 
     void update_target_workspace(int x, int y) {
@@ -335,12 +336,12 @@ class wayfire_expo : public wayfire_plugin_t
         {
             for(int i = 0; i < vw; i++)
             {
-                if (!streams[i][j]->running)
+                if (!streams[i][j].running)
                 {
-                    output->render->workspace_stream_start(streams[i][j].get());
+                    output->render->workspace_stream_start(streams[i][j]);
                 } else
                 {
-                    output->render->workspace_stream_update(streams[i][j].get(),
+                    output->render->workspace_stream_update(streams[i][j],
                         render_params.scale_x, render_params.scale_y);
                 }
             }
@@ -396,7 +397,7 @@ class wayfire_expo : public wayfire_plugin_t
                 /* Undo rotation of the workspace */
                 workspace_transform = workspace_transform * glm::inverse(fb.transform);
 
-                OpenGL::render_transformed_texture(streams[i][j]->buffer.tex,
+                OpenGL::render_transformed_texture(streams[i][j].buffer.tex,
                     out_geometry, {}, workspace_transform);
             }
         }
@@ -479,12 +480,12 @@ class wayfire_expo : public wayfire_plugin_t
 
         for (int i = 0; i < vw; i++) {
             for (int j = 0; j < vh; j++) {
-                output->render->workspace_stream_stop(streams[i][j].get());
+                output->render->workspace_stream_stop(streams[i][j]);
             }
         }
 
-        output->render->reset_renderer();
-        output->render->auto_redraw(false);
+        output->render->set_renderer(nullptr);
+        output->render->set_redraw_always(false);
     }
 
     void fini()
@@ -496,7 +497,7 @@ class wayfire_expo : public wayfire_plugin_t
         for (auto& row : streams)
         {
             for (auto& stream: row)
-                stream->buffer.release();
+                stream.buffer.release();
         }
         OpenGL::render_end();
 
@@ -504,8 +505,4 @@ class wayfire_expo : public wayfire_plugin_t
     }
 };
 
-extern "C" {
-    wayfire_plugin_t *newInstance() {
-        return new wayfire_expo();
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wayfire_expo);

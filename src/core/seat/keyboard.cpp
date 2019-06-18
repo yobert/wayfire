@@ -5,11 +5,10 @@ extern "C"
 {
 #include <xkbcommon/xkbcommon.h>
 #include <wlr/backend/session.h>
-#include <wlr/backend/multi.h>
 }
 
 #include "keyboard.hpp"
-#include "core.hpp"
+#include "../core-impl.hpp"
 #include "cursor.hpp"
 #include "touch.hpp"
 #include "input-manager.hpp"
@@ -22,26 +21,26 @@ void wf_keyboard::setup_listeners()
     {
         auto ev = static_cast<wlr_event_keyboard_key*> (data);
 
-        auto seat = core->get_current_seat();
+        auto seat = wf::get_core().get_current_seat();
         wlr_seat_set_keyboard(seat, this->device);
 
-        if (!core->input->handle_keyboard_key(ev->keycode, ev->state))
+        if (!wf::get_core_impl().input->handle_keyboard_key(ev->keycode, ev->state))
         {
-            wlr_seat_keyboard_notify_key(core->input->seat, ev->time_msec,
-                ev->keycode, ev->state);
+            wlr_seat_keyboard_notify_key(wf::get_core_impl().input->seat,
+                ev->time_msec, ev->keycode, ev->state);
         }
 
-        wlr_idle_notify_activity(core->protocols.idle, seat);
+        wlr_idle_notify_activity(wf::get_core().protocols.idle, seat);
     });
 
     on_modifier.set_callback([&] (void *data)
     {
         auto kbd = static_cast<wlr_keyboard*> (data);
-        auto seat = core->get_current_seat();
+        auto seat = wf::get_core().get_current_seat();
 
         wlr_seat_set_keyboard(seat, this->device);
         wlr_seat_keyboard_send_modifiers(seat, &kbd->modifiers);
-        wlr_idle_notify_activity(core->protocols.idle, seat);
+        wlr_idle_notify_activity(wf::get_core().protocols.idle, seat);
     });
 
     on_key.connect(&handle->events.key);
@@ -64,7 +63,7 @@ wf_keyboard::wf_keyboard(wlr_input_device *dev, wayfire_config *config)
 
     setup_listeners();
     reload_input_options();
-    wlr_seat_set_keyboard(core->get_current_seat(), dev);
+    wlr_seat_set_keyboard(wf::get_core().get_current_seat(), dev);
 }
 
 void wf_keyboard::reload_input_options()
@@ -125,7 +124,6 @@ void input_manager::set_keyboard_focus(wayfire_view view, wlr_seat *seat)
     keyboard_focus = view;
 }
 
-
 static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
 {
     if (!session)
@@ -137,7 +135,7 @@ static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
         return false;
 
     /* Somebody inhibited the output, most probably a lockscreen */
-    if (is_output_inhibited(core->get_active_output()))
+    if (is_output_inhibited(wf::get_core().get_active_output()))
         return false;
 
     int target_vt = key - KEY_F1 + 1;
@@ -177,7 +175,7 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
     for (auto& binding : bindings[WF_BINDING_KEY])
     {
         if (binding->value->as_cached_key().matches({mod_state, key}) &&
-            binding->output == core->get_active_output())
+            binding->output == wf::get_core().get_active_output())
         {
             /* We must be careful because the callback might be erased,
              * so force copy the callback into the lambda */
@@ -191,7 +189,7 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
     for (auto& binding : bindings[WF_BINDING_ACTIVATOR])
     {
         if (binding->value->matches_key({mod_state, key}) &&
-            binding->output == core->get_active_output())
+            binding->output == wf::get_core().get_active_output())
         {
             /* We must be careful because the callback might be erased,
              * so force copy the callback into the lambda
@@ -224,7 +222,8 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
 
     if (state == WLR_KEY_PRESSED)
     {
-        if (check_vt_switch(wlr_backend_get_session(core->backend), key, get_modifiers()))
+        auto session = wlr_backend_get_session(wf::get_core().backend);
+        if (check_vt_switch(session, key, get_modifiers()))
             return true;
 
         /* as long as we have pressed only modifiers, we should check for modifier bindings on release */
@@ -252,7 +251,7 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
     {
         if (mod_binding_key != 0)
         {
-            auto section = core->config->get_section("input");
+            auto section = wf::get_core().config->get_section("input");
             auto timeout = section->get_option("modifier_binding_timeout", "0")->as_int();
             if (timeout <= 0 ||
                 duration_cast<milliseconds>(steady_clock::now() - mod_binding_start)

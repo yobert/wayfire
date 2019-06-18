@@ -1,6 +1,8 @@
+#include <plugin.hpp>
 #include <view.hpp>
 #include <output.hpp>
 #include <view-transform.hpp>
+#include <workspace-stream.hpp>
 #include <workspace-manager.hpp>
 #include <signal-definitions.hpp>
 
@@ -10,11 +12,11 @@ using blur_algorithm_provider = std::function<nonstd::observer_ptr<wf_blur_base>
 class wf_blur_transformer : public wf_view_transformer_t
 {
     blur_algorithm_provider provider;
-    wayfire_output *output;
+    wf::output_t *output;
     public:
 
         wf_blur_transformer(blur_algorithm_provider blur_algorithm_provider,
-            wayfire_output *output)
+            wf::output_t *output)
         {
             provider = blur_algorithm_provider;
             this->output = output;
@@ -60,13 +62,13 @@ class wf_blur_transformer : public wf_view_transformer_t
         }
 };
 
-class wayfire_blur : public wayfire_plugin_t
+class wayfire_blur : public wf::plugin_interface_t
 {
     button_callback button_toggle;
 
-    effect_hook_t frame_pre_paint;
-    signal_callback_t workspace_stream_pre, workspace_stream_post,
-                      view_attached, view_detached;
+    wf::effect_hook_t frame_pre_paint;
+    wf::signal_callback_t workspace_stream_pre, workspace_stream_post,
+        view_attached, view_detached;
 
     const std::string normal_mode = "normal";
     const std::string toggle_mode = "toggle";
@@ -77,7 +79,7 @@ class wayfire_blur : public wayfire_plugin_t
     std::unique_ptr<wf_blur_base> blur_algorithm;
 
     const std::string transformer_name = "blur";
-    const uint32_t blur_layers = WF_MIDDLE_LAYERS | WF_ABOVE_LAYERS;
+    const uint32_t blur_layers = wf::MIDDLE_LAYERS | wf::ABOVE_LAYERS;
 
     /* the pixels from padded_region */
     wf_framebuffer_base saved_pixels;
@@ -102,16 +104,15 @@ class wayfire_blur : public wayfire_plugin_t
 
     void remove_transformers()
     {
-        output->workspace->for_each_view([=] (wayfire_view view) {
+        for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
             pop_transformer(view);
-        }, WF_ALL_LAYERS);
     }
 
     public:
     void init(wayfire_config *config)
     {
         grab_interface->name = "blur";
-        grab_interface->abilities_mask = WF_ABILITY_NONE;
+        grab_interface->capabilities = 0;
 
         auto section = config->get_section("blur");
 
@@ -139,9 +140,8 @@ class wayfire_blur : public wayfire_plugin_t
 
             if (mode_opt->as_string() == normal_mode)
             {
-                output->workspace->for_each_view([=] (wayfire_view view) {
+                for (auto& view : output->workspace->get_views_in_layer(blur_layers))
                     add_transformer(view);
-                }, blur_layers);
             }
 
             last_mode = mode_opt->as_string();
@@ -152,12 +152,9 @@ class wayfire_blur : public wayfire_plugin_t
         /* Toggles the blur state of the view the user clicked on */
         button_toggle = [=] (uint32_t, int, int)
         {
-            auto focus = core->get_cursor_focus();
-
-            if (!focus)
+            auto view = wf::get_core().get_cursor_focus_view();
+            if (!view)
                 return;
-
-            auto view = core->find_view(focus->get_main_surface());
 
             if (view->get_transformer(transformer_name)) {
                 view->pop_transformer(transformer_name);
@@ -174,7 +171,7 @@ class wayfire_blur : public wayfire_plugin_t
          * Additionally, we don't blur windows in the background layers,
          * as they usually are fully opaque, and there is actually nothing
          * behind them which can be blurred. */
-        view_attached = [=] (signal_data *data)
+        view_attached = [=] (wf::signal_data_t *data)
         {
             auto view = get_signaled_view(data);
             if (mode_opt->as_string() == normal_mode &&
@@ -189,7 +186,7 @@ class wayfire_blur : public wayfire_plugin_t
         /* If a view is detached, we remove its blur transformer.
          * If it is just moved to another output, the blur plugin
          * on the other output will add its own transformer there */
-        view_detached = [=] (signal_data *data)
+        view_detached = [=] (wf::signal_data_t *data)
         {
             auto view = get_signaled_view(data);
             pop_transformer(view);
@@ -205,7 +202,7 @@ class wayfire_blur : public wayfire_plugin_t
         frame_pre_paint = [=] ()
         {
             int padding = blur_algorithm->calculate_blur_radius();
-            wayfire_surface_t::set_opaque_shrink_constraint("blur",
+            wf::surface_interface_t::set_opaque_shrink_constraint("blur",
                 padding);
 
             auto damage = output->render->get_scheduled_damage();
@@ -219,7 +216,7 @@ class wayfire_blur : public wayfire_plugin_t
                 });
             }
         };
-        output->render->add_effect(&frame_pre_paint, WF_OUTPUT_EFFECT_PRE);
+        output->render->add_effect(&frame_pre_paint, wf::OUTPUT_EFFECT_PRE);
 
         /* workspace_stream_pre is called before rendering each frame
          * when rendering a workspace. It gives us a chance to pad
@@ -227,10 +224,10 @@ class wayfire_blur : public wayfire_plugin_t
          * damage will be used to render the scene as normal. Then
          * workspace_stream_post is called so we can copy the padded
          * pixels back. */
-        workspace_stream_pre = [=] (signal_data *data)
+        workspace_stream_pre = [=] (wf::signal_data_t *data)
         {
-            auto& damage = static_cast<wf_stream_signal*>(data)->raw_damage;
-            const auto& target_fb = static_cast<wf_stream_signal*>(data)->fb;
+            auto& damage = static_cast<wf::stream_signal_t*>(data)->raw_damage;
+            const auto& target_fb = static_cast<wf::stream_signal_t*>(data)->fb;
 
             /* As long as the padding is big enough to cover the
              * furthest sampled pixel by the shader, there should
@@ -291,9 +288,9 @@ class wayfire_blur : public wayfire_plugin_t
          * when rendering a workspace. It gives us a chance to copy
          * the pixels back to the framebuffer that we saved in
          * workspace_stream_pre. */
-        workspace_stream_post = [=] (signal_data *data)
+        workspace_stream_post = [=] (wf::signal_data_t *data)
         {
-            const auto& target_fb = static_cast<wf_stream_signal*>(data)->fb;
+            const auto& target_fb = static_cast<wf::stream_signal_t*>(data)->fb;
             OpenGL::render_begin(target_fb);
             /* Setup framebuffer I/O. target_fb contains the frame
              * rendered with expanded damage and artifacts on the edges.
@@ -345,10 +342,4 @@ class wayfire_blur : public wayfire_plugin_t
     }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_blur();
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wayfire_blur);

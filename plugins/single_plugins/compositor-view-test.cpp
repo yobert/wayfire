@@ -29,11 +29,11 @@ class test_view : public wayfire_compositor_view_t, public wayfire_compositor_in
             wlr_matrix_project_box(matrix, &g, WL_OUTPUT_TRANSFORM_NORMAL, 0, projection);
 
             OpenGL::render_begin(fb);
-            auto sbox = scissor; wlr_renderer_scissor(core->renderer, &sbox);
+            auto sbox = scissor; wlr_renderer_scissor(wf::get_core().renderer, &sbox);
 
             float color[] = {1.0f, 0.0, 1.0f, 1.0f};
 
-            wlr_render_quad_with_matrix(core->renderer, color, matrix);
+            wlr_render_quad_with_matrix(wf::get_core().renderer, color, matrix);
             OpenGL::render_end();
         }
 
@@ -59,7 +59,7 @@ class wayfire_cvtest : public wayfire_plugin_t
             auto cv = new wayfire_mirror_view_t(output->get_top_view());
 
             auto v = std::unique_ptr<wayfire_view_t>{cv};
-            core->add_view(std::move(v));
+            wf::get_core().add_view(std::move(v));
             cv->map();
         }
 };

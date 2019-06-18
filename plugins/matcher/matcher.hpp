@@ -15,7 +15,7 @@ namespace wf
             virtual ~view_matcher() = default;
         };
 
-        struct match_signal : public signal_data
+        struct match_signal : public signal_data_t
         {
             std::unique_ptr<view_matcher> result;
             wf_option expression;
@@ -29,11 +29,11 @@ namespace wf
         {
             match_signal data;
             data.expression = expression;
-            core->emit_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &data);
+            get_core().emit_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &data);
             return std::move(data.result);
         }
 
-        struct match_evaluate_signal : public signal_data
+        struct match_evaluate_signal : public signal_data_t
         {
             nonstd::observer_ptr<view_matcher> matcher;
             wayfire_view view;
@@ -49,7 +49,7 @@ namespace wf
             data.view = view;
             data.result = false; // by default
 
-            core->emit_signal(WF_MATCHER_EVALUATE_SIGNAL, &data);
+            get_core().emit_signal(WF_MATCHER_EVALUATE_SIGNAL, &data);
             return data.result;
         }
     }

@@ -1,3 +1,4 @@
+#include <plugin.hpp>
 #include <output.hpp>
 #include <core.hpp>
 #include <debug.hpp>
@@ -23,7 +24,7 @@ class vswitch_view_transformer : public wf_2D_view
 };
 const std::string vswitch_view_transformer::name = "vswitch-transformer";
 
-class vswitch : public wayfire_plugin_t
+class vswitch : public wf::plugin_interface_t
 {
     private:
         activator_callback callback_left, callback_right, callback_up, callback_down;
@@ -41,7 +42,7 @@ class vswitch : public wayfire_plugin_t
     wayfire_view get_top_view()
     {
         auto ws = output->workspace->get_current_workspace();
-        auto views = output->workspace->get_views_on_workspace(ws, WF_LAYER_WORKSPACE, true);
+        auto views = output->workspace->get_views_on_workspace(ws, wf::LAYER_WORKSPACE, true);
 
         return views.empty() ? nullptr : views[0];
     }
@@ -49,7 +50,7 @@ class vswitch : public wayfire_plugin_t
     void init(wayfire_config *config)
     {
         grab_interface->name = "vswitch";
-        grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
+        grab_interface->capabilities = wf::CAPABILITY_MANAGE_DESKTOP;
         grab_interface->callbacks.cancel = [=] () {stop_switch();};
 
         callback_left  = [=] (wf_activator_source, uint32_t) { add_direction(-1,  0); };
@@ -103,7 +104,7 @@ class vswitch : public wayfire_plugin_t
         if (!is_active())
             start_switch();
 
-        if (view && view->role != WF_VIEW_ROLE_TOPLEVEL)
+        if (view && view->role != wf::VIEW_ROLE_TOPLEVEL)
             view = nullptr;
 
         if (view && !grabbed_view)
@@ -122,7 +123,7 @@ class vswitch : public wayfire_plugin_t
         duration.start();
     }
 
-    signal_callback_t on_set_workspace_request = [=] (signal_data *data)
+    wf::signal_callback_t on_set_workspace_request = [=] (wf::signal_data_t *data)
     {
         if (is_active())
             return;
@@ -139,11 +140,11 @@ class vswitch : public wayfire_plugin_t
     std::vector<wayfire_view> get_ws_views()
     {
         std::vector<wayfire_view> views;
-        output->workspace->for_each_view([&](wayfire_view view)
+        for (auto& view : output->workspace->get_views_in_layer(wf::MIDDLE_LAYERS))
         {
             if (view != grabbed_view)
                 views.push_back(view);
-        }, WF_MIDDLE_LAYERS);
+        }
 
         return views;
     }
@@ -163,8 +164,8 @@ class vswitch : public wayfire_plugin_t
         if (!output->activate_plugin(grab_interface))
             return false;
 
-        output->render->add_effect(&update_animation, WF_OUTPUT_EFFECT_PRE);
-        output->render->auto_redraw(true);
+        output->render->add_effect(&update_animation, wf::OUTPUT_EFFECT_PRE);
+        output->render->set_redraw_always();
 
         duration.start();
         dx = dy = {0, 0};
@@ -172,7 +173,7 @@ class vswitch : public wayfire_plugin_t
         return true;
     }
 
-    effect_hook_t update_animation = [=] ()
+    wf::effect_hook_t update_animation = [=] ()
     {
         if (!duration.running())
             return stop_switch();
@@ -209,6 +210,7 @@ class vswitch : public wayfire_plugin_t
                 wm.y + dy.end * output_g.height);
 
             output->focus_view(grabbed_view);
+            output->workspace->bring_to_front(grabbed_view);
 
             view_change_viewport_signal data;
             data.view = grabbed_view;
@@ -228,7 +230,7 @@ class vswitch : public wayfire_plugin_t
 
         output->deactivate_plugin(grab_interface);
         output->render->rem_effect(&update_animation);
-        output->render->auto_redraw(false);
+        output->render->set_redraw_always(false);
     }
 
     void fini()
@@ -252,10 +254,4 @@ class vswitch : public wayfire_plugin_t
     }
 };
 
-extern "C"
-{
-    wayfire_plugin_t* newInstance()
-    {
-        return new vswitch();
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(vswitch);

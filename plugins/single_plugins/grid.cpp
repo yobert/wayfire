@@ -1,9 +1,11 @@
+#include <plugin.hpp>
 #include <output.hpp>
 #include <core.hpp>
 #include <view.hpp>
 #include <workspace-manager.hpp>
 #include <render-manager.hpp>
 #include <algorithm>
+#include <cmath>
 #include <linux/input-event-codes.h>
 #include "signal-definitions.hpp"
 #include <animation.hpp>
@@ -11,31 +13,37 @@
 #include "snap_signal.hpp"
 #include "../wobbly/wobbly-signal.hpp"
 
+extern "C"
+{
+#include <wlr/util/edges.h>
+}
+
 const std::string grid_view_id = "grid-view";
 
-class wayfire_grid_view_cdata : public wf_custom_data_t
+class wayfire_grid_view_cdata : public wf::custom_data_t
 {
     wf_duration duration;
     bool is_active = true;
 
     wayfire_view view;
-    wayfire_output *output;
-    effect_hook_t pre_hook;
-    signal_callback_t unmapped;
+    wf::output_t *output;
+    wf::effect_hook_t pre_hook;
+    wf::signal_callback_t unmapped;
 
     uint32_t tiled_edges;
     wf_geometry target, initial;
-    wayfire_grab_interface iface;
+    const wf::plugin_grab_interface_uptr& iface;
     wf_option animation_type;
 
     public:
 
-    wayfire_grid_view_cdata(wayfire_view view, wayfire_grab_interface iface,
-                      wf_option animation_type, wf_option animation_duration)
+    wayfire_grid_view_cdata(wayfire_view view,
+        const wf::plugin_grab_interface_uptr& _iface,
+        wf_option animation_type, wf_option animation_duration)
+        : iface(_iface)
     {
         this->view = view;
         this->output = view->get_output();
-        this->iface = iface;
         this->animation_type = animation_type;
         duration = wf_duration(animation_duration);
 
@@ -48,15 +56,15 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
         pre_hook = [=] () {
             adjust_geometry();
         };
-        output->render->add_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+        output->render->add_effect(&pre_hook, wf::OUTPUT_EFFECT_PRE);
 
-        unmapped = [=] (signal_data *data)
+        unmapped = [=] (wf::signal_data_t *data)
         {
             if (get_signaled_view(data) == view)
                 destroy();
         };
 
-        output->render->auto_redraw(true);
+        output->render->set_redraw_always(true);
         output->connect_signal("view-disappeared", &unmapped);
         output->connect_signal("detach-view", &unmapped);
     }
@@ -84,8 +92,11 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
 
         if (type == "wobbly")
         {
-            snap_wobbly(view, geometry);
+            /* Order is important here: first we set the view geometry, and
+             * after that we set the snap request. Otherwise the wobbly plugin
+             * will think the view actually moved */
             set_end_state(geometry, tiled_edges);
+            snap_wobbly(view, geometry);
 
             if (!tiled_edges) // release snap, so subsequent size changes don't bother us
                 snap_wobbly(view, geometry, false);
@@ -139,20 +150,20 @@ class wayfire_grid_view_cdata : public wf_custom_data_t
 
         output->render->rem_effect(&pre_hook);
         output->deactivate_plugin(iface);
-        output->render->auto_redraw(false);
+        output->render->set_redraw_always(false);
         output->disconnect_signal("view-disappeared", &unmapped);
         output->disconnect_signal("detach-view", &unmapped);
     }
 };
 
-class wf_grid_slot_data : public wf_custom_data_t
+class wf_grid_slot_data : public wf::custom_data_t
 {
     public:
         int slot;
 };
 
 nonstd::observer_ptr<wayfire_grid_view_cdata> ensure_grid_view(wayfire_view view,
-        wayfire_grab_interface iface, wf_option animation_type,
+        const wf::plugin_grab_interface_uptr& iface, wf_option animation_type,
         wf_option animation_duration)
 {
     if (!view->has_data<wayfire_grid_view_cdata>())
@@ -164,7 +175,7 @@ nonstd::observer_ptr<wayfire_grid_view_cdata> ensure_grid_view(wayfire_view view
     return view->get_data<wayfire_grid_view_cdata> ();
 }
 
-class wf_grid_saved_view_geometry : public wf_custom_data_t
+class wf_grid_saved_view_geometry : public wf::custom_data_t
 {
     public:
     wf_geometry geometry;
@@ -191,7 +202,7 @@ static uint32_t get_tiled_edges_for_slot(uint32_t slot)
     return edges;
 }
 
-class wayfire_grid : public wayfire_plugin_t
+class wayfire_grid : public wf::plugin_interface_t
 {
     std::vector<std::string> slots = {"unused", "bl", "b", "br", "l", "c", "r", "tl", "t", "tr"};
     std::vector<std::string> default_keys = {
@@ -222,7 +233,7 @@ class wayfire_grid : public wayfire_plugin_t
     void init(wayfire_config *config)
     {
         grab_interface->name = "grid";
-        grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY;
+        grab_interface->capabilities = wf::CAPABILITY_MANAGE_DESKTOP;
 
         auto section = config->get_section("grid");
         animation_duration = section->get_option("duration", "300");
@@ -235,7 +246,7 @@ class wayfire_grid : public wayfire_plugin_t
             bindings[i] = [=] (wf_activator_source, uint32_t)
             {
                 auto view = output->get_active_view();
-                if (!view || view->role != WF_VIEW_ROLE_TOPLEVEL)
+                if (!view || view->role != wf::VIEW_ROLE_TOPLEVEL)
                     return;
 
                 handle_slot(view, i, false);
@@ -341,13 +352,13 @@ class wayfire_grid : public wayfire_plugin_t
         return area;
     }
 
-    signal_callback_t on_workarea_changed = [=] (signal_data *data)
+    wf::signal_callback_t on_workarea_changed = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<reserved_workarea_signal*> (data);
-        output->workspace->for_each_view([=] (wayfire_view view)
+        for (auto& view : output->workspace->get_views_in_layer(wf::LAYER_WORKSPACE))
         {
             if (!view->is_mapped())
-                return;
+                continue;
 
             auto data = view->get_data_safe<wf_grid_slot_data>();
 
@@ -360,7 +371,7 @@ class wayfire_grid : public wayfire_plugin_t
             }
 
             if (!data->slot)
-                return;
+                continue;
 
             /* Workarea changed, and we have a view which is tiled into some slot.
              * We need to make sure it remains in its slot. So we calculate the
@@ -375,31 +386,31 @@ class wayfire_grid : public wayfire_plugin_t
             workarea.y += vy * output_geometry.height;
 
             handle_slot(view, workarea, data->slot, false);
-        }, WF_LAYER_WORKSPACE);
+        }
     };
 
-    signal_callback_t on_snap_query = [=] (signal_data *data)
+    wf::signal_callback_t on_snap_query = [=] (wf::signal_data_t *data)
     {
-        auto query = static_cast<snap_query_signal*> (data);
+        auto query = dynamic_cast<snap_query_signal*> (data);
         assert(query);
 
         query->out_geometry = get_slot_dimensions(query->slot,
             output->workspace->get_workarea());
     };
 
-    signal_callback_t on_snap_signal = [=] (signal_data *ddata)
+    wf::signal_callback_t on_snap_signal = [=] (wf::signal_data_t *ddata)
     {
-        snap_signal *data = static_cast<snap_signal*>(ddata);
+        snap_signal *data = dynamic_cast<snap_signal*>(ddata);
         handle_slot(data->view, data->slot, false);
     };
 
-    signal_callback_t on_maximize_signal = [=] (signal_data *ddata)
+    wf::signal_callback_t on_maximize_signal = [=] (wf::signal_data_t *ddata)
     {
         auto data = static_cast<view_maximized_signal*> (ddata);
         handle_slot(data->view, data->state ? 5 : 0, true);
     };
 
-    signal_callback_t on_fullscreen_signal = [=] (signal_data *ev)
+    wf::signal_callback_t on_fullscreen_signal = [=] (wf::signal_data_t *ev)
     {
         auto data = static_cast<view_fullscreen_signal*> (ev);
         static const std::string fs_data_name = "grid-saved-fs";
@@ -450,10 +461,4 @@ class wayfire_grid : public wayfire_plugin_t
     }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_grid;
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wayfire_grid);

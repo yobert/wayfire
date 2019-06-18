@@ -1,4 +1,5 @@
 #include <sstream>
+#include <algorithm>
 #include <set>
 #include <memory>
 #include <dlfcn.h>
@@ -27,7 +28,7 @@ static const std::string default_plugins = "viewport_impl move resize animate \
                                             switcher vswitch cube expo command \
                                             grid";
 
-plugin_manager::plugin_manager(wayfire_output *o, wayfire_config *config)
+plugin_manager::plugin_manager(wf::output_t *o, wayfire_config *config)
 {
     this->config = config;
     this->output = o;
@@ -47,24 +48,23 @@ plugin_manager::plugin_manager(wayfire_output *o, wayfire_config *config)
     plugins_opt->updated.push_back(&list_updated);
 }
 
-void plugin_manager::deinit_plugins(bool unloadable, bool internal)
+void plugin_manager::deinit_plugins(bool unloadable)
 {
     for (auto& p : loaded_plugins)
     {
         if (!p.second) // already destroyed on the previous iteration
             continue;
 
-        if (p.second->is_unloadable() == unloadable && p.second->is_internal() == internal)
+        if (p.second->is_unloadable() == unloadable)
             destroy_plugin(p.second);
     }
 }
 
 plugin_manager::~plugin_manager()
 {
-    deinit_plugins(true, false); // regular plugins - unloadable, not internal
-    deinit_plugins(false, false); // regular plugins - not-unloadable, not internal
-    deinit_plugins(true, true); // system plugins - unloadable, internal
-    deinit_plugins(false, true); // system plugins - not-unloadable, internal
+    /* First remove unloadable plugins, then others */
+    deinit_plugins(true);
+    deinit_plugins(false);
 
     loaded_plugins.clear();
     plugins_opt->updated.erase(
@@ -74,7 +74,7 @@ plugin_manager::~plugin_manager()
 
 void plugin_manager::init_plugin(wayfire_plugin& p)
 {
-    p->grab_interface = new wayfire_grab_interface_t(output);
+    p->grab_interface = std::make_unique<wf::plugin_grab_interface_t> (output);
     p->output = output;
 
     p->init(config);
@@ -86,45 +86,59 @@ void plugin_manager::destroy_plugin(wayfire_plugin& p)
     output->deactivate_plugin(p->grab_interface);
 
     p->fini();
-    delete p->grab_interface;
 
-    /* we load the same plugins for each output, so we must dlclose() the handle
-     * only when we remove the last output */
-    if (core->output_layout->get_num_outputs() < 1)
-    {
-        if (p->dynamic)
-            dlclose(p->handle);
-    }
+    /** dlopen()/dlclose() do reference counting */
+    if (p->handle)
+        dlclose(p->handle);
 
     p.reset();
 }
 
 wayfire_plugin plugin_manager::load_plugin_from_file(std::string path)
 {
-    void *handle = dlopen(path.c_str(), RTLD_NOW);
+    // RTLD_GLOBAL is required for RTTI/dynamic_cast across plugins
+    void *handle = dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL);
     if(handle == NULL)
     {
         log_error("error loading plugin: %s", dlerror());
         return nullptr;
     }
 
+    /* Check plugin version */
+    auto version_func_ptr = dlsym(handle, "getWayfireVersion");
+    if (version_func_ptr == NULL)
+    {
+        log_error("%s: missing getWayfireVersion()", path.c_str());
+        dlclose(handle);
+        return nullptr;
+    }
 
-    auto initptr = dlsym(handle, "newInstance");
-    if(initptr == NULL)
+    auto version_func =
+        union_cast<void*, wayfire_plugin_version_func> (version_func_ptr);
+    int32_t plugin_abi_version = version_func();
+
+    if (version_func() != WAYFIRE_API_ABI_VERSION)
+    {
+        log_error("%s: API/ABI version mismatch: Wayfire is %d, plugin built "
+            "with %d", path.c_str(), WAYFIRE_API_ABI_VERSION, plugin_abi_version);
+        dlclose(handle);
+        return nullptr;
+    }
+
+    auto new_instance_func_ptr = dlsym(handle, "newInstance");
+    if(new_instance_func_ptr == NULL)
     {
         log_error("%s: missing newInstance(). %s", path.c_str(), dlerror());
         return nullptr;
     }
 
     log_debug("loading plugin %s", path.c_str());
-    get_plugin_instance_t init = union_cast<void*, get_plugin_instance_t> (initptr);
+    auto new_instance_func =
+        union_cast<void*, wayfire_plugin_load_func> (new_instance_func_ptr);
 
-    auto ptr = wayfire_plugin(init());
-
+    auto ptr = wayfire_plugin(new_instance_func());
     ptr->handle = handle;
-    ptr->dynamic = true;
-
-    return wayfire_plugin(init());
+    return ptr;
 }
 
 void plugin_manager::reload_dynamic_plugins()
@@ -197,7 +211,7 @@ void plugin_manager::reload_dynamic_plugins()
 
 template<class T> static wayfire_plugin create_plugin()
 {
-    return std::unique_ptr<wayfire_plugin_t>(new T);
+    return std::unique_ptr<wf::plugin_interface_t>(new T);
 }
 
 void plugin_manager::load_static_plugins()

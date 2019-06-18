@@ -1,18 +1,18 @@
 /*
  * The MIT License (MIT)
- * 
+ *
  * Copyright (c) 2018 Scott Moreau
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -97,10 +97,9 @@ void main()
 }
 )";
 
-class wayfire_fisheye : public wayfire_plugin_t
+class wayfire_fisheye : public wf::plugin_interface_t
 {
-
-    post_hook_t hook;
+    wf::post_hook_t hook;
     activator_callback toggle_cb;
     wf_duration duration;
     float target_zoom;
@@ -153,7 +152,7 @@ class wayfire_fisheye : public wayfire_plugin_t
                         {
                             hook_set = true;
                             output->render->add_post(&hook);
-                            output->render->auto_redraw(true);
+                            output->render->set_redraw_always();
                         }
                     }
             };
@@ -192,7 +191,7 @@ class wayfire_fisheye : public wayfire_plugin_t
             GL_CALL(glActiveTexture(GL_TEXTURE0));
 
             GL_CALL(glUniform2f(mouseID, x, y));
-            GL_CALL(glUniform2f(resID, output->handle->width, output->handle->height));
+            GL_CALL(glUniform2f(resID, dest.viewport_width, dest.viewport_height));
             GL_CALL(glUniform1f(radiusID, radius->as_double()));
             GL_CALL(glUniform1f(zoomID, current_zoom));
 
@@ -219,7 +218,7 @@ class wayfire_fisheye : public wayfire_plugin_t
         void finalize()
         {
             output->render->rem_post(&hook);
-            output->render->auto_redraw(false);
+            output->render->set_redraw_always(false);
             hook_set = false;
         }
 
@@ -236,10 +235,4 @@ class wayfire_fisheye : public wayfire_plugin_t
         }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_fisheye();
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wayfire_fisheye);

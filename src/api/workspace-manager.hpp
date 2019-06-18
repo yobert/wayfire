@@ -5,121 +5,233 @@
 #include <vector>
 #include <view.hpp>
 
-using view_callback_proc_t = std::function<void(wayfire_view)>;
-
-struct wf_workspace_implementation
+namespace wf
+{
+/**
+ * The workspace implementation is a way for plugins to request more detailed
+ * control over what happens on the given workspace. For example a tiling
+ * plugin would disable move and/or resize operations for some views.
+ */
+struct workspace_implementation_t
 {
     virtual bool view_movable(wayfire_view view) = 0;
     virtual bool view_resizable(wayfire_view view) = 0;
-    virtual ~wf_workspace_implementation() {}
+    virtual ~workspace_implementation_t() {}
 };
 
-enum wf_layer
+/**
+ * Wayfire organizes views into several layers, in order to simplify z ordering.
+ */
+enum layer_t
 {
-    WF_LAYER_BACKGROUND = (1 << 0),
-    WF_LAYER_BOTTOM     = (1 << 1),
-    WF_LAYER_WORKSPACE  = (1 << 2),
-    WF_LAYER_XWAYLAND   = (1 << 3),
-    WF_LAYER_TOP        = (1 << 4),
-    WF_LAYER_FULLSCREEN = (1 << 5),
-    WF_LAYER_LOCK       = (1 << 6),
-    WF_LAYER_MINIMIZED  = (1 << 7)
+    /* The lowest layer, typical clients here are backgrounds */
+    LAYER_BACKGROUND = (1 << 0),
+    /* The bottom layer */
+    LAYER_BOTTOM     = (1 << 1),
+    /* The workspace layer is where regular views are placed */
+    LAYER_WORKSPACE  = (1 << 2),
+    /* The xwayland layer is used for Xwayland O-R windows */
+    LAYER_XWAYLAND   = (1 << 3),
+    /* The top layer. Typical clients here are non-autohiding panels */
+    LAYER_TOP        = (1 << 4),
+    /* The fullscreen layer, used only for fullscreen views */
+    LAYER_FULLSCREEN = (1 << 5),
+    /* The lockscreen layer, typically lockscreens or autohiding panels */
+    LAYER_LOCK       = (1 << 6),
+
+    /* The minimized layer. It has no z order since it is not visible at all */
+    LAYER_MINIMIZED  = (1 << 7)
 };
 
-#define WF_TOTAL_LAYERS 8
+constexpr int TOTAL_LAYERS = 8;
 
-#define WF_WM_LAYERS     (WF_LAYER_WORKSPACE  | WF_LAYER_FULLSCREEN)
-#define WF_MIDDLE_LAYERS (WF_WM_LAYERS        | WF_LAYER_XWAYLAND)
-#define WF_ABOVE_LAYERS  (WF_LAYER_TOP        | WF_LAYER_LOCK)
-#define WF_BELOW_LAYERS  (WF_LAYER_BACKGROUND | WF_LAYER_BOTTOM)
+/* The layers where regular views are placed */
+constexpr int WM_LAYERS     = (wf::LAYER_WORKSPACE  | wf::LAYER_FULLSCREEN);
+/* All layers which are used for regular clients */
+constexpr int MIDDLE_LAYERS = (wf::WM_LAYERS        | wf::LAYER_XWAYLAND);
+/* All layers which typically sit on top of other layers */
+constexpr int ABOVE_LAYERS  = (wf::LAYER_TOP        | wf::LAYER_LOCK);
+/* All layers which typically sit below other layers */
+constexpr int BELOW_LAYERS  = (wf::LAYER_BACKGROUND | wf::LAYER_BOTTOM);
 
-#define WF_VISIBLE_LAYERS (WF_MIDDLE_LAYERS | WF_ABOVE_LAYERS | WF_BELOW_LAYERS)
-#define WF_ALL_LAYERS     (WF_VISIBLE_LAYERS | WF_LAYER_MINIMIZED)
+/* All visible layers */
+constexpr int VISIBLE_LAYERS = (wf::MIDDLE_LAYERS | wf::ABOVE_LAYERS |
+                                wf::BELOW_LAYERS);
+/* All layers */
+constexpr int ALL_LAYERS     = (wf::VISIBLE_LAYERS | wf::LAYER_MINIMIZED);
 
-/* return all layers not below layer, ie. layers above it + the layer itself */
-uint32_t wf_all_layers_not_below(uint32_t layer);
+/**
+ * @return A bitmask consisting of all layers which are not below the given layer
+ */
+uint32_t all_layers_not_below(uint32_t layer);
 
-/* workspace manager controls various workspace-related functions.
- * Currently it is implemented as a plugin, see workspace_viewport_implementation plugin */
+/**
+ * Workspace manager is responsible for managing the layers, the workspaces and
+ * the views in them. There is one workspace manager per output.
+ *
+ * In the default workspace_manager implementation, there is one set of layers
+ * per output. Each layer is infinite and covers all workspaces.
+ *
+ * Each output also has a set of workspaces, arranged in a 2D grid. A view may
+ * overlap multiple workspaces.
+ */
 class workspace_manager
 {
-    public:
-        /* return if the view is visible on the given workspace */
-        virtual bool view_visible_on(wayfire_view view, std::tuple<int, int>) = 0;
+  public:
+    /**
+     * Check if the given view is visible on the given workspace
+     */
+    bool view_visible_on(wayfire_view view, std::tuple<int, int> ws);
 
-        /* adjust view attributes so that its geometry is visible on the
-         * given workspace */
-        virtual void move_to_workspace(wayfire_view view, std::tuple<int, int> ws) = 0;
+    /**
+     * Get a list of all views visible on the given workspace
+     *
+     * @param layer_mask - The layers whose views should be included
+     * @param wm_only - If set to true, then only the view's wm geometry
+     *        will be taken into account when computing visibility.
+     */
+    std::vector<wayfire_view> get_views_on_workspace(std::tuple<int, int> ws,
+        uint32_t layer_mask, bool wm_only);
 
-        /* returns a list of the views in the given layers on the given workspace
-         * @param wm_only - if set, this will return only the views whose WM geometry is inside
-         * the workspace. See view.hpp for a distinction between wm, output and boundingbox geometry */
-        virtual std::vector<wayfire_view>
-            get_views_on_workspace(std::tuple<int, int> ws, uint32_t layer_mask, bool wm_only) = 0;
-        virtual void for_each_view(view_callback_proc_t call, uint32_t layers_mask) = 0;
-        virtual void for_each_view_reverse(view_callback_proc_t call, uint32_t layers_mask) = 0;
+    /**
+     * Ensure that the view's wm_geometry is visible on the workspace ws. This
+     * involves moving the view as appropriate.
+     */
+    void move_to_workspace(wayfire_view view, std::tuple<int, int> ws);
 
-        /* TODO: split this api? */
+    /**
+     * Add the given view to the given layer. If the view was already added to
+     * a layer, it will be first removed from the old one.
+     *
+     * Preconditions: the view must have the same output as the current one
+     */
+    void add_view(wayfire_view view, layer_t layer);
 
-        /* if layer_mask == 0, then we remove the view from its layer,
-         * if layer_mask == -1, then the view will be moved to the top of its layer */
-        virtual void add_view_to_layer(wayfire_view view, uint32_t layer) = 0;
+    /**
+     * Bring the view to the top of its layer. No-op if the view isn't in any
+     * layer.
+     */
+    void bring_to_front(wayfire_view view);
 
-        virtual uint32_t get_view_layer(wayfire_view view) = 0;
+    /**
+     * Restack the view on top of the given view. The stacking order of other
+     * views is left unchanged
+     */
+    void restack_above(wayfire_view view, wayfire_view below);
 
-        /* return the active wf_workspace_implementation for the given workpsace */
-        virtual wf_workspace_implementation* get_implementation(std::tuple<int, int>) = 0;
+    /**
+     * Remove the view from its layer. This effectively means that the view is
+     * now invisible on the output.
+     */
+    void remove_view(wayfire_view view);
 
-        /* returns true if implementation of workspace has been successfully installed.
-         * @param override - override current implementation if it is existing.
-         * it must be guaranteed that if override is set, then the functions returns true */
-        virtual bool set_implementation(std::tuple<int, int>, wf_workspace_implementation *, bool override = false) = 0;
+    /**
+     * @return The layer in which the view is, or 0 if it can't be found
+     */
+    uint32_t get_view_layer(wayfire_view view);
 
-        virtual void set_workspace(std::tuple<int, int>) = 0;
-        virtual std::tuple<int, int> get_current_workspace() = 0;
-        virtual std::tuple<int, int> get_workspace_grid_size() = 0;
+    /**
+     * @return A list of all views in the given layers.
+     */
+    std::vector<wayfire_view> get_views_in_layer(uint32_t layers_mask);
 
-        enum anchored_edge
-        {
-            WORKSPACE_ANCHORED_EDGE_TOP = 0,
-            WORKSPACE_ANCHORED_EDGE_BOTTOM = 1,
-            WORKSPACE_ANCHORED_EDGE_LEFT = 2,
-            WORKSPACE_ANCHORED_EDGE_RIGHT = 3
-        };
+    /**
+     * @return The workspace implementation for the given workspace
+     */
+    workspace_implementation_t* get_workspace_implementation(
+        std::tuple<int, int> ws);
 
-        struct anchored_area
-        {
-            anchored_edge edge;
-            /* amount of space to reserve */
-            int reserved_size;
+    /**
+     * Set the implementation for the given workspace.
+     * @param ws - The workspace whose implementation should be set
+     * @param impl - The workspace implementation, or null if default
+     * @param overwrite - Whether to set the implementation even if another
+     *        non-default implementation has already been set.
+     *
+     * @return true iff the implementation has been set
+     */
+    bool set_workspace_implementation(std::tuple<int, int> ws,
+        std::unique_ptr<workspace_implementation_t> impl, bool overwrite = false);
 
-            /* desired size, to be given later in the reflowed callback */
-            int real_size;
+    /**
+     * Change the active workspace.
+     *
+     * @param The new active workspace.
+     */
+    void set_workspace(std::tuple<int, int> ws);
 
-            /* called when the anchored area geometry was changed.
-             * First geometry is the anchored geometry, the second one the
-             * workarea available when the anchored area was considered */
-            std::function<void(wf_geometry, wf_geometry)> reflowed;
-        };
+    /**
+     * @return The given workspace
+     */
+    std::tuple<int, int> get_current_workspace();
 
-        virtual wf_geometry calculate_anchored_geometry(const anchored_area& area) = 0;
+    /**
+     * @return The number of workspace columns and rows
+     */
+    std::tuple<int, int> get_workspace_grid_size();
 
-        /* Add a reserved area. The actual recalculation must be manually
-         * triggered by calling reflow_reserved_areas() */
-        virtual void add_reserved_area(anchored_area *area) = 0;
+    /**
+     * Special clients like panels can reserve place from an edge of the output.
+     * It is used when calculating the dimensions of maximized/tiled windows and
+     * others. The remaining space (which isn't reserved for panels) is called
+     * the workarea.
+     */
+    enum anchored_edge
+    {
+        ANCHORED_EDGE_TOP = 0,
+        ANCHORED_EDGE_BOTTOM = 1,
+        ANCHORED_EDGE_LEFT = 2,
+        ANCHORED_EDGE_RIGHT = 3
+    };
 
-        /* Remove a reserved area. The actual recalculation must be manually
-         * triggered by calling reflow_reserved_areas() */
-        virtual void remove_reserved_area(anchored_area *area) = 0;
+    struct anchored_area
+    {
+        /* The edge from which to reserver area */
+        anchored_edge edge;
+        /* Amount of space to reserve */
+        int reserved_size;
 
-        /* Recalculate reserved area for each anchored area */
-        virtual void reflow_reserved_areas() = 0;
+        /* Desired size, to be given later in the reflowed callback */
+        int real_size;
 
-        /* returns the available area for views, it is basically
-         * the output geometry minus the area reserved for panels */
-        virtual wf_geometry get_workarea() = 0;
+        /* The reflowed callbacks allows the component registering the
+         * anchored area to be notified whenever the dimensions or the position
+         * of the anchored area changes.
+         *
+         * The first passed geometry is the geometry of the anchored area. The
+         * second one is the available workarea at the moment that the current
+         * workarea was considered. */
+        std::function<void(wf_geometry, wf_geometry)> reflowed;
+    };
 
-        virtual ~workspace_manager();
+    /**
+     * Add a reserved area. The actual recalculation must be manually
+     * triggered by calling reflow_reserved_areas()
+     */
+    void add_reserved_area(anchored_area *area);
+
+    /**
+     * Remove a reserved area. The actual recalculation must be manually
+     * triggered by calling reflow_reserved_areas()
+     */
+    void remove_reserved_area(anchored_area *area);
+
+    /**
+     * Recalculate reserved area for each anchored area
+     */
+    void reflow_reserved_areas();
+
+    /**
+     * @return The free space of the output after reserving the space for panels
+     */
+    wf_geometry get_workarea();
+
+    workspace_manager(output_t *output);
+    ~workspace_manager();
+  protected:
+    class impl;
+    std::unique_ptr<impl> pimpl;
 };
+}
 
 #endif /* end of include guard: WORKSPACE_MANAGER_HPP */

@@ -1,3 +1,4 @@
+#include <plugin.hpp>
 #include <opengl.hpp>
 #include <view-transform.hpp>
 #include <debug.hpp>
@@ -11,6 +12,8 @@
 #include <workspace-manager.hpp>
 
 #include <animation.hpp>
+#include <nonstd/reverse.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
 #include <exception>
@@ -50,7 +53,7 @@ struct SwitcherView
     int position;
 
     /* Make animation start values the current progress of duration */
-    void refresh_start(const wf_duration& duration)
+    void refresh_start(wf_duration& duration)
     {
         attribs.off_x.start = duration.progress(attribs.off_x);
         attribs.off_y.start = duration.progress(attribs.off_y);
@@ -64,7 +67,7 @@ struct SwitcherView
     }
 };
 
-class WayfireSwitcher : public wayfire_plugin_t
+class WayfireSwitcher : public wf::plugin_interface_t
 {
     wf_duration duration;
     wf_duration background_dim_duration;
@@ -79,10 +82,10 @@ class WayfireSwitcher : public wayfire_plugin_t
     key_callback next_view_binding, prev_view_binding;
     gesture_callback touch_activate;
 
-    effect_hook_t damage;
-    render_hook_t switcher_renderer;
+    wf::effect_hook_t damage;
+    wf::render_hook_t switcher_renderer;
 
-    signal_callback_t view_removed;
+    wf::signal_callback_t view_removed;
 
     bool active = false;
     public:
@@ -90,7 +93,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     void init(wayfire_config *config)
     {
         grab_interface->name = "switcher";
-        grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
+        grab_interface->capabilities = wf::CAPABILITY_MANAGE_COMPOSITOR;
 
         switcher_renderer = [=] (const wf_framebuffer& buffer) { render_output(buffer); };
 
@@ -150,7 +153,7 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         grab_interface->callbacks.cancel = [=] () {deinit_switcher();};
 
-        view_removed = [=] (signal_data *data)
+        view_removed = [=] (wf::signal_data_t *data)
         {
             handle_view_removed(get_signaled_view(data));
         };
@@ -202,7 +205,7 @@ class WayfireSwitcher : public wayfire_plugin_t
 
             focus_next(dir);
             arrange();
-            activating_modifiers = core->get_keyboard_modifiers();
+            activating_modifiers = wf::get_core().get_keyboard_modifiers();
         } else
         {
             next_view(dir);
@@ -254,9 +257,9 @@ class WayfireSwitcher : public wayfire_plugin_t
         if (!output->activate_plugin(grab_interface))
             return false;
 
-        output->render->add_effect(&damage, WF_OUTPUT_EFFECT_PRE);
+        output->render->add_effect(&damage, wf::OUTPUT_EFFECT_PRE);
         output->render->set_renderer(switcher_renderer);
-        output->render->auto_redraw(true);
+        output->render->set_redraw_always();
         return true;
     }
 
@@ -266,13 +269,14 @@ class WayfireSwitcher : public wayfire_plugin_t
         output->deactivate_plugin(grab_interface);
 
         output->render->rem_effect(&damage);
-        output->render->reset_renderer();
-        output->render->auto_redraw(false);
+        output->render->set_renderer(nullptr);
+        output->render->set_redraw_always(false);
 
-        output->workspace->for_each_view([=] (wayfire_view view) {
+        for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
+        {
             view->pop_transformer(switcher_transformer);
             view->pop_transformer(switcher_transformer_background);
-        }, WF_ALL_LAYERS);
+        }
 
         views.clear();
     }
@@ -420,7 +424,7 @@ class WayfireSwitcher : public wayfire_plugin_t
     {
         auto all_views = output->workspace->get_views_on_workspace(
             output->workspace->get_current_workspace(),
-            WF_WM_LAYERS | WF_LAYER_MINIMIZED, true);
+            wf::WM_LAYERS | wf::LAYER_MINIMIZED, true);
 
         decltype(all_views) mapped_views;
         for (auto view : all_views)
@@ -443,10 +447,7 @@ class WayfireSwitcher : public wayfire_plugin_t
         int focused_view_index = (size + dir) % size;
         auto focused_view = ws_views[focused_view_index];
 
-        /* If the focused view is minimized, we don't want to focus it
-         * even if it comes to the front, because that will unminimize it. */
-        if (!focused_view->minimized)
-            output->focus_view(focused_view);
+        output->workspace->bring_to_front(focused_view);
     }
 
     /* Create the initial arrangement on the screen
@@ -514,19 +515,19 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         /* Potentially restore view[0] if it was maximized */
         if (views.size())
-            output->focus_view(views[0].view);
+            output->focus_view(views[0].view, true);
     }
 
     std::vector<wayfire_view> get_background_views() const
     {
         return output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), WF_BELOW_LAYERS, false);
+            output->workspace->get_current_workspace(), wf::BELOW_LAYERS, false);
     }
 
     std::vector<wayfire_view> get_overlay_views() const
     {
         return output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), WF_ABOVE_LAYERS, false);
+            output->workspace->get_current_workspace(), wf::ABOVE_LAYERS, false);
     }
 
     void dim_background(float dim)
@@ -590,9 +591,8 @@ class WayfireSwitcher : public wayfire_plugin_t
             {0.0, 1.0, 0.0});
 
         transform->color[3] = duration.progress(sv.attribs.alpha);
-        sv.view->render_fb(
-            output->render->get_target_framebuffer().get_damage_region(),
-            output->render->get_target_framebuffer());
+        sv.view->render_transformed(output->render->get_target_framebuffer(),
+            output->render->get_target_framebuffer().get_damage_region());
 
         transform->translation = glm::mat4();
         transform->scaling = glm::mat4();
@@ -608,14 +608,14 @@ class WayfireSwitcher : public wayfire_plugin_t
 
         dim_background(background_dim_duration.progress());
         for (auto view : get_background_views())
-            view->render_fb(fb.get_damage_region(), fb);
+            view->render_transformed(fb, fb.get_damage_region());
 
         /* Render in the reverse order because we don't use depth testing */
         for (auto& view : wf::reverse(views))
             render_view(view, fb);
 
         for (auto view : get_overlay_views())
-            view->render_fb(fb.get_damage_region(), fb);
+            view->render_transformed(fb, fb.get_damage_region());
 
         if (!duration.running())
         {
@@ -716,8 +716,7 @@ class WayfireSwitcher : public wayfire_plugin_t
         }
 
         rebuild_view_list();
-        if (!views.front().view->minimized)
-            output->focus_view(views.front().view);
+        output->workspace->bring_to_front(views.front().view);
         duration.start();
     }
 
@@ -781,7 +780,8 @@ class WayfireSwitcher : public wayfire_plugin_t
         arrange_view(sv, empty_slot);
 
         /* directly show it on the target position */
-        sv.refresh_start({new_static_option("0")});
+        wf_duration immediate = new_static_option("0");
+        sv.refresh_start(immediate);
         sv.attribs.alpha = {0, 1};
 
         views.push_back(sv);
@@ -790,10 +790,4 @@ class WayfireSwitcher : public wayfire_plugin_t
     // TODO:!!! fini
 };
 
-extern "C"
-{
-    wayfire_plugin_t* newInstance()
-    {
-        return new WayfireSwitcher();
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(WayfireSwitcher);

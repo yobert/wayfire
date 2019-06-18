@@ -29,7 +29,7 @@
 #include "view-transform.hpp"
 #include "workspace-manager.hpp"
 
-class wayfire_alpha : public wayfire_plugin_t
+class wayfire_alpha : public wf::plugin_interface_t
 {
     wf_option modifier, min_value;
 
@@ -37,7 +37,7 @@ class wayfire_alpha : public wayfire_plugin_t
     void init(wayfire_config *config)
     {
         grab_interface->name = "alpha";
-        grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
+        grab_interface->capabilities = wf::CAPABILITY_MANAGE_DESKTOP;
 
         auto section = config->get_section("alpha");
         modifier = section->get_option("modifier", "<alt>");
@@ -83,15 +83,13 @@ class wayfire_alpha : public wayfire_plugin_t
 
         output->deactivate_plugin(grab_interface);
 
-        auto focus = core->get_cursor_focus();
-
-        if (!focus)
+        auto view = wf::get_core().get_cursor_focus_view();
+        if (!view)
             return;
 
-        auto view = core->find_view(focus->get_main_surface());
         auto layer = output->workspace->get_view_layer(view);
 
-        if (layer == WF_LAYER_BACKGROUND)
+        if (layer == wf::LAYER_BACKGROUND)
             return;
 
         if (ev->orientation == WLR_AXIS_ORIENTATION_VERTICAL)
@@ -100,10 +98,10 @@ class wayfire_alpha : public wayfire_plugin_t
 
     wf_option_callback min_value_changed = [=] ()
     {
-        output->workspace->for_each_view([=] (wayfire_view view)
+        for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
         {
             if (!view->get_transformer("alpha"))
-                return;
+                continue;
 
             wf_2D_view *transformer = dynamic_cast<wf_2D_view*> (view->get_transformer("alpha").get());
 
@@ -113,26 +111,20 @@ class wayfire_alpha : public wayfire_plugin_t
                 view->damage();
             }
 
-        }, WF_ALL_LAYERS);
-};
+        }
+    };
 
     void fini()
     {
-        output->workspace->for_each_view([] (wayfire_view view)
+        for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
         {
             if (view->get_transformer("alpha"))
                 view->pop_transformer("alpha");
-        }, WF_ALL_LAYERS);
+        }
 
         min_value->rem_updated_handler(&min_value_changed);
         output->rem_binding(&axis_cb);
     }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_alpha();
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wayfire_alpha);

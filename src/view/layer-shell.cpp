@@ -1,12 +1,13 @@
 #include <algorithm>
 #include <cstring>
 
-#include "priv-view.hpp"
 #include "xdg-shell.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "output.hpp"
 #include "workspace-manager.hpp"
+#include "output-layout.hpp"
+#include "view-impl.hpp"
 
 extern "C"
 {
@@ -15,58 +16,60 @@ extern "C"
 #undef namespace
 }
 
-static const uint32_t both_vert = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
-static const uint32_t both_horiz = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
+static const uint32_t both_vert =
+    ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
+static const uint32_t both_horiz =
+    ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
 
-static uint32_t zwlr_layer_to_wf_layer(zwlr_layer_shell_v1_layer layer)
+static wf::layer_t zwlr_layer_to_wf_layer(zwlr_layer_shell_v1_layer layer)
 {
     switch (layer)
     {
         case ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY:
-            return WF_LAYER_LOCK;
+            return wf::LAYER_LOCK;
         case ZWLR_LAYER_SHELL_V1_LAYER_TOP:
-            return WF_LAYER_TOP;
+            return wf::LAYER_TOP;
         case ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM:
-            return WF_LAYER_BOTTOM;
+            return wf::LAYER_BOTTOM;
         case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND:
-            return WF_LAYER_BACKGROUND;
+            return wf::LAYER_BACKGROUND;
         default:
             throw std::domain_error("Invalid layer for layer surface!");
     }
 }
 
-class wayfire_layer_shell_view : public wayfire_view_t
+class wayfire_layer_shell_view : public wf::wlr_view_t
 {
     wf::wl_listener_wrapper on_map, on_unmap, on_destroy, on_new_popup;
-    public:
-        wlr_layer_surface_v1 *lsurface;
-        wlr_layer_surface_v1_state prev_state;
 
-        std::unique_ptr<workspace_manager::anchored_area> anchored_area;
+  public:
+    wlr_layer_surface_v1 *lsurface;
+    wlr_layer_surface_v1_state prev_state;
 
-        wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf);
+    std::unique_ptr<wf::workspace_manager::anchored_area> anchored_area;
 
-        void map(wlr_surface *surface);
-        void unmap();
-        void commit();
-        void close();
-        virtual void destroy();
-        virtual wlr_surface *get_keyboard_focus_surface();
-        virtual std::string get_app_id();
+    wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf);
+    virtual ~wayfire_layer_shell_view() {}
 
-        void configure(wf_geometry geometry);
+    void map(wlr_surface *surface) override;
+    void unmap() override;
+    void commit() override;
+    void close() override;
+    void destroy() override;
+
+    void configure(wf_geometry geometry);
 };
 
-workspace_manager::anchored_edge anchor_to_edge(uint32_t edges)
+wf::workspace_manager::anchored_edge anchor_to_edge(uint32_t edges)
 {
     if (edges == ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_TOP;
+        return wf::workspace_manager::ANCHORED_EDGE_TOP;
     if (edges == ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_BOTTOM;
+        return wf::workspace_manager::ANCHORED_EDGE_BOTTOM;
     if (edges == ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_LEFT;
+        return wf::workspace_manager::ANCHORED_EDGE_LEFT;
     if (edges == ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_RIGHT;
+        return wf::workspace_manager::ANCHORED_EDGE_RIGHT;
 
     assert(false);
 }
@@ -94,7 +97,7 @@ struct wf_layer_shell_manager
         arrange_layers(view->get_output());
     }
 
-    layer_t filter_views(wayfire_output *output, int layer)
+    layer_t filter_views(wf::output_t *output, int layer)
     {
         layer_t result;
         for (auto view : layers[layer])
@@ -106,7 +109,7 @@ struct wf_layer_shell_manager
         return result;
     }
 
-    layer_t filter_views(wayfire_output *output)
+    layer_t filter_views(wf::output_t *output)
     {
         layer_t result;
         for (int i = 0; i < 4; i++)
@@ -140,7 +143,7 @@ struct wf_layer_shell_manager
 
         if (!v->anchored_area)
         {
-            v->anchored_area = std::make_unique<workspace_manager::anchored_area>();
+            v->anchored_area = std::make_unique<wf::workspace_manager::anchored_area>();
             v->anchored_area->reflowed = [v] (wf_geometry geometry, wf_geometry _)
             { v->configure(geometry); };
             /* Notice that the reflowed areas won't be changed until we call
@@ -151,7 +154,7 @@ struct wf_layer_shell_manager
 
         v->anchored_area->edge = anchor_to_edge(edges);
         v->anchored_area->reserved_size = v->lsurface->current.exclusive_zone;
-        v->anchored_area->real_size = v->anchored_area->edge <= workspace_manager::WORKSPACE_ANCHORED_EDGE_BOTTOM ?
+        v->anchored_area->real_size = v->anchored_area->edge <= wf::workspace_manager::ANCHORED_EDGE_BOTTOM ?
             v->lsurface->current.desired_height : v->lsurface->current.desired_width;
     }
 
@@ -203,7 +206,7 @@ struct wf_layer_shell_manager
         v->configure(box);
     }
 
-    uint32_t arrange_layer(wayfire_output *output, int layer)
+    uint32_t arrange_layer(wf::output_t *output, int layer)
     {
         uint32_t focus_mask = 0;
         auto views = filter_views(output, layer);
@@ -249,7 +252,7 @@ struct wf_layer_shell_manager
     }
 
     uint32_t focused_layer_request_uid = -1;
-    void arrange_layers(wayfire_output *output)
+    void arrange_layers(wf::output_t *output)
     {
         auto views = filter_views(output);
 
@@ -259,7 +262,7 @@ struct wf_layer_shell_manager
         uint32_t focus4 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND);
 
         auto focus_mask = std::max({focus1, focus2, focus3, focus4});
-        focused_layer_request_uid = core->focus_layer(focus_mask,
+        focused_layer_request_uid = wf::get_core().focus_layer(focus_mask,
             focused_layer_request_uid);
         output->workspace->reflow_reserved_areas();
     }
@@ -267,7 +270,7 @@ struct wf_layer_shell_manager
 
 static wf_layer_shell_manager layer_shell_manager;
 wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
-    : wayfire_view_t(), lsurface(lsurf)
+    : wf::wlr_view_t(), lsurface(lsurf)
 {
     log_debug("Create a layer surface: namespace %s layer %d anchor %d,"
               "size %dx%d, margin top:%d, down:%d, left:%d, right:%d",
@@ -280,25 +283,25 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
 
     if (lsurf->output)
     {
-        auto wo = core->output_layout->find_output(lsurf->output);
+        auto wo = wf::get_core().output_layout->find_output(lsurf->output);
         set_output(wo);
     }
 
-    if (!output)
+    if (!get_output())
     {
         log_error ("Couldn't find output for the layer surface");
         close();
         return;
     }
 
-    lsurf->output = output->handle;
+    lsurf->output = get_output()->handle;
 
-    role = WF_VIEW_ROLE_SHELL_VIEW;
-    lsurface->data = this;
+    role = wf::VIEW_ROLE_SHELL_VIEW;
+    lsurface->data = dynamic_cast<wf::view_interface_t*> (this);
 
     on_map.set_callback([&] (void*) { map(lsurface->surface); });
     on_unmap.set_callback([&] (void*) { unmap(); });
-    on_destroy.set_callback([&] (void*) { destroyed = 1; dec_keep_count(); });
+    on_destroy.set_callback([&] (void*) { destroy(); });
     on_new_popup.set_callback([&] (void *data) {
         create_xdg_popup((wlr_xdg_popup*) data);
     });
@@ -318,52 +321,48 @@ void wayfire_layer_shell_view::destroy()
     on_destroy.disconnect();
     on_new_popup.disconnect();
 
-    wayfire_view_t::destroy();
+    wf::wlr_view_t::destroy();
 }
 
 void wayfire_layer_shell_view::map(wlr_surface *surface)
 {
-    output->workspace->add_view_to_layer(self(),
+    /* Read initial data */
+    view_impl->keyboard_focus_enabled = lsurface->current.keyboard_interactive;
+    handle_app_id_changed(nonull(lsurface->namespace_t));
+
+    get_output()->workspace->add_view(self(),
         zwlr_layer_to_wf_layer(lsurface->layer));
 
-    wayfire_view_t::map(surface);
+    wf::wlr_view_t::map(surface);
     layer_shell_manager.handle_map(this);
 }
 
 void wayfire_layer_shell_view::unmap()
 {
-    wayfire_view_t::unmap();
+    wf::wlr_view_t::unmap();
     layer_shell_manager.handle_unmap(this);
 }
 
 void wayfire_layer_shell_view::commit()
 {
-    wayfire_view_t::commit();
+    wf::wlr_view_t::commit();
+
     auto state = &lsurface->current;
+    /* Update the keyboard focus enabled state. If a refocusing is needed, i.e
+     * the view state changed, then this will happen when arranging layers */
+    view_impl->keyboard_focus_enabled = state->keyboard_interactive;
 
     if (std::memcmp(state, &prev_state, sizeof(*state)))
     {
-        layer_shell_manager.arrange_layers(output);
-        std::memcpy(&prev_state, state, sizeof(*state));
+        layer_shell_manager.arrange_layers(get_output());
+        prev_state = *state;
     }
 }
 
 void wayfire_layer_shell_view::close()
 {
+    wf::wlr_view_t::close();
     wlr_layer_surface_v1_close(lsurface);
-    wayfire_view_t::close();
-}
-
-wlr_surface *wayfire_layer_shell_view::get_keyboard_focus_surface()
-{
-    if (_is_mapped && lsurface->current.keyboard_interactive)
-        return surface;
-    return nullptr;
-}
-
-std::string wayfire_layer_shell_view::get_app_id()
-{
-    return nonull(lsurface->namespace_t);
 }
 
 void wayfire_layer_shell_view::configure(wf_geometry box)
@@ -402,23 +401,22 @@ void wayfire_layer_shell_view::configure(wf_geometry box)
         close();
     }
 
-    wayfire_view_t::move(box.x, box.y, false);
-    wayfire_view_t::resize(box.width, box.height, false);
-
+    wf::wlr_view_t::move(box.x, box.y);
     wlr_layer_surface_v1_configure(lsurface, box.width, box.height);
 }
 
 static wlr_layer_shell_v1 *layer_shell_handle;
-void init_layer_shell()
+void wf::init_layer_shell()
 {
     static wf::wl_listener_wrapper on_created;
 
-    layer_shell_handle = wlr_layer_shell_v1_create(core->display);
+    layer_shell_handle = wlr_layer_shell_v1_create(wf::get_core().display);
     if (layer_shell_handle)
     {
         on_created.set_callback([] (void *data) {
             auto lsurf = static_cast<wlr_layer_surface_v1*> (data);
-            core->add_view(std::make_unique<wayfire_layer_shell_view> (lsurf));
+            wf::get_core().add_view(
+                std::make_unique<wayfire_layer_shell_view> (lsurf));
         });
 
         on_created.connect(&layer_shell_handle->events.new_surface);

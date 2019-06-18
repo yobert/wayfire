@@ -5,6 +5,7 @@ extern "C"
 {
     struct wlr_backend;
     struct wlr_output_layout;
+#include <wlr/types/wlr_output.h>
 }
 
 #include <map>
@@ -15,9 +16,9 @@ extern "C"
 #include "object.hpp"
 #include "util.hpp"
 
-class wayfire_output;
 namespace wf
 {
+    class output_t;
     /** Represents the source of pixels for this output */
     enum output_image_source_t
     {
@@ -66,7 +67,7 @@ namespace wf
 
     /* output_layout_t is responsible for managing outputs and their attributes -
      * mode, scale, position, transform. */
-    class output_layout_t : public wf_signal_provider_t
+    class output_layout_t : public wf::signal_provider_t
     {
         class impl;
         std::unique_ptr<impl> pimpl;
@@ -83,14 +84,14 @@ namespace wf
         /**
          * @return the output at the given coordinates, or null if no such output
          */
-        wayfire_output *get_output_at(int x, int y);
+        wf::output_t *get_output_at(int x, int y);
 
         /**
          * @param lx the x coordinate of the closest point of the layout
          * @param ly the y coordinate of the closest point of the layout
          * @return the output at the given coordinates
          */
-        wayfire_output *get_output_coords_at(int x, int y, int& lx, int& ly);
+        wf::output_t *get_output_coords_at(int x, int y, int& lx, int& ly);
 
         /**
          * @return the number of the active outputs in the output layout
@@ -100,21 +101,21 @@ namespace wf
         /**
          * @return a list of the active outputs in the output layout
          */
-        std::vector<wayfire_output*> get_outputs();
+        std::vector<wf::output_t*> get_outputs();
 
         /**
          * @return the "next" output in the layout. It is guaranteed that starting
          * with any output in the layout, and successively calling this function
          * will iterate over all outputs
          */
-        wayfire_output *get_next_output(wayfire_output *output);
+        wf::output_t *get_next_output(wf::output_t *output);
 
         /**
-         * @return the wayfire_output associated with the wlr_output,
-         * or null if the output isn't found
+         * @return the output_t associated with the wlr_output, or null if the
+         * output isn't found
          */
-        wayfire_output *find_output(wlr_output *output);
-        wayfire_output *find_output(std::string name);
+        wf::output_t *find_output(wlr_output *output);
+        wf::output_t *find_output(std::string name);
 
         /**
          * @return the current output configuration. This contains ALL outputs,

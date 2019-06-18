@@ -3,10 +3,12 @@
 #include "core.hpp"
 #include "debug.hpp"
 #include "workspace-manager.hpp"
+#include "output-layout.hpp"
 #include "render-manager.hpp"
 #include "wayfire-shell.hpp"
 #include "wayfire-shell-protocol.h"
 #include "signal-definitions.hpp"
+#include "../view/view-impl.hpp"
 
 struct wayfire_shell_output
 {
@@ -16,15 +18,15 @@ struct wayfire_shell_output
 
 struct wayfire_shell_client
 {
-    std::map<wayfire_output*, wayfire_shell_output> output_resources;
+    std::map<wf::output_t*, wayfire_shell_output> output_resources;
 };
 
 struct wayfire_shell
 {
     std::map<wl_client*, wayfire_shell_client> clients;
-    std::map<wayfire_output*, signal_callback_t> output_autohide_callback;
+    std::map<wf::output_t*, wf::signal_callback_t> output_autohide_callback;
 
-    signal_callback_t output_added, output_removed;
+    wf::signal_callback_t output_added, output_removed;
     static wayfire_shell& get_instance()
     {
         static wayfire_shell shell;
@@ -38,26 +40,26 @@ struct wayfire_shell
     wayfire_shell() {}
 };
 
-static workspace_manager::anchored_edge anchor_edge_to_workspace_edge(uint32_t edge)
+static wf::workspace_manager::anchored_edge anchor_edge_to_workspace_edge(uint32_t edge)
 {
     if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_TOP)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_TOP;
+        return wf::workspace_manager::ANCHORED_EDGE_TOP;
     if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_BOTTOM)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_BOTTOM;
+        return wf::workspace_manager::ANCHORED_EDGE_BOTTOM;
     if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_LEFT)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_LEFT;
+        return wf::workspace_manager::ANCHORED_EDGE_LEFT;
     if (edge == ZWF_WM_SURFACE_V1_ANCHOR_EDGE_RIGHT)
-        return workspace_manager::WORKSPACE_ANCHORED_EDGE_RIGHT;
+        return wf::workspace_manager::ANCHORED_EDGE_RIGHT;
 
     log_error ("Unrecognized anchor edge %d", edge);
-    return workspace_manager::WORKSPACE_ANCHORED_EDGE_TOP;
+    return wf::workspace_manager::ANCHORED_EDGE_TOP;
 }
 
-class wayfire_shell_wm_surface : public wf_custom_data_t
+class wayfire_shell_wm_surface : public wf::custom_data_t
 {
-    std::unique_ptr<workspace_manager::anchored_area> area;
+    std::unique_ptr<wf::workspace_manager::anchored_area> area;
     /* output may be null, in which case the wm surface isn't tied to an output */
-    wayfire_output *output = nullptr;
+    wf::output_t *output = nullptr;
     wayfire_view view;
 
     uint32_t anchors = 0;
@@ -79,12 +81,12 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
     int32_t layer_focus_request = -1;
     inline void drop_focus_request()
     {
-        core->unfocus_layer(layer_focus_request);
+        wf::get_core().unfocus_layer(layer_focus_request);
         layer_focus_request = -1;
     }
 
     public:
-    wayfire_shell_wm_surface(wayfire_output *output, wayfire_view view)
+    wayfire_shell_wm_surface(wf::output_t *output, wayfire_view view)
     {
         this->output = output;
         this->view = view;
@@ -113,7 +115,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         }
     }
 
-    signal_callback_t on_view_output_changed = [=] (signal_data *data)
+    wf::signal_callback_t on_view_output_changed = [=] (wf::signal_data_t *data)
     {
         if (margin.margins_set || exclusive_zone_size)
         {
@@ -206,7 +208,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         view->move(x, y);
     };
 
-    signal_callback_t on_geometry_changed = [=] (signal_data *data)
+    wf::signal_callback_t on_geometry_changed = [=] (wf::signal_data_t *data)
     {
         auto wm = view->get_wm_geometry();
 
@@ -253,19 +255,19 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         switch(new_mode)
         {
             case ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_NO_FOCUS:
-                view->set_keyboard_focus_enabled(false);
+                view->view_impl->keyboard_focus_enabled = false;
                 view->get_output()->refocus(nullptr);
                 break;
 
             case ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_CLICK_TO_FOCUS:
-                view->set_keyboard_focus_enabled(true);
+                view->view_impl->keyboard_focus_enabled = true;
                 break;
 
             case ZWF_WM_SURFACE_V1_KEYBOARD_FOCUS_MODE_EXCLUSIVE_FOCUS:
                 /* Notice: using output here is safe, because we do not allow
                  * exclusive focus for outputless surfaces */
-                view->set_keyboard_focus_enabled(true);
-                layer_focus_request = core->focus_layer(
+                view->view_impl->keyboard_focus_enabled = true;
+                layer_focus_request = wf::get_core().focus_layer(
                     output->workspace->get_view_layer(view), layer_focus_request);
                 output->focus_view(view);
                 break;
@@ -295,7 +297,7 @@ class wayfire_shell_wm_surface : public wf_custom_data_t
         bool new_area = false;
         if (!area)
         {
-            area = std::make_unique<workspace_manager::anchored_area> ();
+            area = std::make_unique<wf::workspace_manager::anchored_area> ();
             area->reflowed = on_reflow;
             new_area = true;
         }
@@ -320,7 +322,7 @@ wm_surface_from_view(wayfire_view view)
 static wayfire_view view_from_resource(wl_resource *resource)
 {
     // TODO: assert(wl_resource_instance_of)
-    return static_cast<wayfire_view_t*> (
+    return static_cast<wf::view_interface_t*> (
         wl_resource_get_user_data(resource))->self();
 }
 
@@ -372,10 +374,11 @@ static void zwf_shell_manager_get_wm_surface(struct wl_client *client,
     struct wl_resource *resource, struct wl_resource *surface,
     uint32_t role, struct wl_resource *output, uint32_t id)
 {
-    wayfire_output *wo = output ?
-        core->output_layout->find_output(wlr_output_from_resource(output)) : nullptr;
+    wf::output_t *wo = output ?
+        wf::get_core().output_layout->find_output(
+            wlr_output_from_resource(output)) : nullptr;
 
-    auto view = wl_surface_to_wayfire_view(surface);
+    auto view = wf::wl_surface_to_wayfire_view(surface);
 
     if (!view)
     {
@@ -389,10 +392,10 @@ static void zwf_shell_manager_get_wm_surface(struct wl_client *client,
     auto wfo = wl_resource_create(client, &zwf_wm_surface_v1_interface, 1, id);
     wl_resource_set_implementation(wfo, &zwf_wm_surface_v1_implementation, view.get(), NULL);
 
-    view->set_role(WF_VIEW_ROLE_SHELL_VIEW);
+    view->set_role(wf::VIEW_ROLE_SHELL_VIEW);
     if (wo)
     {
-        view->get_output()->detach_view(view);
+        view->get_output()->workspace->remove_view(view);
         view->set_output(wo);
     }
 
@@ -400,30 +403,30 @@ static void zwf_shell_manager_get_wm_surface(struct wl_client *client,
     switch(role)
     {
         case ZWF_WM_SURFACE_V1_ROLE_BACKGROUND:
-            layer = WF_LAYER_BACKGROUND;
+            layer = wf::LAYER_BACKGROUND;
             break;
         case ZWF_WM_SURFACE_V1_ROLE_BOTTOM:
-            layer = WF_LAYER_BOTTOM;
+            layer = wf::LAYER_BOTTOM;
             break;
         case ZWF_WM_SURFACE_V1_ROLE_PANEL:
-            layer = WF_LAYER_TOP;
+            layer = wf::LAYER_TOP;
             break;
         case ZWF_WM_SURFACE_V1_ROLE_OVERLAY:
-            layer = WF_LAYER_LOCK;
+            layer = wf::LAYER_LOCK;
             break;
 
         default:
             log_error ("Invalid role for shell view");
     }
 
-    view->get_output()->workspace->add_view_to_layer(view, layer);
-    view->activate(true);
+    view->get_output()->workspace->add_view(view, (wf::layer_t)layer);
+    view->set_activated(true);
 }
 
 static void zwf_output_inhibit_output(struct wl_client *client,
                                       struct wl_resource *resource)
 {
-    auto wo = (wayfire_output*)wl_resource_get_user_data(resource);
+    auto wo = (wf::output_t*)wl_resource_get_user_data(resource);
     wo->render->add_inhibit(true);
 
     auto& cl = wayfire_shell::get_instance().clients[client];
@@ -434,7 +437,7 @@ static void zwf_output_inhibit_output(struct wl_client *client,
 static void zwf_output_inhibit_output_done(struct wl_client *client,
                                            struct wl_resource *resource)
 {
-    auto wo = (wayfire_output*)wl_resource_get_user_data(resource);
+    auto wo = (wf::output_t*)wl_resource_get_user_data(resource);
     auto& cl = wayfire_shell::get_instance().clients[client];
     auto& out = cl.output_resources[wo];
 
@@ -457,7 +460,7 @@ const struct zwf_output_v1_interface zwf_output_v1_implementation =
 static void destroy_zwf_output(wl_resource *resource)
 {
     auto client = wl_resource_get_client(resource);
-    auto wo = (wayfire_output*) wl_resource_get_user_data(resource);
+    auto wo = (wf::output_t*) wl_resource_get_user_data(resource);
     if (wayfire_shell::get_instance().clients.count(client) == 0)
         return;
 
@@ -481,7 +484,7 @@ void zwf_shell_manager_get_wf_output(struct wl_client *client,
                                      uint32_t id)
 {
     auto wlr_out = (wlr_output*) wl_resource_get_user_data(output);
-    auto wo = core->output_layout->find_output(wlr_out);
+    auto wo = wf::get_core().output_layout->find_output(wlr_out);
 
     auto wfo = wl_resource_create(client, &zwf_output_v1_interface, 1, id);
     wl_resource_set_implementation(wfo, &zwf_output_v1_implementation, wo, destroy_zwf_output);
@@ -518,7 +521,7 @@ void bind_zwf_shell_manager(wl_client *client, void *data, uint32_t version, uin
 }
 
 
-void zwf_output_send_autohide(wayfire_shell *shell, wayfire_output *output, int value)
+void zwf_output_send_autohide(wayfire_shell *shell, wf::output_t *output, int value)
 {
     for (auto& client : shell->clients)
     {
@@ -530,10 +533,10 @@ void zwf_output_send_autohide(wayfire_shell *shell, wayfire_output *output, int 
     }
 }
 
-static void wayfire_shell_handle_output_created(wayfire_output *output)
+static void wayfire_shell_handle_output_created(wf::output_t *output)
 {
     auto& shell = wayfire_shell::get_instance();
-    shell.output_autohide_callback[output] = [=] (signal_data *flag)
+    shell.output_autohide_callback[output] = [=] (wf::signal_data_t *flag)
     {
         zwf_output_send_autohide(&wayfire_shell::get_instance(), output, bool(flag));
     };
@@ -543,7 +546,7 @@ static void wayfire_shell_handle_output_created(wayfire_output *output)
     output->connect_signal("autohide-panels", &shell.output_autohide_callback[output]);
 }
 
-static void wayfire_shell_handle_output_destroyed(wayfire_output *output)
+static void wayfire_shell_handle_output_destroyed(wf::output_t *output)
 {
 }
 
@@ -556,14 +559,14 @@ wayfire_shell* wayfire_shell_create(wl_display *display)
     }
 
     auto& shell = wayfire_shell::get_instance();
-    shell.output_added = [=] (signal_data *data) {
+    shell.output_added = [=] (wf::signal_data_t *data) {
         wayfire_shell_handle_output_created(get_signaled_output(data));
     };
-    shell.output_removed = [=] (signal_data *data) {
+    shell.output_removed = [=] (wf::signal_data_t *data) {
         wayfire_shell_handle_output_destroyed( get_signaled_output(data));
     };
 
-    core->output_layout->connect_signal("output-added", &shell.output_added);
-    core->output_layout->connect_signal("output-removed", &shell.output_removed);
+    wf::get_core().output_layout->connect_signal("output-added", &shell.output_added);
+    wf::get_core().output_layout->connect_signal("output-removed", &shell.output_removed);
     return &shell;
 }

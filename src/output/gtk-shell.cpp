@@ -2,9 +2,10 @@
 #include "gtk-shell-protocol.h"
 
 #include "view.hpp"
-#include "../view/priv-view.hpp"
+#include "../core/core-impl.hpp"
 #include "core.hpp"
 #include "debug.hpp"
+#include <map>
 
 struct wf_gtk_shell {
     std::map<wl_resource*, std::string> surface_app_id;
@@ -16,7 +17,7 @@ static void handle_gtk_surface_set_dbus_properties(wl_client *, wl_resource *res
 {
     auto surface = static_cast<wl_resource*> (wl_resource_get_user_data(resource));
     if (application_id)
-        core->protocols.gtk_shell->surface_app_id[surface] = application_id;
+        wf::get_core_impl().gtk_shell->surface_app_id[surface] = application_id;
 }
 
 static void handle_gtk_surface_set_modal(wl_client *client, wl_resource *resource) { }

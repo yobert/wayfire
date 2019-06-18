@@ -5,10 +5,10 @@
 #include <render-manager.hpp>
 #include <animation.hpp>
 
-class wayfire_zoom_screen : public wayfire_plugin_t
+class wayfire_zoom_screen : public wf::plugin_interface_t
 {
 
-    post_hook_t hook;
+    wf::post_hook_t hook;
     axis_callback axis;
 
     wf_option speed, modifier, smoothing_duration;
@@ -58,7 +58,7 @@ class wayfire_zoom_screen : public wayfire_plugin_t
                 {
                     hook_set = true;
                     output->render->add_post(&hook);
-                    output->render->auto_redraw(true);
+                    output->render->set_redraw_always();
                 }
             }
         }
@@ -66,8 +66,8 @@ class wayfire_zoom_screen : public wayfire_plugin_t
         void render(const wf_framebuffer_base& source,
             const wf_framebuffer_base& destination)
         {
-            auto w = output->handle->width;
-            auto h = output->handle->height;
+            auto w = destination.viewport_width;
+            auto h = destination.viewport_height;
             GetTuple(_x, _y, output->get_cursor_position());
             double x, y;
             wlr_box b = output->get_relative_geometry();
@@ -97,7 +97,7 @@ class wayfire_zoom_screen : public wayfire_plugin_t
 
             if (!duration.running() && current_zoom - 1 <= 0.01)
             {
-                output->render->auto_redraw(false);
+                output->render->set_redraw_always(false);
                 output->render->rem_post(&hook);
                 hook_set = false;
             }
@@ -112,11 +112,4 @@ class wayfire_zoom_screen : public wayfire_plugin_t
         }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_zoom_screen();
-    }
-}
-
+DECLARE_WAYFIRE_PLUGIN(wayfire_zoom_screen);

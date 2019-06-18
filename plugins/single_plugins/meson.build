@@ -3,7 +3,6 @@ resize        = shared_module('resize',        'resize.cpp',        include_dire
 command       = shared_module('command',       'command.cpp',       include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
 autostart     = shared_module('autostart',     'autostart.cpp',     include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
 vswitch       = shared_module('vswitch',       'vswitch.cpp',       include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
-viewport_impl = shared_module('viewport_impl', 'viewport-impl.cpp', include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig, wf_protos], install: true, install_dir: 'lib/wayfire/')
 grid          = shared_module('grid',          'grid.cpp',          include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
 wrot          = shared_module('wrot',          'wrot.cpp',          include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
 expo          = shared_module('expo',          'expo.cpp',          include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
@@ -18,4 +17,4 @@ zoom          = shared_module('zoom',          'zoom.cpp',          include_dire
 alpha         = shared_module('alpha',         'alpha.cpp',         include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
 
 idle          = shared_module('idle',           'idle.cpp',                         include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
-cvtest        = shared_module('cvtest',         'compositor-view-test.cpp',         include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')
+#cvtest        = shared_module('cvtest',         'compositor-view-test.cpp',         include_directories: [wayfire_api_inc, wayfire_conf_inc], dependencies: [wlroots, pixman, wfconfig], install: true, install_dir: 'lib/wayfire/')

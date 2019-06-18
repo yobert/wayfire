@@ -1,13 +1,13 @@
 project(
 	'wayfire',
-    'c',
+	'c',
 	'cpp',
 	version: '0.1',
 	license: 'MIT',
 	meson_version: '>=0.43.0',
 	default_options: [
 		'cpp_std=c++14',
-        'c_std=c11',
+		'c_std=c11',
 		'warning_level=2',
 		'werror=false',
 	],
@@ -49,8 +49,9 @@ conf_data.set('WF_SRC_DIR', meson.source_root())
 conf_data.set('INSTALL_PREFIX', get_option('prefix'))
 
 # needed to dlopen() plugins
+# -E is for RTTI/dynamic_cast across plugins
 add_project_arguments(['-DWLR_USE_UNSTABLE'], language: ['cpp', 'c'])
-add_project_link_arguments(['-rdynamic'], language:'cpp')
+add_project_link_arguments(['-rdynamic', '-Wl,-E'], language: 'cpp')
 
 if get_option('buildtype') == 'debug' or get_option('enable_debug_output')
   conf_data.set('WAYFIRE_DEBUG_ENABLED', true)
@@ -99,7 +100,7 @@ summary = [
 	'debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED')),
 	'     imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
 	'      gles32: @0@'.format(conf_data.get('USE_GLES32')),
-    'graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG')),
+	'graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG')),
 	'----------------',
 	''
 ]

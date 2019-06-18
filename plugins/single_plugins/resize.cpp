@@ -1,3 +1,4 @@
+#include <plugin.hpp>
 #include <output.hpp>
 #include <view.hpp>
 #include <core.hpp>
@@ -12,9 +13,9 @@ extern "C"
 
 #include "../wobbly/wobbly-signal.hpp"
 
-class wayfire_resize : public wayfire_plugin_t
+class wayfire_resize : public wf::plugin_interface_t
 {
-    signal_callback_t resize_request, view_destroyed;
+    wf::signal_callback_t resize_request, view_destroyed;
 
     button_callback activate_binding;
     touch_callback touch_activate_binding;
@@ -31,29 +32,32 @@ class wayfire_resize : public wayfire_plugin_t
     void init(wayfire_config *config)
     {
         grab_interface->name = "resize";
-        grab_interface->abilities_mask = WF_ABILITY_CHANGE_VIEW_GEOMETRY | WF_ABILITY_GRAB_INPUT;
+        grab_interface->capabilities =
+            wf::CAPABILITY_GRAB_INPUT | wf::CAPABILITY_MANAGE_DESKTOP;
 
         auto button = config->get_section("resize")
             ->get_option("activate", "<super> BTN_RIGHT");
 
         activate_binding = [=] (uint32_t, int, int)
         {
-            auto focus = core->get_cursor_focus();
-            auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
-
-            is_using_touch = false;
-            was_client_request = false;
-            initiate(view);
+            auto view = wf::get_core().get_cursor_focus_view();
+            if (view)
+            {
+                is_using_touch = false;
+                was_client_request = false;
+                initiate(view);
+            }
         };
 
         touch_activate_binding = [=] (int32_t sx, int32_t sy)
         {
-            auto focus = core->get_touch_focus();
-            auto view = focus ? core->find_view(focus->get_main_surface()) : nullptr;
-
-            is_using_touch = true;
-            was_client_request = false;
-            initiate(view);
+            auto view = wf::get_core().get_touch_focus_view();
+            if (view)
+            {
+                is_using_touch = true;
+                was_client_request = false;
+                initiate(view);
+            }
         };
 
         output->add_button(button, &activate_binding);
@@ -97,7 +101,7 @@ class wayfire_resize : public wayfire_plugin_t
                 this, _1);
         output->connect_signal("resize-request", &resize_request);
 
-        view_destroyed = [=] (signal_data* data)
+        view_destroyed = [=] (wf::signal_data_t* data)
         {
             if (get_signaled_view(data) == view)
             {
@@ -110,7 +114,7 @@ class wayfire_resize : public wayfire_plugin_t
         output->connect_signal("view-disappeared", &view_destroyed);
     }
 
-    void resize_requested(signal_data *data)
+    void resize_requested(wf::signal_data_t *data)
     {
         auto request = static_cast<resize_request_signal*> (data);
         auto view = get_signaled_view(data);
@@ -118,9 +122,9 @@ class wayfire_resize : public wayfire_plugin_t
         if (!view)
             return;
 
-        GetTuple(tx, ty, core->get_touch_position(0));
-        if (tx != wayfire_core::invalid_coordinate &&
-            ty != wayfire_core::invalid_coordinate)
+        GetTuple(tx, ty, wf::get_core().get_touch_position(0));
+        if (tx != wf::compositor_core_t::invalid_coordinate &&
+            ty != wf::compositor_core_t::invalid_coordinate)
         {
             is_using_touch = true;
         } else
@@ -136,9 +140,9 @@ class wayfire_resize : public wayfire_plugin_t
     std::tuple<int, int> get_global_input_coords()
     {
         if (is_using_touch) {
-            return core->get_touch_position(0);
+            return wf::get_core().get_touch_position(0);
         } else {
-            return core->get_cursor_position();
+            return wf::get_core().get_cursor_position();
         }
     }
 
@@ -175,12 +179,13 @@ class wayfire_resize : public wayfire_plugin_t
 
     void initiate(wayfire_view view, uint32_t forced_edges = 0)
     {
-        if (!view || view->role == WF_VIEW_ROLE_SHELL_VIEW || view->destroyed)
+        if (!view || view->role == wf::VIEW_ROLE_SHELL_VIEW || !view->is_mapped())
             return;
 
-        if (!output->workspace->
-                get_implementation(output->workspace->get_current_workspace())->
-                    view_resizable(view))
+        auto current_ws = output->workspace->get_current_workspace();
+        auto current_ws_impl =
+            output->workspace->get_workspace_implementation(current_ws);
+        if (!current_ws_impl->view_resizable(view))
             return;
 
         if (!output->activate_plugin(grab_interface))
@@ -226,7 +231,7 @@ class wayfire_resize : public wayfire_plugin_t
         snap_wobbly(view, {}, false);
         start_wobbly(view, anchor_x, anchor_y);
 
-        core->set_cursor(wlr_xcursor_get_resize_name((wlr_edges)edges));
+        wf::get_core().set_cursor(wlr_xcursor_get_resize_name((wlr_edges)edges));
     }
 
     void input_pressed(uint32_t state)
@@ -268,15 +273,6 @@ class wayfire_resize : public wayfire_plugin_t
         height = std::max(height, 1);
         width  = std::max(width,  1);
         view->resize(width, height);
-
-        auto og = view->get_output_geometry();
-        int anchor_x = og.x;
-        int anchor_y = og.y;
-
-        if (edges & WLR_EDGE_LEFT)
-            anchor_x += og.width;
-        if (edges & WLR_EDGE_TOP)
-            anchor_y += og.height;
     }
 
     void fini()
@@ -293,9 +289,4 @@ class wayfire_resize : public wayfire_plugin_t
     }
 };
 
-extern "C" {
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_resize();
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wayfire_resize);

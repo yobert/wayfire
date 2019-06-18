@@ -35,13 +35,13 @@ void main()
     gl_FragColor = wp + (1.0 - wp.a) * c;
 })";
 
-wf_blur_base::wf_blur_base(wayfire_output *output,
+wf_blur_base::wf_blur_base(wf::output_t *output,
     const wf_blur_default_option_values& defaults)
 {
     this->output = output;
     this->algorithm_name = defaults.algorithm_name;
 
-    auto section = core->config->get_section("blur");
+    auto section = wf::get_core().config->get_section("blur");
     this->offset_opt = section->get_option(algorithm_name + "_offset",
         defaults.offset);
     this->degrade_opt = section->get_option(algorithm_name + "_degrade",
@@ -248,7 +248,7 @@ void wf_blur_base::render(uint32_t src_tex, wlr_box src_box, wlr_box scissor_box
     OpenGL::render_end();
 }
 
-std::unique_ptr<wf_blur_base> create_blur_from_name(wayfire_output *output,
+std::unique_ptr<wf_blur_base> create_blur_from_name(wf::output_t *output,
     std::string algorithm_name)
 {
     if (algorithm_name == "box")

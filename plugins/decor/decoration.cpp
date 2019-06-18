@@ -1,3 +1,4 @@
+#include <plugin.hpp>
 #include <view.hpp>
 #include <workspace-manager.hpp>
 #include <output.hpp>
@@ -5,17 +6,20 @@
 #include <signal-definitions.hpp>
 
 #include "deco-subsurface.hpp"
-class wayfire_decoration : public wayfire_plugin_t
+class wayfire_decoration : public wf::plugin_interface_t
 {
     wf_option font;
-    signal_callback_t view_created;
+    wf::signal_callback_t view_created;
 
     public:
     void init(wayfire_config *config)
     {
+        grab_interface->name = "simple-decoration";
+        grab_interface->capabilities = wf::CAPABILITY_VIEW_DECORATOR;
+
         font = config->get_section("decoration")->get_option("font", "serif");
 
-        view_created = [=] (signal_data *data)
+        view_created = [=] (wf::signal_data_t *data)
         {
             new_view(get_signaled_view(data));
         };
@@ -23,27 +27,28 @@ class wayfire_decoration : public wayfire_plugin_t
         output->connect_signal("map-view", &view_created);
     }
 
+    wf::wl_idle_call idle_deactivate;
     void new_view(wayfire_view view)
     {
         if (view->should_be_decorated())
-            init_view(view, font);
+        {
+            if (output->activate_plugin(grab_interface))
+            {
+                init_view(view, font);
+                idle_deactivate.run_once([this] () {
+                    output->deactivate_plugin(grab_interface);
+                });
+            }
+        }
     }
 
     void fini()
     {
-        output->workspace->for_each_view([] (wayfire_view view)
-        {
+        for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
             view->set_decoration(nullptr);
-        }, WF_ALL_LAYERS);
+
         output->disconnect_signal("map-view", &view_created);
     }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_decoration;
-    }
-}
-
+DECLARE_WAYFIRE_PLUGIN(wayfire_decoration);

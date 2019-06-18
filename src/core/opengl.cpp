@@ -1,11 +1,17 @@
 #include <fstream>
-#include "opengl.hpp"
+#include "opengl-priv.hpp"
 #include "debug.hpp"
 #include "output.hpp"
-#include "core.hpp"
-#include "render-manager.hpp"
+#include "core-impl.hpp"
 
-// #include "gldebug.hpp"
+extern "C"
+{
+#define static
+#include <wlr/render/egl.h>
+#include <wlr/render/wlr_renderer.h>
+#undef static
+#include <wlr/types/wlr_output.h>
+}
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -143,15 +149,15 @@ namespace OpenGL
 
     namespace
     {
-        wayfire_output *current_output = NULL;
+        wf::output_t *current_output = NULL;
     }
 
-    void bind_output(wayfire_output *output)
+    void bind_output(wf::output_t *output)
     {
         current_output = output;
     }
 
-    void unbind_output(wayfire_output *output)
+    void unbind_output(wf::output_t *output)
     {
         current_output = NULL;
     }
@@ -222,10 +228,11 @@ namespace OpenGL
 
     void render_begin(int32_t viewport_width, int32_t viewport_height, uint32_t fb)
     {
-        if (!current_output && !wlr_egl_is_current(core->egl))
-            wlr_egl_make_current(core->egl, EGL_NO_SURFACE, NULL);
+        if (!current_output && !wlr_egl_is_current(wf::get_core_impl().egl))
+            wlr_egl_make_current(wf::get_core_impl().egl, EGL_NO_SURFACE, NULL);
 
-        wlr_renderer_begin(core->renderer, viewport_width, viewport_height);
+        wlr_renderer_begin(wf::get_core_impl().renderer,
+            viewport_width, viewport_height);
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, fb));
     }
 
@@ -238,8 +245,8 @@ namespace OpenGL
     void render_end()
     {
         GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-        wlr_renderer_scissor(core->renderer, NULL);
-        wlr_renderer_end(core->renderer);
+        wlr_renderer_scissor(wf::get_core().renderer, NULL);
+        wlr_renderer_end(wf::get_core().renderer);
     }
 }
 
@@ -443,17 +450,4 @@ glm::mat4 get_output_matrix_from_transform(wl_output_transform transform)
         rotation_matrix = glm::rotate(rotation_matrix,  WF_PI / 2.0f, {0, 0, 1});
 
     return rotation_matrix * scale;
-}
-
-glm::mat4 output_get_projection(wayfire_output *output)
-{
-    auto rotation = get_output_matrix_from_transform(output->handle->transform);
-
-    int w, h;
-    wlr_output_effective_resolution(output->handle, &w, &h);
-
-    auto center_translate = glm::translate(glm::mat4(1.0), {-w / 2.0f, -h/2.0f, 0.0f});
-    auto flip_y = glm::scale(glm::mat4(1.0), {2. / w, -2. / h, 1});
-
-    return rotation * flip_y * center_translate;
 }

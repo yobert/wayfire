@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <getopt.h>
+#include <map>
 
 #include <sys/inotify.h>
 #include <unistd.h>
@@ -12,16 +13,18 @@
 
 extern "C"
 {
+#define static
 #include <wlr/render/gles2.h>
+#undef static
 #include <wlr/backend/multi.h>
 #include <wlr/backend/wayland.h>
 #include <wlr/util/log.h>
 }
 
 #include <wayland-server.h>
-#include "view/priv-view.hpp"
 
-#include "core.hpp"
+#include "core/core-impl.hpp"
+#include "view/view-impl.hpp"
 #include "output.hpp"
 
 wf_runtime_config runtime_config;
@@ -32,7 +35,7 @@ char buf[INOT_BUF_SIZE];
 static std::string config_file;
 static void reload_config(int fd)
 {
-    core->config->reload_config();
+    wf::get_core().config->reload_config();
     inotify_add_watch(fd, config_file.c_str(), IN_MODIFY);
 }
 
@@ -44,7 +47,7 @@ static int handle_config_updated(int fd, uint32_t mask, void *data)
     read(fd, buf, INOT_BUF_SIZE);
     reload_config(fd);
 
-    core->emit_signal("reload-config", nullptr);
+    wf::get_core().emit_signal("reload-config", nullptr);
     return 1;
 }
 
@@ -180,28 +183,27 @@ int main(int argc, char *argv[])
     auto display = wl_display_create();
     wf::_safe_list_detail::event_loop = wl_display_get_event_loop(display);
 
-    core = new wayfire_core();
-    core->display  = display;
-    core->ev_loop  = wl_display_get_event_loop(core->display);
-    core->backend  = wlr_backend_autocreate(core->display, add_egl_depth_renderer);
-    core->renderer = wlr_backend_get_renderer(core->backend);
-    core->egl = egl_for_renderer[core->renderer];
-    assert(core->egl);
+    auto& core = wf::get_core_impl();
+
+    /** TODO: move this to core_impl constructor */
+    core.display  = display;
+    core.ev_loop  = wl_display_get_event_loop(core.display);
+    core.backend  = wlr_backend_autocreate(core.display, add_egl_depth_renderer);
+    core.renderer = wlr_backend_get_renderer(core.backend);
+    core.egl = egl_for_renderer[core.renderer];
+    assert(core.egl);
 
     log_info("using config file: %s", config_file.c_str());
-    core->config = new wayfire_config(config_file);
+    core.config = new wayfire_config(config_file);
 
     int inotify_fd = inotify_init();
     reload_config(inotify_fd);
 
-    wl_event_loop_add_fd(core->ev_loop, inotify_fd, WL_EVENT_READABLE, handle_config_updated, NULL);
+    wl_event_loop_add_fd(core.ev_loop, inotify_fd, WL_EVENT_READABLE,
+        handle_config_updated, NULL);
+    core.init(core.config);
 
-    /*
-    ec->idle_time = config->get_section("core")->get_int("idle_time", 300);
-    */
-    core->init(core->config);
-
-    auto server_name = wl_display_add_socket_auto(core->display);
+    auto server_name = wl_display_add_socket_auto(core.display);
     if (!server_name)
     {
         log_error("failed to create wayland, socket, exiting");
@@ -210,26 +212,24 @@ int main(int argc, char *argv[])
 
     setenv("_WAYLAND_DISPLAY", server_name, 1);
 
-    core->wayland_display = server_name;
-    if (!wlr_backend_start(core->backend))
+    core.wayland_display = server_name;
+    if (!wlr_backend_start(core.backend))
     {
         log_error("failed to initialize backend, exiting");
-        wlr_backend_destroy(core->backend);
-        wl_display_destroy(core->display);
+        wlr_backend_destroy(core.backend);
+        wl_display_destroy(core.display);
         return -1;
     }
 
     log_info ("running at server %s", server_name);
     setenv("WAYLAND_DISPLAY", server_name, 1);
 
-    xwayland_set_seat(core->get_current_seat());
-    core->wake();
-
-    wl_display_run(core->display);
+    wf::xwayland_set_seat(core.get_current_seat());
+    wl_display_run(core.display);
 
     /* Teardown */
-    wl_display_destroy_clients(core->display);
-    wl_display_destroy(core->display);
+    wl_display_destroy_clients(core.display);
+    wl_display_destroy(core.display);
 
     return EXIT_SUCCESS;
 }

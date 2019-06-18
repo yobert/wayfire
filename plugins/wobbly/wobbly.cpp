@@ -129,9 +129,10 @@ extern "C"
 class wf_wobbly : public wf_view_transformer_t
 {
     wayfire_view view;
-    effect_hook_t pre_hook;
-    signal_callback_t view_removed, view_geometry_changed, view_output_changed;
-    wayfire_grab_interface iface;
+    wf::effect_hook_t pre_hook;
+    wf::signal_callback_t view_removed, view_geometry_changed,
+        view_output_changed;
+    const wf::plugin_grab_interface_uptr& iface;
 
     std::unique_ptr<wobbly_surface> model;
 
@@ -142,9 +143,9 @@ class wf_wobbly : public wf_view_transformer_t
     uint32_t last_frame;
 
     public:
-    wf_wobbly(wayfire_view view, wayfire_grab_interface iface)
+    wf_wobbly(wayfire_view view, const wf::plugin_grab_interface_uptr& _iface)
+        : iface(_iface)
     {
-        this->iface = iface;
         this->view = view;
         model = std::make_unique<wobbly_surface> ();
         auto g = view->get_bounding_box();
@@ -169,18 +170,18 @@ class wf_wobbly : public wf_view_transformer_t
         pre_hook = [=] () {
             update_model();
         };
-        view->get_output()->render->add_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+        view->get_output()->render->add_effect(&pre_hook, wf::OUTPUT_EFFECT_PRE);
 
-        view_removed = [=] (signal_data *data) {
+        view_removed = [=] (wf::signal_data_t *data) {
             destroy_self();
         };
 
-        view_geometry_changed = [=] (signal_data *data) {
+        view_geometry_changed = [=] (wf::signal_data_t *data) {
             auto sig = static_cast<view_geometry_changed_signal*> (data);
             update_view_geometry(sig->old_geometry);
         };
 
-        view_output_changed = [=] (signal_data *data) {
+        view_output_changed = [=] (wf::signal_data_t *data) {
             auto sig = static_cast<_output_signal*> (data);
 
             if (!view->get_output())
@@ -190,7 +191,7 @@ class wf_wobbly : public wf_view_transformer_t
             assert(sig->output);
 
             sig->output->render->rem_effect(&pre_hook);
-            view->get_output()->render->add_effect(&pre_hook, WF_OUTPUT_EFFECT_PRE);
+            view->get_output()->render->add_effect(&pre_hook, wf::OUTPUT_EFFECT_PRE);
         };
 
         view->connect_signal("unmap", &view_removed);
@@ -238,8 +239,15 @@ class wf_wobbly : public wf_view_transformer_t
 
         if (snapped_geometry.width <= 0 && !has_active_grab)
         {
+            /* We temporarily don't want to receive updates on the view's
+             * geometry, because we usually adjust the model based on the
+             * view's movements. However in this case, we are syncing the
+             * view geometry with the model. If we then updated the model
+             * based on the view geometry, we'd get a feedback loop */
+            view->disconnect_signal("geometry-changed", &this->view_geometry_changed);
             auto wm = view->get_wm_geometry();
-            view->move(model->x + wm.x - bbox.x, model->y + wm.y - bbox.y, false);
+            view->move(model->x + wm.x - bbox.x, model->y + wm.y - bbox.y);
+            view->connect_signal("geometry-changed", &this->view_geometry_changed);
         }
 
         if (!has_active_grab && model->synced)
@@ -340,7 +348,8 @@ class wf_wobbly : public wf_view_transformer_t
 
     void snap(wf_geometry geometry)
     {
-        wobbly_force_geometry(model.get(), geometry.x, geometry.y, geometry.width, geometry.height);
+        wobbly_force_geometry(model.get(),
+            geometry.x, geometry.y, geometry.width, geometry.height);
         snapped_geometry = geometry;
     }
 
@@ -384,17 +393,17 @@ class wf_wobbly : public wf_view_transformer_t
     }
 };
 
-class wayfire_wobbly : public wayfire_plugin_t
+class wayfire_wobbly : public wf::plugin_interface_t
 {
-    signal_callback_t wobbly_changed;
+    wf::signal_callback_t wobbly_changed;
     public:
         void init(wayfire_config *config)
         {
             wobbly_settings::init(config);
-            grab_interface->abilities_mask = 0;
+            grab_interface->capabilities = 0;
             grab_interface->name = "wobbly";
 
-            wobbly_changed = [=] (signal_data *data)
+            wobbly_changed = [=] (wf::signal_data_t *data)
             {
                 adjust_wobbly(static_cast<wobbly_signal*> (data));
             };
@@ -438,22 +447,16 @@ class wayfire_wobbly : public wayfire_plugin_t
 
         void fini()
         {
-            output->workspace->for_each_view([] (wayfire_view view)
+            for (auto& view : output->workspace->get_views_in_layer(wf::ALL_LAYERS))
             {
                 auto wobbly = dynamic_cast<wf_wobbly*> (view->get_transformer("wobbly").get());
                 if (wobbly)
                     wobbly->destroy_self();
-            }, WF_ALL_LAYERS);
+            }
 
             wobbly_graphics::destroy_program();
             output->disconnect_signal("wobbly-event", &wobbly_changed);
         }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_wobbly;
-    }
-};
+DECLARE_WAYFIRE_PLUGIN(wayfire_wobbly);

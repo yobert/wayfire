@@ -1,38 +1,50 @@
 #include "debug.hpp"
-#include "plugin-loader.hpp"
-#include "output.hpp"
+#include "output-impl.hpp"
 #include "view.hpp"
-#include "core.hpp"
+#include "../core/core-impl.hpp"
 #include "signal-definitions.hpp"
 #include "render-manager.hpp"
+#include "output-layout.hpp"
 #include "workspace-manager.hpp"
 #include "compositor-view.hpp"
 #include "wayfire-shell.hpp"
 #include "../core/seat/input-manager.hpp"
 
 #include <linux/input.h>
+extern "C"
+{
+#include <wlr/types/wlr_output.h>
+}
 
 #include <algorithm>
 #include <assert.h>
 #include <config.hpp>
 
-wayfire_output::wayfire_output(wlr_output *handle, wayfire_config *c)
+wf::output_t::output_t(wlr_output *handle)
 {
     this->handle = handle;
-
-    render = new render_manager(this);
-    plugin = new plugin_manager(this, c);
-
-    view_disappeared_cb = [=] (signal_data *data) { refocus(get_signaled_view(data)); };
-    connect_signal("view-disappeared", &view_disappeared_cb);
+    workspace = std::make_unique<workspace_manager> (this);
+    render = std::make_unique<render_manager> (this);
 }
 
-std::string wayfire_output::to_string() const
+wf::output_impl_t::output_impl_t(wlr_output *handle)
+    : output_t(handle)
+{
+    plugin = std::make_unique<plugin_manager> (this, wf::get_core().config);
+    view_disappeared_cb = [=] (wf::signal_data_t *data) {
+        output_t::refocus(get_signaled_view(data));
+    };
+
+    connect_signal("view-disappeared", &view_disappeared_cb);
+    connect_signal("detach-view", &view_disappeared_cb);
+}
+
+std::string wf::output_t::to_string() const
 {
     return handle->name;
 }
 
-void wayfire_output::refocus(wayfire_view skip_view, uint32_t layers)
+void wf::output_impl_t::refocus(wayfire_view skip_view, uint32_t layers)
 {
     wayfire_view next_focus = nullptr;
     auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(), layers, true);
@@ -47,21 +59,20 @@ void wayfire_output::refocus(wayfire_view skip_view, uint32_t layers)
         }
     }
 
-    set_active_view(next_focus);
+    focus_view(next_focus, false);
 }
 
-void wayfire_output::refocus(wayfire_view skip_view)
+void wf::output_t::refocus(wayfire_view skip_view)
 {
-    uint32_t focused_layer = core->get_focused_layer();
-    uint32_t layers = focused_layer <= WF_LAYER_WORKSPACE ?
-        WF_WM_LAYERS : focused_layer;
+    uint32_t focused_layer = wf::get_core().get_focused_layer();
+    uint32_t layers = focused_layer <= LAYER_WORKSPACE ?  WM_LAYERS : focused_layer;
 
     auto views = workspace->get_views_on_workspace(
         workspace->get_current_workspace(), layers, true);
 
     if (views.empty())
     {
-        if (core->get_active_output() == this)
+        if (wf::get_core().get_active_output() == this)
             log_debug("warning: no focused views in the focused layer, probably a bug");
 
         /* Usually, we focus a layer so that a particular view has focus, i.e
@@ -69,25 +80,26 @@ void wayfire_output::refocus(wayfire_view skip_view)
          * should try to find reasonable focus in any focuseable layers if
          * that is not the case, for ex. if there is a focused layer by a
          * layer surface on another output */
-        layers = wf_all_layers_not_below(focused_layer);
+        layers = all_layers_not_below(focused_layer);
     }
 
     refocus(skip_view, layers);
 }
 
-workspace_manager::~workspace_manager()
-{ }
-
-wayfire_output::~wayfire_output()
+wf::output_t::~output_t()
 {
-    delete plugin;
-    core->input->free_output_bindings(this);
+    wf::get_core_impl().input->free_output_bindings(this);
+}
+wf::output_impl_t::~output_impl_t() { }
 
-    delete workspace;
-    delete render;
+std::tuple<int, int> wf::output_t::get_screen_size() const
+{
+    int w, h;
+    wlr_output_effective_resolution(handle, &w, &h);
+    return std::make_tuple(w, h);
 }
 
-wf_geometry wayfire_output::get_relative_geometry()
+wf_geometry wf::output_t::get_relative_geometry() const
 {
     wf_geometry g;
     g.x = g.y = 0;
@@ -96,9 +108,10 @@ wf_geometry wayfire_output::get_relative_geometry()
     return g;
 }
 
-wf_geometry wayfire_output::get_layout_geometry()
+wf_geometry wf::output_t::get_layout_geometry() const
 {
-    auto box = wlr_output_layout_get_box(core->output_layout->get_handle(), handle);
+    auto box = wlr_output_layout_get_box(
+        wf::get_core().output_layout->get_handle(), handle);
     if (box) {
         return *box;
     } else {
@@ -107,18 +120,11 @@ wf_geometry wayfire_output::get_layout_geometry()
     }
 }
 
-std::tuple<int, int> wayfire_output::get_screen_size()
-{
-    int w, h;
-    wlr_output_effective_resolution(handle, &w, &h);
-    return std::make_tuple(w, h);
-}
-
 /* TODO: is this still relevant? */
-void wayfire_output::ensure_pointer()
+void wf::output_t::ensure_pointer() const
 {
     /*
-    auto ptr = weston_seat_get_pointer(core->get_current_seat());
+    auto ptr = weston_seat_get_pointer(wf::get_core().get_current_seat());
     if (!ptr) return;
 
     int px = wl_fixed_to_int(ptr->x), py = wl_fixed_to_int(ptr->y);
@@ -137,123 +143,15 @@ void wayfire_output::ensure_pointer()
     } */
 }
 
-std::tuple<int, int> wayfire_output::get_cursor_position()
+std::tuple<int, int> wf::output_t::get_cursor_position() const
 {
-    GetTuple(x, y, core->get_cursor_position());
+    GetTuple(x, y, wf::get_core().get_cursor_position());
     auto og = get_layout_geometry();
 
     return std::make_tuple(x - og.x, y - og.y);
 }
 
-void wayfire_output::activate()
-{
-}
-
-void wayfire_output::deactivate()
-{
-    // TODO: what do we do?
-}
-
-void wayfire_output::attach_view(wayfire_view v)
-{
-    v->set_output(this);
-    workspace->add_view_to_layer(v, WF_LAYER_WORKSPACE);
-
-    _view_signal data;
-    data.view = v;
-    emit_signal("attach-view", &data);
-}
-
-void wayfire_output::detach_view(wayfire_view v)
-{
-    _view_signal data;
-    data.view = v;
-    emit_signal("detach-view", &data);
-
-    workspace->add_view_to_layer(v, 0);
-
-    wayfire_view next = nullptr;
-    auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(),
-                                                   WF_MIDDLE_LAYERS, true);
-    for (auto wview : views)
-    {
-        if (wview->is_mapped())
-        {
-            next = wview;
-            break;
-        }
-    }
-
-    if (next == nullptr)
-    {
-        active_view = nullptr;
-    }
-    else
-    {
-        focus_view(next);
-    }
-}
-
-void wayfire_output::bring_to_front(wayfire_view v) {
-    assert(v);
-
-    workspace->add_view_to_layer(v, -1);
-    v->damage();
-}
-
-/* sets the "active" view and gives it keyboard focus
- *
- * It maintains two different classes of "active views"
- * 1. active_view -> the view which has the current keyboard focus
- * 2. last_active_toplevel -> the toplevel view which last held the keyboard focus
- *
- * Because we don't want to deactivate views when for ex. a panel gets focus,
- * we don't deactivate the current view when this is the case. However, when the focus
- * goes back to the toplevel layer, we need to ensure the proper view is activated. */
-void wayfire_output::set_active_view(wayfire_view v, wlr_seat *seat)
-{
-    if (v && !v->is_mapped())
-        return set_active_view(nullptr, seat);
-
-    if (seat == nullptr)
-        seat = core->get_current_seat();
-
-    bool refocus = (active_view == v);
-
-    /* don't deactivate view if the next focus is not a toplevel */
-    if (v == nullptr || v->role == WF_VIEW_ROLE_TOPLEVEL)
-    {
-        if (active_view && active_view->is_mapped() && !refocus)
-            active_view->activate(false);
-
-        /* make sure to deactivate the lastly activated toplevel */
-        if (last_active_toplevel && v != last_active_toplevel)
-            last_active_toplevel->activate(false);
-    }
-
-    active_view = v;
-
-    /* If the output isn't focused, we shouldn't touch focus */
-    if (core->get_active_output() == this)
-    {
-        if (active_view)
-        {
-            core->input->set_keyboard_focus(active_view, seat);
-
-            if (!refocus)
-                active_view->activate(true);
-        } else
-        {
-            core->input->set_keyboard_focus(NULL, seat);
-
-        }
-    }
-
-    if (!active_view || active_view->role == WF_VIEW_ROLE_TOPLEVEL)
-        last_active_toplevel = active_view;
-}
-
-bool wayfire_output::ensure_visible(wayfire_view v)
+bool wf::output_t::ensure_visible(wayfire_view v)
 {
     auto bbox = v->get_bounding_box();
     auto g = this->get_relative_geometry();
@@ -287,9 +185,16 @@ bool wayfire_output::ensure_visible(wayfire_view v)
     return true;
 }
 
-void wayfire_output::focus_view(wayfire_view v, wlr_seat *seat)
+void wf::output_impl_t::update_active_view(wayfire_view v)
 {
-    if (v && workspace->get_view_layer(v) < core->get_focused_layer())
+    this->active_view = v;
+    if (this == wf::get_core().get_active_output())
+        wf::get_core().set_active_view(v);
+}
+
+void wf::output_impl_t::focus_view(wayfire_view v, bool raise)
+{
+    if (v && workspace->get_view_layer(v) < wf::get_core().get_focused_layer())
     {
         log_info("Denying focus request for a view from a lower layer than the focused layer");
         return;
@@ -297,12 +202,7 @@ void wayfire_output::focus_view(wayfire_view v, wlr_seat *seat)
 
     if (!v || !v->is_mapped())
     {
-        /* We can't really focus the view, it isn't mapped or is NULL.
-         * But at least we can bring it to front */
-        set_active_view(nullptr, seat);
-        if (v)
-            bring_to_front(v);
-
+        update_active_view(nullptr);
         return;
     }
 
@@ -314,8 +214,9 @@ void wayfire_output::focus_view(wayfire_view v, wlr_seat *seat)
         if (v->minimized)
             v->minimize_request(false);
 
-        set_active_view(v, seat);
-        bring_to_front(v);
+        update_active_view(v);
+        if (raise)
+            workspace->bring_to_front(v);
 
         focus_view_signal data;
         data.view = v;
@@ -323,89 +224,68 @@ void wayfire_output::focus_view(wayfire_view v, wlr_seat *seat)
     }
 }
 
-wayfire_view wayfire_output::get_top_view()
+wayfire_view wf::output_t::get_top_view() const
 {
-    wayfire_view view = nullptr;
-    workspace->for_each_view([&view] (wayfire_view v) {
-        if (!view)
-            view = v;
-    }, WF_LAYER_WORKSPACE);
+    auto views = workspace->get_views_on_workspace(workspace->get_current_workspace(),
+        LAYER_WORKSPACE, false);
 
-    return view;
+    return views.empty() ? nullptr : views[0];
 }
 
-wayfire_view wayfire_output::get_view_at_point(int x, int y)
+wayfire_view wf::output_impl_t::get_active_view() const
 {
-    wayfire_view chosen = nullptr;
-
-    workspace->for_each_view([x, y, &chosen] (wayfire_view v) {
-        if (v->is_visible() && (v->get_wm_geometry() & wf_point{x, y})) {
-            if (chosen == nullptr)
-                chosen = v;
-        }
-    }, WF_VISIBLE_LAYERS);
-
-    return chosen;
+    return active_view;
 }
 
-bool wayfire_output::activate_plugin(wayfire_grab_interface owner, bool lower_fs)
+bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner)
 {
     if (!owner)
         return false;
 
-    if (core->get_active_output() != this)
+    if (wf::get_core().get_active_output() != this)
         return false;
 
-    if (active_plugins.find(owner) != active_plugins.end())
+    if (active_plugins.find(owner.get()) != active_plugins.end())
     {
         log_debug("output %s: activate plugin %s again", handle->name, owner->name.c_str());
-        active_plugins.insert(owner);
+        active_plugins.insert(owner.get());
         return true;
     }
 
     for(auto act_owner : active_plugins)
     {
-        bool compatible = (act_owner->abilities_mask & owner->abilities_mask) == 0;
+        bool compatible =
+            ((act_owner->capabilities & owner->capabilities) == 0);
         if (!compatible)
             return false;
     }
 
-    /* _activation_request is a special signal,
-     * used to specify when a plugin is activated. It is used only internally, plugins
-     * shouldn't listen for it */
-    if (lower_fs && active_plugins.empty())
-        emit_signal("_activation_request", (signal_data*)1);
-
-    active_plugins.insert(owner);
+    active_plugins.insert(owner.get());
     log_debug("output %s: activate plugin %s", handle->name, owner->name.c_str());
     return true;
 }
 
-bool wayfire_output::deactivate_plugin(wayfire_grab_interface owner)
+bool wf::output_impl_t::deactivate_plugin(
+    const plugin_grab_interface_uptr& owner)
 {
-    auto it = active_plugins.find(owner);
+    auto it = active_plugins.find(owner.get());
     if (it == active_plugins.end())
         return true;
 
     active_plugins.erase(it);
     log_debug("output %s: deactivate plugin %s", handle->name, owner->name.c_str());
 
-    if (active_plugins.count(owner) == 0)
+    if (active_plugins.count(owner.get()) == 0)
     {
         owner->ungrab();
-        active_plugins.erase(owner);
-
-        if (active_plugins.empty())
-            emit_signal("_activation_request", nullptr);
-
+        active_plugins.erase(owner.get());
         return true;
     }
-
 
     return false;
 }
 
-bool wayfire_output::is_plugin_active(owner_t name)
+bool wf::output_impl_t::is_plugin_active(std::string name) const
 {
     for (auto act : active_plugins)
         if (act && act->name == name)
@@ -414,7 +294,7 @@ bool wayfire_output::is_plugin_active(owner_t name)
     return false;
 }
 
-wayfire_grab_interface wayfire_output::get_input_grab_interface()
+wf::plugin_grab_interface_t* wf::output_impl_t::get_input_grab_interface()
 {
     for (auto p : active_plugins)
         if (p && p->is_grabbed())
@@ -423,10 +303,9 @@ wayfire_grab_interface wayfire_output::get_input_grab_interface()
     return nullptr;
 }
 
-void wayfire_output::break_active_plugins()
+void wf::output_impl_t::break_active_plugins()
 {
-    std::vector<wayfire_grab_interface> ifaces;
-
+    std::vector<wf::plugin_grab_interface_t*> ifaces;
     for (auto p : active_plugins)
     {
         if (p->callbacks.cancel)
@@ -437,62 +316,65 @@ void wayfire_output::break_active_plugins()
         p->callbacks.cancel();
 }
 
-/* simple wrappers for core->input, as it isn't exposed to plugins */
+/* simple wrappers for wf::get_core_impl().input, as it isn't exposed to plugins */
 
-wf_binding *wayfire_output::add_key(wf_option key, key_callback *callback)
+wf_binding *wf::output_t::add_key(wf_option key, key_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_KEY, key, this, callback);
+    return wf::get_core_impl().input->new_binding(WF_BINDING_KEY, key, this, callback);
 }
 
-wf_binding *wayfire_output::add_axis(wf_option axis, axis_callback *callback)
+wf_binding *wf::output_t::add_axis(wf_option axis, axis_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_AXIS, axis, this, callback);
+    return wf::get_core_impl().input->new_binding(WF_BINDING_AXIS, axis, this, callback);
 }
 
-wf_binding *wayfire_output::add_touch(wf_option mod, touch_callback *callback)
+wf_binding *wf::output_t::add_touch(wf_option mod, touch_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_TOUCH, mod, this, callback);
+    return wf::get_core_impl().input->new_binding(WF_BINDING_TOUCH, mod, this, callback);
 }
 
-wf_binding *wayfire_output::add_button(wf_option button,
+wf_binding *wf::output_t::add_button(wf_option button,
     button_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_BUTTON, button,
+    return wf::get_core_impl().input->new_binding(WF_BINDING_BUTTON, button,
         this, callback);
 }
 
-wf_binding *wayfire_output::add_gesture(wf_option gesture,
+wf_binding *wf::output_t::add_gesture(wf_option gesture,
     gesture_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_GESTURE, gesture,
+    return wf::get_core_impl().input->new_binding(WF_BINDING_GESTURE, gesture,
         this, callback);
 }
 
-wf_binding *wayfire_output::add_activator(wf_option activator,
+wf_binding *wf::output_t::add_activator(wf_option activator,
     activator_callback *callback)
 {
-    return core->input->new_binding(WF_BINDING_ACTIVATOR, activator,
+    return wf::get_core_impl().input->new_binding(WF_BINDING_ACTIVATOR, activator,
         this, callback);
 }
 
-void wayfire_output::rem_binding(wf_binding *binding)
+void wf::output_t::rem_binding(wf_binding *binding)
 {
-    core->input->rem_binding(binding);
+    wf::get_core_impl().input->rem_binding(binding);
 }
 
-void wayfire_output::rem_binding(void *callback)
+void wf::output_t::rem_binding(void *callback)
 {
-    core->input->rem_binding(callback);
+    wf::get_core_impl().input->rem_binding(callback);
 }
 
-uint32_t wf_all_layers_not_below(uint32_t layer)
+namespace wf
+{
+uint32_t all_layers_not_below(uint32_t layer)
 {
     uint32_t mask = 0;
-    for (int i = 0; i < WF_TOTAL_LAYERS; i++)
+    for (int i = 0; i < wf::TOTAL_LAYERS; i++)
     {
         if ((1u << i) >= layer)
             mask |= (1 << i);
     }
 
     return mask;
+}
 }

@@ -13,20 +13,20 @@ namespace wf
     {
         std::string get_view_type(wayfire_view view)
         {
-            if (view->role == WF_VIEW_ROLE_TOPLEVEL)
+            if (view->role == VIEW_ROLE_TOPLEVEL)
                 return "toplevel";
-            if (view->role == WF_VIEW_ROLE_UNMANAGED)
+            if (view->role == VIEW_ROLE_UNMANAGED)
                 return "x-or";
 
             if (!view->get_output())
                 return "unknown";
 
             uint32_t layer = view->get_output()->workspace->get_view_layer(view);
-            if (layer == WF_LAYER_BACKGROUND || layer == WF_LAYER_BOTTOM)
+            if (layer == LAYER_BACKGROUND || layer == LAYER_BOTTOM)
                 return "background";
-            if (layer == WF_LAYER_TOP)
+            if (layer == LAYER_TOP)
                 return "panel";
-            if (layer == WF_LAYER_LOCK)
+            if (layer == LAYER_LOCK)
                 return "overlay";
 
             return "unknown";
@@ -77,15 +77,15 @@ namespace wf
             }
         };
 
-        class match_core_data : public wf_custom_data_t
+        class match_core_data : public wf::custom_data_t
         {
-            signal_callback_t on_new_matcher_request = [=] (signal_data *data)
+            signal_callback_t on_new_matcher_request = [=] (signal_data_t *data)
             {
                 auto ev = static_cast<match_signal*> (data);
                 ev->result = std::make_unique<default_view_matcher> (ev->expression);
             };
 
-            signal_callback_t on_matcher_evaluate = [=] (signal_data *data)
+            signal_callback_t on_matcher_evaluate = [=] (signal_data_t *data)
             {
                 auto ev = static_cast<match_evaluate_signal*> (data);
                 auto expr =
@@ -98,18 +98,20 @@ namespace wf
             public:
             match_core_data()
             {
-                core->connect_signal(WF_MATCHER_CREATE_QUERY_SIGNAL, &on_new_matcher_request);
-                core->connect_signal(WF_MATCHER_EVALUATE_SIGNAL, &on_matcher_evaluate);
+                wf::get_core().connect_signal(WF_MATCHER_CREATE_QUERY_SIGNAL,
+                    &on_new_matcher_request);
+                wf::get_core().connect_signal(WF_MATCHER_EVALUATE_SIGNAL,
+                    &on_matcher_evaluate);
             }
         };
 
-        class matcher_plugin : public wayfire_plugin_t
+        class matcher_plugin : public wf::plugin_interface_t
         {
             public:
             void init(wayfire_config *conf) override
             {
                 /* Will add the data if not existing, otherwise no-op */
-                core->get_data_safe<match_core_data>();
+                wf::get_core().get_data_safe<match_core_data>();
             }
 
             bool is_unloadable() override {return false;}
@@ -117,10 +119,4 @@ namespace wf
     }
 }
 
-extern "C"
-{
-    wayfire_plugin_t* newInstance()
-    {
-        return new wf::matcher::matcher_plugin;
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wf::matcher::matcher_plugin);

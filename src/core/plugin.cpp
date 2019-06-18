@@ -1,13 +1,15 @@
-#include "core.hpp"
+#include "core-impl.hpp"
 #include "output.hpp"
 #include "seat/input-manager.hpp"
 #include "signal-definitions.hpp"
 #include "debug.hpp"
-#include <cmath>
 
-bool wayfire_grab_interface_t::grab()
+wf::plugin_grab_interface_t::plugin_grab_interface_t(wf::output_t *wo)
+    : output(wo) { }
+
+bool wf::plugin_grab_interface_t::grab()
 {
-    if (!(abilities_mask & WF_ABILITY_GRAB_INPUT))
+    if (!(capabilities & CAPABILITY_GRAB_INPUT))
     {
         log_error ("attempt to grab iface %s without input grabbing ability", name.c_str());
         return false;
@@ -21,31 +23,31 @@ bool wayfire_grab_interface_t::grab()
 
     grabbed = true;
 
-    if (output == core->get_active_output())
-        return core->input->grab_input(this);
+    if (output == wf::get_core_impl().get_active_output())
+        return wf::get_core_impl().input->grab_input(this);
     else
         return true;
 }
 
-void wayfire_grab_interface_t::ungrab()
+void wf::plugin_grab_interface_t::ungrab()
 {
     if (!grabbed)
         return;
 
     grabbed = false;
-    if (output == core->get_active_output())
-        core->input->ungrab_input();
+    if (output == wf::get_core_impl().get_active_output())
+        wf::get_core_impl().input->ungrab_input();
 }
 
-bool wayfire_grab_interface_t::is_grabbed()
+bool wf::plugin_grab_interface_t::is_grabbed()
 {
     return grabbed;
 }
 
-void wayfire_plugin_t::fini() {}
-wayfire_plugin_t::~wayfire_plugin_t() {}
+void wf::plugin_interface_t::fini() {}
+wf::plugin_interface_t::~plugin_interface_t() {}
 
-wayfire_view get_signaled_view(signal_data *data)
+wayfire_view get_signaled_view(wf::signal_data_t *data)
 {
     auto conv = static_cast<_view_signal*> (data);
     if (!conv)
@@ -57,7 +59,7 @@ wayfire_view get_signaled_view(signal_data *data)
     return conv->view;
 }
 
-bool get_signaled_state(signal_data *data)
+bool get_signaled_state(wf::signal_data_t *data)
 {
     auto conv = static_cast<_view_state_signal*> (data);
 
@@ -70,7 +72,7 @@ bool get_signaled_state(signal_data *data)
     return conv->state;
 }
 
-wayfire_output *get_signaled_output(signal_data *data)
+wf::output_t *get_signaled_output(wf::signal_data_t *data)
 {
     auto result = static_cast<_output_signal*> (data);
     return result ? result->output : nullptr;

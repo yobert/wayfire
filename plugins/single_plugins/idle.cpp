@@ -7,8 +7,9 @@ extern "C"
 #include "output.hpp"
 #include "core.hpp"
 #include "config.hpp"
+#include "output-layout.hpp"
 
-class wayfire_idle_core : public wf_custom_data_t
+class wayfire_idle_core : public wf::custom_data_t
 {
     bool idle_enabled = true;
     wlr_idle_timeout *timeout = NULL;
@@ -22,7 +23,7 @@ class wayfire_idle_core : public wf_custom_data_t
     public:
     wayfire_idle_core()
     {
-        dpms_timeout = core->config->get_section("idle")
+        dpms_timeout = wf::get_core().config->get_section("idle")
             ->get_option("dpms_timeout", "-1");
 
         dpms_timeout->add_updated_handler(&dpms_timeout_updated);
@@ -47,8 +48,8 @@ class wayfire_idle_core : public wf_custom_data_t
         if (timeout_sec <= 0)
             return;
 
-        timeout = wlr_idle_timeout_create(core->protocols.idle,
-            core->get_current_seat(), 1000 * timeout_sec);
+        timeout = wlr_idle_timeout_create(wf::get_core().protocols.idle,
+            wf::get_core().get_current_seat(), 1000 * timeout_sec);
 
         on_idle.set_callback([&] (void*) {
             set_state(wf::OUTPUT_IMAGE_SOURCE_SELF, wf::OUTPUT_IMAGE_SOURCE_DPMS);
@@ -77,13 +78,13 @@ class wayfire_idle_core : public wf_custom_data_t
     {
         ref += add;
         if (ref <= 0)
-            core->erase_data<wayfire_idle_core>();
+            wf::get_core().erase_data<wayfire_idle_core>();
     }
 
     /* Change all outputs with state from to state to */
     void set_state(wf::output_image_source_t from, wf::output_image_source_t to)
     {
-        auto config = core->output_layout->get_current_configuration();
+        auto config = wf::get_core().output_layout->get_current_configuration();
 
         for (auto& entry : config)
         {
@@ -91,27 +92,27 @@ class wayfire_idle_core : public wf_custom_data_t
                 entry.second.source = to;
         }
 
-        core->output_layout->apply_configuration(config);
+        wf::get_core().output_layout->apply_configuration(config);
     }
 
     void toggle_idle()
     {
         idle_enabled ^= 1;
-        wlr_idle_set_enabled(core->protocols.idle, NULL, idle_enabled);
+        wlr_idle_set_enabled(wf::get_core().protocols.idle, NULL, idle_enabled);
     }
 };
 
-class wayfire_idle_inhibit : public wayfire_plugin_t
+class wayfire_idle_inhibit : public wf::plugin_interface_t
 {
-    bool enabled = true;
     activator_callback toggle;
     void init(wayfire_config *config)
     {
-        core->get_data_safe<wayfire_idle_core>()->refcnt();
+        wf::get_core().get_data_safe<wayfire_idle_core>()->refcnt();
 
-        auto binding = config->get_section("idle")->get_option("toggle", "<super> <shift> KEY_I");
+        auto binding = config->get_section("idle")
+            ->get_option("toggle", "<super> <shift> KEY_I");
         toggle = [=] (wf_activator_source, uint32_t) {
-            core->get_data_safe<wayfire_idle_core>()->toggle_idle();
+            wf::get_core().get_data_safe<wayfire_idle_core>()->toggle_idle();
         };
 
         output->add_activator(binding, &toggle);
@@ -119,15 +120,9 @@ class wayfire_idle_inhibit : public wayfire_plugin_t
 
     void fini()
     {
-        core->get_data_safe<wayfire_idle_core>()->refcnt(-1);
+        wf::get_core().get_data_safe<wayfire_idle_core>()->refcnt(-1);
         output->rem_binding(&toggle);
     }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_idle_inhibit;
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wayfire_idle_inhibit);

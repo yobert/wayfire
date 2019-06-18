@@ -1,8 +1,5 @@
 #include <cassert>
 #include <algorithm>
-#include <libinput.h>
-
-#include <iostream>
 
 extern "C"
 {
@@ -11,11 +8,12 @@ extern "C"
 
 #include "input-inhibit.hpp"
 #include "signal-definitions.hpp"
-#include "core.hpp"
+#include "../core-impl.hpp"
 #include "touch.hpp"
 #include "keyboard.hpp"
 #include "cursor.hpp"
 #include "input-manager.hpp"
+#include "output-layout.hpp"
 #include "workspace-manager.hpp"
 #include "debug.hpp"
 
@@ -39,11 +37,15 @@ void input_manager::update_capabilities()
 
 void input_manager::handle_new_input(wlr_input_device *dev)
 {
-    log_info("handle new input: %s, default mapping: %s", dev->name, dev->output_name);
+    log_info("handle new input: %s, default mapping: %s",
+        dev->name, dev->output_name);
     input_devices.push_back(std::make_unique<wf_input_device_internal> (dev));
 
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
-        keyboards.push_back(std::make_unique<wf_keyboard> (dev, core->config));
+    {
+        keyboards.push_back(
+            std::make_unique<wf_keyboard> (dev, wf::get_core().config));
+    }
 
     if (dev->type == WLR_INPUT_DEVICE_POINTER)
     {
@@ -60,11 +62,11 @@ void input_manager::handle_new_input(wlr_input_device *dev)
         our_touch->add_device(dev);
     }
 
-    auto section = core->config->get_section(nonull(dev->name));
+    auto section = wf::get_core().config->get_section(nonull(dev->name));
     auto mapped_output = section->get_option("output",
         nonull(dev->output_name))->as_string();
 
-    auto wo = core->output_layout->find_output(mapped_output);
+    auto wo = wf::get_core().output_layout->find_output(mapped_output);
     if (wo)
         wlr_cursor_map_input_to_output(cursor->cursor, dev, wo->handle);
 
@@ -76,13 +78,15 @@ void input_manager::handle_input_destroyed(wlr_input_device *dev)
     log_info("remove input: %s", dev->name);
 
     auto it = std::remove_if(input_devices.begin(), input_devices.end(),
-        [=] (const std::unique_ptr<wf_input_device_internal>& idev) { return idev->get_wlr_handle() == dev; });
+        [=] (const std::unique_ptr<wf_input_device_internal>& idev) {
+            return idev->get_wlr_handle() == dev;
+        });
     input_devices.erase(it, input_devices.end());
 
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
     {
         auto it = std::remove_if(keyboards.begin(), keyboards.end(),
-                                 [=] (const std::unique_ptr<wf_keyboard>& kbd) { return kbd->device == dev; });
+            [=] (const std::unique_ptr<wf_keyboard>& kbd) { return kbd->device == dev; });
 
         keyboards.erase(it, keyboards.end());
     }
@@ -104,12 +108,12 @@ input_manager::input_manager()
     input_device_created.set_callback([&] (void *data) {
         auto dev = static_cast<wlr_input_device*> (data);
         assert(dev);
-        core->input->handle_new_input(dev);
+        wf::get_core_impl().input->handle_new_input(dev);
     });
-    input_device_created.connect(&core->backend->events.new_input);
+    input_device_created.connect(&wf::get_core().backend->events.new_input);
 
     create_seat();
-    surface_map_state_changed = [=] (signal_data *data)
+    surface_map_state_changed = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<_surface_map_state_changed_signal*> (data);
         if (ev && cursor->grabbed_surface == ev->surface && !ev->surface->is_mapped())
@@ -129,10 +133,10 @@ input_manager::input_manager()
                 handle_touch_motion(get_current_time(), f.first, f.second.sx, f.second.sy);
         }
     };
-    core->connect_signal("_surface_mapped", &surface_map_state_changed);
-    core->connect_signal("_surface_unmapped", &surface_map_state_changed);
+    wf::get_core().connect_signal("_surface_mapped", &surface_map_state_changed);
+    wf::get_core().connect_signal("_surface_unmapped", &surface_map_state_changed);
 
-    config_updated = [=] (signal_data *)
+    config_updated = [=] (wf::signal_data_t *)
     {
         for (auto& dev : input_devices)
             dev->update_options();
@@ -140,18 +144,18 @@ input_manager::input_manager()
             kbd->reload_input_options();
     };
 
-    core->connect_signal("reload-config", &config_updated);
+    wf::get_core().connect_signal("reload-config", &config_updated);
 
     /*
 
     session_listener.notify = session_signal_handler;
-    wl_signal_add(&core->ec->session_signal, &session_listener);
+    wl_signal_add(&wf::get_core().ec->session_signal, &session_listener);
     */
 }
 
 input_manager::~input_manager()
 {
-    core->disconnect_signal("reload-config", &config_updated);
+    wf::get_core().disconnect_signal("reload-config", &config_updated);
 }
 
 uint32_t input_manager::get_modifiers()
@@ -164,9 +168,9 @@ uint32_t input_manager::get_modifiers()
     return mods;
 }
 
-bool input_manager::grab_input(wayfire_grab_interface iface)
+bool input_manager::grab_input(wf::plugin_grab_interface_t* iface)
 {
-    if (!iface || !iface->grabbed || !session_active)
+    if (!iface || !iface->is_grabbed() || !session_active)
         return false;
 
     assert(!active_grab); // cannot have two active input grabs!
@@ -183,14 +187,15 @@ bool input_manager::grab_input(wayfire_grab_interface iface)
 
     set_keyboard_focus(NULL, seat);
     update_cursor_focus(nullptr, 0, 0);
-    core->set_cursor("default");
+    wf::get_core().set_cursor("default");
     return true;
 }
 
 void input_manager::ungrab_input()
 {
     if (active_grab)
-        active_grab->output->set_active_view(active_grab->output->get_active_view());
+        wf::get_core().set_active_view(active_grab->output->get_active_view());
+
     active_grab = nullptr;
 
     /* We must update cursor focus, however, if we update "too soon", the current
@@ -231,7 +236,7 @@ void input_manager::toggle_session()
 
 }
 
-bool input_manager::can_focus_surface(wayfire_surface_t *surface)
+bool input_manager::can_focus_surface(wf::surface_interface_t *surface)
 {
     if (exclusive_client && surface->get_client() != exclusive_client)
         return false;
@@ -239,10 +244,10 @@ bool input_manager::can_focus_surface(wayfire_surface_t *surface)
     return true;
 }
 
-wayfire_surface_t* input_manager::input_surface_at(int x, int y,
+wf::surface_interface_t* input_manager::input_surface_at(int x, int y,
     int& lx, int& ly)
 {
-    auto output = core->output_layout->get_output_coords_at(x, y, x, y);
+    auto output = wf::get_core().output_layout->get_output_coords_at(x, y, x, y);
     /* If the output at these coordinates was just destroyed or some other edge case */
     if (!output)
         return nullptr;
@@ -251,24 +256,23 @@ wayfire_surface_t* input_manager::input_surface_at(int x, int y,
     x -= og.x;
     y -= og.y;
 
-    wayfire_surface_t *new_focus = nullptr;
-    output->workspace->for_each_view(
-        [&] (wayfire_view view)
+    for (auto& view : output->workspace->get_views_in_layer(wf::VISIBLE_LAYERS))
+    {
+        if (can_focus_surface(view.get()))
         {
-            if (new_focus) return; // we already found a focus surface
+            auto surface = view->map_input_coordinates(x, y, lx, ly);
+            if (surface)
+                return surface;
+        }
+    }
 
-            if (can_focus_surface(view.get())) // make sure focusing this surface isn't disabled
-                new_focus = view->map_input_coordinates(x, y, lx, ly);
-        },
-        WF_VISIBLE_LAYERS);
-
-    return new_focus;
+    return nullptr;
 }
 
 void input_manager::set_exclusive_focus(wl_client *client)
 {
     exclusive_client = client;
-    for (auto& wo : core->output_layout->get_outputs())
+    for (auto& wo : wf::get_core().output_layout->get_outputs())
     {
         if (client)
             inhibit_output(wo);
@@ -279,13 +283,13 @@ void input_manager::set_exclusive_focus(wl_client *client)
     /* We no longer have an exclusively focused client, so we should restore
      * focus to the topmost view */
     if (!client)
-        core->get_active_output()->refocus(nullptr);
+        wf::get_core().get_active_output()->refocus(nullptr);
 }
 
 /* add/remove bindings */
 
 wf_binding* input_manager::new_binding(wf_binding_type type, wf_option value,
-    wayfire_output *output, void *callback)
+    wf::output_t *output, void *callback)
 {
     auto binding = std::make_unique<wf_binding>();
 
@@ -329,7 +333,7 @@ void input_manager::rem_binding(void *callback)
     rem_binding([=] (wf_binding* ptr) {return ptr->call.raw == callback; });
 }
 
-void input_manager::free_output_bindings(wayfire_output *output)
+void input_manager::free_output_bindings(wf::output_t *output)
 {
     rem_binding([=] (wf_binding* binding) {
         return binding->output == output;

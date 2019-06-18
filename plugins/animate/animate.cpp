@@ -1,3 +1,4 @@
+#include <plugin.hpp>
 #include <output.hpp>
 #include <signal-definitions.hpp>
 #include <render-manager.hpp>
@@ -18,7 +19,7 @@ animation_base::~animation_base() {}
 /* Represents an animation running for a specific view
  * animation_t is which animation to use (i.e fire, zoom, etc). */
 template<class animation_t>
-struct animation_hook : public wf_custom_data_t
+struct animation_hook : public wf::custom_data_t
 {
     static_assert(std::is_base_of<animation_base, animation_t>::value,
             "animation_type must be derived from animation_base!");
@@ -29,10 +30,10 @@ struct animation_hook : public wf_custom_data_t
     std::unique_ptr<animation_base> animation;
 
     wayfire_view view;
-    wayfire_output *output;
+    wf::output_t *output;
 
     /* Update animation right before each frame */
-    effect_hook_t update_animation_hook = [=] ()
+    wf::effect_hook_t update_animation_hook = [=] ()
     {
         view->damage();
         bool result = animation->step();
@@ -44,7 +45,7 @@ struct animation_hook : public wf_custom_data_t
 
     /* If the view changes outputs, we need to stop animating, because our animations,
      * hooks, etc are bound to the last output. */
-    signal_callback_t view_detached = [=] (signal_data *data)
+    wf::signal_callback_t view_detached = [=] (wf::signal_data_t *data)
     {
         if (get_signaled_view(data) == view)
             stop_hook(true);
@@ -58,14 +59,14 @@ struct animation_hook : public wf_custom_data_t
 
         if (type == ANIMATION_TYPE_UNMAP)
         {
-            view->inc_keep_count();
+            view->take_ref();
             view->take_snapshot();
         }
 
         animation = std::make_unique<animation_t> ();
         animation->init(view, duration, type);
 
-        output->render->add_effect(&update_animation_hook, WF_OUTPUT_EFFECT_PRE);
+        output->render->add_effect(&update_animation_hook, wf::OUTPUT_EFFECT_PRE);
 
         /* We listen for just the detach-view signal. If the state changes in
          * some other way (i.e view unmapped while map animation), the hook
@@ -79,29 +80,21 @@ struct animation_hook : public wf_custom_data_t
         if (type == ANIMATION_TYPE_MINIMIZE && !detached)
             view->set_minimized(true);
 
-        /* Special case: we are animating view unmap, and we are the "last"
-         * who have a keep count on it. In this case, we can just descrease keep_count,
-         * which will destroy the view and ourselves */
-        if (view->keep_count == 1 && type == ANIMATION_TYPE_UNMAP)
-            return view->dec_keep_count();
-
         /* Will also delete this */
         view->erase_data(custom_data_id);
     }
 
     ~animation_hook()
     {
-        /* We do not want to decrease keep_count twice, see the special case
-         * above. */
-        if (type == ANIMATION_TYPE_UNMAP && view->keep_count > 0)
-            view->dec_keep_count();
+        if (type == ANIMATION_TYPE_UNMAP)
+            view->unref();
 
         output->render->rem_effect(&update_animation_hook);
         output->disconnect_signal("detach-view", &view_detached);
     }
 };
 
-class wayfire_animation : public wayfire_plugin_t
+class wayfire_animation : public wf::plugin_interface_t
 {
     wf_option open_animation, close_animation;
     wf_option duration, startup_duration;
@@ -115,7 +108,7 @@ class wayfire_animation : public wayfire_plugin_t
     void init(wayfire_config *config)
     {
         grab_interface->name = "animate";
-        grab_interface->abilities_mask = WF_ABILITY_CUSTOM_RENDERING;
+        grab_interface->capabilities = 0;
 
         auto section     = config->get_section("animate");
         open_animation   = section->get_option("open_animation", "fade");
@@ -135,7 +128,7 @@ class wayfire_animation : public wayfire_plugin_t
             section->get_option("fire_particle_size", "16");
 
         output->connect_signal("map-view", &on_view_mapped);
-        output->connect_signal("unmap-view", &on_view_unmapped);
+        output->connect_signal("pre-unmap-view", &on_view_unmapped);
         output->connect_signal("start-rendering", &on_render_start);
         output->connect_signal("view-minimize-request", &on_minimize_request);
 
@@ -162,8 +155,8 @@ class wayfire_animation : public wayfire_plugin_t
             if (wf::matcher::evaluate(animation_enabled_matcher, view))
                 return anim_type->as_string();
         }
-        else if (view->role == WF_VIEW_ROLE_TOPLEVEL ||
-            (view->role == WF_VIEW_ROLE_UNMANAGED && view->is_focuseable()))
+        else if (view->role == wf::VIEW_ROLE_TOPLEVEL ||
+            (view->role == wf::VIEW_ROLE_UNMANAGED && view->is_focuseable()))
         {
             return anim_type->as_string();
         }
@@ -180,7 +173,8 @@ class wayfire_animation : public wayfire_plugin_t
     }
 
     /* TODO: enhance - add more animations */
-    signal_callback_t on_view_mapped = [=] (signal_data *ddata) -> void
+    wf::signal_callback_t on_view_mapped =
+        [=] (wf::signal_data_t *ddata) -> void
     {
         auto view = get_signaled_view(ddata);
         auto animation = get_animation_for_view(open_animation, view);
@@ -193,7 +187,7 @@ class wayfire_animation : public wayfire_plugin_t
             set_animation<FireAnimation> (view, ANIMATION_TYPE_MAP);
     };
 
-    signal_callback_t on_view_unmapped = [=] (signal_data *data) -> void
+    wf::signal_callback_t on_view_unmapped = [=] (wf::signal_data_t *data)
     {
         auto view = get_signaled_view(data);
         auto animation = get_animation_for_view(close_animation, view);
@@ -206,7 +200,7 @@ class wayfire_animation : public wayfire_plugin_t
             set_animation<FireAnimation> (view, ANIMATION_TYPE_UNMAP);
     };
 
-    signal_callback_t on_minimize_request = [=] (signal_data *data) -> void
+    wf::signal_callback_t on_minimize_request = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<view_minimize_request_signal*> (data);
         if (ev->state) {
@@ -217,24 +211,18 @@ class wayfire_animation : public wayfire_plugin_t
         }
     };
 
-    signal_callback_t on_render_start = [=] (signal_data *data) -> void
+    wf::signal_callback_t on_render_start = [=] (wf::signal_data_t *data)
     {
-        new wf_system_fade(output, wf_duration{startup_duration});
+        new wf_system_fade(output, startup_duration);
     };
 
     void fini()
     {
         output->disconnect_signal("map-view", &on_view_mapped);
-        output->disconnect_signal("unmap-view", &on_view_unmapped);
+        output->disconnect_signal("pre-unmap-view", &on_view_unmapped);
         output->disconnect_signal("start-rendering", &on_render_start);
         output->disconnect_signal("view-minimize-request", &on_minimize_request);
     }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_animation();
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wayfire_animation);

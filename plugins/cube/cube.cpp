@@ -1,6 +1,8 @@
+#include <plugin.hpp>
 #include <opengl.hpp>
 #include <output.hpp>
 #include <core.hpp>
+#include <workspace-stream.hpp>
 #include <render-manager.hpp>
 #include <workspace-manager.hpp>
 
@@ -22,16 +24,16 @@
 #include <GLES3/gl32.h>
 #endif
 
-class wayfire_cube : public wayfire_plugin_t
+class wayfire_cube : public wf::plugin_interface_t
 {
     button_callback activate_binding;
     activator_callback rotate_left, rotate_right;
-    render_hook_t renderer;
+    wf::render_hook_t renderer;
 
     /* Used to restore the pointer where the grab started */
     wf_point saved_pointer_position;
 
-    std::vector<std::unique_ptr<wf_workspace_stream>> streams;
+    std::vector<wf::workspace_stream_t> streams;
 
     wf_option XVelocity, YVelocity, ZVelocity;
     wf_option zoom_opt;
@@ -83,7 +85,7 @@ class wayfire_cube : public wayfire_plugin_t
     void init(wayfire_config *config)
     {
         grab_interface->name = "cube";
-        grab_interface->abilities_mask = WF_ABILITY_CONTROL_WM;
+        grab_interface->capabilities = wf::CAPABILITY_MANAGE_COMPOSITOR;
 
         auto section = config->get_section("cube");
 
@@ -234,9 +236,6 @@ class wayfire_cube : public wayfire_plugin_t
         (void) vh; // silence compiler warning
 
         streams.resize(vw);
-        for(int i = 0; i < vw; i++)
-            streams[i] = std::make_unique<wf_workspace_stream>();
-
         animation.projection = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
     }
 
@@ -263,7 +262,7 @@ class wayfire_cube : public wayfire_plugin_t
     /* Disable custom rendering and deactivate plugin */
     void deactivate()
     {
-        output->render->reset_renderer();
+        output->render->set_renderer(nullptr);
 
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
@@ -281,7 +280,7 @@ class wayfire_cube : public wayfire_plugin_t
         animation.rotation = {0, 0};
 
         for (auto& stream : streams)
-            output->render->workspace_stream_stop(stream.get());
+            output->render->workspace_stream_stop(stream);
     }
 
     /* Sets attributes target to such values that the cube effect isn't visible,
@@ -323,9 +322,9 @@ class wayfire_cube : public wayfire_plugin_t
         if (!activate())
             return;
 
-        GetTuple(px, py, core->get_cursor_position());
+        GetTuple(px, py, wf::get_core().get_cursor_position());
         saved_pointer_position = {px, py};
-        core->hide_cursor();
+        wf::get_core().hide_cursor();
 
         /* Rotations, offset_y and zoom stay as they are now, as they have been grabbed.
          * offset_z changes to the default one.
@@ -353,8 +352,9 @@ class wayfire_cube : public wayfire_plugin_t
     /* Mouse grab was released */
     void input_ungrabbed()
     {
-        core->set_cursor("default");
-        core->warp_cursor(saved_pointer_position.x, saved_pointer_position.y);
+        wf::get_core().set_cursor("default");
+        wf::get_core().warp_cursor(
+            saved_pointer_position.x, saved_pointer_position.y);
 
         animation.in_exit = true;
 
@@ -395,13 +395,13 @@ class wayfire_cube : public wayfire_plugin_t
 
         for(size_t i = 0; i < streams.size(); i++)
         {
-            if (!streams[i]->running)
+            if (!streams[i].running)
             {
-                streams[i]->ws = std::make_tuple(i, vy);
-                output->render->workspace_stream_start(streams[i].get());
+                streams[i].ws = std::make_tuple(i, vy);
+                output->render->workspace_stream_start(streams[i]);
             } else
             {
-                output->render->workspace_stream_update(streams[i].get());
+                output->render->workspace_stream_update(streams[i]);
             }
         }
     }
@@ -437,7 +437,7 @@ class wayfire_cube : public wayfire_plugin_t
         for(size_t i = 0; i < streams.size(); i++)
         {
             int index = (vx + i) % streams.size();
-            GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index]->buffer.tex));
+            GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index].buffer.tex));
 
             auto model = calculate_model_matrix(i, fb_transform);
             GL_CALL(glUniformMatrix4fv(program.modelID, 1, GL_FALSE, &model[0][0]));
@@ -583,17 +583,11 @@ class wayfire_cube : public wayfire_plugin_t
 
         OpenGL::render_begin();
         for (size_t i = 0; i < streams.size(); i++)
-            streams[i]->buffer.release();
+            streams[i].buffer.release();
         OpenGL::render_end();
 
         output->rem_binding(&activate_binding);
     }
 };
 
-extern "C"
-{
-    wayfire_plugin_t *newInstance()
-    {
-        return new wayfire_cube();
-    }
-}
+DECLARE_WAYFIRE_PLUGIN(wayfire_cube);

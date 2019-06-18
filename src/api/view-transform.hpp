@@ -1,10 +1,6 @@
 #ifndef VIEW_TRANSFORM_HPP
 #define VIEW_TRANSFORM_HPP
 
-#define GLM_FORCE_RADIANS
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
 #include "view.hpp"
 #include "opengl.hpp"
 #include "debug.hpp"
@@ -29,6 +25,8 @@ class wf_view_transformer_t
          * Higher numbers indicate that this transform should come after other transforms */
         virtual uint32_t get_z_order() = 0;
 
+        // TODO: rename
+        // transformed_to_local_point -> untransform/reverse()
         virtual wf_point local_to_transformed_point(wf_geometry view, wf_point point) = 0;
         virtual wf_point transformed_to_local_point(wf_geometry view, wf_point point) = 0;
 
@@ -123,6 +121,6 @@ class wf_3D_view : public wf_view_transformer_t
 glm::mat4 get_output_matrix_from_transform(wl_output_transform transform);
 
 /* a matrix which can be used to render wf_geometry directly */
-glm::mat4 output_get_projection(wayfire_output *output);
+glm::mat4 output_get_projection(wf::output_t *output);
 
 #endif /* end of include guard: VIEW_TRANSFORM_HPP */
