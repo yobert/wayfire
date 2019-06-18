@@ -88,8 +88,8 @@ class wf_kawase_blur : public wf_blur_base
 
     int blur_fb0(int width, int height) override
     {
-        int iterations = iterations_opt->as_int();
-        float offset = offset_opt->as_double();
+        int iterations = iterations_opt->as_cached_int();
+        float offset = offset_opt->as_cached_double();
         int sampleWidth, sampleHeight;
 
         /* Upload data to shader */
@@ -148,7 +148,7 @@ class wf_kawase_blur : public wf_blur_base
 
     int calculate_blur_radius() override
     {
-        return pow(2, iterations_opt->as_int() + 1) * offset_opt->as_double() * degrade_opt->as_int();
+        return pow(2, iterations_opt->as_cached_int() + 1) * offset_opt->as_cached_double() * degrade_opt->as_cached_int();
     }
 };
 

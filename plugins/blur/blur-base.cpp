@@ -84,7 +84,7 @@ wf_blur_base::~wf_blur_base()
 
 int wf_blur_base::calculate_blur_radius()
 {
-    return offset_opt->as_double() * degrade_opt->as_int() * iterations_opt->as_int();
+    return offset_opt->as_cached_double() * degrade_opt->as_cached_int() * iterations_opt->as_cached_int();
 }
 
 void wf_blur_base::damage_all_workspaces()
