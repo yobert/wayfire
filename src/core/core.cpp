@@ -401,7 +401,7 @@ void wf::compositor_core_impl_t::focus_view(wayfire_view v)
     if (v->get_output() != active_output)
         focus_output(v->get_output());
 
-    active_output->focus_view(v);
+    active_output->focus_view(v, true);
 }
 
 void wf::compositor_core_impl_t::erase_view(wayfire_view v)

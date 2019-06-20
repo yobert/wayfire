@@ -262,7 +262,7 @@ void wf::view_interface_t::set_minimized(bool minim)
     } else
     {
         get_output()->workspace->add_view(self(), wf::LAYER_WORKSPACE);
-        get_output()->focus_view(self());
+        get_output()->focus_view(self(), true);
     }
 
     desktop_state_updated();

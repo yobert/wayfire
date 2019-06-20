@@ -164,6 +164,7 @@ class compositor_core_t : public wf::object_base_t
 
     /**
      * Focus the given view and its output (if necessary).
+     * Will also bring the view to the top of the stack.
      */
     virtual void focus_view(wayfire_view win) = 0;
 
