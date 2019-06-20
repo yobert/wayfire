@@ -6,9 +6,9 @@ extern "C"
 #include <wlr/types/wlr_seat.h>
 }
 
-#include "input-inhibit.hpp"
 #include "signal-definitions.hpp"
 #include "../core-impl.hpp"
+#include "../../output/output-impl.hpp"
 #include "touch.hpp"
 #include "keyboard.hpp"
 #include "cursor.hpp"
@@ -146,6 +146,14 @@ input_manager::input_manager()
 
     wf::get_core().connect_signal("reload-config", &config_updated);
 
+    output_added = [=] (wf::signal_data_t *data)
+    {
+        auto wo = (wf::output_impl_t*)get_signaled_output(data);
+        if (exclusive_client != nullptr)
+            wo->inhibit_plugins();
+    };
+    wf::get_core().output_layout->connect_signal("output-added", &output_added);
+
     /*
 
     session_listener.notify = session_signal_handler;
@@ -156,6 +164,12 @@ input_manager::input_manager()
 input_manager::~input_manager()
 {
     wf::get_core().disconnect_signal("reload-config", &config_updated);
+    wf::get_core().disconnect_signal("_surface_mapped",
+        &surface_map_state_changed);
+    wf::get_core().disconnect_signal("_surface_unmapped",
+        &surface_map_state_changed);
+    wf::get_core().output_layout->disconnect_signal(
+        "output-added", &output_added);
 }
 
 uint32_t input_manager::get_modifiers()
@@ -239,7 +253,17 @@ void input_manager::toggle_session()
 bool input_manager::can_focus_surface(wf::surface_interface_t *surface)
 {
     if (exclusive_client && surface->get_client() != exclusive_client)
+    {
+        /* We have exclusive focus surface, for ex. a lockscreen.
+         * The only kind of things we can focus are OSKs and similar */
+        auto view = (wf::view_interface_t*) surface->get_main_surface();
+        if (view && view->get_output()) {
+            auto layer =
+                view->get_output()->workspace->get_view_layer(view->self());
+            return  layer == wf::LAYER_DESKTOP_WIDGET;
+        }
         return false;
+    }
 
     return true;
 }
@@ -274,10 +298,12 @@ void input_manager::set_exclusive_focus(wl_client *client)
     exclusive_client = client;
     for (auto& wo : wf::get_core().output_layout->get_outputs())
     {
-        if (client)
-            inhibit_output(wo);
-        else
-            uninhibit_output(wo);
+        auto impl = (wf::output_impl_t*) wo;
+        if (client) {
+            impl->inhibit_plugins();
+        } else {
+            impl->uninhibit_plugins();
+        }
     }
 
     /* We no longer have an exclusively focused client, so we should restore

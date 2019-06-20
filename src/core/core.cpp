@@ -32,7 +32,6 @@ extern "C"
 #include "output.hpp"
 #include "workspace-manager.hpp"
 #include "seat/input-manager.hpp"
-#include "seat/input-inhibit.hpp"
 #include "seat/touch.hpp"
 #include "../view/view-impl.hpp"
 #include "../output/wayfire-shell.hpp"
@@ -130,7 +129,7 @@ void wf::compositor_core_impl_t::init(wayfire_config *conf)
         output_layout->get_handle());
 
     /* input-inhibit setup */
-    protocols.input_inhibit = create_input_inhibit();
+    protocols.input_inhibit = wlr_input_inhibit_manager_create(display);
     input_inhibit_activated.set_callback([&] (void*) {
         input->set_exclusive_focus(protocols.input_inhibit->active_client); });
     input_inhibit_activated.connect(&protocols.input_inhibit->events.activate);

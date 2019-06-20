@@ -81,9 +81,13 @@ class output_t : public wf::object_base_t
      * same abilities is already active. However the same plugin might be
      * activated twice.
      *
+     * @param ignore_input_inhibit If set to true, plugin activation will be
+     * allowed even if a lockscreen is active.
+     *
      * @return true if the plugin was successfully activated, false otherwise.
      */
-    virtual bool activate_plugin(const plugin_grab_interface_uptr& owner) = 0;
+    virtual bool activate_plugin(const plugin_grab_interface_uptr& owner,
+        bool ignore_input_inhibit = false) = 0;
 
     /**
      * Deactivates a plugin once, i.e if the plugin was activated more than

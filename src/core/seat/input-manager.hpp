@@ -93,6 +93,7 @@ class input_manager
         std::vector<std::function<void()>> match_keys(uint32_t mods, uint32_t key, uint32_t mod_binding_key = 0);
 
         wf::signal_callback_t surface_map_state_changed;
+        wf::signal_callback_t output_added;
 
         wf_region constraint_region;
         wlr_pointer_constraint_v1 *active_pointer_constraint = nullptr;

@@ -6,14 +6,16 @@
 #include "workspace-manager.hpp"
 
 #include "../view/xdg-shell.hpp"
-#include "seat/input-inhibit.hpp"
+#include "../output/output-impl.hpp"
 #include "signal-definitions.hpp"
 
 void wayfire_exit::init(wayfire_config*)
 {
     key = [](uint32_t key)
     {
-        if (is_output_inhibited(wf::get_core().get_active_output()))
+        auto output_impl =
+            static_cast<wf::output_impl_t*> (wf::get_core().get_active_output());
+        if (output_impl->is_inhibited())
             return;
 
         wf::get_core().emit_signal("shutdown", nullptr);

@@ -237,12 +237,16 @@ wayfire_view wf::output_impl_t::get_active_view() const
     return active_view;
 }
 
-bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner)
+bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner,
+    bool ignore_inhibit)
 {
     if (!owner)
         return false;
 
     if (wf::get_core().get_active_output() != this)
+        return false;
+
+    if (this->inhibited && !ignore_inhibit)
         return false;
 
     if (active_plugins.find(owner.get()) != active_plugins.end())
@@ -303,8 +307,10 @@ wf::plugin_grab_interface_t* wf::output_impl_t::get_input_grab_interface()
     return nullptr;
 }
 
-void wf::output_impl_t::break_active_plugins()
+void wf::output_impl_t::inhibit_plugins()
 {
+    this->inhibited = true;
+
     std::vector<wf::plugin_grab_interface_t*> ifaces;
     for (auto p : active_plugins)
     {
@@ -314,6 +320,16 @@ void wf::output_impl_t::break_active_plugins()
 
     for (auto p : ifaces)
         p->callbacks.cancel();
+}
+
+void wf::output_impl_t::uninhibit_plugins()
+{
+    this->inhibited = false;
+}
+
+bool wf::output_impl_t::is_inhibited() const
+{
+    return this->inhibited;
 }
 
 /* simple wrappers for wf::get_core_impl().input, as it isn't exposed to plugins */
