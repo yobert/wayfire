@@ -38,19 +38,23 @@ enum layer_t
     LAYER_FULLSCREEN = (1 << 5),
     /* The lockscreen layer, typically lockscreens or autohiding panels */
     LAYER_LOCK       = (1 << 6),
+    /* The layer where "desktop widgets" are positioned, for example an OSK
+     * or a sound control popup */
+    LAYER_DESKTOP_WIDGET = (1 << 7),
 
     /* The minimized layer. It has no z order since it is not visible at all */
-    LAYER_MINIMIZED  = (1 << 7)
+    LAYER_MINIMIZED  = (1 << 8)
 };
 
-constexpr int TOTAL_LAYERS = 8;
+constexpr int TOTAL_LAYERS = 9;
 
 /* The layers where regular views are placed */
 constexpr int WM_LAYERS     = (wf::LAYER_WORKSPACE  | wf::LAYER_FULLSCREEN);
 /* All layers which are used for regular clients */
 constexpr int MIDDLE_LAYERS = (wf::WM_LAYERS        | wf::LAYER_XWAYLAND);
 /* All layers which typically sit on top of other layers */
-constexpr int ABOVE_LAYERS  = (wf::LAYER_TOP        | wf::LAYER_LOCK);
+constexpr int ABOVE_LAYERS  = (wf::LAYER_TOP        | wf::LAYER_LOCK |
+                               wf::LAYER_DESKTOP_WIDGET);
 /* All layers which typically sit below other layers */
 constexpr int BELOW_LAYERS  = (wf::LAYER_BACKGROUND | wf::LAYER_BOTTOM);
 
