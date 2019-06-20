@@ -14,9 +14,7 @@ extern "C"
     struct wlr_data_device_manager;
     struct wlr_data_control_manager_v1;
     struct wlr_linux_dmabuf_v1;
-    struct wlr_gamma_control_manager;
     struct wlr_gamma_control_manager_v1;
-    struct wlr_screenshooter;
     struct wlr_xdg_output_manager_v1;
     struct wlr_export_dmabuf_manager_v1;
     struct wlr_server_decoration_manager;
@@ -77,9 +75,7 @@ class compositor_core_t : public wf::object_base_t
     {
         wlr_data_device_manager *data_device;
         wlr_data_control_manager_v1 *data_control;
-        wlr_gamma_control_manager *gamma;
         wlr_gamma_control_manager_v1 *gamma_v1;
-        wlr_screenshooter *screenshooter;
         wlr_screencopy_manager_v1 *screencopy;
         wlr_linux_dmabuf_v1 *linux_dmabuf;
         wlr_export_dmabuf_manager_v1 *export_dmabuf;
