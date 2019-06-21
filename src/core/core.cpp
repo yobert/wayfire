@@ -1,7 +1,6 @@
 extern "C"
 {
 #include <wlr/config.h>
-#include <wlr/types/wlr_screenshooter.h>
 #include <wlr/types/wlr_data_control_v1.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_virtual_keyboard_v1.h>
@@ -12,7 +11,6 @@ extern "C"
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_export_dmabuf_v1.h>
 #include <wlr/types/wlr_server_decoration.h>
-#include <wlr/types/wlr_gamma_control.h>
 #include <wlr/types/wlr_gamma_control_v1.h>
 #include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
@@ -97,9 +95,7 @@ void wf::compositor_core_impl_t::init(wayfire_config *conf)
     input = std::make_unique<input_manager>();
     log_info("input is %p", input.get());
 
-    protocols.screenshooter = wlr_screenshooter_create(display);
     protocols.screencopy = wlr_screencopy_manager_v1_create(display);
-    protocols.gamma = wlr_gamma_control_manager_create(display);
     protocols.gamma_v1 = wlr_gamma_control_manager_v1_create(display);
     protocols.linux_dmabuf = wlr_linux_dmabuf_v1_create(display, renderer);
     protocols.export_dmabuf = wlr_export_dmabuf_manager_v1_create(display);
