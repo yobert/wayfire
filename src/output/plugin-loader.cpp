@@ -87,11 +87,16 @@ void plugin_manager::destroy_plugin(wayfire_plugin& p)
 
     p->fini();
 
-    /** dlopen()/dlclose() do reference counting */
-    if (p->handle)
-        dlclose(p->handle);
-
+    auto handle = p->handle;
     p.reset();
+
+    /* dlopen()/dlclose() do reference counting, so we should close the plugin
+     * as many times as we opened it.
+     *
+     * We also need to close the handle after deallocating the plugin, otherwise
+     * we unload its destructor before calling it. */
+    if (handle)
+        dlclose(handle);
 }
 
 wayfire_plugin plugin_manager::load_plugin_from_file(std::string path)
