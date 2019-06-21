@@ -222,6 +222,23 @@ class wayfire_grid : public wf::plugin_interface_t
 
     wf_option animation_duration, animation_type;
 
+    wf_option restore_opt;
+    std::string restore_opt_str;
+    const std::string restore_opt_default = "toggle";
+
+    activator_callback restore = [=] (wf_activator_source, uint32_t)
+    {
+        auto view = output->get_active_view();
+        handle_slot(view, 0, true);
+    };
+    wf_option_callback restore_opt_changed = [=] ()
+    {
+        output->rem_binding(&restore);
+        restore_opt_str = restore_opt->as_string();
+        if (restore_opt_str != restore_opt_default)
+            output->add_activator(restore_opt, &restore);
+    };
+
     nonstd::observer_ptr<wayfire_grid_view_cdata>
         ensure_grid_view(wayfire_view view)
     {
@@ -255,6 +272,11 @@ class wayfire_grid : public wf::plugin_interface_t
             output->add_activator(keys[i], &bindings[i]);
         }
 
+        restore_opt = section->get_option("restore", restore_opt_default);
+        restore_opt_str = restore_opt->as_string();
+        restore_opt_changed();
+        restore_opt->add_updated_handler(&restore_opt_changed);
+
         output->connect_signal("reserved-workarea", &on_workarea_changed);
         output->connect_signal("view-snap", &on_snap_signal);
         output->connect_signal("query-snap-geometry", &on_snap_query);
@@ -265,11 +287,19 @@ class wayfire_grid : public wf::plugin_interface_t
     void handle_slot(wayfire_view view, const wf_geometry workarea, int slot, bool comes_from_maximize_request)
     {
         wf_geometry target = get_slot_dimensions(slot, workarea);
-        if (view->maximized && view->get_wm_geometry() == target)
+        if (view->tiled_edges && view->get_wm_geometry() == target)
         {
-            return;
+            if (restore_opt_str == restore_opt_default)
+            {
+                slot = 0;
+                comes_from_maximize_request = true;
+            }
+            else
+            {
+                return;
+            }
         }
-        else if (!view->has_data<wf_grid_saved_view_geometry>() && slot)
+        if (!view->has_data<wf_grid_saved_view_geometry>() && slot)
         {
             view->get_data_safe<wf_grid_saved_view_geometry>()
                 ->geometry = view->get_wm_geometry();
@@ -277,6 +307,7 @@ class wayfire_grid : public wf::plugin_interface_t
         else if (view->has_data<wf_grid_saved_view_geometry>() && slot == 0)
         {
             target = view->get_data_safe<wf_grid_saved_view_geometry>()->geometry;
+
             /* If we have a request from another plugin, for ex. move, we want
              * to make sure the view stays under the pointer. However, when it was
              * a normal restore caused by a client request, we want to restore the
@@ -452,6 +483,8 @@ class wayfire_grid : public wf::plugin_interface_t
     {
         for (int i = 1; i < 10; i++)
             output->rem_binding(&bindings[i]);
+
+        output->rem_binding(&restore);
 
         output->disconnect_signal("reserved-workarea", &on_workarea_changed);
         output->disconnect_signal("view-snap", &on_snap_signal);
