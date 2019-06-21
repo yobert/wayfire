@@ -34,7 +34,10 @@ static int repeat_once_handler(void *callback)
  * 2. Repeatable bindings - for example, if the user binds a keybinding, then
  * after a specific delay the command begins to be executed repeatedly, until
  * the user released the key. In the config file, repeatable bindings have the
- * prefix repeatable_ */
+ * prefix repeatable_
+ * 3. Always bindings - bindings that can be executed even if a plugin is already
+ * active, or if the screen is locked. They have a prefix always_
+ * */
 
 class wayfire_command : public wf::plugin_interface_t
 {
@@ -49,19 +52,26 @@ class wayfire_command : public wf::plugin_interface_t
 
     wl_event_source *repeat_source = NULL, *repeat_delay_source = NULL;
 
-    void on_binding(std::string command, bool enable_repeat, wf_activator_source source,
+    enum binding_mode {
+        BINDING_NORMAL,
+        BINDING_REPEAT,
+        BINDING_ALWAYS,
+    };
+    void on_binding(std::string command, binding_mode mode, wf_activator_source source,
         uint32_t value)
     {
         /* We already have a repeatable command, do not accept further bindings */
         if (repeat.pressed_key || repeat.pressed_button)
             return;
 
-        if (!output->activate_plugin(grab_interface))
+        if (!output->activate_plugin(grab_interface, mode == BINDING_ALWAYS))
             return;
 
         wf::get_core().run(command.c_str());
+
         /* No repeat necessary in any of those cases */
-        if (!enable_repeat || source == ACTIVATOR_SOURCE_GESTURE || value == 0)
+        if (mode != BINDING_REPEAT || source == ACTIVATOR_SOURCE_GESTURE ||
+            value == 0)
         {
             output->deactivate_plugin(grab_interface);
             return;
@@ -157,29 +167,38 @@ class wayfire_command : public wf::plugin_interface_t
         }
 
         bindings.resize(command_names.size());
-        const std::string norepeat;
+        const std::string norepeat = "...norepeat...";
+        const std::string noalways = "...noalways...";
 
         for (size_t i = 0; i < command_names.size(); i++)
         {
             auto command = exec_prefix + command_names[i];
             auto regular_binding_name = "binding_" + command_names[i];
             auto repeat_binding_name = "repeatable_binding_" + command_names[i];
+            auto always_binding_name = "always_binding_" + command_names[i];
 
             auto executable = section->get_option(command, "")->as_string();
             auto repeatable_opt = section->get_option(repeat_binding_name, norepeat);
             auto regular_opt = section->get_option(regular_binding_name, "none");
+            auto always_opt = section->get_option(always_binding_name, noalways);
 
             using namespace std::placeholders;
             if (repeatable_opt->as_string() != norepeat)
             {
                 bindings[i] = std::bind(std::mem_fn(&wayfire_command::on_binding),
-                    this, executable, true, _1, _2);
+                    this, executable, BINDING_REPEAT, _1, _2);
                 output->add_activator(repeatable_opt, &bindings[i]);
+            }
+            else if (always_opt->as_string() != noalways)
+            {
+                bindings[i] = std::bind(std::mem_fn(&wayfire_command::on_binding),
+                    this, executable, BINDING_ALWAYS, _1, _2);
+                output->add_activator(always_opt, &bindings[i]);
             }
             else
             {
                 bindings[i] = std::bind(std::mem_fn(&wayfire_command::on_binding),
-                    this, executable, false, _1, _2);
+                    this, executable, BINDING_NORMAL, _1, _2);
                 output->add_activator(regular_opt, &bindings[i]);
             }
         }
