@@ -168,7 +168,8 @@ void wf_gesture_recognizer::continue_gesture(int id, int sx, int sy)
     }
 }
 
-void wf_gesture_recognizer::update_touch(int32_t time, int id, int sx, int sy)
+void wf_gesture_recognizer::update_touch(int32_t time, int id,
+    int sx, int sy, bool real_update)
 {
     current[id].sx = sx;
     current[id].sy = sy;
@@ -178,7 +179,8 @@ void wf_gesture_recognizer::update_touch(int32_t time, int id, int sx, int sy)
         continue_gesture(id, sx, sy);
     } else if (current[id].sent_to_client)
     {
-        wf::get_core_impl().input->handle_touch_motion(time, id, sx, sy);
+        wf::get_core_impl().input->handle_touch_motion(time, id,
+            sx, sy, real_update);
     }
 }
 
@@ -265,7 +267,7 @@ wf_touch::wf_touch(wlr_cursor *cursor)
         int ix, iy;
         wf::get_core().output_layout->get_output_coords_at(lx, ly, ix, iy);
         touch->gesture_recognizer.update_touch(
-            ev->time_msec, ev->touch_id, lx, ly);
+            ev->time_msec, ev->touch_id, lx, ly, true);
         wlr_idle_notify_activity(wf::get_core().protocols.idle,
             wf::get_core().get_current_seat());
     });
@@ -296,7 +298,7 @@ void wf_touch::end_touch_down_grab()
         for (auto& f : gesture_recognizer.current)
         {
             wf::get_core_impl().input->handle_touch_motion(get_current_time(),
-                f.first, f.second.sx, f.second.sy);
+                f.first, f.second.sx, f.second.sy, false);
         }
     }
 }
@@ -397,13 +399,13 @@ void input_manager::handle_touch_up(uint32_t time, int32_t id)
 }
 
 void input_manager::handle_touch_motion(uint32_t time, int32_t id,
-    int32_t x, int32_t y)
+    int32_t x, int32_t y, bool real_update)
 {
     if (active_grab)
     {
         auto wo = wf::get_core().output_layout->get_output_at(x, y);
         auto og = wo->get_layout_geometry();
-        if (active_grab->callbacks.touch.motion)
+        if (active_grab->callbacks.touch.motion && real_update)
             active_grab->callbacks.touch.motion(id, x - og.x, y - og.y);
 
         return;
@@ -431,7 +433,7 @@ void input_manager::handle_touch_motion(uint32_t time, int32_t id,
     update_drag_icon();
 
     auto compositor_surface = wf_compositor_surface_from_surface(surface);
-    if (id == 0 && compositor_surface)
+    if (id == 0 && compositor_surface && real_update)
         compositor_surface->on_touch_motion(lx, ly);
 }
 

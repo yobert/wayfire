@@ -129,8 +129,12 @@ input_manager::input_manager()
             if (ev && our_touch->grabbed_surface == ev->surface && !ev->surface->is_mapped())
                 our_touch->end_touch_down_grab();
 
-            for (auto f : our_touch->gesture_recognizer.current)
-                handle_touch_motion(get_current_time(), f.first, f.second.sx, f.second.sy);
+            auto touch_points = our_touch->gesture_recognizer.current;
+            for (auto f : touch_points)
+            {
+                our_touch->gesture_recognizer.update_touch(get_current_time(),
+                    f.first, f.second.sx, f.second.sy, false);
+            }
         }
     };
     wf::get_core().connect_signal("_surface_mapped", &surface_map_state_changed);

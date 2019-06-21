@@ -165,7 +165,7 @@ class input_manager
         void handle_keyboard_mod(uint32_t key, uint32_t state);
 
         void handle_touch_down  (uint32_t time, int32_t id, int32_t x, int32_t y);
-        void handle_touch_motion(uint32_t time, int32_t id, int32_t x, int32_t y);
+        void handle_touch_motion(uint32_t time, int32_t id, int32_t x, int32_t y, bool real_update);
         void handle_touch_up    (uint32_t time, int32_t id);
 
         void handle_gesture(wf_touch_gesture g);

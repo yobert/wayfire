@@ -382,7 +382,7 @@ void wf::compositor_core_impl_t::add_view(
 void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
 {
     if (new_focus && !new_focus->is_mapped())
-        return set_active_view(nullptr);
+        new_focus = nullptr;
 
     bool refocus = (input->keyboard_focus == new_focus);
     log_debug("set active view to %s", new_focus ? new_focus->get_title().c_str() : "nil");
@@ -404,7 +404,7 @@ void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
     auto seat = get_current_seat();
     if (new_focus)
     {
-        wf::get_core_impl().input->set_keyboard_focus(new_focus, seat);
+        input->set_keyboard_focus(new_focus, seat);
 
         /* Don't resend activated if focusing the exact same view, some Xwayland
          * programs have problems with this.
@@ -414,7 +414,7 @@ void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
             new_focus->set_activated(true);
     } else
     {
-        wf::get_core_impl().input->set_keyboard_focus(nullptr, seat);
+        input->set_keyboard_focus(nullptr, seat);
     }
 
     if (!input->keyboard_focus ||

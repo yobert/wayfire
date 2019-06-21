@@ -23,7 +23,7 @@ struct wf_gesture_recognizer
 
     std::map<int, finger> current;
 
-    void update_touch(int32_t time, int id, int sx, int sy);
+    void update_touch(int32_t time, int id, int sx, int sy, bool real_update);
 
     void register_touch(int time, int id, int sx, int sy);
     void unregister_touch(int32_t time, int32_t id);
