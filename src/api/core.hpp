@@ -11,6 +11,7 @@ extern "C"
     struct wlr_backend;
     struct wlr_renderer;
     struct wlr_seat;
+    struct wlr_cursor;
     struct wlr_data_device_manager;
     struct wlr_data_control_manager_v1;
     struct wlr_linux_dmabuf_v1;
@@ -148,6 +149,11 @@ class compositor_core_t : public wf::object_base_t
      */
     virtual std::vector<nonstd::observer_ptr<wf::input_device_t>>
         get_input_devices() = 0;
+
+    /**
+     * @return the wlr_cursor used for the input devices
+     */
+    virtual wlr_cursor* get_wlr_cursor() = 0;
 
     /**
      * Add a view to the compositor's view list. The view will be freed when

@@ -63,6 +63,7 @@ class compositor_core_impl_t : public compositor_core_t
     wf::surface_interface_t *get_touch_focus() override;
 
     std::vector<nonstd::observer_ptr<wf::input_device_t>> get_input_devices() override;
+    virtual wlr_cursor* get_wlr_cursor() override;
 
     void add_view(std::unique_ptr<wf::view_interface_t> view) override;
     void set_active_view(wayfire_view v) override;

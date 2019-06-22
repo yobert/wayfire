@@ -258,6 +258,11 @@ wf::compositor_core_impl_t::get_input_devices()
     return list;
 }
 
+wlr_cursor* wf::compositor_core_impl_t::get_wlr_cursor()
+{
+    return input->cursor->cursor;
+}
+
 void wf::compositor_core_impl_t::focus_output(wf::output_t *wo)
 {
     assert(wo);
