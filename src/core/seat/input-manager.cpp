@@ -71,6 +71,10 @@ void input_manager::handle_new_input(wlr_input_device *dev)
         wlr_cursor_map_input_to_output(cursor->cursor, dev, wo->handle);
 
     update_capabilities();
+
+    wf::input_device_signal data;
+    data.device = nonstd::make_observer(input_devices.back().get());
+    wf::get_core().emit_signal("input-device-added", &data);
 }
 
 void input_manager::handle_input_destroyed(wlr_input_device *dev)
@@ -81,6 +85,12 @@ void input_manager::handle_input_destroyed(wlr_input_device *dev)
         [=] (const std::unique_ptr<wf_input_device_internal>& idev) {
             return idev->get_wlr_handle() == dev;
         });
+
+    // devices should be unique
+    wf::input_device_signal data;
+    data.device = nonstd::make_observer(it->get());
+    wf::get_core().emit_signal("input-device-removed", &data);
+
     input_devices.erase(it, input_devices.end());
 
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)

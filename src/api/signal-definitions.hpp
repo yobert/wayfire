@@ -104,6 +104,12 @@ namespace wf
         nonstd::observer_ptr<input_device_t> device;
         bool state;
     };
+
+    /* in input-device-added and input-device-removed signals from core */
+    struct input_device_signal : public signal_data_t
+    {
+        nonstd::observer_ptr<input_device_t> device;
+    };
 }
 
 #endif
