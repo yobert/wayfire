@@ -199,7 +199,7 @@ bool input_manager::grab_input(wf::plugin_grab_interface_t* iface)
     active_grab = iface;
 
     auto kbd = wlr_seat_get_keyboard(seat);
-    auto mods = kbd->modifiers;
+    auto mods = kbd ? kbd->modifiers : wlr_keyboard_modifiers {0, 0, 0, 0};
     mods.depressed = 0;
     wlr_seat_keyboard_send_modifiers(seat, &mods);
 
@@ -211,10 +211,9 @@ bool input_manager::grab_input(wf::plugin_grab_interface_t* iface)
 
 void input_manager::ungrab_input()
 {
-    if (active_grab)
-        wf::get_core().set_active_view(active_grab->output->get_active_view());
-
     active_grab = nullptr;
+    wf::get_core().set_active_view(
+        wf::get_core().get_active_output()->get_active_view());
 
     /* We must update cursor focus, however, if we update "too soon", the current
      * pointer event (button press/release, maybe something else) will be sent to
