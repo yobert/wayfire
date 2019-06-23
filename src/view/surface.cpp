@@ -273,6 +273,7 @@ void wf::wlr_surface_base_t::unmap()
 
     this->surface->data = NULL;
     this->surface = nullptr;
+    this->_as_si->priv->wsurface = nullptr;
     emit_map_state_change(_as_si);
 
     on_new_subsurface.disconnect();
