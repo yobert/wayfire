@@ -268,6 +268,7 @@ void wf::wlr_surface_base_t::map(wlr_surface *surface)
 void wf::wlr_surface_base_t::unmap()
 {
     assert(this->surface);
+    apply_surface_damage();
     damage_surface_box({.x = 0, .y = 0,
         .width = _get_size().width, .height = _get_size().height});
 
@@ -302,7 +303,7 @@ void wf::wlr_surface_base_t::damage_surface_box(const wlr_box& box)
         dynamic_cast<wlr_surface_base_t*> (_as_si->priv->parent_surface);
 
     /* wlr_view_t overrides damage_surface_box and applies it to the output */
-    if (parent)
+    if (parent && parent->_is_mapped())
     {
         wlr_box parent_box = box;
         parent_box.x += _as_si->get_offset().x;
