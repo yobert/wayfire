@@ -198,7 +198,9 @@ wf::wlr_surface_base_t::wlr_surface_base_t(surface_interface_t *self)
             return;
 
         // will be deleted by destruct()
-        new subsurface_implementation_t(sub, _as_si);
+        auto subsurface = new subsurface_implementation_t(sub, _as_si);
+        if (sub->mapped)
+            subsurface->map(sub->surface);
     };
 
     on_new_subsurface.set_callback(handle_new_subsurface);
