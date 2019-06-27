@@ -157,13 +157,6 @@ class wayfire_cube : public wf::plugin_interface_t
         OpenGL::render_end();
     }
 
-    void schedule_next_frame()
-    {
-        output->render->schedule_redraw();
-        /* Damage a minimal area of the screen so that next frame gets scheduled */
-        output->render->damage({0, 0, 1, 1});
-    }
-
     void load_program()
     {
 
@@ -249,6 +242,7 @@ class wayfire_cube : public wf::plugin_interface_t
             return false;
 
         output->render->set_renderer(renderer);
+        output->render->set_redraw_always(true);
         grab_interface->grab();
         return true;
     }
@@ -263,6 +257,7 @@ class wayfire_cube : public wf::plugin_interface_t
     void deactivate()
     {
         output->render->set_renderer(nullptr);
+        output->render->set_redraw_always(false);
 
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
@@ -313,7 +308,7 @@ class wayfire_cube : public wf::plugin_interface_t
 
         animation.duration.start();
         update_view_matrix();
-        schedule_next_frame();
+        output->render->schedule_redraw();
     }
 
     /* Initiate with an button grab. */
@@ -346,7 +341,7 @@ class wayfire_cube : public wf::plugin_interface_t
         animation.duration.start();
 
         update_view_matrix();
-        schedule_next_frame();
+        output->render->schedule_redraw();
     }
 
     /* Mouse grab was released */
@@ -368,7 +363,7 @@ class wayfire_cube : public wf::plugin_interface_t
         animation.duration.start();
 
         update_view_matrix();
-        schedule_next_frame();
+        output->render->schedule_redraw();
     }
 
     /* Update the view matrix used in the next frame */
@@ -454,6 +449,16 @@ class wayfire_cube : public wf::plugin_interface_t
 
     void render(const wf_framebuffer& dest)
     {
+        if (!animation.duration.running() &&
+            output->render->get_scheduled_damage().empty())
+        {
+            /*
+             * No workspace was updated, and no animation is running. We can skip
+             * repainting.
+             */
+            return;
+        }
+
         update_workspace_streams();
 
         if (program.id == (uint32_t)-1)
@@ -519,7 +524,7 @@ class wayfire_cube : public wf::plugin_interface_t
 
         update_view_matrix();
         if (animation.duration.running())
-            schedule_next_frame();
+            output->render->schedule_redraw();
 
         if (animation.in_exit && !animation.duration.running())
             deactivate();
@@ -550,8 +555,7 @@ class wayfire_cube : public wf::plugin_interface_t
             animation.ease_deformation.end};
 
         animation.duration.start();
-
-        schedule_next_frame();
+        output->render->schedule_redraw();
     }
 
     void pointer_scrolled(double amount)
@@ -572,8 +576,7 @@ class wayfire_cube : public wf::plugin_interface_t
         animation.zoom = {start_zoom, target_zoom};
 
         animation.duration.start();
-
-        schedule_next_frame();
+        output->render->schedule_redraw();
     }
 
     void fini()
