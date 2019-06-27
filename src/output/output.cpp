@@ -196,7 +196,12 @@ void wf::output_impl_t::focus_view(wayfire_view v, bool raise)
 {
     if (v && workspace->get_view_layer(v) < wf::get_core().get_focused_layer())
     {
-        log_info("Denying focus request for a view from a lower layer than the focused layer");
+        auto active_view = get_active_view();
+        if (active_view && active_view->get_app_id().find("$unfocus") == 0)
+            return focus_view(nullptr, false);
+
+        log_debug("Denying focus request for a view from a lower layer than the"
+            " focused layer");
         return;
     }
 
