@@ -15,6 +15,7 @@ extern "C"
 #include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
 #include <wlr/types/wlr_pointer_gestures_v1.h>
+#include <wlr/types/wlr_relative_pointer_v1.h>
 
 #define static
 #include <wlr/render/wlr_renderer.h>
@@ -133,6 +134,7 @@ void wf::compositor_core_impl_t::init(wayfire_config *conf)
     protocols.idle_inhibit = wlr_idle_inhibit_v1_create(display);
     protocols.toplevel_manager = wlr_foreign_toplevel_manager_v1_create(display);
     protocols.pointer_gestures = wlr_pointer_gestures_v1_create(display);
+    protocols.relative_pointer = wlr_relative_pointer_manager_v1_create(display);
 
     wf_shell = wayfire_shell_create(display);
     gtk_shell = wf_gtk_shell_create(display);

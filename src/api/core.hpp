@@ -25,6 +25,7 @@ extern "C"
     struct wlr_screencopy_manager_v1;
     struct wlr_foreign_toplevel_manager_v1;
     struct wlr_pointer_gestures_v1;
+    struct wlr_relative_pointer_manager_v1;
 
 #include <wayland-server.h>
 }
@@ -87,6 +88,7 @@ class compositor_core_t : public wf::object_base_t
         wlr_idle_inhibit_manager_v1 *idle_inhibit;
         wlr_foreign_toplevel_manager_v1 *toplevel_manager;
         wlr_pointer_gestures_v1 *pointer_gestures;
+        wlr_relative_pointer_manager_v1 *relative_pointer;
     } protocols;
 
     std::string to_string() const { return "wayfire-core"; }
