@@ -26,6 +26,8 @@ server_protocols = [
 	[wl_protocol_dir, 'unstable/linux-dmabuf/linux-dmabuf-unstable-v1.xml'],
 	[wl_protocol_dir, 'unstable/xdg-shell/xdg-shell-unstable-v6.xml'],
     [wl_protocol_dir, 'unstable/xdg-output/xdg-output-unstable-v1.xml'],
+    [wl_protocol_dir, 'unstable/pointer-constraints/pointer-constraints-unstable-v1.xml'],
+    [wl_protocol_dir, 'unstable/relative-pointer/relative-pointer-unstable-v1.xml'],
     'wayfire-shell.xml',
     'gtk-shell.xml',
     'wlr-layer-shell-unstable-v1.xml'

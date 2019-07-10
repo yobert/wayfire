@@ -28,6 +28,7 @@ struct wf_region
 
     void expand_edges(int amount);
     pixman_box32_t get_extents() const;
+    bool contains_point(const wf_point& point) const;
 
     /* Translate the region */
     wf_region operator + (const wf_point& vector) const;
