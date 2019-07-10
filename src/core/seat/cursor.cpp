@@ -259,13 +259,26 @@ void input_manager::set_pointer_constraint(
     if (constraint == this->active_pointer_constraint)
         return;
 
-    if (this->active_pointer_constraint && !last_destroyed)
+    /* First set the constraint to the new constraint.
+     * send_deactivated might cause destruction of the active constraint,
+     * and then before we've finished this request we'd get another to reset
+     * the constraint to NULL.
+     *
+     * XXX: a race is still possible if we directly switch from one constraint
+     * to another, and the first one gets destroyed. This is however almost
+     * impossible, since a constraint keeps the cursor inside its surface, so
+     * the only way to cancel this would be to either cancel the constraint by
+     * activating a plugin or when the constraint itself gets destroyed. In both
+     * cases, we first get a set_pointer_constraint(NULL) request */
+    auto last_constraint = this->active_pointer_constraint;
+    this->active_pointer_constraint = constraint;
+
+    if (last_constraint && !last_destroyed)
     {
-        wlr_pointer_constraint_v1_send_deactivated(active_pointer_constraint);
+        wlr_pointer_constraint_v1_send_deactivated(last_constraint);
         // TODO: restore cursor position from the constraint hint
     }
 
-    this->active_pointer_constraint = constraint;
     this->constraint_region.clear();
     if (!constraint)
         return;
