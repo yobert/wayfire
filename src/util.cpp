@@ -164,6 +164,12 @@ pixman_box32_t wf_region::get_extents() const
     return *pixman_region32_extents(this->unconst());
 }
 
+bool wf_region::contains_point(const wf_point& point) const
+{
+    return pixman_region32_contains_point(this->unconst(),
+        point.x, point.y, NULL);
+}
+
 /* Translate the region */
 wf_region wf_region::operator + (const wf_point& vector) const
 {

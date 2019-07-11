@@ -15,6 +15,7 @@ extern "C"
 #include <wlr/types/wlr_idle.h>
 #include <wlr/types/wlr_seat.h>
 struct wlr_drag_icon;
+struct wlr_pointer_constraint_v1;
 }
 
 struct wf_gesture_recognizer;
@@ -93,6 +94,13 @@ class input_manager
 
         wf::signal_callback_t surface_map_state_changed;
 
+        wf_region constraint_region;
+        wlr_pointer_constraint_v1 *active_pointer_constraint = nullptr;
+
+        wf_point get_cursor_position_relative_to_cursor_focus();
+        wf_point get_cursor_position_relative_to_cursor_focus(double x, double y);
+        wf_point get_absolute_cursor_from_relative(wf_point relative);
+
     public:
 
         input_manager();
@@ -104,6 +112,9 @@ class input_manager
         void update_cursor_position(uint32_t time_msec, bool real_update = true);
         void update_cursor_focus(wf::surface_interface_t *surface, int lx, int ly);
         void set_touch_focus(wf::surface_interface_t *surface, uint32_t time, int id, int lx, int ly);
+
+        void set_pointer_constraint(wlr_pointer_constraint_v1 *constraint, bool last_destroyed = false);
+        wlr_pointer_constraint_v1 *get_active_pointer_constraint();
 
         wl_client *exclusive_client = NULL;
 

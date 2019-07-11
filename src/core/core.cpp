@@ -15,6 +15,8 @@ extern "C"
 #include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
 #include <wlr/types/wlr_pointer_gestures_v1.h>
+#include <wlr/types/wlr_relative_pointer_v1.h>
+#include <wlr/types/wlr_pointer_constraints_v1.h>
 
 #define static
 #include <wlr/render/wlr_renderer.h>
@@ -72,6 +74,31 @@ struct wf_server_decoration_t
         on_destroy.connect(&decor->events.destroy);
         /* Read initial decoration settings */
         mode_set(NULL);
+    }
+};
+
+struct wf_pointer_constraint
+{
+    wf::wl_listener_wrapper on_destroy;
+
+    wf_pointer_constraint(wlr_pointer_constraint_v1 *constraint)
+    {
+        on_destroy.set_callback([=] (void*){
+            // reset constraint
+            auto& impl = wf::get_core_impl();
+            if (impl.input->get_active_pointer_constraint() == constraint)
+                impl.input->set_pointer_constraint(nullptr, true);
+
+            on_destroy.disconnect();
+            delete this;
+        });
+
+        on_destroy.connect(&constraint->events.destroy);
+
+        // set correct constraint
+        auto& impl = wf::get_core_impl();
+        if (impl.get_cursor_focus()->priv->wsurface == constraint->surface)
+            impl.input->set_pointer_constraint(constraint);
     }
 };
 
@@ -133,6 +160,15 @@ void wf::compositor_core_impl_t::init(wayfire_config *conf)
     protocols.idle_inhibit = wlr_idle_inhibit_v1_create(display);
     protocols.toplevel_manager = wlr_foreign_toplevel_manager_v1_create(display);
     protocols.pointer_gestures = wlr_pointer_gestures_v1_create(display);
+    protocols.relative_pointer = wlr_relative_pointer_manager_v1_create(display);
+
+    protocols.pointer_constraints = wlr_pointer_constraints_v1_create(display);
+    pointer_constraint_added.set_callback([&] (void *data) {
+        // will delete itself when the constraint is destroyed
+        new wf_pointer_constraint((wlr_pointer_constraint_v1*)data);
+    });
+    pointer_constraint_added.connect(
+        &protocols.pointer_constraints->events.new_constraint);
 
     wf_shell = wayfire_shell_create(display);
     gtk_shell = wf_gtk_shell_create(display);
