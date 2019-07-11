@@ -43,6 +43,11 @@ class view_interface_t::view_priv_impl
 
     bool keyboard_focus_enabled = true;
 
+    /* For window restoration from maximized or fullscreen
+     * -1 means that no such geometry has been stored. */
+    wf_geometry last_windowed_geometry = {0, 0, -1, -1};
+    wf_geometry last_maximized_geometry = {0, 0, -1, -1};
+
     /* those two point to the same object. Two fields are used to avoid
      * constant casting to and from types */
     surface_interface_t *decoration = NULL;

@@ -63,7 +63,6 @@ class wayfire_xdg_view : public wf::wlr_view_t
     void set_tiled(uint32_t edges) final;
     void set_activated(bool act) final;
     void _set_activated(bool act);
-    void set_maximized(bool max) final;
     void set_fullscreen(bool full) final;
 
     void resize(int w, int h) final;

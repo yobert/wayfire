@@ -97,12 +97,16 @@ class simple_decoration_surface : public wf::surface_interface_t,
     {
         this->font_option = font;
         this->view = view;
+
         title_set = [=] (wf::signal_data_t *data)
         {
             if (get_signaled_view(data) == view)
                 notify_view_resized(view->get_wm_geometry());
         };
         view->connect_signal("title-changed", &title_set);
+
+        // make sure to hide frame if the view is fullscreen
+        update_decoration_size();
     }
 
 
@@ -332,23 +336,25 @@ class simple_decoration_surface : public wf::surface_interface_t,
         view->damage();
     };
 
-    virtual void notify_view_maximized() override
+    virtual void notify_view_tiled() override
     { }
 
-    virtual void notify_view_fullscreened() override
+    void update_decoration_size()
     {
         if (view->fullscreen)
         {
             thickness = 0;
             titlebar = 0;
-            view->resize(width, height);
         } else
         {
             thickness = normal_thickness;
             titlebar = titlebar_thickness;
-            view->resize(width, height);
         }
+    }
 
+    virtual void notify_view_fullscreen() override
+    {
+        update_decoration_size();
         update_frame_region();
     };
 };

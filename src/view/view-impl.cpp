@@ -354,7 +354,7 @@ void wf::wlr_view_t::create_toplevel()
     toplevel_handle_v1_maximize_request.set_callback([&] (void *data) {
         auto ev =
             static_cast<wlr_foreign_toplevel_handle_v1_maximized_event*> (data);
-        maximize_request(ev->maximized);
+        tile_request(ev->maximized ? wf::TILED_EDGES_ALL : 0);
     });
     toplevel_handle_v1_minimize_request.set_callback([&] (void *data) {
         auto ev =
@@ -448,7 +448,8 @@ void wf::wlr_view_t::toplevel_send_state()
     if (!toplevel_handle)
         return;
 
-    wlr_foreign_toplevel_handle_v1_set_maximized(toplevel_handle, maximized);
+    wlr_foreign_toplevel_handle_v1_set_maximized(toplevel_handle,
+        tiled_edges == TILED_EDGES_ALL);
     wlr_foreign_toplevel_handle_v1_set_activated(toplevel_handle, activated);
     wlr_foreign_toplevel_handle_v1_set_minimized(toplevel_handle, minimized);
 }

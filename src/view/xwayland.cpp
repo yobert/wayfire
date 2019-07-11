@@ -211,7 +211,8 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         on_request_move.set_callback([&] (void*) { move_request(); });
         on_request_resize.set_callback([&] (void*) { resize_request(); });
         on_request_maximize.set_callback([&] (void*) {
-            maximize_request(xw->maximized_horz && xw->maximized_vert);
+            tile_request((xw->maximized_horz && xw->maximized_vert) ?
+                wf::TILED_EDGES_ALL : 0);
         });
         on_request_fullscreen.set_callback([&] (void*) {
             fullscreen_request(get_output(), xw->fullscreen);
@@ -264,13 +265,13 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         }
 
         if (xw->maximized_horz && xw->maximized_vert)
-            maximize_request(true);
+            tile_request(wf::TILED_EDGES_ALL);
 
         if (xw->fullscreen)
             fullscreen_request(get_output(), true);
 
         auto real_output = get_output()->get_layout_geometry();
-        if (!maximized && !fullscreen && !parent)
+        if (!tiled_edges && !fullscreen && !parent)
         {
             int desired_x = xw->x - real_output.x;
             int desired_y = xw->y - real_output.y;
@@ -344,10 +345,10 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         }
     }
 
-    void set_maximized(bool maxim) override
+    void set_tiled(uint32_t edges) override
     {
-        wf::wlr_view_t::set_maximized(maxim);
-        wlr_xwayland_surface_set_maximized(xw, maxim);
+        wf::wlr_view_t::set_tiled(edges);
+        wlr_xwayland_surface_set_maximized(xw, !!edges);
     }
 
     virtual void toplevel_send_app_id() override

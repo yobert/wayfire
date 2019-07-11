@@ -20,10 +20,11 @@ class wayfire_place_window : public wf::plugin_interface_t
         {
             auto view = get_signaled_view(data);
 
-            if (view->role != wf::VIEW_ROLE_TOPLEVEL ||
-                view->parent || view->fullscreen ||
-                view->maximized)
+            if (view->role != wf::VIEW_ROLE_TOPLEVEL || view->parent ||
+                view->fullscreen || view->tiled_edges)
+            {
                 return;
+            }
 
             auto workarea = output->workspace->get_workarea();
             auto mode = placement_mode->as_string();

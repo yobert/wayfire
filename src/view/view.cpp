@@ -270,33 +270,35 @@ void wf::view_interface_t::set_minimized(bool minim)
 
 void wf::view_interface_t::set_tiled(uint32_t edges)
 {
-    /* Most shells don't support the tiled state.
-     * In this case, just default to maximize */
-    if (edges) {
-        set_maximized(true);
-    } else {
-        set_maximized(false);
-    }
+    // store last unmaximized geometry for restoring
+    if (edges && !this->tiled_edges && is_mapped())
+        this->view_impl->last_windowed_geometry = get_wm_geometry();
 
-    tiled_edges = edges;
-}
-
-void wf::view_interface_t::set_maximized(bool maxim)
-{
-    maximized = maxim;
+    this->tiled_edges = edges;
 
     if (view_impl->frame)
-        view_impl->frame->notify_view_maximized();
+        view_impl->frame->notify_view_tiled();
 
     desktop_state_updated();
 }
 
 void wf::view_interface_t::set_fullscreen(bool full)
 {
+    /* When fullscreening a view, we want to store the last geometry it had
+     * before getting fullscreen so that we can restore to it */
+    if (full && !fullscreen)
+    {
+        if (this->tiled_edges) {
+            this->view_impl->last_maximized_geometry = get_wm_geometry();
+        } else {
+            this->view_impl->last_windowed_geometry = get_wm_geometry();
+        }
+    }
+
     fullscreen = full;
 
     if (view_impl->frame)
-        view_impl->frame->notify_view_fullscreened();
+        view_impl->frame->notify_view_fullscreen();
 
     if (fullscreen && get_output())
     {
@@ -352,26 +354,28 @@ void wf::view_interface_t::resize_request(uint32_t edges)
     get_output()->emit_signal("resize-request", &data);
 }
 
-void wf::view_interface_t::maximize_request(bool state)
+void wf::view_interface_t::tile_request(uint32_t edges)
 {
-    if (maximized == state)
+    if (fullscreen)
         return;
 
-    view_maximized_signal data;
+    view_tiled_signal data;
     data.view = self();
-    data.state = state;
+    data.edges = edges;
+    data.desired_size = edges ? get_output()->workspace->get_workarea() :
+        view_impl->last_windowed_geometry;
 
+    set_tiled(edges);
     if (is_mapped())
-    {
         get_output()->emit_signal("view-maximized-request", &data);
-    }
-    else if (state)
+
+    if (!data.carried_out)
     {
-        set_geometry(get_output()->workspace->get_workarea());
-        set_maximized(state);
-        set_tiled(WLR_EDGE_TOP | WLR_EDGE_LEFT
-            | WLR_EDGE_BOTTOM | WLR_EDGE_RIGHT);
-        get_output()->emit_signal("view-maximized", &data);
+        if (data.desired_size.width > 0) {
+            set_geometry(data.desired_size);
+        } else {
+            request_native_size();
+        }
     }
 }
 
@@ -418,17 +422,27 @@ void wf::view_interface_t::fullscreen_request(wf::output_t *out, bool state)
     view_fullscreen_signal data;
     data.view = self();
     data.state = state;
+    data.desired_size = get_output()->get_relative_geometry();
 
-    if (is_mapped())
+    if (!state)
     {
-        wo->emit_signal("view-fullscreen-request", &data);
-    } else if (state)
-    {
-        set_geometry(get_output()->get_relative_geometry());
-        get_output()->emit_signal("view-fullscreen", &data);
+        data.desired_size = this->tiled_edges ?
+            this->view_impl->last_maximized_geometry :
+            this->view_impl->last_windowed_geometry;
     }
 
     set_fullscreen(state);
+    if (is_mapped())
+        wo->emit_signal("view-fullscreen-request", &data);
+
+    if (!data.carried_out)
+    {
+        if (data.desired_size.width > 0) {
+            set_geometry(data.desired_size);
+        } else {
+            request_native_size();
+        }
+    }
 }
 
 bool wf::view_interface_t::is_visible()
@@ -489,24 +503,37 @@ void wf::view_interface_t::set_decoration(surface_interface_t *frame)
     container.erase(it);
     container.push_back(frame);
 
-    /* Adjust view geometry, but retain view position */
-    view_impl->frame->notify_view_resized(
-        view_impl->frame->expand_wm_geometry(wm));
-    move(wm.x, wm.y);
+    /* Calculate the wm geometry of the view after adding the decoration.
+     *
+     * If the view is neither maximized nor fullscreen, then we want to expand
+     * the view geometry so that the actual view contents retain their size.
+     *
+     * For fullscreen and maximized views we want to "shrink" the view contents
+     * so that the total wm geometry remains the same as before. */
+    wf_geometry target_wm_geometry;
+    if (!fullscreen && !this->tiled_edges)
+    {
+        target_wm_geometry = view_impl->frame->expand_wm_geometry(wm);
+        // make sure that the view doesn't go outside of the screen or such
+        auto wa = get_output()->workspace->get_workarea();
+        auto visible = wf_geometry_intersection(target_wm_geometry, wa);
+        if (visible != target_wm_geometry)
+        {
+            target_wm_geometry.x = wm.x;
+            target_wm_geometry.y = wm.y;
+        }
+    } else if (fullscreen) {
+        target_wm_geometry = get_output()->get_relative_geometry();
+    } else if (this->tiled_edges) {
+        target_wm_geometry = get_output()->workspace->get_workarea();
+    }
 
+    // notify the frame of the current size
+    view_impl->frame->notify_view_resized(get_wm_geometry());
+    // but request the target size, it will be sent to the frame on the
+    // next commit
+    set_geometry(target_wm_geometry);
     damage();
-
-    if (maximized)
-    {
-        set_geometry(get_output()->workspace->get_workarea());
-        view_impl->frame->notify_view_maximized();
-    }
-
-    if (fullscreen)
-    {
-        set_geometry(get_output()->get_relative_geometry());
-        view_impl->frame->notify_view_fullscreened();
-    }
 }
 
 void wf::view_interface_t::add_transformer(

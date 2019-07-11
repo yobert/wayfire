@@ -1,4 +1,5 @@
 #include <plugin.hpp>
+#include <debug.hpp>
 #include <output.hpp>
 #include <core.hpp>
 #include <view.hpp>
@@ -30,7 +31,7 @@ class wayfire_grid_view_cdata : public wf::custom_data_t
     wf::effect_hook_t pre_hook;
     wf::signal_callback_t unmapped;
 
-    uint32_t tiled_edges;
+    int32_t tiled_edges = -1;
     wf_geometry target, initial;
     const wf::plugin_grab_interface_uptr& iface;
     wf_option animation_type;
@@ -74,11 +75,11 @@ class wayfire_grid_view_cdata : public wf::custom_data_t
         view->erase_data<wayfire_grid_view_cdata>();
     }
 
-    void adjust_target_geometry(wf_geometry geometry, uint32_t tiled_edges)
+    void adjust_target_geometry(wf_geometry geometry, int32_t target_edges)
     {
         target = geometry;
         initial = view->get_wm_geometry();
-        this->tiled_edges = tiled_edges;
+        this->tiled_edges = target_edges;
 
         auto type = animation_type->as_string();
         if (view->get_transformer("wobbly") || !is_active)
@@ -104,24 +105,22 @@ class wayfire_grid_view_cdata : public wf::custom_data_t
             return destroy();
         }
 
-        view->set_maximized(1);
+        /* Restore tiled edges if we don't need to set something special when
+         * grid is ready */
+        if (target_edges < 0)
+            this->tiled_edges = view->tiled_edges;
+
+        view->set_tiled(wf::TILED_EDGES_ALL);
         view->set_moving(1);
         view->set_resizing(1);
         duration.start();
     }
 
-    void set_end_state(wf_geometry geometry, uint32_t edges)
+    void set_end_state(wf_geometry geometry, int32_t edges)
     {
         view->set_geometry(geometry);
-        if (__builtin_popcount(edges) == 4)
-        {
-            view->set_maximized(true);
-        } else
-        {
-            view->set_maximized(false);
-        }
-
-        view->set_tiled(edges);
+        if (edges >= 0)
+            view->set_tiled(edges);
     }
 
     void adjust_geometry()
@@ -182,24 +181,38 @@ class wf_grid_saved_view_geometry : public wf::custom_data_t
     uint32_t tiled_edges;
 };
 
+/*
+ * 7 8 9
+ * 4 5 6
+ * 1 2 3
+ */
 static uint32_t get_tiled_edges_for_slot(uint32_t slot)
 {
     if (slot == 0)
         return 0;
-    if (slot == SLOT_CENTER)
-        return WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT | WLR_EDGE_RIGHT;
 
-    uint32_t edges = 0;
-    if (slot < 4)
-        edges |= WLR_EDGE_BOTTOM;
-    if (slot >= 7)
-        edges |= WLR_EDGE_TOP;
-    if (slot % 3 == 1)
-        edges |= WLR_EDGE_LEFT;
+    uint32_t edges = wf::TILED_EDGES_ALL;
     if (slot % 3 == 0)
-        edges |= WLR_EDGE_RIGHT;
+        edges &= ~WLR_EDGE_LEFT;
+    if (slot % 3 == 1)
+        edges &= ~WLR_EDGE_RIGHT;
+    if (slot <= 3)
+        edges &= ~WLR_EDGE_TOP;
+    if (slot >= 7)
+        edges &= ~WLR_EDGE_BOTTOM;
 
     return edges;
+}
+
+static uint32_t get_slot_from_tiled_edges(uint32_t edges)
+{
+    for (int slot = 0; slot <= 9; slot++)
+    {
+        if (get_tiled_edges_for_slot(slot) == edges)
+            return slot;
+    }
+
+    return 0;
 }
 
 class wayfire_grid : public wf::plugin_interface_t
@@ -229,7 +242,7 @@ class wayfire_grid : public wf::plugin_interface_t
     activator_callback restore = [=] (wf_activator_source, uint32_t)
     {
         auto view = output->get_active_view();
-        handle_slot(view, 0, true);
+        view->tile_request(0);
     };
     wf_option_callback restore_opt_changed = [=] ()
     {
@@ -266,7 +279,7 @@ class wayfire_grid : public wf::plugin_interface_t
                 if (!view || view->role != wf::VIEW_ROLE_TOPLEVEL)
                     return;
 
-                handle_slot(view, i, false);
+                handle_slot(view, i);
             };
 
             output->add_activator(keys[i], &bindings[i]);
@@ -284,55 +297,12 @@ class wayfire_grid : public wf::plugin_interface_t
         output->connect_signal("view-fullscreen-request", &on_fullscreen_signal);
     }
 
-    void handle_slot(wayfire_view view, const wf_geometry workarea, int slot, bool comes_from_maximize_request)
+    void handle_slot(wayfire_view view, int slot, wf_point delta = {0, 0})
     {
-        wf_geometry target = get_slot_dimensions(slot, workarea);
-        if (view->tiled_edges && view->get_wm_geometry() == target)
-        {
-            if (restore_opt_str == restore_opt_default)
-            {
-                slot = 0;
-                comes_from_maximize_request = true;
-            }
-            else
-            {
-                return;
-            }
-        }
-        if (!view->has_data<wf_grid_saved_view_geometry>() && slot)
-        {
-            view->get_data_safe<wf_grid_saved_view_geometry>()
-                ->geometry = view->get_wm_geometry();
-        }
-        else if (view->has_data<wf_grid_saved_view_geometry>() && slot == 0)
-        {
-            target = view->get_data_safe<wf_grid_saved_view_geometry>()->geometry;
-
-            /* If we have a request from another plugin, for ex. move, we want
-             * to make sure the view stays under the pointer. However, when it was
-             * a normal restore caused by a client request, we want to restore the
-             * view to where it was */
-            if (!comes_from_maximize_request)
-                target = calculate_restored_geometry(target);
-
-            view->erase_data<wf_grid_saved_view_geometry>();
-        }
-        else if (!view->has_data<wf_grid_saved_view_geometry>())
-        {
-            view->set_maximized(slot > 0 ? true : false);
-            view->set_tiled(0);
-            view->request_native_size();
-            return;
-        }
-
         view->get_data_safe<wf_grid_slot_data>()->slot = slot;
-        ensure_grid_view(view)->adjust_target_geometry(target,
+        ensure_grid_view(view)->adjust_target_geometry(
+            get_slot_dimensions(slot) + delta,
             get_tiled_edges_for_slot(slot));
-    }
-
-    void handle_slot(wayfire_view view, int slot, bool comes_from_maximize_request)
-    {
-        handle_slot(view, output->workspace->get_workarea(), slot, comes_from_maximize_request);
     }
 
     /* calculates the target geometry so that it is centered around the pointer */
@@ -353,7 +323,6 @@ class wayfire_grid : public wf::plugin_interface_t
         if (base_restored.y < wa.y)
             base_restored.y = wa.y;
 
-
         return base_restored;
     }
 
@@ -362,11 +331,9 @@ class wayfire_grid : public wf::plugin_interface_t
      * 4 5 6
      * 1 2 3
      * */
-    wf_geometry get_slot_dimensions(int n, wf_geometry area)
+    wf_geometry get_slot_dimensions(int n)
     {
-        if (n == 0) // toggle off slot
-            return {0, 0, 0, 0};
-
+        auto area = output->workspace->get_workarea();
         int w2 = area.width / 2;
         int h2 = area.height / 2;
 
@@ -407,16 +374,13 @@ class wayfire_grid : public wf::plugin_interface_t
             /* Workarea changed, and we have a view which is tiled into some slot.
              * We need to make sure it remains in its slot. So we calculate the
              * viewport of the view, and tile it there */
-            auto workarea = ev->new_workarea;
             auto output_geometry = output->get_relative_geometry();
 
             int vx = std::floor(1.0 * wm.x / output_geometry.width);
             int vy = std::floor(1.0 * wm.y / output_geometry.height);
 
-            workarea.x += vx * output_geometry.width;
-            workarea.y += vy * output_geometry.height;
-
-            handle_slot(view, workarea, data->slot, false);
+            handle_slot(view, data->slot,
+                {vx * output_geometry.width, vy * output_geometry.height});
         }
     };
 
@@ -424,21 +388,35 @@ class wayfire_grid : public wf::plugin_interface_t
     {
         auto query = dynamic_cast<snap_query_signal*> (data);
         assert(query);
-
-        query->out_geometry = get_slot_dimensions(query->slot,
-            output->workspace->get_workarea());
+        query->out_geometry = get_slot_dimensions(query->slot);
     };
 
     wf::signal_callback_t on_snap_signal = [=] (wf::signal_data_t *ddata)
     {
         snap_signal *data = dynamic_cast<snap_signal*>(ddata);
-        handle_slot(data->view, data->slot, false);
+        handle_slot(data->view, data->slot);
     };
 
     wf::signal_callback_t on_maximize_signal = [=] (wf::signal_data_t *ddata)
     {
-        auto data = static_cast<view_maximized_signal*> (ddata);
-        handle_slot(data->view, data->state ? 5 : 0, true);
+        auto data = static_cast<view_tiled_signal*> (ddata);
+
+        if (data->carried_out)
+            return;
+        data->carried_out = true;
+
+        uint32_t slot = get_slot_from_tiled_edges(data->edges);
+        if (slot > 0)
+            data->desired_size = get_slot_dimensions(slot);
+
+        /** XXX: If move is active, we want the restored geometry to be centered
+         * around the cursor and visible on the screen */
+        if (output->is_plugin_active("move") && !data->edges)
+            data->desired_size = calculate_restored_geometry(data->desired_size);
+
+        data->view->get_data_safe<wf_grid_slot_data>()->slot = slot;
+        ensure_grid_view(data->view)->adjust_target_geometry(data->desired_size,
+            get_tiled_edges_for_slot(slot));
     };
 
     wf::signal_callback_t on_fullscreen_signal = [=] (wf::signal_data_t *ev)
@@ -446,37 +424,12 @@ class wayfire_grid : public wf::plugin_interface_t
         auto data = static_cast<view_fullscreen_signal*> (ev);
         static const std::string fs_data_name = "grid-saved-fs";
 
-        if (data->state)
-        {
-            if (!data->view->has_data(fs_data_name))
-            {
-                auto sg = data->view->get_data_safe<wf_grid_saved_view_geometry>
-                    (fs_data_name);
+        if (data->carried_out)
+            return;
 
-                sg->geometry = data->view->get_wm_geometry();
-                sg->tiled_edges = data->view->tiled_edges;
-            }
-
-            ensure_grid_view(data->view)->adjust_target_geometry(
-                output->get_relative_geometry(), 0);
-            data->view->set_fullscreen(true);
-        } else
-        {
-            if (data->view->has_data(fs_data_name))
-            {
-                auto sg = data->view->get_data_safe<wf_grid_saved_view_geometry>
-                    (fs_data_name);
-
-                auto target_geometry = sg->geometry;
-                auto edges = sg->tiled_edges;
-                data->view->erase_data(fs_data_name);
-
-                ensure_grid_view(data->view)->adjust_target_geometry(
-                    target_geometry, edges);
-            }
-
-            data->view->set_fullscreen(false);
-        }
+        data->carried_out = true;
+        ensure_grid_view(data->view)->adjust_target_geometry(
+            data->desired_size, -1);
     };
 
     void fini()

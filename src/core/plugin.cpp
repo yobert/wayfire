@@ -59,19 +59,6 @@ wayfire_view get_signaled_view(wf::signal_data_t *data)
     return conv->view;
 }
 
-bool get_signaled_state(wf::signal_data_t *data)
-{
-    auto conv = static_cast<_view_state_signal*> (data);
-
-    if (!conv || !conv->view)
-    {
-        log_error ("Got a bad _view_state_signal");
-        return false;
-    }
-
-    return conv->state;
-}
-
 wf::output_t *get_signaled_output(wf::signal_data_t *data)
 {
     auto result = static_cast<_output_signal*> (data);

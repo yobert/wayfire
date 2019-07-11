@@ -209,8 +209,6 @@ class wayfire_resize : public wf::plugin_interface_t
 
         if (view->fullscreen)
             view->set_fullscreen(false);
-        if (view->maximized)
-            view->set_maximized(false);
         if (view->tiled_edges)
             view->set_tiled(0);
 

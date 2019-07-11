@@ -170,8 +170,8 @@ namespace wf
                     to->workspace->get_current_workspace());
                 to->focus_view(view);
 
-                if (view->maximized)
-                    view->maximize_request(true);
+                if (view->tiled_edges)
+                    view->tile_request(view->tiled_edges);
 
                 if (view->fullscreen)
                     view->fullscreen_request(to, true);
