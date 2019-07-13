@@ -135,7 +135,7 @@ struct wf_layer_shell_manager
                 edges ^= both_vert;
         }
 
-        if (__builtin_popcount(edges) > 1)
+        if (edges == 0 || __builtin_popcount(edges) > 1)
         {
             log_error ("Unsupported: layer-shell exclusive zone for surfaces anchored to 0, 2 or 4 edges");
             return;
