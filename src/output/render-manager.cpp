@@ -159,14 +159,13 @@ struct output_damage_t
     /**
      * Same as render_manager::get_ws_box()
      */
-    wlr_box get_ws_box(std::tuple<int, int> ws) const
+    wlr_box get_ws_box(wf_point ws) const
     {
-        GetTuple(vx, vy, ws);
-        GetTuple(cx, cy, wo->workspace->get_current_workspace());
+        auto current = wo->workspace->get_current_workspace();
 
         wlr_box box = get_damage_box();
-        box.x = (vx - cx) * box.width;
-        box.y = (vy - cy) * box.height;
+        box.x = (ws.x - current.x) * box.width;
+        box.y = (ws.y - current.y) * box.height;
 
         return box;
     }
@@ -175,7 +174,7 @@ struct output_damage_t
      * Returns the scheduled damage for the given workspace, in coordinates
      * relative to the workspace itself
      */
-    wf_region get_ws_damage(std::tuple<int, int> ws)
+    wf_region get_ws_damage(wf_point ws)
     {
         auto ws_box = get_ws_box(ws);
         return (frame_damage & ws_box) + wf_point{-ws_box.x, -ws_box.y};
@@ -186,12 +185,12 @@ struct output_damage_t
      */
     void damage_whole()
     {
-        GetTuple(vw, vh, wo->workspace->get_workspace_grid_size());
-        GetTuple(vx, vy, wo->workspace->get_current_workspace());
+        auto vsize = wo->workspace->get_workspace_grid_size();
+        auto vp = wo->workspace->get_current_workspace();
 
         int sw, sh;
         wlr_output_transformed_resolution(output, &sw, &sh);
-        damage({-vx * sw, -vy * sh, vw * sw, vh * sh});
+        damage({-vp.x * sw, -vp.y * sh, vsize.width * sw, vsize.height * sh});
     }
 
     wf::wl_idle_call idle_damage;
@@ -358,16 +357,16 @@ class wf::render_manager::impl
     nonstd::observer_ptr<workspace_stream_t> current_ws_stream;
     void init_default_streams()
     {
-        GetTuple(vwidth, vheight, output->workspace->get_workspace_grid_size());
-        default_streams.resize(vwidth);
-        for (int i = 0; i < vwidth; i++)
+        auto wsize = output->workspace->get_workspace_grid_size();
+        default_streams.resize(wsize.width);
+        for (int i = 0; i < wsize.width; i++)
         {
-            default_streams[i].resize(vheight);
-            for (int j = 0; j < vheight; j++)
+            default_streams[i].resize(wsize.height);
+            for (int j = 0; j < wsize.height; j++)
             {
                 default_streams[i][j].buffer.fb = 0;
                 default_streams[i][j].buffer.tex = 0;
-                default_streams[i][j].ws = std::make_tuple(i, j);
+                default_streams[i][j].ws = {i, j};
             }
         }
     }
@@ -454,8 +453,8 @@ class wf::render_manager::impl
             OpenGL::render_end();
         }
 
-        GetTuple(vx, vy, output->workspace->get_current_workspace());
-        auto target_stream = &default_streams[vx][vy];
+        auto cws = output->workspace->get_current_workspace();
+        auto target_stream = &default_streams[cws.x][cws.y];
         if (current_ws_stream.get() != target_stream)
         {
             if (current_ws_stream)
@@ -807,12 +806,9 @@ class wf::render_manager::impl
         }
 
         auto g = output->get_relative_geometry();
-
-        GetTuple(x, y, stream.ws);
-        GetTuple(cx, cy, output->workspace->get_current_workspace());
-
-        repaint.ws_dx = (x - cx) * g.width,
-        repaint.ws_dy = (y - cy) * g.height;
+        auto cws = output->workspace->get_current_workspace();;
+        repaint.ws_dx = (stream.ws.x - cws.x) * g.width,
+        repaint.ws_dy = (stream.ws.y - cws.y) * g.height;
 
         return repaint;
     }
@@ -901,7 +897,7 @@ void render_manager::damage_whole_idle() { pimpl->output_damage->damage_whole_id
 void render_manager::damage(const wlr_box& box) { pimpl->output_damage->damage(box); }
 void render_manager::damage(const wf_region& region) { pimpl->output_damage->damage(region); }
 wlr_box render_manager::get_damage_box() const { return pimpl->output_damage->get_damage_box(); }
-wlr_box render_manager::get_ws_box(std::tuple<int, int> ws) const { return pimpl->output_damage->get_ws_box(ws); }
+wlr_box render_manager::get_ws_box(wf_point ws) const { return pimpl->output_damage->get_ws_box(ws); }
 wf_framebuffer render_manager::get_target_framebuffer() const { return pimpl->get_target_framebuffer(); }
 void render_manager::workspace_stream_start(workspace_stream_t& stream) { pimpl->workspace_stream_start(stream); }
 void render_manager::workspace_stream_update(workspace_stream_t& stream,

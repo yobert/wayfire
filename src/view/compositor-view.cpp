@@ -58,7 +58,7 @@ bool wf::mirror_view_t::is_mapped() const
     return base_view && base_view->is_mapped();
 }
 
-wf_surface_size_t wf::mirror_view_t::get_size() const
+wf_size_t wf::mirror_view_t::get_size() const
 {
     if (!is_mapped())
         return {0, 0};
@@ -167,7 +167,7 @@ bool wf::color_rect_view_t::is_mapped() const
     return _is_mapped;
 }
 
-wf_surface_size_t wf::color_rect_view_t::get_size() const
+wf_size_t wf::color_rect_view_t::get_size() const
 {
     return {
         geometry.width,

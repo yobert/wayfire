@@ -85,7 +85,7 @@ class workspace_manager
     /**
      * Check if the given view is visible on the given workspace
      */
-    bool view_visible_on(wayfire_view view, std::tuple<int, int> ws);
+    bool view_visible_on(wayfire_view view, wf_point ws);
 
     /**
      * Get a list of all views visible on the given workspace
@@ -94,14 +94,14 @@ class workspace_manager
      * @param wm_only - If set to true, then only the view's wm geometry
      *        will be taken into account when computing visibility.
      */
-    std::vector<wayfire_view> get_views_on_workspace(std::tuple<int, int> ws,
+    std::vector<wayfire_view> get_views_on_workspace(wf_point ws,
         uint32_t layer_mask, bool wm_only);
 
     /**
      * Ensure that the view's wm_geometry is visible on the workspace ws. This
      * involves moving the view as appropriate.
      */
-    void move_to_workspace(wayfire_view view, std::tuple<int, int> ws);
+    void move_to_workspace(wayfire_view view, wf_point ws);
 
     /**
      * Add the given view to the given layer. If the view was already added to
@@ -142,8 +142,7 @@ class workspace_manager
     /**
      * @return The workspace implementation for the given workspace
      */
-    workspace_implementation_t* get_workspace_implementation(
-        std::tuple<int, int> ws);
+    workspace_implementation_t* get_workspace_implementation(wf_point ws);
 
     /**
      * Set the implementation for the given workspace.
@@ -154,7 +153,7 @@ class workspace_manager
      *
      * @return true iff the implementation has been set
      */
-    bool set_workspace_implementation(std::tuple<int, int> ws,
+    bool set_workspace_implementation(wf_point ws,
         std::unique_ptr<workspace_implementation_t> impl, bool overwrite = false);
 
     /**
@@ -162,17 +161,17 @@ class workspace_manager
      *
      * @param The new active workspace.
      */
-    void set_workspace(std::tuple<int, int> ws);
+    void set_workspace(wf_point ws);
 
     /**
      * @return The given workspace
      */
-    std::tuple<int, int> get_current_workspace();
+    wf_point get_current_workspace();
 
     /**
      * @return The number of workspace columns and rows
      */
-    std::tuple<int, int> get_workspace_grid_size();
+    wf_size_t get_workspace_grid_size();
 
     /**
      * Special clients like panels can reserve place from an edge of the output.

@@ -170,15 +170,13 @@ class output_viewport_manager_t
      *
      * @return true if the view is visible on the workspace vp
      */
-    bool view_visible_on(wayfire_view view, std::tuple<int, int> vp, bool use_bbox)
+    bool view_visible_on(wayfire_view view, wf_point vp, bool use_bbox)
     {
-        GetTuple(tx, ty, vp);
-
         auto g = output->get_relative_geometry();
         if (view->role != VIEW_ROLE_SHELL_VIEW)
         {
-            g.x += (tx - current_vx) * g.width;
-            g.y += (ty - current_vy) * g.height;
+            g.x += (vp.x - current_vx) * g.width;
+            g.y += (vp.y - current_vy) * g.height;
         }
 
         if (view->has_transformer() & use_bbox) {
@@ -191,7 +189,7 @@ class output_viewport_manager_t
     /**
      * Moves view geometry so that it is visible on the given workspace
      */
-    void move_to_workspace(wayfire_view view, std::tuple<int, int> ws)
+    void move_to_workspace(wayfire_view view, wf_point ws)
     {
         if (view->get_output() != output)
         {
@@ -199,12 +197,10 @@ class output_viewport_manager_t
             return;
         }
 
-        GetTuple(wx, wy, ws);
-
         auto box = view->get_wm_geometry();
         auto visible = output->get_relative_geometry();
-        visible.x += (wx - current_vx) * visible.width;
-        visible.y += (wy - current_vy) * visible.height;
+        visible.x += (ws.x - current_vx) * visible.width;
+        visible.y += (ws.y - current_vy) * visible.height;
 
         if (!(box & visible))
         {
@@ -225,7 +221,7 @@ class output_viewport_manager_t
         }
     }
 
-    std::vector<wayfire_view> get_views_on_workspace(std::tuple<int, int> vp,
+    std::vector<wayfire_view> get_views_on_workspace(wf_point vp,
         uint32_t layers_mask, bool wm_only)
     {
         /* get all views in the given layers */
@@ -241,53 +237,50 @@ class output_viewport_manager_t
         return views;
     }
 
-    workspace_implementation_t* get_implementation(std::tuple<int, int> vt)
+    workspace_implementation_t* get_implementation(wf_point vt)
     {
-        GetTuple(x, y, vt);
-        return workspace_impls[x][y].get();
+        return workspace_impls[vt.x][vt.y].get();
     }
 
-    bool set_implementation(std::tuple<int, int> vt,
+    bool set_implementation(wf_point vt,
         std::unique_ptr<workspace_implementation_t> impl, bool overwrite)
     {
-        GetTuple(x, y, vt);
-        bool replace = overwrite || !workspace_impls[x][y];
+        bool replace = overwrite || !workspace_impls[vt.x][vt.y];
 
         if (replace)
-            workspace_impls[x][y] = std::move(impl);
+            workspace_impls[vt.x][vt.y] = std::move(impl);
 
         return replace;
     }
 
-    std::tuple<int, int> get_current_workspace()
+    wf_point get_current_workspace()
     {
-        return std::make_tuple(current_vx, current_vy);
+        return {current_vx, current_vy};
     }
 
-    std::tuple<int, int> get_workspace_grid_size()
+    wf_size_t get_workspace_grid_size()
     {
-        return std::make_tuple(vwidth, vheight);
+        return {vwidth, vheight};
     }
 
-    void set_workspace(std::tuple<int, int> nPos)
+    void set_workspace(wf_point nws)
     {
-        GetTuple(nx, ny, nPos);
-        if(nx >= vwidth || ny >= vheight || nx < 0 || ny < 0)
+        if(nws.x >= vwidth || nws.y >= vheight || nws.x < 0 || nws.y < 0)
         {
             log_error("Attempt to set invalid workspace: %d,%d,"
-                " workspace grid size is %dx%d", nx, ny, vwidth, vheight);
+                " workspace grid size is %dx%d", nws.x, nws.y, vwidth, vheight);
             return;
         }
 
-        if (nx == current_vx && ny == current_vy)
+        if (nws.x == current_vx && nws.y == current_vy)
         {
             output->refocus();
             return;
         }
 
-        GetTuple(sw, sh, output->get_screen_size());
-        auto dx = (current_vx - nx) * sw;
-        auto dy = (current_vy - ny) * sh;
+        auto screen = output->get_screen_size();
+        auto dx = (current_vx - nws.x) * screen.width;
+        auto dy = (current_vy - nws.y) * screen.height;
 
         for (auto& v : output->workspace->get_views_in_layer(MIDDLE_LAYERS))
         {
@@ -296,11 +289,11 @@ class output_viewport_manager_t
         }
 
         change_viewport_signal data;
-        data.old_viewport = std::make_tuple(current_vx, current_vy);
-        data.new_viewport = std::make_tuple(nx, ny);
+        data.old_viewport = {current_vx, current_vy};
+        data.new_viewport = {nws.x, nws.y};
 
-        current_vx = nx;
-        current_vy = ny;
+        current_vx = nws.x;
+        current_vy = nws.y;
         output->emit_signal("viewport-changed", &data);
 
         /* unfocus view from last workspace */
@@ -425,7 +418,7 @@ class workspace_manager::impl
     signal_callback_t output_geometry_changed = [&] (void*)
     {
         auto old_w = output_geometry.width, old_h = output_geometry.height;
-        GetTuple(new_w, new_h, output->get_screen_size());
+        auto new_size = output->get_screen_size();
 
         for (auto& view : layer_manager.get_views_in_layer(MIDDLE_LAYERS))
         {
@@ -438,8 +431,10 @@ class workspace_manager::impl
             float pw = 1. * wm.width / old_w;
             float ph = 1. * wm.height / old_h;
 
-            view->set_geometry({int(px * new_w), int(py * new_h),
-                int(pw * new_w), int(ph * new_h)});
+            view->set_geometry({
+                int(px * new_size.width), int(py * new_size.height),
+                int(pw * new_size.width), int(ph * new_size.height)
+            });
         }
 
         output_geometry = output->get_relative_geometry();
@@ -489,7 +484,7 @@ class workspace_manager::impl
         }
     }
 
-    void set_workspace(std::tuple<int, int> ws)
+    void set_workspace(wf_point ws)
     {
         viewport_manager.set_workspace(ws);
         check_autohide_panels();
@@ -620,11 +615,11 @@ workspace_manager::workspace_manager(output_t *wo) : pimpl(new impl(wo)) {}
 workspace_manager::~workspace_manager() = default;
 
 /* Just pass to the appropriate function from above */
-bool workspace_manager::view_visible_on(wayfire_view view, std::tuple<int, int> ws) { return pimpl->viewport_manager.view_visible_on(view, ws, true); }
-std::vector<wayfire_view> workspace_manager::get_views_on_workspace(std::tuple<int, int> ws, uint32_t layer_mask, bool wm_only)
+bool workspace_manager::view_visible_on(wayfire_view view, wf_point ws) { return pimpl->viewport_manager.view_visible_on(view, ws, true); }
+std::vector<wayfire_view> workspace_manager::get_views_on_workspace(wf_point ws, uint32_t layer_mask, bool wm_only)
 { return pimpl->viewport_manager.get_views_on_workspace(ws, layer_mask, wm_only); }
 
-void workspace_manager::move_to_workspace(wayfire_view view, std::tuple<int, int> ws) { return pimpl->viewport_manager.move_to_workspace(view, ws); }
+void workspace_manager::move_to_workspace(wayfire_view view, wf_point ws) { return pimpl->viewport_manager.move_to_workspace(view, ws); }
 
 void workspace_manager::add_view(wayfire_view view, layer_t layer) { return pimpl->add_view_to_layer(view, layer); }
 void workspace_manager::bring_to_front(wayfire_view view) { return pimpl->bring_to_front(view); }
@@ -633,13 +628,13 @@ void workspace_manager::remove_view(wayfire_view view) { return pimpl->remove_vi
 uint32_t workspace_manager::get_view_layer(wayfire_view view) { return pimpl->layer_manager.get_view_layer(view); }
 std::vector<wayfire_view> workspace_manager::get_views_in_layer(uint32_t layers_mask) { return pimpl->layer_manager.get_views_in_layer(layers_mask); }
 
-workspace_implementation_t* workspace_manager::get_workspace_implementation(std::tuple<int, int> ws) { return pimpl->viewport_manager.get_implementation(ws); }
-bool workspace_manager::set_workspace_implementation(std::tuple<int, int> ws, std::unique_ptr<workspace_implementation_t> impl, bool overwrite)
+workspace_implementation_t* workspace_manager::get_workspace_implementation(wf_point ws) { return pimpl->viewport_manager.get_implementation(ws); }
+bool workspace_manager::set_workspace_implementation(wf_point ws, std::unique_ptr<workspace_implementation_t> impl, bool overwrite)
 { return pimpl->viewport_manager.set_implementation(ws, std::move(impl), overwrite); }
 
-void workspace_manager::set_workspace(std::tuple<int, int> ws) { return pimpl->viewport_manager.set_workspace(ws); }
-std::tuple<int, int> workspace_manager::get_current_workspace() { return pimpl->viewport_manager.get_current_workspace(); }
-std::tuple<int, int> workspace_manager::get_workspace_grid_size() { return pimpl->viewport_manager.get_workspace_grid_size(); }
+void workspace_manager::set_workspace(wf_point ws) { return pimpl->viewport_manager.set_workspace(ws); }
+wf_point workspace_manager::get_current_workspace() { return pimpl->viewport_manager.get_current_workspace(); }
+wf_size_t workspace_manager::get_workspace_grid_size() { return pimpl->viewport_manager.get_workspace_grid_size(); }
 
 void workspace_manager::add_reserved_area(anchored_area *area) { return pimpl->workarea_manager.add_reserved_area(area); }
 void workspace_manager::remove_reserved_area(anchored_area *area) { return pimpl->workarea_manager.remove_reserved_area(area); }

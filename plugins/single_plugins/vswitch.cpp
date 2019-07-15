@@ -112,13 +112,13 @@ class vswitch : public wf::plugin_interface_t
 
         /* Make sure that when we add this direction, we won't go outside
          * of the workspace grid */
-        GetTuple(vx, vy, output->workspace->get_current_workspace());
-        GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
-        int tvx = clamp(vx + dx.end + x, 0.0, vw - 1.0);
-        int tvy = clamp(vy + dy.end + y, 0.0, vh - 1.0);
+        auto cws = output->workspace->get_current_workspace();
+        auto wsize = output->workspace->get_workspace_grid_size();
+        int tvx = clamp(cws.x + dx.end + x, 0.0, wsize.width - 1.0);
+        int tvy = clamp(cws.y + dy.end + y, 0.0, wsize.height - 1.0);
 
-        dx = {duration.progress(dx), 1.0 * tvx - vx};
-        dy = {duration.progress(dy), 1.0 * tvy - vy};
+        dx = {duration.progress(dx), 1.0 * tvx - cws.x};
+        dy = {duration.progress(dy), 1.0 * tvy - cws.y};
 
         duration.start();
     }
@@ -129,12 +129,9 @@ class vswitch : public wf::plugin_interface_t
             return;
 
         auto ev = static_cast<change_viewport_signal*> (data);
-
-        GetTuple(ox, oy, ev->old_viewport);
-        GetTuple(vx, vy, ev->new_viewport);
-
         ev->carried_out = true;
-        add_direction(vx - ox, vy - oy);
+        add_direction(ev->new_viewport.x - ev->old_viewport.x,
+            ev->new_viewport.y - ev->old_viewport.y);
     };
 
     std::vector<wayfire_view> get_ws_views()
@@ -178,7 +175,7 @@ class vswitch : public wf::plugin_interface_t
         if (!duration.running())
             return stop_switch();
 
-        GetTuple(sw, sh, output->get_screen_size());
+        auto screen_size = output->get_screen_size();
         for (auto view : get_ws_views())
         {
             ensure_transformer(view);
@@ -186,22 +183,22 @@ class vswitch : public wf::plugin_interface_t
                 view->get_transformer(vswitch_view_transformer::name).get());
 
             view->damage();
-            tr->translation_x = -duration.progress(dx) * sw;
-            tr->translation_y = -duration.progress(dy) * sh;
+            tr->translation_x = -duration.progress(dx) * screen_size.width;
+            tr->translation_y = -duration.progress(dy) * screen_size.height;
             view->damage();
         }
     };
 
     void slide_done()
     {
-        GetTuple(vx, vy, output->workspace->get_current_workspace());
-        auto old_ws = output->workspace->get_current_workspace();
+        auto cws = output->workspace->get_current_workspace();
+        auto old_ws = cws;
 
-        vx += dx.end;
-        vy += dy.end;
+        cws.x += dx.end;
+        cws.y += dy.end;
 
         auto output_g = output->get_relative_geometry();
-        output->workspace->set_workspace(std::make_tuple(vx, vy));
+        output->workspace->set_workspace(cws);
 
         if (grabbed_view)
         {

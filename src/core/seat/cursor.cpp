@@ -23,14 +23,13 @@ bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         cursor->count_pressed_buttons++;
         if (cursor->count_pressed_buttons == 1)
         {
-            GetTuple(gx, gy, wf::get_core().get_cursor_position());
-            auto output = wf::get_core().output_layout->get_output_at(gx, gy);
+            wf_point gc = wf::get_core().get_cursor_position();
+            auto output =
+                wf::get_core().output_layout->get_output_at(gc.x, gc.y);
             wf::get_core().focus_output(output);
         }
 
-        GetTuple(ox, oy,
-            wf::get_core().get_active_output()->get_cursor_position());
-
+        auto oc = wf::get_core().get_active_output()->get_cursor_position();
         auto mod_state = get_modifiers();
         for (auto& binding : bindings[WF_BINDING_BUTTON])
         {
@@ -41,7 +40,9 @@ bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
                 /* We must be careful because the callback might be erased,
                  * so force copy the callback into the lambda */
                 auto callback = binding->call.button;
-                callbacks.push_back([=] () {(*callback) (ev->button, ox, oy);});
+                callbacks.push_back([=] () {
+                    (*callback) (ev->button, oc.x, oc.y);
+                });
             }
         }
 
@@ -127,13 +128,12 @@ void input_manager::update_cursor_focus(wf::surface_interface_t *focus, int x, i
 
 void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 {
-    GetTuple(x, y, wf::get_core().get_cursor_position());
+    auto gc = wf::get_core().get_cursor_position();
     if (input_grabbed())
     {
-        GetTuple(sx, sy,
-            wf::get_core().get_active_output()->get_cursor_position());
+        auto oc = wf::get_core().get_active_output()->get_cursor_position();
         if (active_grab->callbacks.pointer.motion && real_update)
-            active_grab->callbacks.pointer.motion(sx, sy);
+            active_grab->callbacks.pointer.motion(oc.x, oc.y);
 
         return;
     }
@@ -150,14 +150,14 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
     if (cursor->grabbed_surface && !this->drag_icon)
     {
         new_focus = cursor->grabbed_surface;
-        GetTuple(ox, oy, new_focus->get_output()->get_cursor_position());
-        auto local = get_surface_relative_coords(new_focus, {ox, oy});
+        auto oc = new_focus->get_output()->get_cursor_position();
+        auto local = get_surface_relative_coords(new_focus, {oc.x, oc.y});
 
         lx = local.x;
         ly = local.y;
     } else
     {
-        new_focus = input_surface_at(x, y, lx, ly);
+        new_focus = input_surface_at(gc.x, gc.y, lx, ly);
         update_cursor_focus(new_focus, lx, ly);
     }
 

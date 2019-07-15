@@ -2,6 +2,7 @@
 #define CORE_HPP
 
 #include "object.hpp"
+#include <geometry.hpp>
 
 #include <vector>
 #include <nonstd/observer_ptr.h>
@@ -121,13 +122,13 @@ class compositor_core_t : public wf::object_base_t
      * @return The current cursor position in global coordinates or
      * {invalid_coordinate, invalid_coordinate} if no cursor.
      */
-    virtual std::tuple<int, int> get_cursor_position() = 0;
+    virtual wf_point get_cursor_position() = 0;
 
     /**
      * @return The current position of the given touch point, or
      * {invalid_coordinate,invalid_coordinate} if it is not found.
      */
-    virtual std::tuple<int, int> get_touch_position(int id) = 0;
+    virtual wf_point get_touch_position(int id) = 0;
 
     /**
      * @return The surface which has the cursor focus, or null if none.

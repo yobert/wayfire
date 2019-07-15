@@ -129,7 +129,7 @@ class simple_decoration_surface : public wf::surface_interface_t,
         return { -thickness, -titlebar };
     }
 
-    virtual wf_surface_size_t get_size() const final
+    virtual wf_size_t get_size() const final
     {
         return {width, height};
     }

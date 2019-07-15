@@ -35,15 +35,13 @@ wf_point wf_drag_icon::get_offset()
         wf::get_core().get_touch_position(icon->drag->touch_id) :
             wf::get_core().get_cursor_position();
 
-    GetTuple(x, y, pos);
-
     if (is_mapped())
     {
-        x += icon->surface->sx;
-        y += icon->surface->sy;
+        pos.x += icon->surface->sx;
+        pos.y += icon->surface->sy;
     }
 
-    return {x, y};
+    return pos;
 }
 
 void wf_drag_icon::damage()

@@ -34,6 +34,11 @@ wf_point operator + (const wf_point& a, const wf_point& b)
     return {a.x + b.x, a.y + b.y};
 }
 
+wf_point operator - (const wf_point& a, const wf_point& b)
+{
+    return {a.x - b.x, a.y - b.y};
+}
+
 wf_point operator + (const wf_point& a, const wf_geometry& b)
 {
     return {a.x + b.x, a.y + b.y};

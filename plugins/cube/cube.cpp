@@ -144,8 +144,8 @@ class wayfire_cube : public wf::plugin_interface_t
         use_light  = section->get_option("light", "1");
         use_deform = section->get_option("deform", "0");
 
-        auto vw = std::get<0>(output->workspace->get_workspace_grid_size());
-        animation.side_angle = 2 * M_PI / float(vw);
+        auto wsize = output->workspace->get_workspace_grid_size();
+        animation.side_angle = 2 * M_PI / float(wsize.width);
         identity_z_offset = 0.5 / std::tan(animation.side_angle / 2);
         animation.offset_z = {identity_z_offset + Z_OFFSET_NEAR,
             identity_z_offset + Z_OFFSET_NEAR};
@@ -225,10 +225,8 @@ class wayfire_cube : public wf::plugin_interface_t
             program.lightID = GL_CALL(glGetUniformLocation(program.id, "light"));
         }
 
-        GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
-        (void) vh; // silence compiler warning
-
-        streams.resize(vw);
+        auto wsize = output->workspace->get_workspace_grid_size();
+        streams.resize(wsize.width);
         animation.projection = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
     }
 
@@ -266,9 +264,9 @@ class wayfire_cube : public wf::plugin_interface_t
         int size = streams.size();
         int dvx = calculate_viewport_dx_from_rotation();
 
-        GetTuple(vx, vy, output->workspace->get_current_workspace());
-        int nvx = (vx + (dvx % size) + size) % size;
-        output->workspace->set_workspace(std::make_tuple(nvx, vy));
+        auto cws = output->workspace->get_current_workspace();
+        int nvx = (cws.x + (dvx % size) + size) % size;
+        output->workspace->set_workspace({nvx, cws.y});
 
         /* We are finished with rotation, make sure the next time cube is used
          * it is properly reset */
@@ -317,8 +315,7 @@ class wayfire_cube : public wf::plugin_interface_t
         if (!activate())
             return;
 
-        GetTuple(px, py, wf::get_core().get_cursor_position());
-        saved_pointer_position = {px, py};
+        saved_pointer_position = wf::get_core().get_cursor_position();
         wf::get_core().hide_cursor();
 
         /* Rotations, offset_y and zoom stay as they are now, as they have been grabbed.
@@ -385,14 +382,12 @@ class wayfire_cube : public wf::plugin_interface_t
 
     void update_workspace_streams()
     {
-        GetTuple(vx, vy, output->workspace->get_current_workspace());
-        (void) vx;
-
+        auto cws = output->workspace->get_current_workspace();
         for(size_t i = 0; i < streams.size(); i++)
         {
             if (!streams[i].running)
             {
-                streams[i].ws = std::make_tuple(i, vy);
+                streams[i].ws = {(int)i, cws.y};
                 output->render->workspace_stream_start(streams[i]);
             } else
             {
@@ -427,11 +422,10 @@ class wayfire_cube : public wf::plugin_interface_t
         GL_CALL(glFrontFace(front_face));
         static const GLuint indexData[] = { 0, 1, 2, 0, 2, 3 };
 
-        GetTuple(vx, vy, output->workspace->get_current_workspace());
-        (void) vy;
+        auto cws = output->workspace->get_current_workspace();
         for(size_t i = 0; i < streams.size(); i++)
         {
-            int index = (vx + i) % streams.size();
+            int index = (cws.x + i) % streams.size();
             GL_CALL(glBindTexture(GL_TEXTURE_2D, streams[index].buffer.tex));
 
             auto model = calculate_model_matrix(i, fb_transform);

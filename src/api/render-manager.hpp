@@ -167,7 +167,7 @@ class render_manager : public wf::signal_provider_t
      * @return A box in output-local coordinates containing the given
      * workspace of the output (returned value depends on current workspace).
      */
-    wlr_box get_ws_box(std::tuple<int, int> ws) const;
+    wlr_box get_ws_box(wf_point ws) const;
 
     /**
      * @return The framebuffer on which all rendering operations except post

@@ -122,9 +122,9 @@ class wayfire_resize : public wf::plugin_interface_t
         if (!view)
             return;
 
-        GetTuple(tx, ty, wf::get_core().get_touch_position(0));
-        if (tx != wf::compositor_core_t::invalid_coordinate &&
-            ty != wf::compositor_core_t::invalid_coordinate)
+        auto touch = wf::get_core().get_touch_position(0);
+        if (touch.x != wf::compositor_core_t::invalid_coordinate &&
+            touch.y != wf::compositor_core_t::invalid_coordinate)
         {
             is_using_touch = true;
         } else
@@ -137,7 +137,7 @@ class wayfire_resize : public wf::plugin_interface_t
     }
 
     /* Returns the currently used input coordinates in global compositor space */
-    std::tuple<int, int> get_global_input_coords()
+    wf_point get_global_input_coords()
     {
         if (is_using_touch) {
             return wf::get_core().get_touch_position(0);
@@ -147,12 +147,10 @@ class wayfire_resize : public wf::plugin_interface_t
     }
 
     /* Returns the currently used input coordinates in output-local space */
-    std::tuple<int, int> get_input_coords()
+    wf_point get_input_coords()
     {
-        GetTuple(gx, gy, get_global_input_coords());
         auto og = output->get_layout_geometry();
-
-        return std::tuple<int, int> {gx - og.x, gy - og.y};
+        return get_global_input_coords() - wf_point{og.x, og.y};
     }
 
     /* Calculate resize edges, grab starts at (sx, sy), view's geometry is vg */
@@ -195,12 +193,11 @@ class wayfire_resize : public wf::plugin_interface_t
             return;
         }
 
-        GetTuple(sx, sy, get_input_coords());
-        grab_start = {sx, sy};
+        grab_start = get_input_coords();
         grabbed_geometry = view->get_wm_geometry();
 
         this->edges = forced_edges ?: calculate_edges(grabbed_geometry,
-            sx, sy);
+            grab_start.x, grab_start.y);
 
         if ((edges & WLR_EDGE_LEFT) || (edges & WLR_EDGE_TOP))
             view->set_moving(true);
@@ -252,9 +249,9 @@ class wayfire_resize : public wf::plugin_interface_t
 
     void input_motion()
     {
-        GetTuple(ix, iy, get_input_coords());
-        int dx = ix - grab_start.x;
-        int dy = iy - grab_start.y;
+        auto input = get_input_coords();
+        int dx = input.x - grab_start.x;
+        int dy = input.y - grab_start.y;
         int width = grabbed_geometry.width;
         int height = grabbed_geometry.height;
 

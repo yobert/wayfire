@@ -860,20 +860,20 @@ void wf::view_interface_t::damage_raw(const wlr_box& box)
      * their damage to all workspaces as well */
     if (role == wf::VIEW_ROLE_SHELL_VIEW)
     {
-        GetTuple(vw, vh, get_output()->workspace->get_workspace_grid_size());
-        GetTuple(vx, vy, get_output()->workspace->get_current_workspace());
+        auto wsize = get_output()->workspace->get_workspace_grid_size();
+        auto cws = get_output()->workspace->get_current_workspace();
 
         /* Damage only the visible region of the shell view.
          * This prevents hidden panels from spilling damage onto other workspaces */
         wlr_box ws_box = get_output()->render->get_damage_box();
         wlr_box visible_damage = wf_geometry_intersection(damage_box, ws_box);
 
-        for (int i = 0; i < vw; i++)
+        for (int i = 0; i < wsize.width; i++)
         {
-            for (int j = 0; j < vh; j++)
+            for (int j = 0; j < wsize.height; j++)
             {
-                const int dx = (i - vx) * ws_box.width;
-                const int dy = (j - vy) * ws_box.height;
+                const int dx = (i - cws.x) * ws_box.width;
+                const int dy = (j - cws.y) * ws_box.height;
                 get_output()->render->damage(visible_damage + wf_point{dx, dy});
             }
         }

@@ -171,11 +171,9 @@ void wf_cube_background_skydome::render_frame(const wf_framebuffer& fb,
     GL_CALL(glVertexAttribPointer(posID, 3, GL_FLOAT, GL_FALSE, 0, vertices.data()));
     GL_CALL(glVertexAttribPointer(uvID, 2, GL_FLOAT, GL_FALSE, 0, coords.data()));
 
-    GetTuple(vx, vy, output->workspace->get_current_workspace());
-    (void)vy;
-
+    auto cws = output->workspace->get_current_workspace();
     auto model = glm::rotate(glm::mat4(1.0),
-        float(attribs.duration.progress(attribs.rotation)) - vx * attribs.side_angle,
+        float(attribs.duration.progress(attribs.rotation)) - cws.x * attribs.side_angle,
         glm::vec3(0, 1, 0));
 
     GL_CALL(glUniformMatrix4fv(modelID, 1, GL_FALSE, &model[0][0]));

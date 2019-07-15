@@ -200,24 +200,25 @@ void wf::compositor_core_impl_t::warp_cursor(int x, int y)
 }
 
 const int wf::compositor_core_t::invalid_coordinate;
-std::tuple<int, int> wf::compositor_core_impl_t::get_cursor_position()
+wf_point wf::compositor_core_impl_t::get_cursor_position()
 {
-    if (input->cursor)
-        return std::tuple<int, int> (input->cursor->cursor->x, input->cursor->cursor->y);
-    else
-        return std::tuple<int, int> (invalid_coordinate, invalid_coordinate);
+    if (input->cursor) {
+        return {(int)input->cursor->cursor->x, (int)input->cursor->cursor->y};
+    } else {
+        return {invalid_coordinate, invalid_coordinate};
+    }
 }
 
-std::tuple<int, int> wf::compositor_core_impl_t::get_touch_position(int id)
+wf_point wf::compositor_core_impl_t::get_touch_position(int id)
 {
     if (!input->our_touch)
-        return std::make_tuple(invalid_coordinate, invalid_coordinate);
+        return {invalid_coordinate, invalid_coordinate};
 
     auto it = input->our_touch->gesture_recognizer.current.find(id);
     if (it != input->our_touch->gesture_recognizer.current.end())
-        return std::make_tuple(it->second.sx, it->second.sy);
+        return {it->second.sx, it->second.sy};
 
-    return std::make_tuple(invalid_coordinate, invalid_coordinate);
+    return {invalid_coordinate, invalid_coordinate};
 }
 
 wf::surface_interface_t* wf::compositor_core_impl_t::get_cursor_focus()
