@@ -34,7 +34,7 @@ wayfire_sources = ['main.cpp',
                    'output/gtk-shell.cpp']
 
 wayfire_dependencies = [wayland_server, wlroots, xkbcommon, libinput,
-                       pixman, drm, egl, libevdev, glesv2, glm, wf_protos,
+                       pixman, drm, egl, glesv2, glm, wf_protos,
                        wfconfig, libinotify, backtrace]
 
 if conf_data.get('BUILD_WITH_IMAGEIO')
