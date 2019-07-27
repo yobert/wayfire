@@ -41,7 +41,7 @@ wf_point wf_drag_icon::get_offset()
         pos.y += icon->surface->sy;
     }
 
-    return pos;
+    return {(int)pos.x, (int)pos.y};
 }
 
 void wf_drag_icon::damage()
@@ -312,8 +312,8 @@ void wf_input_device_internal::update_options()
     }
 }
 
-wf_point get_surface_relative_coords(wf::surface_interface_t *surface,
-    const wf_point& point)
+wf_pointf get_surface_relative_coords(wf::surface_interface_t *surface,
+    const wf_pointf& point)
 {
     auto view =
         dynamic_cast<wf::view_interface_t*> (surface->get_main_surface());

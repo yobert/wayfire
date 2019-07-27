@@ -4,6 +4,7 @@
 #include "object.hpp"
 #include <geometry.hpp>
 
+#include <limits>
 #include <vector>
 #include <nonstd/observer_ptr.h>
 
@@ -116,19 +117,20 @@ class compositor_core_t : public wf::object_base_t
     virtual void warp_cursor(int x, int y) = 0;
 
     /** no such coordinate will ever realistically be used for input */
-    static const int invalid_coordinate = -123456789;
+    static constexpr double invalid_coordinate =
+        std::numeric_limits<double>::quiet_NaN();
 
     /**
      * @return The current cursor position in global coordinates or
      * {invalid_coordinate, invalid_coordinate} if no cursor.
      */
-    virtual wf_point get_cursor_position() = 0;
+    virtual wf_pointf get_cursor_position() = 0;
 
     /**
      * @return The current position of the given touch point, or
      * {invalid_coordinate,invalid_coordinate} if it is not found.
      */
-    virtual wf_point get_touch_position(int id) = 0;
+    virtual wf_pointf get_touch_position(int id) = 0;
 
     /**
      * @return The surface which has the cursor focus, or null if none.

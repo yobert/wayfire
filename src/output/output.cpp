@@ -143,10 +143,11 @@ void wf::output_t::ensure_pointer() const
     } */
 }
 
-wf_point wf::output_t::get_cursor_position() const
+wf_pointf wf::output_t::get_cursor_position() const
 {
     auto og = get_layout_geometry();
-    return wf::get_core().get_cursor_position() + wf_point{-og.x, -og.y};
+    auto gc = wf::get_core().get_cursor_position();
+    return {gc.x - og.x, gc.y - og.y};
 }
 
 bool wf::output_t::ensure_visible(wayfire_view v)

@@ -12,10 +12,10 @@
 
 wlr_box wf_view_transformer_t::get_bounding_box(wf_geometry view, wlr_box region)
 {
-    const auto p1 = local_to_transformed_point(view, {region.x,                region.y});
-    const auto p2 = local_to_transformed_point(view, {region.x + region.width, region.y});
-    const auto p3 = local_to_transformed_point(view, {region.x,                region.y + region.height});
-    const auto p4 = local_to_transformed_point(view, {region.x + region.width, region.y + region.height});
+    const auto p1 = local_to_transformed_point(view, {1.0 * region.x,                1.0 * region.y});
+    const auto p2 = local_to_transformed_point(view, {1.0 * region.x + region.width, 1.0 * region.y});
+    const auto p3 = local_to_transformed_point(view, {1.0 * region.x,                1.0 * region.y + region.height});
+    const auto p4 = local_to_transformed_point(view, {1.0 * region.x + region.width, 1.0 * region.y + region.height});
 
     const int x1 = std::min({p1.x, p2.x, p3.x, p4.x});
     const int x2 = std::max({p1.x, p2.x, p3.x, p4.x});
@@ -50,19 +50,19 @@ static wf_point get_center(wf_geometry view)
     };
 }
 
-static wf_point get_center_relative_coords(wf_geometry view, wf_point point)
+static wf_pointf get_center_relative_coords(wf_geometry view, wf_pointf point)
 {
     return {
-        (point.x - view.x) - view.width / 2,
-        view.height / 2 - (point.y - view.y)
+        (point.x - view.x) - view.width / 2.0,
+        view.height / 2.0 - (point.y - view.y)
     };
 }
 
-static wf_point get_absolute_coords_from_relative(wf_geometry view, wf_point point)
+static wf_pointf get_absolute_coords_from_relative(wf_geometry view, wf_pointf point)
 {
     return {
-        point.x + view.x + view.width / 2,
-        (view.height / 2 - point.y) + view.y
+        point.x + view.x + view.width / 2.0,
+        (view.height / 2.0 - point.y) + view.y
     };
 }
 
@@ -104,7 +104,7 @@ static void rotate_xy(float& x, float& y, float angle)
     y = v.y;
 }
 
-wf_point wf_2D_view::local_to_transformed_point(wf_geometry geometry, wf_point point)
+wf_pointf wf_2D_view::local_to_transformed_point(wf_geometry geometry, wf_pointf point)
 {
 
     auto p2 = get_center_relative_coords(view->get_wm_geometry(), point);
@@ -115,12 +115,11 @@ wf_point wf_2D_view::local_to_transformed_point(wf_geometry geometry, wf_point p
     x += translation_x;
     y -= translation_y;
 
-    auto r = get_absolute_coords_from_relative(view->get_wm_geometry(),
-                                             {(int32_t) x, (int32_t) y});
+    auto r = get_absolute_coords_from_relative(view->get_wm_geometry(), {x, y});
     return r;
 }
 
-wf_point wf_2D_view::transformed_to_local_point(wf_geometry geometry, wf_point point)
+wf_pointf wf_2D_view::transformed_to_local_point(wf_geometry geometry, wf_pointf point)
 {
     point = get_center_relative_coords(view->get_wm_geometry(), point);
     float x = point.x, y = point.y;
@@ -130,8 +129,7 @@ wf_point wf_2D_view::transformed_to_local_point(wf_geometry geometry, wf_point p
     x -= translation_x;
     y += translation_y;
 
-    return get_absolute_coords_from_relative(view->get_wm_geometry(),
-                                             {(int32_t) x, (int32_t) y});
+    return get_absolute_coords_from_relative(view->get_wm_geometry(), {x, y});
 }
 
 void wf_2D_view::render_box(uint32_t src_tex, wlr_box src_box,
@@ -189,7 +187,7 @@ glm::mat4 wf_3D_view::calculate_total_transform()
     return translation * view_proj * depth_scale * rotation * scaling;
 }
 
-wf_point wf_3D_view::local_to_transformed_point(wf_geometry geometry, wf_point point)
+wf_pointf wf_3D_view::local_to_transformed_point(wf_geometry geometry, wf_pointf point)
 {
     auto p = get_center_relative_coords(geometry, point);
     glm::vec4 v(1.0f * p.x, 1.0f * p.y, 0, 1);
@@ -198,13 +196,14 @@ wf_point wf_3D_view::local_to_transformed_point(wf_geometry geometry, wf_point p
     v.x /= v.w;
     v.y /= v.w;
 
-    return get_absolute_coords_from_relative(geometry, {(int32_t) v.x, (int32_t) v.y});
+    return get_absolute_coords_from_relative(geometry, {v.x, v.y});
 }
 
 /* TODO: is there a way to realiably reverse projective transformations? */
-wf_point wf_3D_view::transformed_to_local_point(wf_geometry geometry, wf_point point)
+wf_pointf wf_3D_view::transformed_to_local_point(wf_geometry geometry, wf_pointf point)
 {
-    return {WF_INVALID_INPUT_COORDINATES, WF_INVALID_INPUT_COORDINATES};
+    return {wf::compositor_core_t::invalid_coordinate,
+        wf::compositor_core_t::invalid_coordinate};
 }
 
 void wf_3D_view::render_box(uint32_t src_tex, wlr_box src_box,

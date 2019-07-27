@@ -143,7 +143,7 @@ input_manager::input_manager()
             for (auto f : touch_points)
             {
                 our_touch->gesture_recognizer.update_touch(get_current_time(),
-                    f.first, f.second.sx, f.second.sy, false);
+                    f.first, f.second.current, false);
             }
         }
     };
@@ -214,7 +214,7 @@ bool input_manager::grab_input(wf::plugin_grab_interface_t* iface)
     wlr_seat_keyboard_send_modifiers(seat, &mods);
 
     set_keyboard_focus(NULL, seat);
-    update_cursor_focus(nullptr, 0, 0);
+    update_cursor_focus(nullptr, {0, 0});
     wf::get_core().set_cursor("default");
     return true;
 }
@@ -281,23 +281,23 @@ bool input_manager::can_focus_surface(wf::surface_interface_t *surface)
     return true;
 }
 
-wf::surface_interface_t* input_manager::input_surface_at(int x, int y,
-    int& lx, int& ly)
+wf::surface_interface_t* input_manager::input_surface_at(wf_pointf global,
+    wf_pointf& local)
 {
-    auto output = wf::get_core().output_layout->get_output_coords_at(x, y, x, y);
+    auto output = wf::get_core().output_layout->get_output_coords_at(global, global);
     /* If the output at these coordinates was just destroyed or some other edge case */
     if (!output)
         return nullptr;
 
     auto og = output->get_layout_geometry();
-    x -= og.x;
-    y -= og.y;
+    global.x -= og.x;
+    global.y -= og.y;
 
     for (auto& view : output->workspace->get_views_in_layer(wf::VISIBLE_LAYERS))
     {
         if (can_focus_surface(view.get()))
         {
-            auto surface = view->map_input_coordinates(x, y, lx, ly);
+            auto surface = view->map_input_coordinates(global, local);
             if (surface)
                 return surface;
         }

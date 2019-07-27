@@ -123,12 +123,9 @@ class wayfire_resize : public wf::plugin_interface_t
             return;
 
         auto touch = wf::get_core().get_touch_position(0);
-        if (touch.x != wf::compositor_core_t::invalid_coordinate &&
-            touch.y != wf::compositor_core_t::invalid_coordinate)
-        {
+        if (!std::isnan(touch.x) && !std::isnan(touch.y)) {
             is_using_touch = true;
-        } else
-        {
+        } else {
             is_using_touch = false;
         }
 
@@ -139,11 +136,14 @@ class wayfire_resize : public wf::plugin_interface_t
     /* Returns the currently used input coordinates in global compositor space */
     wf_point get_global_input_coords()
     {
+        wf_pointf input;
         if (is_using_touch) {
-            return wf::get_core().get_touch_position(0);
+            input = wf::get_core().get_touch_position(0);
         } else {
-            return wf::get_core().get_cursor_position();
+            input = wf::get_core().get_cursor_position();
         }
+
+        return {(int)input.x, (int)input.y};
     }
 
     /* Returns the currently used input coordinates in output-local space */

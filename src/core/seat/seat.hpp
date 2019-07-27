@@ -53,7 +53,7 @@ class wf_input_device_internal : public wf::input_device_t
 };
 
 /** Convert the given point to a surface-local point */
-wf_point get_surface_relative_coords(wf::surface_interface_t *surface,
-    const wf_point& point);
+wf_pointf get_surface_relative_coords(wf::surface_interface_t *surface,
+    const wf_pointf& point);
 
 #endif /* end of include guard: SEAT_HPP */

@@ -23,7 +23,7 @@ bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
         cursor->count_pressed_buttons++;
         if (cursor->count_pressed_buttons == 1)
         {
-            wf_point gc = wf::get_core().get_cursor_position();
+            auto gc = wf::get_core().get_cursor_position();
             auto output =
                 wf::get_core().output_layout->get_output_at(gc.x, gc.y);
             wf::get_core().focus_output(output);
@@ -85,7 +85,7 @@ bool input_manager::handle_pointer_button(wlr_event_pointer_button *ev)
     return (!callbacks.empty() && get_modifiers());
 }
 
-void input_manager::update_cursor_focus(wf::surface_interface_t *focus, int x, int y)
+void input_manager::update_cursor_focus(wf::surface_interface_t *focus, wf_pointf local)
 {
     if (focus && !can_focus_surface(focus))
         return;
@@ -104,14 +104,15 @@ void input_manager::update_cursor_focus(wf::surface_interface_t *focus, int x, i
     if (focus && !wf_compositor_surface_from_surface(focus))
     {
         next_focus_wlr_surface = focus->priv->wsurface;
-        wlr_seat_pointer_notify_enter(seat, focus->priv->wsurface, x, y);
+        wlr_seat_pointer_notify_enter(seat, focus->priv->wsurface,
+            local.x, local.y);
     } else
     {
         wlr_seat_pointer_clear_focus(seat);
     }
 
     if ((compositor_surface = wf_compositor_surface_from_surface(focus)))
-        compositor_surface->on_pointer_enter(x, y);
+        compositor_surface->on_pointer_enter(local.x, local.y);
 
     if (focus_change)
     {
@@ -128,7 +129,6 @@ void input_manager::update_cursor_focus(wf::surface_interface_t *focus, int x, i
 
 void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
 {
-    auto gc = wf::get_core().get_cursor_position();
     if (input_grabbed())
     {
         auto oc = wf::get_core().get_active_output()->get_cursor_position();
@@ -138,7 +138,9 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
         return;
     }
 
-    int lx, ly;
+    wf_pointf gc = wf::get_core().get_cursor_position();
+
+    wf_pointf local;
     wf::surface_interface_t *new_focus = nullptr;
     /* If we have a grabbed surface, but no drag, we want to continue sending
      * events to the grabbed surface, even if the pointer goes outside of it.
@@ -151,50 +153,46 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
     {
         new_focus = cursor->grabbed_surface;
         auto oc = new_focus->get_output()->get_cursor_position();
-        auto local = get_surface_relative_coords(new_focus, {oc.x, oc.y});
-
-        lx = local.x;
-        ly = local.y;
+        local = get_surface_relative_coords(new_focus, oc);
     } else
     {
-        new_focus = input_surface_at(gc.x, gc.y, lx, ly);
-        update_cursor_focus(new_focus, lx, ly);
+        new_focus = input_surface_at(gc, local);
+        update_cursor_focus(new_focus, local);
     }
 
     auto compositor_surface = wf_compositor_surface_from_surface(new_focus);
     if (compositor_surface)
     {
-        compositor_surface->on_pointer_motion(lx, ly);
+        compositor_surface->on_pointer_motion(local.x, local.y);
     }
     else if (real_update)
     {
         wlr_seat_pointer_notify_motion(wf::get_core_impl().input->seat,
-            time_msec, lx, ly);
+            time_msec, local.x, local.y);
     }
 
     update_drag_icon();
 }
-wf_point input_manager::get_cursor_position_relative_to_cursor_focus()
+wf_pointf input_manager::get_cursor_position_relative_to_cursor_focus()
 {
     return get_cursor_position_relative_to_cursor_focus(
-        cursor->cursor->x, cursor->cursor->y);
+        wf::get_core().get_cursor_position());
 }
 
-wf_point input_manager::get_cursor_position_relative_to_cursor_focus(
-    double x, double y)
+wf_pointf input_manager::get_cursor_position_relative_to_cursor_focus(
+    wf_pointf gc)
 {
     auto view =
         (wf::view_interface_t*) (this->cursor_focus->get_main_surface());
 
     auto output = view->get_output()->get_layout_geometry();
-    x -= output.x;
-    y -= output.y;
+    gc.x -= output.x;
+    gc.y -= output.y;
 
-    return view->global_to_local_point(
-        {static_cast<int>(x), static_cast<int>(y)}, this->cursor_focus);
+    return view->global_to_local_point(gc, this->cursor_focus);
 }
 
-wf_point input_manager::get_absolute_cursor_from_relative(wf_point relative)
+wf_pointf input_manager::get_absolute_cursor_from_relative(wf_pointf relative)
 {
     auto view =
         (wf::view_interface_t*) (this->cursor_focus->get_main_surface());
@@ -205,38 +203,39 @@ wf_point input_manager::get_absolute_cursor_from_relative(wf_point relative)
     for (auto& surf : view->enumerate_surfaces(origin))
     {
         if (surf.surface == this->cursor_focus)
-            relative = relative + surf.position;
+        {
+            relative.x += surf.position.x;
+            relative.y += surf.position.y;
+        }
     }
 
-    wlr_box box = {relative.x, relative.y, 1, 1};
-    box = view->transform_region(box);
-
+    relative = view->transform_point(relative);
     auto output = view->get_output()->get_layout_geometry();
-    return {box.x + output.x, box.y + output.y};
+    return {relative.x + output.x, relative.y + output.y};
 }
 
-static double distance_between_points(const wf_point& a, const wf_point& b)
+static double distance_between_points(const wf_pointf& a, const wf_pointf& b)
 {
     return std::sqrt(1.0 * (a.x - b.x) * (a.x - b.x) +
         1.0 * (a.y - b.y) * (a.y - b.y));
 }
 
-static wf_point region_closest_point(const wf_region& region,
-    const wf_point& ref)
+static wf_pointf region_closest_point(const wf_region& region,
+    const wf_pointf& ref)
 {
     if (region.empty())
         return ref;
 
     auto extents = region.get_extents();
-    wf_point result = {extents.x1, extents.y1};
+    wf_pointf result = {1.0 * extents.x1, 1.0 * extents.y1};
+
     for (const auto& box : region)
     {
         auto wlr_box = wlr_box_from_pixman_box(box);
 
         double x, y;
         wlr_box_closest_point(&wlr_box, ref.x, ref.y, &x, &y);
-
-        wf_point closest = {static_cast<int>(x), static_cast<int>(y)};
+        wf_pointf closest = {x, y};
 
         if (distance_between_points(ref, result) >
                 distance_between_points(ref,closest))
@@ -330,12 +329,13 @@ void input_manager::handle_pointer_motion(wlr_event_pointer_motion *ev)
             // next coordinates
             double cx = cursor->cursor->x + dx;
             double cy = cursor->cursor->y + dy;
-            auto local = get_cursor_position_relative_to_cursor_focus(cx, cy);
-            if (!constraint_region.contains_point(local))
+            auto local = get_cursor_position_relative_to_cursor_focus({cx, cy});
+
+            if (!constraint_region.contains_point({(int)local.x, (int)local.y}))
             {
                 // get as close as possible
                 local = region_closest_point(constraint_region, local);
-                wf_point target = get_absolute_cursor_from_relative(local);
+                wf_pointf target = get_absolute_cursor_from_relative(local);
 
                 dx = target.x - cursor->cursor->x;
                 dy = target.y - cursor->cursor->y;
@@ -364,8 +364,8 @@ void input_manager::handle_pointer_motion_absolute(wlr_event_pointer_motion_abso
     // check constraints
     if (this->active_pointer_constraint && this->cursor_focus)
     {
-        auto local = get_cursor_position_relative_to_cursor_focus(cx, cy);
-        if (constraint_region.contains_point(local))
+        auto local = get_cursor_position_relative_to_cursor_focus({cx, cy});
+        if (constraint_region.contains_point({(int)local.x, (int)local.y}))
             return;
     }
 

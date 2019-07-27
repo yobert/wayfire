@@ -80,8 +80,7 @@ class input_manager
 
         // returns the surface under the given global coordinates
         // if no such surface (return NULL), lx and ly are undefined
-        wf::surface_interface_t* input_surface_at(int x, int y,
-            int& lx, int& ly);
+        wf::surface_interface_t* input_surface_at(wf_pointf global, wf_pointf& local);
 
         void validate_drag_request(wlr_seat_request_start_drag_event *ev);
         void update_drag_icon();
@@ -98,9 +97,9 @@ class input_manager
         wf_region constraint_region;
         wlr_pointer_constraint_v1 *active_pointer_constraint = nullptr;
 
-        wf_point get_cursor_position_relative_to_cursor_focus();
-        wf_point get_cursor_position_relative_to_cursor_focus(double x, double y);
-        wf_point get_absolute_cursor_from_relative(wf_point relative);
+        wf_pointf get_cursor_position_relative_to_cursor_focus();
+        wf_pointf get_cursor_position_relative_to_cursor_focus(wf_pointf gc);
+        wf_pointf get_absolute_cursor_from_relative(wf_pointf relative);
 
     public:
 
@@ -111,8 +110,8 @@ class input_manager
         void handle_input_destroyed(wlr_input_device *dev);
 
         void update_cursor_position(uint32_t time_msec, bool real_update = true);
-        void update_cursor_focus(wf::surface_interface_t *surface, int lx, int ly);
-        void set_touch_focus(wf::surface_interface_t *surface, uint32_t time, int id, int lx, int ly);
+        void update_cursor_focus(wf::surface_interface_t *surface, wf_pointf local);
+        void set_touch_focus(wf::surface_interface_t *surface, uint32_t time, int id, wf_pointf local);
 
         void set_pointer_constraint(wlr_pointer_constraint_v1 *constraint, bool last_destroyed = false);
         wlr_pointer_constraint_v1 *get_active_pointer_constraint();
@@ -164,8 +163,8 @@ class input_manager
         bool handle_keyboard_key(uint32_t key, uint32_t state);
         void handle_keyboard_mod(uint32_t key, uint32_t state);
 
-        void handle_touch_down  (uint32_t time, int32_t id, int32_t x, int32_t y);
-        void handle_touch_motion(uint32_t time, int32_t id, int32_t x, int32_t y, bool real_update);
+        void handle_touch_down  (uint32_t time, int32_t id, wf_pointf pos);
+        void handle_touch_motion(uint32_t time, int32_t id, wf_pointf pos, bool real_update);
         void handle_touch_up    (uint32_t time, int32_t id);
 
         void handle_gesture(wf_touch_gesture g);

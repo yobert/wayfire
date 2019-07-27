@@ -1066,18 +1066,15 @@ namespace wf
             }
         }
 
-        wf::output_t *get_output_coords_at(int x, int y, int& rx, int& ry)
+        wf::output_t *get_output_coords_at(const wf_pointf& origin, wf_pointf& closest)
         {
-            double lx = x, ly = y;
-            wlr_output_layout_closest_point(output_layout, NULL, lx, ly, &lx, &ly);
-            auto handle = wlr_output_layout_output_at(output_layout, lx, ly);
+            wlr_output_layout_closest_point(output_layout, NULL,
+                origin.x, origin.y, &closest.x, &closest.y);
 
+            auto handle = wlr_output_layout_output_at(output_layout, closest.x, closest.y);
             assert(handle || shutdown_received);
             if (!handle)
                 return nullptr;
-
-            rx = lx;
-            ry = ly;
 
             if (noop_output && handle == noop_output->handle) {
                 return noop_output->output.get();
@@ -1088,8 +1085,8 @@ namespace wf
 
         wf::output_t *get_output_at(int x, int y)
         {
-            int dummy_x, dummy_y;
-            return get_output_coords_at(x, y, dummy_x, dummy_y);
+            wf_pointf dummy;
+            return get_output_coords_at({1.0 * x, 1.0 * y}, dummy);
         }
 
         bool apply_configuration(const output_configuration_t& configuration,
@@ -1110,8 +1107,8 @@ namespace wf
     { return pimpl->get_handle(); }
     wf::output_t *output_layout_t::get_output_at(int x, int y)
     { return pimpl->get_output_at(x, y); }
-    wf::output_t *output_layout_t::get_output_coords_at(int x, int y, int& lx, int& ly)
-    { return pimpl->get_output_coords_at(x, y, lx, ly); }
+    wf::output_t *output_layout_t::get_output_coords_at(wf_pointf origin, wf_pointf& closest)
+    { return pimpl->get_output_coords_at(origin, closest); }
     size_t output_layout_t::get_num_outputs()
     { return pimpl->get_num_outputs(); }
     std::vector<wf::output_t*> output_layout_t::get_outputs()

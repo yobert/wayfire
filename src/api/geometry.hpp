@@ -19,6 +19,11 @@ struct wf_point
     int x, y;
 };
 
+struct wf_pointf
+{
+    double x, y;
+};
+
 struct wf_size_t
 {
     int32_t width;

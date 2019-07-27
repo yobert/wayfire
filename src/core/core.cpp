@@ -199,24 +199,26 @@ void wf::compositor_core_impl_t::warp_cursor(int x, int y)
     input->cursor->warp_cursor(x, y);
 }
 
-const int wf::compositor_core_t::invalid_coordinate;
-wf_point wf::compositor_core_impl_t::get_cursor_position()
+wf_pointf wf::compositor_core_impl_t::get_cursor_position()
 {
     if (input->cursor) {
-        return {(int)input->cursor->cursor->x, (int)input->cursor->cursor->y};
+        return {input->cursor->cursor->x, input->cursor->cursor->y};
     } else {
         return {invalid_coordinate, invalid_coordinate};
     }
 }
 
-wf_point wf::compositor_core_impl_t::get_touch_position(int id)
+wf_pointf wf::compositor_core_impl_t::get_touch_position(int id)
 {
     if (!input->our_touch)
         return {invalid_coordinate, invalid_coordinate};
 
     auto it = input->our_touch->gesture_recognizer.current.find(id);
     if (it != input->our_touch->gesture_recognizer.current.end())
-        return {it->second.sx, it->second.sy};
+    {
+        log_info("found touch id %d", id);
+        return it->second.current;
+    }
 
     return {invalid_coordinate, invalid_coordinate};
 }

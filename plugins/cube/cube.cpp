@@ -31,7 +31,7 @@ class wayfire_cube : public wf::plugin_interface_t
     wf::render_hook_t renderer;
 
     /* Used to restore the pointer where the grab started */
-    wf_point saved_pointer_position;
+    wf_pointf saved_pointer_position;
 
     std::vector<wf::workspace_stream_t> streams;
 

@@ -22,14 +22,14 @@ class wf_blur_transformer : public wf_view_transformer_t
             this->output = output;
         }
 
-        virtual wf_point local_to_transformed_point(wf_geometry view,
-            wf_point point)
+        virtual wf_pointf local_to_transformed_point(wf_geometry view,
+            wf_pointf point)
         {
             return point;
         }
 
-        virtual wf_point transformed_to_local_point(wf_geometry view,
-            wf_point point)
+        virtual wf_pointf transformed_to_local_point(wf_geometry view,
+            wf_pointf point)
         {
             return point;
         }

@@ -87,11 +87,14 @@ namespace wf
         wf::output_t *get_output_at(int x, int y);
 
         /**
-         * @param lx the x coordinate of the closest point of the layout
-         * @param ly the y coordinate of the closest point of the layout
+         * Get the output closest to the given origin and the closest coordinates
+         * to origin which lie inside the output.
+         *
+         * @param origin The start coordinates
+         * @param closest The closest point to origin inside the returned output
          * @return the output at the given coordinates
          */
-        wf::output_t *get_output_coords_at(int x, int y, int& lx, int& ly);
+        wf::output_t *get_output_coords_at(wf_pointf origin, wf_pointf& closest);
 
         /**
          * @return the number of the active outputs in the output layout

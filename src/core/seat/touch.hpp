@@ -15,17 +15,17 @@ struct wf_gesture_recognizer
     struct finger
     {
         int id;
-        int sx, sy;
-        int ix, iy;
+        wf_pointf current;
+        wf_pointf start;
 
         bool sent_to_client = false;
     };
 
     std::map<int, finger> current;
 
-    void update_touch(int32_t time, int id, int sx, int sy, bool real_update);
+    void update_touch(int32_t time, int id, wf_pointf point, bool real_update);
 
-    void register_touch(int time, int id, int sx, int sy);
+    void register_touch(int time, int id, wf_pointf point);
     void unregister_touch(int32_t time, int32_t id);
 
 private:
@@ -34,7 +34,7 @@ private:
     int start_sum_dist;
 
     void start_new_gesture();
-    void continue_gesture(int id, int sx, int sy);
+    void continue_gesture();
     void stop_gesture();
     void reset_gesture();
 };

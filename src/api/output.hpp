@@ -74,7 +74,7 @@ class output_t : public wf::object_base_t
     /**
      * Gets the cursor position relative to the output
      */
-    wf_point get_cursor_position() const;
+    wf_pointf get_cursor_position() const;
 
     /**
      * Activates a plugin. Note that this may not succeed, if a plugin with the

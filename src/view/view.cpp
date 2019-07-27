@@ -166,10 +166,9 @@ wlr_box wf::view_interface_t::get_bounding_box()
     return transform_region(get_untransformed_bounding_box());
 }
 
-#define INVALID_COORDS(p) (p.x == WF_INVALID_INPUT_COORDINATES || \
-    p.y == WF_INVALID_INPUT_COORDINATES)
+#define INVALID_COORDS(p) (std::isnan(p.x) || std::isnan(p.y))
 
-wf_point wf::view_interface_t::global_to_local_point(const wf_point& arg,
+wf_pointf wf::view_interface_t::global_to_local_point(const wf_pointf& arg,
     wf::surface_interface_t* surface)
 {
     if (!is_mapped())
@@ -177,7 +176,7 @@ wf_point wf::view_interface_t::global_to_local_point(const wf_point& arg,
 
     /* First, untransform the coordinates to make them relative to the view's
      * internal coordinate system */
-    wf_point result = arg;
+    wf_pointf result = arg;
     if (view_impl->transforms.size())
     {
         auto box = get_untransformed_bounding_box();
@@ -214,20 +213,20 @@ wf_point wf::view_interface_t::global_to_local_point(const wf_point& arg,
 }
 
 wf::surface_interface_t *wf::view_interface_t::map_input_coordinates(
-    int cursor_x, int cursor_y, int &sx, int &sy)
+    wf_pointf cursor, wf_pointf& local)
 {
     if (!is_mapped())
         return nullptr;
 
     auto view_relative_coordinates =
-        global_to_local_point({cursor_x, cursor_y}, nullptr);
+        global_to_local_point(cursor, nullptr);
 
     for (auto& child : enumerate_surfaces({0, 0}))
     {
-        sx = view_relative_coordinates.x - child.position.x;
-        sy = view_relative_coordinates.y - child.position.y;
+        local.x = view_relative_coordinates.x - child.position.x;
+        local.y = view_relative_coordinates.y - child.position.y;
 
-        if (child.surface->accepts_input(sx, sy))
+        if (child.surface->accepts_input(local.x, local.y))
             return child.surface;
     }
 
@@ -660,6 +659,20 @@ wlr_box wf::view_interface_t::transform_region(const wlr_box& region)
 {
     return transform_region(region,
         nonstd::observer_ptr<wf_view_transformer_t>(nullptr));
+}
+
+wf_pointf wf::view_interface_t::transform_point(const wf_pointf& point)
+{
+    auto result = point;
+    auto view = get_untransformed_bounding_box();
+
+    view_impl->transforms.for_each([&] (auto& tr)
+    {
+        result = tr->transform->local_to_transformed_point(view, result);
+        view = tr->transform->get_bounding_box(view, view);
+    });
+
+    return result;
 }
 
 bool wf::view_interface_t::intersects_region(const wlr_box& region)
