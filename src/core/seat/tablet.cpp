@@ -44,6 +44,21 @@ wf::tablet_tool_t::tablet_tool_t(wlr_tablet_tool *tool,
         &on_surface_map_state_changed);
     wf::get_core().connect_signal("_surface_unmapped",
         &on_surface_map_state_changed);
+
+    /* Just pass cursor set requests to core, but translate them to
+     * regular pointer set requests */
+    on_set_cursor.set_callback([=] (void *data) {
+        auto ev = static_cast<wlr_tablet_v2_event_cursor*> (data);
+
+        wlr_seat_pointer_request_set_cursor_event pev;
+        pev.surface     = ev->surface;
+        pev.hotspot_x   = ev->hotspot_x;
+        pev.hotspot_y   = ev->hotspot_y;
+        pev.serial      = ev->serial;
+        pev.seat_client = ev->seat_client;
+        wf::get_core_impl().input->cursor->set_cursor(&pev);
+    });
+    on_set_cursor.connect(&tool_v2->events.set_cursor);
 }
 
 wf::tablet_tool_t::~tablet_tool_t()

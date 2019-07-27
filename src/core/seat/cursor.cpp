@@ -609,14 +609,10 @@ void wf_cursor::warp_cursor(int x, int y)
 
 void wf_cursor::set_cursor(wlr_seat_pointer_request_set_cursor_event *ev)
 {
-    auto focused_surface = ev->seat_client->seat->pointer_state.focused_surface;
-    auto client =
-        focused_surface ? wl_resource_get_client(focused_surface->resource) : NULL;
-
-    if (client == ev->seat_client->client &&
-        !wf::get_core_impl().input->input_grabbed())
+    if (!wf::get_core_impl().input->input_grabbed())
     {
-        wlr_cursor_set_surface(cursor, ev->surface, ev->hotspot_x, ev->hotspot_y);
+        wlr_cursor_set_surface(cursor, ev->surface,
+            ev->hotspot_x, ev->hotspot_y);
     }
 }
 

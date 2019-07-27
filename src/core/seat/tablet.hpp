@@ -45,7 +45,8 @@ struct tablet_tool_t
     void handle_button(wlr_event_tablet_tool_button *ev);
 
   private:
-    wf::wl_listener_wrapper on_destroy;
+    wf::wl_listener_wrapper on_destroy, on_set_cursor;
+    wf::wl_listener_wrapper on_tool_v2_destroy;
     signal_callback_t on_surface_map_state_changed;
 
     /** Tablet that this tool belongs to */
