@@ -59,6 +59,12 @@ void wayfire_focus::init(wayfire_config *)
     grab_interface->name = "_wf_focus";
     grab_interface->capabilities = wf::CAPABILITY_MANAGE_DESKTOP;
 
+    on_wm_focus_request = [=] (wf::signal_data_t *data) {
+        auto ev = static_cast<wm_focus_request*> (data);
+        check_focus_surface(ev->surface);
+    };
+    output->connect_signal("wm-focus-request", &on_wm_focus_request);
+
     on_button = [=] (uint32_t button, int x, int y) {
         this->check_focus_surface(wf::get_core().get_cursor_focus());
     };
@@ -150,6 +156,8 @@ void wayfire_focus::fini()
 {
     output->rem_binding(&on_button);
     output->rem_binding(&on_touch);
+    output->disconnect_signal("wm-focus-request", &on_wm_focus_request);
+
     set_last_focus(nullptr);
 }
 

@@ -1,5 +1,6 @@
 #include "tablet.hpp"
 #include "../core-impl.hpp"
+#include "../wm.hpp"
 #include "input-manager.hpp"
 #include <signal-definitions.hpp>
 #include <linux/input-event-codes.h>
@@ -142,10 +143,23 @@ void wf::tablet_tool_t::handle_tip(wlr_event_tablet_tool_tip *ev)
     if (!this->proximity_surface)
         return;
 
+
     if (ev->state == WLR_TABLET_TOOL_TIP_DOWN)
     {
         wlr_send_tablet_v2_tablet_tool_down(tool_v2);
         this->grabbed_surface = this->proximity_surface;
+
+        /* Try to focus the view under the tool */
+        auto view = dynamic_cast<wf::view_interface_t*> (
+            this->proximity_surface->get_main_surface());
+        if (view)
+        {
+            wf::get_core().focus_output(view->get_output());
+            wm_focus_request data;
+            data.surface = this->proximity_surface;
+            view->get_output()->emit_signal("wm-focus-request", &data);
+        }
+
     } else
     {
         wlr_send_tablet_v2_tablet_tool_up(tool_v2);

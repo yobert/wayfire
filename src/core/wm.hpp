@@ -5,6 +5,11 @@
 #include "bindings.hpp"
 #include "view.hpp"
 
+struct wm_focus_request : public wf::signal_data_t
+{
+    wf::surface_interface_t *surface;
+};
+
 class wayfire_close : public wf::plugin_interface_t {
     activator_callback callback;
     public:
@@ -16,7 +21,7 @@ class wayfire_focus : public wf::plugin_interface_t {
     button_callback on_button;
     touch_callback on_touch;
     wf::signal_callback_t on_view_disappear,
-        on_view_output_change;
+        on_view_output_change, on_wm_focus_request;
 
     wayfire_view last_focus;
     void send_done(wayfire_view view);
