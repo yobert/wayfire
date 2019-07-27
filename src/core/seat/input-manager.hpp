@@ -58,7 +58,6 @@ using wf_binding_ptr = std::unique_ptr<wf_binding>;
 class input_manager
 {
     private:
-      wf::plugin_grab_interface_t* active_grab = nullptr;
         wf::wl_listener_wrapper input_device_created, request_start_drag, start_drag,
                                 request_set_cursor, request_set_selection,
                                 request_set_primary_selection;
@@ -110,7 +109,8 @@ class input_manager
         void set_pointer_constraint(wlr_pointer_constraint_v1 *constraint, bool last_destroyed = false);
         wlr_pointer_constraint_v1 *get_active_pointer_constraint();
 
-        wl_client *exclusive_client = NULL;
+       wf::plugin_grab_interface_t* active_grab = nullptr;
+       wl_client *exclusive_client = NULL;
 
         wlr_seat *seat = nullptr;
         std::unique_ptr<wf_cursor> cursor;

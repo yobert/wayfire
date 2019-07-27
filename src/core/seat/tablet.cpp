@@ -2,6 +2,7 @@
 #include "../core-impl.hpp"
 #include "input-manager.hpp"
 #include <signal-definitions.hpp>
+#include <linux/input-event-codes.h>
 
 extern "C"
 {
@@ -191,7 +192,17 @@ void wf::tablet_t::handle_tip(wlr_event_tablet_tool_tip *ev)
 {
     auto& input = wf::get_core_impl().input;
     if (input->input_grabbed())
+    {
+        /* Simulate buttons, in case some application started moving */
+        if (input->active_grab->callbacks.pointer.button)
+        {
+            uint32_t state = ev->state == WLR_TABLET_TOOL_TIP_DOWN ?
+                WLR_BUTTON_PRESSED : WLR_BUTTON_RELEASED;
+            input->active_grab->callbacks.pointer.button(BTN_LEFT, state);
+        }
+
         return;
+    }
 
     auto tool = ensure_tool(ev->tool);
     tool->handle_tip(ev);
@@ -213,7 +224,16 @@ void wf::tablet_t::handle_axis(wlr_event_tablet_tool_axis *ev)
     }
 
     if (input->input_grabbed())
+    {
+        /* Simulate movement */
+        if (input->active_grab->callbacks.pointer.motion)
+        {
+            auto gc = wf::get_core().get_cursor_position();
+            input->active_grab->callbacks.pointer.motion(gc.x, gc.y);
+        }
+
         return;
+    }
 
     /* Update focus */
     auto tool = ensure_tool(ev->tool);
@@ -223,7 +243,7 @@ void wf::tablet_t::handle_axis(wlr_event_tablet_tool_axis *ev)
 
 void wf::tablet_t::handle_button(wlr_event_tablet_tool_button *ev)
 {
-    /* Just pass through */
+    /* Pass to the tool */
     ensure_tool(ev->tool)->handle_button(ev);
 }
 
@@ -233,6 +253,7 @@ void wf::tablet_t::handle_proximity(wlr_event_tablet_tool_proximity *ev)
     {
         /* Unfocus the tool and return */
         ensure_tool(ev->tool)->set_focus(nullptr);
+        wf::get_core().set_cursor("default");
     } else
     {
         wlr_cursor_warp_absolute(cursor, ev->device, ev->x, ev->y);
