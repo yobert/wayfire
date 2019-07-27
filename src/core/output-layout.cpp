@@ -245,7 +245,7 @@ namespace wf
             wlr_output_mode *mode;
             wl_list_for_each(mode, &handle->modes, link)
             {
-                if (mode->flags & WL_OUTPUT_MODE_PREFERRED)
+                if (mode->preferred)
                     return *mode;
             }
 
