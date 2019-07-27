@@ -270,7 +270,6 @@ void wf::tablet_t::handle_proximity(wlr_event_tablet_tool_proximity *ev)
         wf::get_core().set_cursor("default");
     } else
     {
-        wlr_cursor_warp_absolute(cursor, ev->device, ev->x, ev->y);
         ensure_tool(ev->tool)->update_tool_position();
         wf::get_core().set_cursor("crosshair");
     }
