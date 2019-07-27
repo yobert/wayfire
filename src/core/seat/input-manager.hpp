@@ -59,8 +59,6 @@ class input_manager
 {
     private:
       wf::plugin_grab_interface_t* active_grab = nullptr;
-        bool session_active = true;
-
         wf::wl_listener_wrapper input_device_created, request_start_drag, start_drag,
                                 request_set_cursor, request_set_selection,
                                 request_set_primary_selection;
@@ -142,7 +140,6 @@ class input_manager
         bool can_focus_surface(wf::surface_interface_t *surface);
         void set_exclusive_focus(wl_client *client);
 
-        void toggle_session();
         uint32_t get_modifiers();
 
         void free_output_bindings(wf::output_t *output);

@@ -101,10 +101,8 @@ struct wf_pointer_constraint
     }
 };
 
-void wf::compositor_core_impl_t::init(wayfire_config *conf)
+void wf::compositor_core_impl_t::init()
 {
-    wf_input_device_internal::config.load(conf);
-
     protocols.data_device = wlr_data_device_manager_create(display);
     protocols.data_control = wlr_data_control_manager_v1_create(display);
     wlr_renderer_init_wl_display(renderer, display);
@@ -117,9 +115,8 @@ void wf::compositor_core_impl_t::init(wayfire_config *conf)
      * init_desktop_apis() should come before input */
     output_layout = std::make_unique<wf::output_layout_t> (backend);
     compositor = wlr_compositor_create(display, renderer);
-    init_desktop_apis(conf);
+    init_desktop_apis(config);
     input = std::make_unique<input_manager>();
-    log_info("input is %p", input.get());
 
     protocols.screencopy = wlr_screencopy_manager_v1_create(display);
     protocols.gamma_v1 = wlr_gamma_control_manager_v1_create(display);

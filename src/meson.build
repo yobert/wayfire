@@ -9,9 +9,11 @@ wayfire_sources = ['main.cpp',
                    'core/img.cpp',
                    'core/wm.cpp',
 
+                   'core/seat/pointing-device.cpp',
                    'core/seat/input-manager.cpp',
                    'core/seat/keyboard.cpp',
                    'core/seat/cursor.cpp',
+                   'core/seat/switch.cpp',
                    'core/seat/touch.cpp',
                    'core/seat/seat.cpp',
 

@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
 
     wl_event_loop_add_fd(core.ev_loop, inotify_fd, WL_EVENT_READABLE,
         handle_config_updated, NULL);
-    core.init(core.config);
+    core.init();
 
     auto server_name = wl_display_add_socket_auto(core.display);
     if (!server_name)

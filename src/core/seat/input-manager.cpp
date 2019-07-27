@@ -17,6 +17,9 @@ extern "C"
 #include "workspace-manager.hpp"
 #include "debug.hpp"
 
+#include "switch.hpp"
+#include "pointing-device.hpp"
+
 bool input_manager::is_touch_enabled()
 {
     return touch_count > 0;
@@ -35,11 +38,26 @@ void input_manager::update_capabilities()
     wlr_seat_set_capabilities(seat, cap);
 }
 
+static std::unique_ptr<wf_input_device_internal> create_wf_device_for_device(
+    wlr_input_device *device)
+{
+    switch (device->type)
+    {
+        case WLR_INPUT_DEVICE_SWITCH:
+            return std::make_unique<wf::switch_device_t> (device);
+        case WLR_INPUT_DEVICE_POINTER:
+            log_info("creating pointer %s", device->name);
+            return std::make_unique<wf::pointing_device_t> (device);
+        default:
+            return std::make_unique<wf_input_device_internal> (device);
+    }
+}
+
 void input_manager::handle_new_input(wlr_input_device *dev)
 {
     log_info("handle new input: %s, default mapping: %s",
         dev->name, dev->output_name);
-    input_devices.push_back(std::make_unique<wf_input_device_internal> (dev));
+    input_devices.push_back(create_wf_device_for_device(dev));
 
     if (dev->type == WLR_INPUT_DEVICE_KEYBOARD)
     {
@@ -115,6 +133,8 @@ void input_manager::handle_input_destroyed(wlr_input_device *dev)
 
 input_manager::input_manager()
 {
+    wf::pointing_device_t::config.load(wf::get_core().config);
+
     input_device_created.set_callback([&] (void *data) {
         auto dev = static_cast<wlr_input_device*> (data);
         assert(dev);
@@ -167,12 +187,6 @@ input_manager::input_manager()
             wo->inhibit_plugins();
     };
     wf::get_core().output_layout->connect_signal("output-added", &output_added);
-
-    /*
-
-    session_listener.notify = session_signal_handler;
-    wl_signal_add(&wf::get_core().ec->session_signal, &session_listener);
-    */
 }
 
 input_manager::~input_manager()
@@ -198,7 +212,7 @@ uint32_t input_manager::get_modifiers()
 
 bool input_manager::grab_input(wf::plugin_grab_interface_t* iface)
 {
-    if (!iface || !iface->is_grabbed() || !session_active)
+    if (!iface || !iface->is_grabbed())
         return false;
 
     assert(!active_grab); // cannot have two active input grabs!
@@ -236,31 +250,7 @@ void input_manager::ungrab_input()
 
 bool input_manager::input_grabbed()
 {
-    return active_grab || !session_active;
-}
-
-void input_manager::toggle_session()
-{
-
-    session_active ^= 1;
-    if (!session_active)
-    {
-        if (active_grab)
-        {
-            auto grab = active_grab;
-            ungrab_input();
-            active_grab = grab;
-        }
-    } else
-    {
-        if (active_grab)
-        {
-            auto grab = active_grab;
-            active_grab = nullptr;
-            grab_input(grab);
-        }
-    }
-
+    return active_grab;
 }
 
 bool input_manager::can_focus_surface(wf::surface_interface_t *surface)

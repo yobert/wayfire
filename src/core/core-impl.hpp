@@ -38,7 +38,7 @@ class compositor_core_impl_t : public compositor_core_t
     /**
      * Initialize the compositor core. Called only by main()
      */
-    void init(wayfire_config *config);
+    void init();
     wayfire_shell *wf_shell;
     wf_gtk_shell *gtk_shell;
 
