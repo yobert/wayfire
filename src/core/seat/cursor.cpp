@@ -6,6 +6,7 @@
 #include "debug.hpp"
 #include "compositor-surface.hpp"
 #include "output-layout.hpp"
+#include "tablet.hpp"
 
 extern "C" {
 #include <wlr/util/region.h>
@@ -152,8 +153,7 @@ void input_manager::update_cursor_position(uint32_t time_msec, bool real_update)
     if (cursor->grabbed_surface && !this->drag_icon)
     {
         new_focus = cursor->grabbed_surface;
-        auto oc = new_focus->get_output()->get_cursor_position();
-        local = get_surface_relative_coords(new_focus, oc);
+        local = get_surface_relative_coords(new_focus, gc);
     } else
     {
         new_focus = input_surface_at(gc, local);
@@ -517,6 +517,27 @@ void wf_cursor::setup_listeners()
     setup_passthrough_callback(pinch_update);
     setup_passthrough_callback(pinch_end);
 #undef setup_passthrough_callback
+
+    /**
+     * All tablet events are directly sent to the tablet device, it should
+     * manage them
+     */
+#define setup_tablet_callback(evname) \
+    on_tablet_##evname.set_callback([=] (void *data) { \
+        auto ev = static_cast<wlr_event_tablet_tool_##evname *> (data); \
+        if (ev->device->tablet->data) { \
+            auto tablet = \
+                static_cast<wf::tablet_t*> (ev->device->tablet->data); \
+            tablet->handle_##evname (ev); \
+        } \
+    }); \
+    on_tablet_##evname.connect(&cursor->events.tablet_tool_##evname);
+
+    setup_tablet_callback(tip);
+    setup_tablet_callback(axis);
+    setup_tablet_callback(button);
+    setup_tablet_callback(proximity);
+#undef setup_tablet_callback
 }
 
 void wf_cursor::handle_pointer_button(wlr_event_pointer_button *ev)

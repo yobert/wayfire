@@ -17,6 +17,7 @@ extern "C"
 #include <wlr/types/wlr_pointer_gestures_v1.h>
 #include <wlr/types/wlr_relative_pointer_v1.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
+#include <wlr/types/wlr_tablet_v2.h>
 
 #define static
 #include <wlr/render/wlr_renderer.h>
@@ -116,6 +117,10 @@ void wf::compositor_core_impl_t::init()
     output_layout = std::make_unique<wf::output_layout_t> (backend);
     compositor = wlr_compositor_create(display, renderer);
     init_desktop_apis(config);
+
+    /* Somehow GTK requires the tablet_v2 to be advertised pretty early */
+    protocols.tablet_v2 = wlr_tablet_v2_create(display);
+
     input = std::make_unique<input_manager>();
 
     protocols.screencopy = wlr_screencopy_manager_v1_create(display);
@@ -212,10 +217,7 @@ wf_pointf wf::compositor_core_impl_t::get_touch_position(int id)
 
     auto it = input->our_touch->gesture_recognizer.current.find(id);
     if (it != input->our_touch->gesture_recognizer.current.end())
-    {
-        log_info("found touch id %d", id);
         return it->second.current;
-    }
 
     return {invalid_coordinate, invalid_coordinate};
 }

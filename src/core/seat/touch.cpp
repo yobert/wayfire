@@ -424,9 +424,7 @@ void input_manager::handle_touch_motion(uint32_t time, int32_t id,
     if (our_touch->grabbed_surface && !drag_icon)
     {
         surface = our_touch->grabbed_surface;
-        auto og = surface->get_output()->get_layout_geometry();
-        local = get_surface_relative_coords(surface,
-            {point.x - og.x, point.y - og.y});
+        local = get_surface_relative_coords(surface, point);
     } else
     {
         surface = input_surface_at(point, local);

@@ -76,10 +76,6 @@ class input_manager
 
         void create_seat();
 
-        // returns the surface under the given global coordinates
-        // if no such surface (return NULL), lx and ly are undefined
-        wf::surface_interface_t* input_surface_at(wf_pointf global, wf_pointf& local);
-
         void validate_drag_request(wlr_seat_request_start_drag_event *ev);
         void update_drag_icon();
 
@@ -139,6 +135,9 @@ class input_manager
 
         bool can_focus_surface(wf::surface_interface_t *surface);
         void set_exclusive_focus(wl_client *client);
+        // returns the surface under the given global coordinates
+        // if no such surface (return NULL), lx and ly are undefined
+        wf::surface_interface_t* input_surface_at(wf_pointf global, wf_pointf& local);
 
         uint32_t get_modifiers();
 

@@ -18,6 +18,7 @@ extern "C"
 #include "debug.hpp"
 
 #include "switch.hpp"
+#include "tablet.hpp"
 #include "pointing-device.hpp"
 
 bool input_manager::is_touch_enabled()
@@ -46,8 +47,10 @@ static std::unique_ptr<wf_input_device_internal> create_wf_device_for_device(
         case WLR_INPUT_DEVICE_SWITCH:
             return std::make_unique<wf::switch_device_t> (device);
         case WLR_INPUT_DEVICE_POINTER:
-            log_info("creating pointer %s", device->name);
             return std::make_unique<wf::pointing_device_t> (device);
+        case WLR_INPUT_DEVICE_TABLET_TOOL:
+            return std::make_unique<wf::tablet_t> (
+                wf::get_core_impl().input->cursor->cursor, device);
         default:
             return std::make_unique<wf_input_device_internal> (device);
     }

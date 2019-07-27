@@ -200,8 +200,12 @@ wf_input_device_internal::wf_input_device_internal(wlr_input_device *dev)
 wf_pointf get_surface_relative_coords(wf::surface_interface_t *surface,
     const wf_pointf& point)
 {
+    auto og = surface->get_output()->get_layout_geometry();
+    auto local = point;
+    local.x -= og.x;
+    local.y -= og.y;
+
     auto view =
         dynamic_cast<wf::view_interface_t*> (surface->get_main_surface());
-    auto local = view->global_to_local_point(point, surface);
-    return local;
+    return view->global_to_local_point(point, surface);
 }

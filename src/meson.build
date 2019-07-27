@@ -14,6 +14,7 @@ wayfire_sources = ['main.cpp',
                    'core/seat/keyboard.cpp',
                    'core/seat/cursor.cpp',
                    'core/seat/switch.cpp',
+                   'core/seat/tablet.cpp',
                    'core/seat/touch.cpp',
                    'core/seat/seat.cpp',
 
