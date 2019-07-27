@@ -129,6 +129,25 @@ namespace wf
     }
 }
 
+static bool drop_permissions(void)
+{
+    if (getuid() != geteuid() || getgid() != getegid())
+    {
+	if (setuid(getuid()) != 0 || setgid(getgid()) != 0)
+	{
+	    log_error("Unable to drop root, refusing to start");
+	    return false;
+	}
+    }
+    if (setuid(0) != -1)
+    {
+	log_error("Unable to drop root (we shouldn't be able to "
+		  "restore it after setuid), refusing to start");
+	return false;
+    }
+    return true;
+}
+
 int main(int argc, char *argv[])
 {
     /*
@@ -192,6 +211,13 @@ int main(int argc, char *argv[])
     core.renderer = wlr_backend_get_renderer(core.backend);
     core.egl = egl_for_renderer[core.renderer];
     assert(core.egl);
+
+    if (!drop_permissions())
+    {
+        wl_display_destroy_clients(core.display);
+        wl_display_destroy(core.display);
+        return EXIT_FAILURE;
+    }
 
     log_info("using config file: %s", config_file.c_str());
     core.config = new wayfire_config(config_file);
