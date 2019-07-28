@@ -48,8 +48,10 @@ wf::tablet_tool_t::tablet_tool_t(wlr_tablet_tool *tool,
     /* Just pass cursor set requests to core, but translate them to
      * regular pointer set requests */
     on_set_cursor.set_callback([=] (void *data) {
-        auto ev = static_cast<wlr_tablet_v2_event_cursor*> (data);
+        if (!this->is_active)
+            return;
 
+        auto ev = static_cast<wlr_tablet_v2_event_cursor*> (data);
         wlr_seat_pointer_request_set_cursor_event pev;
         pev.surface     = ev->surface;
         pev.hotspot_x   = ev->hotspot_x;
