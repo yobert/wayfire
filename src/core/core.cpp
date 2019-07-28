@@ -502,7 +502,13 @@ wf::compositor_core_t::compositor_core_t() {};
 wf::compositor_core_t::~compositor_core_t() {};
 
 wf::compositor_core_impl_t::compositor_core_impl_t() {}
-wf::compositor_core_impl_t::~compositor_core_impl_t() {}
+wf::compositor_core_impl_t::~compositor_core_impl_t()
+{
+    /* Unloading order is important. First we want to free any remaining views,
+     * then we destroy the input manager, and finally the rest is auto-freed */
+    views.clear();
+    input.release();
+}
 
 wf::compositor_core_impl_t& wf::compositor_core_impl_t::get()
 {
