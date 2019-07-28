@@ -73,6 +73,9 @@ wf::tablet_tool_t::~tablet_tool_t()
 
 void wf::tablet_tool_t::update_tool_position()
 {
+    if (!is_active)
+        return;
+
     auto& core = wf::get_core_impl();
     auto& input = core.input;
     auto gc = core.get_cursor_position();
@@ -98,7 +101,7 @@ void wf::tablet_tool_t::update_tool_position()
 
     /* If focus is a wlr surface, send position */
     wlr_surface *next_focus = surface ? surface->priv->wsurface : nullptr;
-    if (next_focus && wlr_surface_accepts_tablet_v2(tablet_v2, next_focus))
+    if (next_focus)
         wlr_tablet_v2_tablet_tool_notify_motion(tool_v2, local.x, local.y);
 }
 
@@ -113,7 +116,7 @@ void wf::tablet_tool_t::set_focus(wf::surface_interface_t *surface)
 
     /* Set the new focus, if it is a wlr surface */
     wlr_surface *next_focus = surface ? surface->priv->wsurface : nullptr;
-    if (next_focus)
+    if (next_focus && wlr_surface_accepts_tablet_v2(tablet_v2, next_focus))
     {
         this->proximity_surface = surface;
         wlr_tablet_v2_tablet_tool_notify_proximity_in(
@@ -187,6 +190,19 @@ void wf::tablet_tool_t::handle_button(wlr_event_tablet_tool_button *ev)
     wlr_tablet_v2_tablet_tool_notify_button(tool_v2,
         (zwp_tablet_pad_v2_button_state)ev->button,
         (zwp_tablet_pad_v2_button_state)ev->state);
+}
+
+void wf::tablet_tool_t::handle_proximity(wlr_event_tablet_tool_proximity *ev)
+{
+    if (ev->state == WLR_TABLET_TOOL_PROXIMITY_OUT)
+    {
+        set_focus(nullptr);
+        is_active = false;
+    } else
+    {
+        is_active = true;
+        update_tool_position();
+    }
 }
 
 /* ----------------------- Tablet implementation ---------------------------- */
@@ -278,14 +294,12 @@ void wf::tablet_t::handle_button(wlr_event_tablet_tool_button *ev)
 
 void wf::tablet_t::handle_proximity(wlr_event_tablet_tool_proximity *ev)
 {
-    if (ev->state == WLR_TABLET_TOOL_PROXIMITY_OUT)
-    {
-        /* Unfocus the tool and return */
-        ensure_tool(ev->tool)->set_focus(nullptr);
+    ensure_tool(ev->tool)->handle_proximity(ev);
+
+    /* Show appropriate cursor */
+    if (ev->state == WLR_TABLET_TOOL_PROXIMITY_OUT) {
         wf::get_core().set_cursor("default");
-    } else
-    {
-        ensure_tool(ev->tool)->update_tool_position();
+    } else {
         wf::get_core().set_cursor("crosshair");
     }
 }

@@ -44,6 +44,9 @@ struct tablet_tool_t
     /** Handle a button event */
     void handle_button(wlr_event_tablet_tool_button *ev);
 
+    /** Set proximity state */
+    void handle_proximity(wlr_event_tablet_tool_proximity *ev);
+
   private:
     wf::wl_listener_wrapper on_destroy, on_set_cursor;
     wf::wl_listener_wrapper on_tool_v2_destroy;
@@ -59,6 +62,10 @@ struct tablet_tool_t
 
     double tilt_x = 0.0;
     double tilt_y = 0.0;
+
+    /* A tablet tool is active if it has a proximity_in
+     * event but no proximity_out */
+    bool is_active = false;
 };
 
 struct tablet_t : public wf_input_device_internal
