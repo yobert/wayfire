@@ -3,13 +3,13 @@ extern "C"
 #include <wlr/types/wlr_idle.h>
 }
 
-#include "plugin.hpp"
+#include "singleton-plugin.hpp"
 #include "output.hpp"
 #include "core.hpp"
 #include "config.hpp"
 #include "output-layout.hpp"
 
-class wayfire_idle_core : public wf::custom_data_t
+class wayfire_idle
 {
     bool idle_enabled = true;
     wlr_idle_timeout *timeout = NULL;
@@ -21,7 +21,7 @@ class wayfire_idle_core : public wf::custom_data_t
     };
 
     public:
-    wayfire_idle_core()
+    wayfire_idle()
     {
         dpms_timeout = wf::get_core().config->get_section("idle")
             ->get_option("dpms_timeout", "-1");
@@ -62,7 +62,7 @@ class wayfire_idle_core : public wf::custom_data_t
         on_resume.connect(&timeout->events.resume);
     }
 
-    ~wayfire_idle_core()
+    ~wayfire_idle()
     {
         destroy_timeout();
 
@@ -71,14 +71,6 @@ class wayfire_idle_core : public wf::custom_data_t
         /* Make sure idle is enabled */
         if (!idle_enabled)
             toggle_idle();
-    }
-
-    int ref = 0;
-    void refcnt(int add = 1)
-    {
-        ref += add;
-        if (ref <= 0)
-            wf::get_core().erase_data<wayfire_idle_core>();
     }
 
     /* Change all outputs with state from to state to */
@@ -102,27 +94,27 @@ class wayfire_idle_core : public wf::custom_data_t
     }
 };
 
-class wayfire_idle_inhibit : public wf::plugin_interface_t
+class wayfire_idle_singleton : public wf::singleton_plugin_t<wayfire_idle>
 {
     activator_callback toggle;
-    void init(wayfire_config *config)
+    void init(wayfire_config *config) override
     {
-        wf::get_core().get_data_safe<wayfire_idle_core>()->refcnt();
+        singleton_plugin_t::init(config);
 
         auto binding = config->get_section("idle")
             ->get_option("toggle", "<super> <shift> KEY_I");
         toggle = [=] (wf_activator_source, uint32_t) {
-            wf::get_core().get_data_safe<wayfire_idle_core>()->toggle_idle();
+            get_instance().toggle_idle();
         };
 
         output->add_activator(binding, &toggle);
     }
 
-    void fini()
+    void fini() override
     {
-        wf::get_core().get_data_safe<wayfire_idle_core>()->refcnt(-1);
         output->rem_binding(&toggle);
+        singleton_plugin_t::fini();
     }
 };
 
-DECLARE_WAYFIRE_PLUGIN(wayfire_idle_inhibit);
+DECLARE_WAYFIRE_PLUGIN(wayfire_idle_singleton);
