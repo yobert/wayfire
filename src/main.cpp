@@ -150,14 +150,6 @@ static bool drop_permissions(void)
 
 int main(int argc, char *argv[])
 {
-    /*
-    signal(SIGINT, signalHandle);
-    signal(SIGSEGV, signalHandle);
-    signal(SIGFPE, signalHandle);
-    signal(SIGILL, signalHandle);
-    signal(SIGABRT, signalHandle);
-    */
-
 #ifdef WAYFIRE_DEBUG_ENABLED
     wlr_log_init(WLR_DEBUG, NULL);
 #else
@@ -222,7 +214,7 @@ int main(int argc, char *argv[])
     log_info("using config file: %s", config_file.c_str());
     core.config = new wayfire_config(config_file);
 
-    int inotify_fd = inotify_init();
+    int inotify_fd = inotify_init1(IN_CLOEXEC);
     reload_config(inotify_fd);
 
     wl_event_loop_add_fd(core.ev_loop, inotify_fd, WL_EVENT_READABLE,
