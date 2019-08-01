@@ -224,7 +224,7 @@ bool input_manager::grab_input(wf::plugin_grab_interface_t* iface)
     wlr_seat_keyboard_send_modifiers(seat, &mods);
 
     set_keyboard_focus(NULL, seat);
-    lpointer->update_cursor_position(get_current_time(), false);
+    lpointer->set_enable_focus(false);
     wf::get_core().set_cursor("default");
     return true;
 }
@@ -240,7 +240,7 @@ void input_manager::ungrab_input()
      * the client, which shouldn't happen (at the time of the event, there was
      * still an active input grab) */
     idle_update_cursor.run_once([&] () {
-        lpointer->update_cursor_position(get_current_time(), false);
+        lpointer->set_enable_focus(true);
     });
 }
 

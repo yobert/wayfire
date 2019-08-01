@@ -39,21 +39,34 @@ bool wf::LogicalPointer::has_pressed_buttons() const
 }
 
 /* ------------------------- Cursor focus functions ------------------------- */
+void wf::LogicalPointer::set_enable_focus(bool enabled)
+{
+    this->focus_enabled_count += enabled ? 1 : -1;
+    if (focus_enabled_count > 1)
+        log_info("LogicalPointer enabled more times than disabled?");
+
+    // reset grab
+    if (!focus_enabled())
+    {
+        grab_surface(nullptr);
+        this->update_cursor_focus(nullptr, {0.0, 0.0});
+    } else
+    {
+        update_cursor_position(get_current_time(), false);
+    }
+}
+
+bool wf::LogicalPointer::focus_enabled() const
+{
+    return this->focus_enabled_count > 0;
+}
+
 void wf::LogicalPointer::update_cursor_position(uint32_t time_msec,
     bool real_update)
 {
-    if (input->input_grabbed())
-    {
-        auto oc = wf::get_core().get_active_output()->get_cursor_position();
-        if (input->active_grab->callbacks.pointer.motion && real_update)
-            input->active_grab->callbacks.pointer.motion(oc.x, oc.y);
-
-        return;
-    }
-
     wf_pointf gc = input->cursor->get_cursor_position();
 
-    wf_pointf local;
+    wf_pointf local = {0.0, 0.0};
     wf::surface_interface_t *new_focus = nullptr;
     /* If we have a grabbed surface, but no drag, we want to continue sending
      * events to the grabbed surface, even if the pointer goes outside of it.
@@ -66,22 +79,19 @@ void wf::LogicalPointer::update_cursor_position(uint32_t time_msec,
     {
         new_focus = grabbed_surface;
         local = get_surface_relative_coords(new_focus, gc);
-    } else
+    }
+    else if (this->focus_enabled())
     {
         new_focus = input->input_surface_at(gc, local);
         update_cursor_focus(new_focus, local);
+
+        /* We switched focus, so send motion event in any case, so that the
+         * new focus knows where the pointer is */
+        real_update = true;
     }
 
-    auto compositor_surface = wf_compositor_surface_from_surface(new_focus);
-    if (compositor_surface)
-    {
-        compositor_surface->on_pointer_motion(local.x, local.y);
-    }
-    else if (real_update)
-    {
-        wlr_seat_pointer_notify_motion(input->seat,
-            time_msec, local.x, local.y);
-    }
+    if (real_update)
+        this->send_motion(time_msec, local);
 
     input->update_drag_icon();
 }
@@ -90,6 +100,9 @@ void wf::LogicalPointer::update_cursor_focus(wf::surface_interface_t *focus,
     wf_pointf local)
 {
     if (focus && !input->can_focus_surface(focus))
+        return;
+
+    if (focus && !this->focus_enabled())
         return;
 
     /* Send leave to old focus if compositor surface */
@@ -334,6 +347,29 @@ void wf::LogicalPointer::send_button(wlr_event_pointer_button *ev,
     wlr_seat_pointer_notify_button(input->seat, ev->time_msec,
         ev->button, ev->state);
 }
+
+void wf::LogicalPointer::send_motion(uint32_t time_msec, wf_pointf local)
+{
+    if (input->input_grabbed())
+    {
+        auto oc = wf::get_core().get_active_output()->get_cursor_position();
+        if (input->active_grab->callbacks.pointer.motion)
+            input->active_grab->callbacks.pointer.motion(oc.x, oc.y);
+    }
+
+    auto compositor_surface =
+        wf_compositor_surface_from_surface(this->cursor_focus);
+    if (compositor_surface)
+    {
+        compositor_surface->on_pointer_motion(local.x, local.y);
+    }
+    else
+    {
+        wlr_seat_pointer_notify_motion(
+            input->seat, time_msec, local.x, local.y);
+    }
+}
+
 
 void wf::LogicalPointer::handle_pointer_motion(wlr_event_pointer_motion *ev)
 {

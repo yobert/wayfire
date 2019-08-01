@@ -311,11 +311,15 @@ void wf::tablet_t::handle_proximity(wlr_event_tablet_tool_proximity *ev)
 {
     ensure_tool(ev->tool)->handle_proximity(ev);
 
+    auto& impl = wf::get_core_impl();
+
     /* Show appropriate cursor */
     if (ev->state == WLR_TABLET_TOOL_PROXIMITY_OUT) {
-        wf::get_core().set_cursor("default");
+        impl.set_cursor("default");
+        impl.input->lpointer->set_enable_focus(true);
     } else {
         wf::get_core().set_cursor("crosshair");
+        impl.input->lpointer->set_enable_focus(false);
     }
 }
 

@@ -30,14 +30,14 @@ class LogicalPointer
     ~LogicalPointer();
 
     /**
-     * Handle an update of the cursor's position, which includes updating the
-     * surface currently under the pointer.
+     * Enable/disable the logical pointer's focusing abilities.
+     * The requests are counted, i.e if set_enable_focus(false) is called twice,
+     * set_enable_focus(true) must be called also twice to restore focus.
      *
-     * @param time_msec The time when the event causing this update occured
-     * @param real_update Whether the update is caused by a hardware event or
-     *                    was artifically generated.
+     * When a logical pointer is disabled, it means that no input surface can
+     * receive pointer focus.
      */
-    void update_cursor_position(uint32_t time_msec, bool real_update = true);
+    void set_enable_focus(bool enabled = true);
 
     /** Get the currenntlly set cursor focus */
     wf::surface_interface_t *get_focus() const;
@@ -88,6 +88,9 @@ class LogicalPointer
 
     /** The surface which currently has cursor focus */
     wf::surface_interface_t* cursor_focus = nullptr;
+    /** Whether focusing is enabled */
+    int focus_enabled_count = 1;
+    bool focus_enabled() const;
 
     /**
      * Set the pointer focus.
@@ -97,6 +100,16 @@ class LogicalPointer
      *                No meaning if the surface is nullptr
      */
     void update_cursor_focus(wf::surface_interface_t *surface, wf_pointf local);
+
+    /**
+     * Handle an update of the cursor's position, which includes updating the
+     * surface currently under the pointer.
+     *
+     * @param time_msec The time when the event causing this update occured
+     * @param real_update Whether the update is caused by a hardware event or
+     *                    was artifically generated.
+     */
+    void update_cursor_position(uint32_t time_msec, bool real_update = true);
 
     /** Number of currently-pressed mouse buttons */
     int count_pressed_buttons = 0;
@@ -123,6 +136,16 @@ class LogicalPointer
     /** Send a button event to the currently active receiver, i.e to the
      * active input grab(if any), or to the focused surface */
     void send_button(wlr_event_pointer_button *ev, bool has_binding);
+
+    /**
+     * Send a motion event to the currently active receiver, i.e to the
+     * active grab or the focused surface.
+     *
+     * @param local The coordinates of the cursor relative to the current
+     * focus
+     */
+    void send_motion(uint32_t time_msec, wf_pointf local);
+
 };
 }
 
