@@ -106,10 +106,12 @@ void input_manager::create_seat()
 {
     seat = wlr_seat_create(wf::get_core().display, "default");
     cursor = std::make_unique<wf_cursor> ();
+    lpointer = std::make_unique<wf::LogicalPointer> (
+        nonstd::make_observer(this));
 
     request_set_cursor.set_callback([&] (void* data) {
         auto ev = static_cast<wlr_seat_pointer_request_set_cursor_event*> (data);
-        wf::get_core_impl().input->cursor->set_cursor(ev);
+        wf::get_core_impl().input->cursor->set_cursor(ev, true);
     });
     request_set_cursor.connect(&seat->events.request_set_cursor);
 
@@ -207,5 +209,5 @@ wf_pointf get_surface_relative_coords(wf::surface_interface_t *surface,
 
     auto view =
         dynamic_cast<wf::view_interface_t*> (surface->get_main_surface());
-    return view->global_to_local_point(point, surface);
+    return view->global_to_local_point(local, surface);
 }

@@ -1,4 +1,5 @@
 #include <plugin.hpp>
+#include <debug.hpp>
 #include <output.hpp>
 #include <view.hpp>
 #include <core.hpp>
@@ -231,7 +232,7 @@ class wayfire_resize : public wf::plugin_interface_t
 
     void input_pressed(uint32_t state)
     {
-        if (state != WL_POINTER_BUTTON_STATE_RELEASED)
+        if (state != WLR_BUTTON_RELEASED)
             return;
 
         grab_interface->ungrab();

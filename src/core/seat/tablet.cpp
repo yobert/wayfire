@@ -51,14 +51,27 @@ wf::tablet_tool_t::tablet_tool_t(wlr_tablet_tool *tool,
         if (!this->is_active)
             return;
 
+        auto& input = wf::get_core_impl().input;
         auto ev = static_cast<wlr_tablet_v2_event_cursor*> (data);
+
+        // validate request
+        wlr_seat_client *tablet_client = nullptr;
+        if (tool_v2->focused_surface)
+        {
+            tablet_client = wlr_seat_client_for_wl_client(input->seat,
+                wl_resource_get_client(tool_v2->focused_surface->resource));
+        }
+
+        if (tablet_client != ev->seat_client)
+            return;
+
         wlr_seat_pointer_request_set_cursor_event pev;
         pev.surface     = ev->surface;
         pev.hotspot_x   = ev->hotspot_x;
         pev.hotspot_y   = ev->hotspot_y;
         pev.serial      = ev->serial;
         pev.seat_client = ev->seat_client;
-        wf::get_core_impl().input->cursor->set_cursor(&pev);
+        input->cursor->set_cursor(&pev, false);
     });
     on_set_cursor.connect(&tool_v2->events.set_cursor);
 }

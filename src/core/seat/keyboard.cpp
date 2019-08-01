@@ -235,7 +235,7 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
         /* as long as we have pressed only modifiers, we should check for modifier bindings on release */
         if (mod)
         {
-            bool modifiers_only = !cursor->count_pressed_buttons
+            bool modifiers_only = !lpointer->has_pressed_buttons()
                 && (!our_touch || our_touch->gesture_recognizer.current.empty());
 
             for (size_t i = 0; kbd && i < kbd->num_keycodes; i++)

@@ -19,15 +19,22 @@ struct wf_cursor
     void attach_device(wlr_input_device *device);
     void detach_device(wlr_input_device *device);
 
-    void set_cursor(wlr_seat_pointer_request_set_cursor_event *ev);
+    /**
+     * Set the cursor image from a wlroots event.
+     * @param validate_request Whether to validate the request against the
+     * currently focused pointer surface, or not.
+     */
+    void set_cursor(wlr_seat_pointer_request_set_cursor_event *ev,
+        bool validate_request);
     void set_cursor(std::string name);
 
     void hide_cursor();
-    void warp_cursor(int x, int y);
 
+    /* Move the cursor to the given point */
+    void warp_cursor(wf_pointf point);
+    wf_pointf get_cursor_position();
     void init_xcursor();
 
-    void handle_pointer_button(wlr_event_pointer_button *ev);
     void setup_listeners();
 
     wf::wl_listener_wrapper on_button, on_motion, on_motion_absolute, on_axis,
@@ -43,14 +50,6 @@ struct wf_cursor
 
     wlr_cursor *cursor = NULL;
     wlr_xcursor_manager *xcursor = NULL;
-    int count_pressed_buttons = 0;
-
-    wf_option mouse_scroll_speed;
-    wf_option touchpad_scroll_speed;
-
-    wf::surface_interface_t *grabbed_surface = nullptr;
-    void start_held_grab(wf::surface_interface_t *surface);
-    void end_held_grab();
 };
 
 #endif /* end of include guard: CURSOR_HPP */

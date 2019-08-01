@@ -25,6 +25,7 @@ extern "C"
 #undef static
 }
 
+#include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -85,9 +86,9 @@ struct wf_pointer_constraint
     {
         on_destroy.set_callback([=] (void*){
             // reset constraint
-            auto& impl = wf::get_core_impl();
-            if (impl.input->get_active_pointer_constraint() == constraint)
-                impl.input->set_pointer_constraint(nullptr, true);
+            auto& lpointer = wf::get_core_impl().input->lpointer;
+            if (lpointer->get_active_pointer_constraint() == constraint)
+                lpointer->set_pointer_constraint(nullptr, true);
 
             on_destroy.disconnect();
             delete this;
@@ -96,9 +97,9 @@ struct wf_pointer_constraint
         on_destroy.connect(&constraint->events.destroy);
 
         // set correct constraint
-        auto& impl = wf::get_core_impl();
-        if (impl.get_cursor_focus()->priv->wsurface == constraint->surface)
-            impl.input->set_pointer_constraint(constraint);
+        auto& lpointer = wf::get_core_impl().input->lpointer;
+        if (lpointer->get_focus()->priv->wsurface == constraint->surface)
+            lpointer->set_pointer_constraint(constraint);
     }
 };
 
@@ -198,13 +199,13 @@ void wf::compositor_core_impl_t::hide_cursor()
 
 void wf::compositor_core_impl_t::warp_cursor(int x, int y)
 {
-    input->cursor->warp_cursor(x, y);
+    input->cursor->warp_cursor({1.0 * x, 1.0 * y});
 }
 
 wf_pointf wf::compositor_core_impl_t::get_cursor_position()
 {
     if (input->cursor) {
-        return {input->cursor->cursor->x, input->cursor->cursor->y};
+        return input->cursor->get_cursor_position();
     } else {
         return {invalid_coordinate, invalid_coordinate};
     }
@@ -224,7 +225,7 @@ wf_pointf wf::compositor_core_impl_t::get_touch_position(int id)
 
 wf::surface_interface_t* wf::compositor_core_impl_t::get_cursor_focus()
 {
-    return input->cursor_focus;
+    return input->lpointer->get_focus();
 }
 
 wayfire_view wf::compositor_core_t::get_cursor_focus_view()
@@ -479,6 +480,9 @@ void wf::compositor_core_impl_t::run(std::string command)
         } else {
             _exit(0);
         }
+    } else {
+        int status;
+        waitpid(pid, &status, 0);
     }
 }
 

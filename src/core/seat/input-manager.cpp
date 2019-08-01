@@ -1,5 +1,6 @@
 #include <cassert>
 #include <algorithm>
+#include "surface-map-state.hpp"
 
 extern "C"
 {
@@ -149,14 +150,6 @@ input_manager::input_manager()
     surface_map_state_changed = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<_surface_map_state_changed_signal*> (data);
-        if (ev && cursor->grabbed_surface == ev->surface && !ev->surface->is_mapped())
-        {
-            cursor->end_held_grab();
-        } else
-        {
-            update_cursor_position(get_current_time(), false);
-        }
-
         if (our_touch)
         {
             if (ev && our_touch->grabbed_surface == ev->surface && !ev->surface->is_mapped())
@@ -231,7 +224,7 @@ bool input_manager::grab_input(wf::plugin_grab_interface_t* iface)
     wlr_seat_keyboard_send_modifiers(seat, &mods);
 
     set_keyboard_focus(NULL, seat);
-    update_cursor_focus(nullptr, {0, 0});
+    lpointer->update_cursor_position(get_current_time(), false);
     wf::get_core().set_cursor("default");
     return true;
 }
@@ -247,7 +240,7 @@ void input_manager::ungrab_input()
      * the client, which shouldn't happen (at the time of the event, there was
      * still an active input grab) */
     idle_update_cursor.run_once([&] () {
-        update_cursor_position(get_current_time(), false);
+        lpointer->update_cursor_position(get_current_time(), false);
     });
 }
 
@@ -371,3 +364,93 @@ void input_manager::free_output_bindings(wf::output_t *output)
         return binding->output == output;
     });
 }
+
+bool input_manager::check_button_bindings(uint32_t button)
+{
+    std::vector<std::function<void()>> callbacks;
+
+    auto oc = wf::get_core().get_active_output()->get_cursor_position();
+    auto mod_state = get_modifiers();
+
+    for (auto& binding : bindings[WF_BINDING_BUTTON])
+    {
+        if (binding->output == wf::get_core().get_active_output() &&
+            binding->value->as_cached_button().matches({mod_state, button}))
+        {
+            /* We must be careful because the callback might be erased,
+             * so force copy the callback into the lambda */
+            auto callback = binding->call.button;
+            callbacks.push_back([=] () {
+                (*callback) (button, oc.x, oc.y);
+            });
+        }
+    }
+
+    for (auto& binding : bindings[WF_BINDING_ACTIVATOR])
+    {
+        if (binding->output == wf::get_core().get_active_output() &&
+            binding->value->matches_button({mod_state, button}))
+        {
+            /* We must be careful because the callback might be erased,
+             * so force copy the callback into the lambda */
+            auto callback = binding->call.activator;
+            callbacks.push_back([=] () {
+                (*callback) (ACTIVATOR_SOURCE_BUTTONBINDING, button);
+            });
+        }
+    }
+
+    for (auto call : callbacks)
+        call();
+
+    return !callbacks.empty();
+}
+
+bool input_manager::check_axis_bindings(wlr_event_pointer_axis *ev)
+{
+    std::vector<axis_callback*> callbacks;
+    auto mod_state = get_modifiers();
+
+    for (auto& binding : bindings[WF_BINDING_AXIS])
+    {
+        if (binding->output == wf::get_core().get_active_output() &&
+            binding->value->as_cached_key().matches({mod_state, 0}))
+            callbacks.push_back(binding->call.axis);
+    }
+
+    for (auto call : callbacks)
+        (*call) (ev);
+
+    return !callbacks.empty();
+}
+
+wf::SurfaceMapStateListener::SurfaceMapStateListener()
+{
+    on_surface_map_state_change = [=] (void *data)
+    {
+        if (this->callback)
+        {
+            auto ev = static_cast<_surface_map_state_changed_signal*> (data);
+            this->callback(ev ? ev->surface : nullptr);
+        }
+    };
+
+    wf::get_core().connect_signal("_surface_mapped",
+        &on_surface_map_state_change);
+    wf::get_core().connect_signal("_surface_unmapped",
+        &on_surface_map_state_change);
+}
+
+wf::SurfaceMapStateListener::~SurfaceMapStateListener()
+{
+    wf::get_core().disconnect_signal("_surface_mapped",
+        &on_surface_map_state_change);
+    wf::get_core().disconnect_signal("_surface_unmapped",
+        &on_surface_map_state_change);
+}
+
+void wf::SurfaceMapStateListener::set_callback(Callback call)
+{
+    this->callback = call;
+}
+
