@@ -112,8 +112,9 @@ void wf::LogicalPointer::update_cursor_focus(wf::surface_interface_t *focus,
         compositor_surface->on_pointer_leave();
 
     bool focus_change = (cursor_focus != focus);
-    if (focus_change)
+    if (focus_change) {
         log_debug("change cursor focus %p -> %p", cursor_focus, focus);
+    }
 
     cursor_focus = focus;
     wlr_surface *next_focus_wlr_surface = nullptr;

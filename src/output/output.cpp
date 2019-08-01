@@ -72,8 +72,9 @@ void wf::output_t::refocus(wayfire_view skip_view)
 
     if (views.empty())
     {
-        if (wf::get_core().get_active_output() == this)
+        if (wf::get_core().get_active_output() == this) {
             log_debug("warning: no focused views in the focused layer, probably a bug");
+        }
 
         /* Usually, we focus a layer so that a particular view has focus, i.e
          * we expect that there is a view in the focused layer. However we
