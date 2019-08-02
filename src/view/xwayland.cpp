@@ -334,7 +334,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
 
     virtual void request_native_size() override
     {
-        if (!is_mapped())
+        if (!is_mapped() || !xw->size_hints)
             return;
 
         if (xw->size_hints->base_width > 0 && xw->size_hints->base_height > 0)
