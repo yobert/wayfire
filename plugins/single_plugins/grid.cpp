@@ -79,7 +79,14 @@ class wayfire_grid_view_cdata : public wf::custom_data_t
     {
         target = geometry;
         initial = view->get_wm_geometry();
-        this->tiled_edges = target_edges;
+
+        /* Restore tiled edges if we don't need to set something special when
+         * grid is ready */
+        if (target_edges < 0) {
+            this->tiled_edges = view->tiled_edges;
+        } else {
+            this->tiled_edges = target_edges;
+        }
 
         auto type = animation_type->as_string();
         if (view->get_transformer("wobbly") || !is_active)
@@ -99,16 +106,12 @@ class wayfire_grid_view_cdata : public wf::custom_data_t
             set_end_state(geometry, tiled_edges);
             snap_wobbly(view, geometry);
 
-            if (!tiled_edges) // release snap, so subsequent size changes don't bother us
+            if (tiled_edges <= 0) // release snap, so subsequent size changes don't bother us
                 snap_wobbly(view, geometry, false);
 
             return destroy();
         }
 
-        /* Restore tiled edges if we don't need to set something special when
-         * grid is ready */
-        if (target_edges < 0)
-            this->tiled_edges = view->tiled_edges;
 
         view->set_tiled(wf::TILED_EDGES_ALL);
         view->set_moving(1);
