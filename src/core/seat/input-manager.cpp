@@ -223,7 +223,7 @@ bool input_manager::grab_input(wf::plugin_grab_interface_t* iface)
     mods.depressed = 0;
     wlr_seat_keyboard_send_modifiers(seat, &mods);
 
-    set_keyboard_focus(NULL, seat);
+    set_keyboard_focus(nullptr, seat);
     lpointer->set_enable_focus(false);
     wf::get_core().set_cursor("default");
     return true;

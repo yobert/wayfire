@@ -12,6 +12,7 @@
 
 #include <cassert>
 #include <functional>
+#include <memory>
 
 #define  observer_ptr_VERSION "0.2.0"
 
@@ -143,12 +144,16 @@ public:
     : ptr( nullptr ) {}
 #endif
 
-    nop_constexpr14 explicit observer_ptr( pointer p ) nop_noexcept
+    nop_constexpr14 observer_ptr( pointer p ) nop_noexcept
     : ptr(p) {}
 
     template< class W2 >
     nop_constexpr14 observer_ptr(observer_ptr<W2> other ) nop_noexcept
     : ptr( other.get() ) {}
+
+    template< class W2 >
+    nop_constexpr14 observer_ptr(const std::unique_ptr<W2>& other)
+    : ptr(other.get()) {}
 
     nop_constexpr14 pointer get() const nop_noexcept
     {
