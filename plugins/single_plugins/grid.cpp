@@ -404,10 +404,10 @@ class wayfire_grid : public wf::plugin_interface_t
     {
         auto data = static_cast<view_tiled_signal*> (ddata);
 
-        if (data->carried_out)
+        if (data->carried_out || data->desired_size.width <= 0)
             return;
-        data->carried_out = true;
 
+        data->carried_out = true;
         uint32_t slot = get_slot_from_tiled_edges(data->edges);
         if (slot > 0)
             data->desired_size = get_slot_dimensions(slot);
@@ -427,7 +427,7 @@ class wayfire_grid : public wf::plugin_interface_t
         auto data = static_cast<view_fullscreen_signal*> (ev);
         static const std::string fs_data_name = "grid-saved-fs";
 
-        if (data->carried_out)
+        if (data->carried_out || data->desired_size.width <= 0)
             return;
 
         data->carried_out = true;
