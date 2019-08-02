@@ -265,7 +265,22 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         }
 
         if (xw->maximized_horz && xw->maximized_vert)
+        {
+            if (xw->width > 0 && xw->height > 0)
+            {
+                /* Save geometry which the window has put itself in */
+                wf_geometry save_geometry = {
+                    xw->x, xw->y, xw->width, xw->height
+                };
+
+                /* Make sure geometry is properly visible on the view output */
+                save_geometry = clamp(save_geometry,
+                    get_output()->workspace->get_workarea());
+                this->view_impl->last_windowed_geometry = save_geometry;
+            }
+
             tile_request(wf::TILED_EDGES_ALL);
+        }
 
         if (xw->fullscreen)
             fullscreen_request(get_output(), true);
