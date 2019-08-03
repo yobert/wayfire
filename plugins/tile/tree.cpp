@@ -14,6 +14,16 @@ void tree_node_t::set_geometry(wf_geometry geometry)
     this->geometry = geometry;
 }
 
+nonstd::observer_ptr<split_node_t> tree_node_t::as_split_node()
+{
+    return nonstd::make_observer(dynamic_cast<split_node_t*> (this));
+}
+
+nonstd::observer_ptr<view_node_t> tree_node_t::as_view_node()
+{
+    return nonstd::make_observer(dynamic_cast<view_node_t*> (this));
+}
+
 /* ---------------------- split_node_t implementation ----------------------- */
 wf_geometry split_node_t::get_child_geometry(
     int32_t child_pos, int32_t child_size)
@@ -44,6 +54,8 @@ int32_t split_node_t::calculate_splittable(wf_geometry available) const
         case SPLIT_VERTICAL:
             return available.width;
     }
+
+    return -1;
 }
 
 int32_t split_node_t::calculate_splittable() const
@@ -98,6 +110,7 @@ void split_node_t::add_child(std::unique_ptr<tree_node_t> child)
 
     /* Finally, set the size of the new child, and add it to the list */
     child->set_geometry(get_child_geometry(size_others, size_new_child));
+    child->parent = {this};
     this->children.emplace_back(std::move(child));
 }
 
@@ -114,41 +127,16 @@ std::unique_ptr<tree_node_t> split_node_t::remove_child(
         {
             result = std::move(*it);
             it = this->children.erase(it);
+        } else
+        {
+            ++it;
         }
-
-        it = std::next(it);
     }
 
     /* Remaining children have the full geometry */
     recalculate_children(this->geometry);
+    result->parent = nullptr;
     return result;
-}
-
-void split_node_t::try_flatten()
-{
-    if (this->children.size() >= 2)
-    {
-        for (auto& child : this->children)
-        {
-            auto split_child = dynamic_cast<split_node_t*> (child.get());
-            if (split_child)
-                split_child->try_flatten();
-        }
-
-        return;
-    }
-
-    if (this->children.empty())
-    {
-        /* Only the root node can be empty */
-        assert(!parent);
-        return;
-    }
-
-    auto child = dynamic_cast<split_node_t*> (children.front().get());
-    if (child)
-    {
-    }
 }
 
 void split_node_t::set_geometry(wf_geometry geometry)
@@ -193,6 +181,9 @@ void view_node_t::set_geometry(wf_geometry geometry)
 {
     tree_node_t::set_geometry(geometry);
 
+    if (!view->is_mapped())
+        return;
+
     /* Calculate view geometry in coordinates local to the active workspace,
      * because tree coordinates are kept in workspace-agnostic coordinates. */
     auto output = view->get_output();
@@ -206,6 +197,61 @@ void view_node_t::set_geometry(wf_geometry geometry)
 
     view->set_tiled(TILED_EDGES_ALL);
     view->set_geometry(local_geometry);
+}
+
+nonstd::observer_ptr<view_node_t> view_node_t::get_node(wayfire_view view)
+{
+    if (!view->has_data<view_node_custom_data_t>())
+        return nullptr;
+
+    return view->get_data<view_node_custom_data_t>()->ptr;
+}
+
+/* ----------------- Generic tree operations implementation ----------------- */
+void flatten_tree(std::unique_ptr<tree_node_t>& root)
+{
+    /* Cannot flatten a view node */
+    if (root->as_view_node())
+        return;
+
+    /* No flattening required on this level */
+    if (root->children.size() >= 2)
+    {
+        for (auto& child : root->children)
+            flatten_tree(child);
+
+        return;
+    }
+
+    /* Only the real root of the tree can have no children */
+    assert(!root->parent || root->children.size());
+
+    if (root->children.empty())
+        return;
+
+    nonstd::observer_ptr<tree_node_t> child_ptr = {root->children.front()};
+
+    /* A single view child => cannot make it root */
+    if (child_ptr->as_view_node())
+    {
+        if (!root->parent)
+            return;
+    }
+
+    /* Rewire the tree, skipping the current root */
+    auto child = root->as_split_node()->remove_child(child_ptr);
+
+    child->parent = root->parent;
+    root = std::move(child); // overwrite root with the child
+}
+
+nonstd::observer_ptr<split_node_t> get_root(
+    nonstd::observer_ptr<tree_node_t> node)
+{
+    if (!node->parent)
+        return {dynamic_cast<split_node_t*> (node.get())};
+
+    return get_root(node->parent);
 }
 
 }

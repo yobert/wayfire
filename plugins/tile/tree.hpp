@@ -15,6 +15,8 @@ namespace tile {
  * 2. Split tree nodes, they contain at least 1 child view.
  */
 struct split_node_t;
+struct view_node_t;
+
 struct tree_node_t
 {
     /** The node parent, or nullptr if this is the root node */
@@ -28,7 +30,12 @@ struct tree_node_t
 
     /** Set the geometry available for the node and its subnodes. */
     virtual void set_geometry(wf_geometry geometry);
-    virtual ~tree_node_t();
+    virtual ~tree_node_t() {};
+
+    /** Simply dynamic cast this to a split_node_t */
+    nonstd::observer_ptr<split_node_t> as_split_node();
+    /** Simply dynamic cast this to a view_node_t */
+    nonstd::observer_ptr<view_node_t> as_view_node();
 };
 
 /**
@@ -66,14 +73,6 @@ struct split_node_t : public tree_node_t
      * have a size proportional to their old size.
      */
     void set_geometry(wf_geometry geometry);
-
-    /**
-     * Flatten the tree as much as possible, i.e remove nodes with only one
-     * split-node child.
-     *
-     * Note: this will potentially invalidate pointers to the tree.
-     */
-    void try_flatten();
 
     split_node_t(split_direction_t direction);
     split_direction_t get_split_direction() const;
@@ -119,9 +118,27 @@ struct view_node_t : public tree_node_t
      */
     void set_geometry(wf_geometry geometry) override;
 
+    /* Return the tree node corresponding to the view, or nullptr if none */
+    static nonstd::observer_ptr<view_node_t> get_node(wayfire_view view);
+
   private:
-    signal_callback_t on_unmap;
 };
+
+/**
+ * Flatten the tree as much as possible, i.e remove nodes with only one
+ * split-node child.
+ *
+ * The only exception is "the root", which will always be a split node.
+ *
+ * Note: this will potentially invalidate pointers to the tree and modify
+ * the given parameter.
+ */
+void flatten_tree(std::unique_ptr<tree_node_t>& root);
+
+/**
+ * Get the root of the tree which node is part of
+ */
+nonstd::observer_ptr<split_node_t> get_root( nonstd::observer_ptr<tree_node_t> node);
 
 }
 }
