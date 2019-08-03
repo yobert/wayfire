@@ -43,8 +43,8 @@ struct tree_node_t
  */
 enum split_direction_t
 {
-    SPLIT_HORIZONTAL,
-    SPLIT_VERTICAL,
+    SPLIT_HORIZONTAL = 0,
+    SPLIT_VERTICAL   = 1,
 };
 
 /*
