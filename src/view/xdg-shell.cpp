@@ -156,7 +156,8 @@ wayfire_xdg_view<XdgToplevelVersion>::wayfire_xdg_view(XdgToplevelVersion *top)
     on_request_resize.set_callback([&] (void*) { resize_request(); });
     on_request_minimize.set_callback([&] (void*) { minimize_request(true); });
     on_request_maximize.set_callback([&] (void* data) {
-        maximize_request(xdg_toplevel->client_pending.maximized);
+        tile_request(xdg_toplevel->client_pending.maximized ?
+            wf::TILED_EDGES_ALL : 0);
     });
     on_request_fullscreen.set_callback([&] (void* data) {
         auto ev = static_cast<wlr_xdg_toplevel_set_fullscreen_event*> (data);
@@ -209,7 +210,7 @@ template<class XdgToplevelVersion>
 void wayfire_xdg_view<XdgToplevelVersion>::map(wlr_surface *surface)
 {
     if (xdg_toplevel->client_pending.maximized)
-        maximize_request(true);
+        tile_request(wf::TILED_EDGES_ALL);
 
     if (xdg_toplevel->client_pending.fullscreen)
         fullscreen_request(get_output(), true);
@@ -293,27 +294,15 @@ template<>
 void wayfire_xdg_view<wlr_xdg_toplevel>::set_tiled(uint32_t edges)
 {
     wlr_xdg_toplevel_set_tiled(xdg_toplevel->base, edges);
-    this->tiled_edges = edges;
+    wlr_xdg_toplevel_set_maximized(xdg_toplevel->base,
+        (edges == wf::TILED_EDGES_ALL));
+    wlr_view_t::set_tiled(edges);
 }
 
 template<>
 void wayfire_xdg_view<wlr_xdg_toplevel_v6>::set_tiled(uint32_t edges) {
-    /* Tiled is not supported in v6 */
-    this->tiled_edges = edges;
-}
-
-template<>
-void wayfire_xdg_view<wlr_xdg_toplevel>::set_maximized(bool max)
-{
-    wf::wlr_view_t::set_maximized(max);
-    wlr_xdg_toplevel_set_maximized(xdg_toplevel->base, max);
-}
-
-template<>
-void wayfire_xdg_view<wlr_xdg_toplevel_v6>::set_maximized(bool max)
-{
-    wf::wlr_view_t::set_maximized(max);
-    wlr_xdg_toplevel_v6_set_maximized(xdg_toplevel->base, max);
+    wlr_xdg_toplevel_v6_set_maximized(xdg_toplevel->base, !!edges);
+    wlr_view_t::set_tiled(edges);
 }
 
 template<>

@@ -39,17 +39,23 @@ struct view_geometry_changed_signal : public _view_signal
     wf_geometry old_geometry;
 };
 
-struct _view_state_signal : public _view_signal
+struct view_tiled_signal : public _view_signal
+{
+    uint32_t edges;
+    bool carried_out = false;
+    wf_geometry desired_size;
+};
+
+struct view_fullscreen_signal : public _view_signal
 {
     bool state;
+    bool carried_out = false;
+    wf_geometry desired_size;
 };
-bool get_signaled_state(wf::signal_data_t *data);
 
-using view_maximized_signal = _view_state_signal;
-using view_fullscreen_signal = _view_state_signal;
-
-struct view_minimize_request_signal : public _view_state_signal
+struct view_minimize_request_signal : public _view_signal
 {
+    bool state;
     /* If some plugin wants to delay the (un)minimize of the view, it needs to
      * listen for the view-minimize-request and set carried_out to true.
      * It is a hint to core that the action will be (or already was) performed

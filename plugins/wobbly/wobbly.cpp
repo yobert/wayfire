@@ -137,6 +137,10 @@ class wf_wobbly : public wf_view_transformer_t
     std::unique_ptr<wobbly_surface> model;
 
     bool has_active_grab = false;
+
+    /* Whether to synchronize view position with the model */
+    bool model_view_sync_enabled = true;
+
     int grab_x = 0, grab_y = 0;
 
     wf_geometry snapped_geometry;
@@ -223,10 +227,17 @@ class wf_wobbly : public wf_view_transformer_t
     void update_model()
     {
         view->damage();
+        bool sync_view_position = model_view_sync_enabled;
 
         auto bbox = view->get_bounding_box("wobbly");
         if (snapped_geometry.width <= 0)
+        {
+            /* Sync view position in case of a resize */
+            sync_view_position |=
+                (bbox.width != model->width || bbox.height != model->height);
+
             resize(bbox.width, bbox.height);
+        }
 
         auto now = get_current_time();
         wobbly_prepare_paint(model.get(), now - last_frame);
@@ -237,7 +248,7 @@ class wf_wobbly : public wf_view_transformer_t
 
         view->damage();
 
-        if (snapped_geometry.width <= 0 && !has_active_grab)
+        if (model_view_sync_enabled)
         {
             /* We temporarily don't want to receive updates on the view's
              * geometry, because we usually adjust the model based on the
@@ -321,6 +332,10 @@ class wf_wobbly : public wf_view_transformer_t
         grab_x = x;
         grab_y = y;
         has_active_grab = 1;
+
+        // do not sync position yet
+        model_view_sync_enabled = false;
+
         wobbly_grab_notify(model.get(), x, y);
         unsnap();
     }
@@ -343,20 +358,31 @@ class wf_wobbly : public wf_view_transformer_t
     {
         if (has_active_grab && unanchor)
             wobbly_ungrab_notify(model.get());
+
         has_active_grab = false;
+        // now, synchronize position
+        model_view_sync_enabled = true;
     }
 
     void snap(wf_geometry geometry)
     {
         wobbly_force_geometry(model.get(),
             geometry.x, geometry.y, geometry.width, geometry.height);
+
         snapped_geometry = geometry;
+
+        // do not sync geometry, it is enforced anyway
+        model_view_sync_enabled = false;
     }
 
     void unsnap()
     {
         wobbly_unenforce_geometry(model.get());
         snapped_geometry.width = -1;
+
+        /* Note we do not allow syncing the view geometry.
+         * The unenforce_geometry() will set an anchor which should make sure
+         * that the position is valid */
     }
 
     void translate(int dx, int dy)

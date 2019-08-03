@@ -424,6 +424,9 @@ class wayfire_tile : public wayfire_plugin_t
             auto conv = static_cast<view_fullscreen_signal*> (data);
             assert(conv);
 
+            if (conv->carried_out)
+                return;
+
             if (conv->state && !wf_tiling::is_floating_view(conv->view))
             {
                 wf_tiling::maximize_view(conv->view, true);
@@ -431,6 +434,7 @@ class wayfire_tile : public wayfire_plugin_t
             {
                 wf_tiling::unmaximize();
             }
+            conv->carried_out = true;
         };
         output->connect_signal("view-fullscreen-request", &view_fs_request);
 

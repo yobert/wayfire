@@ -194,10 +194,9 @@ class wayfire_window_rules : public wf::plugin_interface_t
         {
             exec.action = [action] (wayfire_view view)
             {
-                view_maximized_signal data;
-                data.view = view;
-                data.state = starts_with(action, "set");
-                view->get_output()->emit_signal("view-maximized-request", &data);
+                uint32_t edges =
+                    starts_with(action, "set") ? wf::TILED_EDGES_ALL : 0;
+                view->tile_request(edges);
             };
         }
 
@@ -249,10 +248,10 @@ class wayfire_window_rules : public wf::plugin_interface_t
 
         maximized = [=] (wf::signal_data_t *data)
         {
-            auto conv = static_cast<view_maximized_signal*> (data);
+            auto conv = static_cast<view_tiled_signal*> (data);
             assert(conv);
 
-            if (!conv->state)
+            if (conv->edges != wf::TILED_EDGES_ALL)
                 return;
 
             for (const auto& rule : rules_list["maximized"])
@@ -265,11 +264,12 @@ class wayfire_window_rules : public wf::plugin_interface_t
             auto conv = static_cast<view_fullscreen_signal*> (data);
             assert(conv);
 
-            if (!conv->state)
+            if (!conv->state || conv->carried_out)
                 return;
 
             for (const auto& rule : rules_list["fullscreened"])
                 rule(conv->view);
+            conv->carried_out = true;
         };
         output->connect_signal("view-fullscreen", &fullscreened);
     }

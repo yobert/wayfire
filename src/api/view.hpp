@@ -11,6 +11,7 @@
 extern "C"
 {
 struct wlr_surface;
+#include <wlr/util/edges.h>
 }
 
 namespace wf
@@ -34,6 +35,13 @@ enum view_role_t
     VIEW_ROLE_UNMANAGED, // xwayland override redirect or unmanaged views
     VIEW_ROLE_SHELL_VIEW // background, lockscreen, panel, notifications, etc
 };
+
+/**
+ * A bitmask consisting of all tiled edges.
+ * This corresponds to a maximized state.
+ */
+constexpr uint32_t TILED_EDGES_ALL =
+    WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT | WLR_EDGE_RIGHT;
 
 /**
  * view_interface_t is the base class for all "toplevel windows", i.e surfaces
@@ -186,9 +194,6 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      */
     virtual bool is_focuseable() const;
 
-    /** Whether the view is in maximized state, usually you want to use either
-     * set_maximized() or maximize_request() */
-    bool maximized = false;
     /** Whether the view is in fullscreen state, usually you want to use either
      * set_fullscreen() or fullscreen_request() */
     bool fullscreen = false;
@@ -198,15 +203,14 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
     /** Whether the view is in minimized state, usually you want to use either
      * set_minizied() or minimize_request() */
     bool minimized = false;
-    /** The tiled edges of the view, usually you want to use set_tiled() */
+    /** The tiled edges of the view, usually you want to use set_tiled().
+     * If the view is tiled to all edges, it is considered maximized. */
     uint32_t tiled_edges = 0;
 
     /** Set the minimized state of the view. */
     virtual void set_minimized(bool minimized);
     /** Set the tiled edges of the view */
     virtual void set_tiled(uint32_t edges);
-    /** Set the maximized state of the view */
-    virtual void set_maximized(bool maxim);
     /** Set the fullscreen state of the view */
     virtual void set_fullscreen(bool fullscreen);
     /** Set the view's activated state.  */
@@ -220,8 +224,13 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
     virtual void resize_request(uint32_t edges = 0);
     /** Request that the view is (un)minimized */
     virtual void minimize_request(bool minimized);
-    /** Request that the view is (un)maximized */
-    virtual void maximize_request(bool maximized);
+    /**
+     * Request that the view is (un)tiled.
+     *
+     * Note: by default, any tiled edges means that the view gets the full
+     * workarea.
+     */
+    virtual void tile_request(uint32_t tiled_edges);
     /** Request that the view is (un)fullscreened on the given output */
     virtual void fullscreen_request(wf::output_t *output, bool state);
 
@@ -380,7 +389,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
     virtual void destruct() override;
 
     /**
-     * Called whenever the minimized, maximized, fullscreened
+     * Called whenever the minimized, tiled, fullscreened
      * or activated state changes */
     virtual void desktop_state_updated();
 };

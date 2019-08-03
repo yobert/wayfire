@@ -11,8 +11,8 @@ class wf_decorator_frame_t
 
     virtual void notify_view_activated(bool active) {}
     virtual void notify_view_resized(wf_geometry view_geometry) {}
-    virtual void notify_view_maximized() {}
-    virtual void notify_view_fullscreened() {}
+    virtual void notify_view_tiled() {}
+    virtual void notify_view_fullscreen() {}
 
     virtual ~wf_decorator_frame_t() {}
 };

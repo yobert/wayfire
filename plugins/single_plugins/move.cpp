@@ -445,16 +445,10 @@ class wayfire_move : public wf::plugin_interface_t
                 view->fullscreen_request(view->get_output(), false);
 
             if (view->tiled_edges)
-            {
-                snap_signal data;
-                data.view = view;
-                data.slot = 0;
-                output->emit_signal("view-snap", &data);
-            }
+                view->tile_request(0);
 
             /* view geometry might change after unmaximize/unfullscreen, so update position */
             grabbed_geometry = view->get_wm_geometry();
-
             snap_wobbly(view, {}, false);
         }
 
