@@ -28,7 +28,7 @@ class tile_plugin_t : public wf::plugin_interface_t
             }
         }
 
-        update_root_size(output->get_relative_geometry());
+        update_root_size(output->workspace->get_workarea());
     }
 
     void update_root_size(wf_geometry output_geometry)
@@ -88,18 +88,25 @@ class tile_plugin_t : public wf::plugin_interface_t
         flatten_roots();
     };
 
+    signal_callback_t on_workarea_changed = [=] (signal_data_t *data)
+    {
+        update_root_size(output->workspace->get_workarea());
+    };
+
   public:
     void init(wayfire_config *config) override
     {
         initialize_roots();
         output->connect_signal("attach-view", &on_view_mapped);
         output->connect_signal("detach-view", &on_view_unmapped);
+        output->connect_signal("reserved-workarea", &on_workarea_changed);
     }
 
     void fini() override
     {
         output->disconnect_signal("attach-view", &on_view_mapped);
         output->disconnect_signal("detach-view", &on_view_unmapped);
+        output->disconnect_signal("reserved-workarea", &on_workarea_changed);
     }
 };
 };
