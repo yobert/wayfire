@@ -10,45 +10,42 @@ namespace wf
 namespace tile
 {
 /**
- * Calculate which view node is at the given position
- *
- * Returns null if no view nodes are present.
+ * Represents the current mode in which the tile plugin is.
  */
-nonstd::observer_ptr<view_node_t> find_view_at(
-    nonstd::observer_ptr<tree_node_t> root, wf_point input);
-
-enum split_insertion_t
+class tile_controller_t
 {
-    /** Insert is invalid */
-    INSERT_NONE  = 0,
-    /** Insert above the view */
-    INSERT_ABOVE = 1,
-    /** Insert below the view */
-    INSERT_BELOW = 2,
-    /** Insert to the left of the view */
-    INSERT_LEFT  = 3,
-    /** Insert to the right of the view */
-    INSERT_RIGHT = 4,
+  public:
+    /** The tile controller is destroyed when the action has come to and end,
+     * for ex. when the mouse button is released */
+    virtual ~tile_controller_t() = default;
+
+    /** Called when the input is moved */
+    virtual void input_motion(wf_point input) {}
 };
 
 /**
- * Calculate the position of the split that needs to be created if a view is
- * dropped at @input over @node
+ * Represents the moving view action, i.e dragging a window to change its
+ * position in the grid
  */
-split_insertion_t calculate_insert_type(
-    nonstd::observer_ptr<tree_node_t> node, wf_point input);
+class move_view_controller_t : public tile_controller_t
+{
+  public:
+    /**
+     * Start the dragging action.
+     *
+     * @param root The root of the tiling tree which is currently being
+     *             manipulated
+     */
+    move_view_controller_t(nonstd::observer_ptr<tree_node_t> root);
 
-/**
- * Calculate the bounds of the split preview
- */
-wf_geometry calculate_split_preview(nonstd::observer_ptr<tree_node_t> over,
-    split_insertion_t split_type);
+    /** Called when the input is released */
+    ~move_view_controller_t();
 
-/**
- * Insert @to_insert at the indicated position relative to @node
- */
-void insert_split(nonstd::observer_ptr<tree_node_t> node,
-    std::unique_ptr<tree_node_t> to_insert);
+    void input_motion(wf_point input) override;
+
+  protected:
+    nonstd::observer_ptr<tree_node_t> root;
+};
 
 }
 }

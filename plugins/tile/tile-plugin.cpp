@@ -3,7 +3,7 @@
 #include <workspace-manager.hpp>
 #include <signal-definitions.hpp>
 
-#include "tree.hpp"
+#include "tree-controller.hpp"
 
 namespace wf
 {
@@ -39,9 +39,10 @@ class tile_plugin_t : public wf::plugin_interface_t
             for (int j = 0; j < wsize.height; j++)
             {
                 /* Set size */
-                output_geometry.x = i * output_geometry.width;
-                output_geometry.y = j * output_geometry.height;
-                roots[i][j]->set_geometry(output_geometry);
+                auto vp_geometry = output_geometry;
+                vp_geometry.x += i * output_geometry.width;
+                vp_geometry.y += j * output_geometry.height;
+                roots[i][j]->set_geometry(vp_geometry);
             }
         }
     }
@@ -93,13 +94,55 @@ class tile_plugin_t : public wf::plugin_interface_t
         update_root_size(output->workspace->get_workarea());
     };
 
+    static std::unique_ptr<wf::tile::tile_controller_t> get_default_controller()
+    {
+        return std::make_unique<wf::tile::tile_controller_t> ();
+    }
+
+    std::unique_ptr<wf::tile::tile_controller_t> controller =
+        get_default_controller();
+
+    button_callback on_retile_view = [=] (uint32_t button, int32_t x, int32_t y)
+    {
+        auto vp = output->workspace->get_current_workspace();
+        controller = std::make_unique<tile::move_view_controller_t> (
+            roots[vp.x][vp.y]);
+
+        output->activate_plugin(grab_interface);
+        grab_interface->grab();
+    };
+
   public:
     void init(wayfire_config *config) override
     {
+        this->grab_interface->name = "simple-tile";
+        /* TODO: change how grab interfaces work - plugins should do ifaces on
+         * their own, and should be able to have more than one */
+        this->grab_interface->capabilities = CAPABILITY_GRAB_INPUT;
+
         initialize_roots();
         output->connect_signal("attach-view", &on_view_mapped);
         output->connect_signal("detach-view", &on_view_unmapped);
         output->connect_signal("reserved-workarea", &on_workarea_changed);
+
+        auto button = new_static_option("<super> BTN_LEFT");
+        output->add_button(button, &on_retile_view);
+
+        grab_interface->callbacks.pointer.button =
+            [=] (uint32_t b, uint32_t state)
+        {
+            if (state == WLR_BUTTON_RELEASED &&
+                b == button->as_cached_button().button)
+            {
+                output->deactivate_plugin(grab_interface);
+                controller = get_default_controller();
+            }
+        };
+
+        grab_interface->callbacks.pointer.motion = [=] (int32_t x, int32_t y)
+        {
+            controller->input_motion({x, y});
+        };
     }
 
     void fini() override
