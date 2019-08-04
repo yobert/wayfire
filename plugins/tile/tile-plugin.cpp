@@ -134,8 +134,13 @@ class tile_plugin_t : public wf::plugin_interface_t
             if (state == WLR_BUTTON_RELEASED &&
                 b == button->as_cached_button().button)
             {
+                controller->input_released();
+
                 output->deactivate_plugin(grab_interface);
                 controller = get_default_controller();
+
+                /* Needed if some controller changed the view structure */
+                this->flatten_roots();
             }
         };
 

@@ -12,16 +12,26 @@ namespace tile
 {
 /**
  * Represents the current mode in which the tile plugin is.
+ *
+ * Invariant: while a controller is active, the tree structure shouldn't change,
+ * except for changes by the controller itself.
+ *
+ * If such an external event happens, then controller will be destroyed.
  */
 class tile_controller_t
 {
   public:
-    /** The tile controller is destroyed when the action has come to and end,
-     * for ex. when the mouse button is released */
     virtual ~tile_controller_t() = default;
 
     /** Called when the input is moved */
     virtual void input_motion(wf_point input) {}
+
+    /**
+     * Called when the input is released or the controller should stop
+     * Note that a controller may be deleted without receiving input_released(),
+     * in which case it should simply stop operation.
+     */
+    virtual void input_released() {}
 };
 
 /**
@@ -38,17 +48,19 @@ class move_view_controller_t : public tile_controller_t
      *             manipulated
      * @param Where the grab has started
      */
-    move_view_controller_t(nonstd::observer_ptr<tree_node_t> root,
+    move_view_controller_t(std::unique_ptr<tree_node_t>& root,
         wf_point grab);
 
     /** Called when the input is released */
     ~move_view_controller_t();
 
     void input_motion(wf_point input) override;
+    void input_released() override;
 
   protected:
-    nonstd::observer_ptr<tree_node_t> root;
+    std::unique_ptr<tree_node_t>& root;
     nonstd::observer_ptr<view_node_t> grabbed_view;
+    wf_point current_input;
 
     nonstd::observer_ptr<wf::preview_indication_view_t> preview;
     /**
@@ -61,6 +73,12 @@ class move_view_controller_t : public tile_controller_t
      *               the preview needs to be created.
      */
     void ensure_preview(wf_point now, wf::output_t *output);
+
+    /**
+     * Return the node under the input which is suitable for dropping on.
+     */
+    nonstd::observer_ptr<view_node_t> check_drop_destination(wf_point input);
+
 };
 
 }

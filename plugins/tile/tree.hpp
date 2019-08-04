@@ -58,8 +58,11 @@ struct split_node_t : public tree_node_t
      * The new child will get resized so that its area is at most 1/(N+1) of the
      * total node area, where N is the number of children before adding the new
      * child.
+     *
+     * @param index The index at which to insert the new child, or -1 for
+     *              adding to the end of the child list.
      */
-    void add_child(std::unique_ptr<tree_node_t> child);
+    void add_child(std::unique_ptr<tree_node_t> child, int index = -1);
 
     /**
      * Remove a child from the node, and return its unique_ptr

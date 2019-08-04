@@ -143,18 +143,27 @@ void insert_split(nonstd::observer_ptr<tree_node_t> node,
 
 /* ------------------------ move_view_controller_t -------------------------- */
 move_view_controller_t::move_view_controller_t(
-    nonstd::observer_ptr<tree_node_t> root, wf_point grab)
+    std::unique_ptr<tree_node_t>& uroot, wf_point grab)
+    : root(uroot)
 {
-    this->root = root;
     this->grabbed_view = find_view_at(root, grab);
+    this->current_input = grab;
 }
 
 move_view_controller_t::~move_view_controller_t()
 {
     if (this->preview)
         this->preview->set_target_geometry({0, 0}, 0.0, true);
+}
 
-    // TODO: actually do operations on the root
+nonstd::observer_ptr<view_node_t>
+move_view_controller_t::check_drop_destination(wf_point input)
+{
+    auto dropped_at = find_view_at(this->root, this->current_input);
+    if (!dropped_at || dropped_at == this->grabbed_view)
+        return nullptr;
+
+    return dropped_at;
 }
 
 void move_view_controller_t::ensure_preview(wf_point start,
@@ -171,8 +180,10 @@ void move_view_controller_t::ensure_preview(wf_point start,
 
 void move_view_controller_t::input_motion(wf_point input)
 {
-    auto view = find_view_at(root, input);
-    if (!view || view == this->grabbed_view)
+    this->current_input = input;
+
+    auto view = check_drop_destination(input);
+    if (!view)
     {
         /* No view, no preview */
         if (this->preview)
@@ -187,6 +198,79 @@ void move_view_controller_t::input_motion(wf_point input)
     this->preview->set_target_geometry(
         calculate_split_preview(view, split), 1.0);
 }
+
+/**
+ * Find the index of the view in its parent list
+ */
+static int find_idx(nonstd::observer_ptr<tree_node_t> view)
+{
+    auto& children = view->parent->children;
+    auto it = std::find_if(children.begin(), children.end(),
+        [=] (auto& node) { return node.get() == view.get(); });
+
+    return it - children.begin();
+}
+
+void move_view_controller_t::input_released()
+{
+    auto dropped_at = find_view_at(this->root, this->current_input);
+    if (!dropped_at)
+        return;
+
+    auto split = calculate_insert_type(dropped_at, current_input);
+    if (split == INSERT_NONE)
+        return;
+
+    auto split_type = (split == INSERT_LEFT || split == INSERT_RIGHT) ?
+        SPLIT_VERTICAL : SPLIT_HORIZONTAL;
+
+    if (dropped_at->parent->get_split_direction() == split_type)
+    {
+        /* We can simply add the dragged view as a sibling of the target view */
+        auto view = grabbed_view->parent->remove_child(grabbed_view);
+
+        int idx = find_idx(dropped_at);
+        if (split == INSERT_RIGHT || split == INSERT_BELOW)
+            ++idx;
+
+        dropped_at->parent->add_child(std::move(view), idx);
+    } else
+    {
+        /* Case 2: we need a new split just for the dropped on and the dragged
+         * views */
+        auto new_split = std::make_unique<split_node_t> (split_type);
+        /* The size will be autodetermined by the tree structure, but we set
+         * some valid size here to avoid UB */
+        new_split->set_geometry(dropped_at->geometry);
+
+        /* Find the position of the dropped view and its parent */
+        int idx = find_idx(dropped_at);
+        auto dropped_parent = dropped_at->parent;
+
+        log_info("create new split %d", idx);
+
+        /* Remove both views */
+        auto dropped_view = dropped_at->parent->remove_child(dropped_at);
+        auto dragged_view = grabbed_view->parent->remove_child(grabbed_view);
+
+        if (split == INSERT_ABOVE || split == INSERT_LEFT)
+        {
+            new_split->add_child(std::move(dragged_view));
+            new_split->add_child(std::move(dropped_view));
+        } else
+        {
+            new_split->add_child(std::move(dragged_view));
+            new_split->add_child(std::move(dropped_view));
+        }
+
+        /* Put them in place */
+        dropped_parent->add_child(std::move(new_split), idx);
+    }
+
+    /* Clean up tree structure */
+    flatten_tree(this->root);
+}
+
 
 }
 }

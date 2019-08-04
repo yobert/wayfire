@@ -1,5 +1,6 @@
 #include "tree.hpp"
 #include <debug.hpp>
+#include <util.hpp>
 
 #include <output.hpp>
 #include <workspace-manager.hpp>
@@ -96,22 +97,39 @@ void split_node_t::recalculate_children(wf_geometry available)
     }
 }
 
-void split_node_t::add_child(std::unique_ptr<tree_node_t> child)
+void split_node_t::add_child(std::unique_ptr<tree_node_t> child, int index)
 {
-    int num_children = this->children.size() + 1;
+    /*
+     * Strategy:
+     * Calculate the size of the new child relative to the old children, so
+     * that proportions are right. After that, rescale all nodes.
+     */
+    int num_children = this->children.size();
 
-    /* Round up */
-    int size_new_child =
-        (calculate_splittable() + num_children - 1) / num_children;
+    /* Calculate where the new child should be, in current proportions */
+    int size_new_child;
+    if (num_children > 0) {
+        size_new_child =
+            (calculate_splittable() + num_children - 1) / num_children;
+    } else {
+        size_new_child = calculate_splittable();
+    }
 
-    /* Resize older children */
-    int size_others = calculate_splittable() - size_new_child;
-    recalculate_children(get_child_geometry(0, size_others));
+    /* Position of the new child doesn't matter because it will be immediately
+     * recalculated */
+    int pos_new_child = 0;
 
-    /* Finally, set the size of the new child, and add it to the list */
-    child->set_geometry(get_child_geometry(size_others, size_new_child));
+    if (index == -1 || index > num_children)
+        index = num_children;
+
+    child->set_geometry(get_child_geometry(pos_new_child, size_new_child));
+
+    /* Add child to the list */
     child->parent = {this};
-    this->children.emplace_back(std::move(child));
+    this->children.emplace(this->children.begin() + index, std::move(child));
+
+    /* Recalculate geometry */
+    recalculate_children(geometry);
 }
 
 std::unique_ptr<tree_node_t> split_node_t::remove_child(
@@ -183,6 +201,8 @@ void view_node_t::set_geometry(wf_geometry geometry)
 
     if (!view->is_mapped())
         return;
+
+    log_info("set view node " Prwg, Ewg(geometry));
 
     /* Calculate view geometry in coordinates local to the active workspace,
      * because tree coordinates are kept in workspace-agnostic coordinates. */
