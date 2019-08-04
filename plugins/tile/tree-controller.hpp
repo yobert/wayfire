@@ -7,6 +7,7 @@
 /* Contains functions which are related to manipulating the tiling tree */
 namespace wf
 {
+class preview_indication_view_t;
 namespace tile
 {
 /**
@@ -45,6 +46,18 @@ class move_view_controller_t : public tile_controller_t
 
   protected:
     nonstd::observer_ptr<tree_node_t> root;
+
+    nonstd::observer_ptr<wf::preview_indication_view_t> preview;
+    /**
+     * Create preview if it doesn't exist
+     *
+     * @param now The position of the input now. Used only if the preview
+     *            needs to be created.
+     *
+     * @param output The output on which to create the preview. Used only if
+     *               the preview needs to be created.
+     */
+    void ensure_preview(wf_point now, wf::output_t *output);
 };
 
 }

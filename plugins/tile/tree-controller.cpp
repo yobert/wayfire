@@ -1,6 +1,9 @@
 #include "tree-controller.hpp"
+#include "../common/preview-indication.hpp"
+
 #include <algorithm>
 #include <debug.hpp>
+#include <core.hpp>
 
 namespace wf
 {
@@ -147,17 +150,42 @@ move_view_controller_t::move_view_controller_t(
 
 move_view_controller_t::~move_view_controller_t()
 {
+    if (this->preview)
+        this->preview->set_target_geometry({0, 0}, 0.0, true);
+
     // TODO: actually do operations on the root
+}
+
+void move_view_controller_t::ensure_preview(wf_point start,
+    wf::output_t *output)
+{
+    if (this->preview)
+        return;
+
+    auto view = std::make_unique<wf::preview_indication_view_t>(output, start);
+
+    this->preview = {view};
+    wf::get_core().add_view(std::move(view));
 }
 
 void move_view_controller_t::input_motion(wf_point input)
 {
     auto view = find_view_at(root, input);
-    log_info("ctrl: motionn %d,%d. View is %s", input.x, input.y,
-        view ? view->view->get_title().c_str() : "null");
+    if (!view)
+    {
+        /* No view, no preview */
+        if (this->preview)
+            preview->set_target_geometry(input, 0.0);
+
+        return;
+    }
 
     auto split = calculate_insert_type(view, input);
-    log_info("Split is %d", split);
+
+    ensure_preview(input, view->view->get_output());
+    this->preview->set_target_geometry(
+        calculate_split_preview(view, split), 1.0);
 }
+
 }
 }
