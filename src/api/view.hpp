@@ -33,7 +33,8 @@ enum view_role_t
 {
     VIEW_ROLE_TOPLEVEL, // regular, "WM" views
     VIEW_ROLE_UNMANAGED, // xwayland override redirect or unmanaged views
-    VIEW_ROLE_SHELL_VIEW // background, lockscreen, panel, notifications, etc
+    VIEW_ROLE_SHELL_VIEW, // background, lockscreen, panel, notifications, etc
+    VIEW_ROLE_COMPOSITOR_VIEW, // views created by the compositor for special use
 };
 
 /**
