@@ -106,7 +106,7 @@ class tile_plugin_t : public wf::plugin_interface_t
     {
         auto vp = output->workspace->get_current_workspace();
         controller = std::make_unique<tile::move_view_controller_t> (
-            roots[vp.x][vp.y]);
+            roots[vp.x][vp.y], wf_point{x, y});
 
         output->activate_plugin(grab_interface);
         grab_interface->grab();

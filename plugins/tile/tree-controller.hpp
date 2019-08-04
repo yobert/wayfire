@@ -36,8 +36,10 @@ class move_view_controller_t : public tile_controller_t
      *
      * @param root The root of the tiling tree which is currently being
      *             manipulated
+     * @param Where the grab has started
      */
-    move_view_controller_t(nonstd::observer_ptr<tree_node_t> root);
+    move_view_controller_t(nonstd::observer_ptr<tree_node_t> root,
+        wf_point grab);
 
     /** Called when the input is released */
     ~move_view_controller_t();
@@ -46,6 +48,7 @@ class move_view_controller_t : public tile_controller_t
 
   protected:
     nonstd::observer_ptr<tree_node_t> root;
+    nonstd::observer_ptr<view_node_t> grabbed_view;
 
     nonstd::observer_ptr<wf::preview_indication_view_t> preview;
     /**

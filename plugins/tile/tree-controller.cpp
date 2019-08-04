@@ -143,9 +143,10 @@ void insert_split(nonstd::observer_ptr<tree_node_t> node,
 
 /* ------------------------ move_view_controller_t -------------------------- */
 move_view_controller_t::move_view_controller_t(
-    nonstd::observer_ptr<tree_node_t> root)
+    nonstd::observer_ptr<tree_node_t> root, wf_point grab)
 {
     this->root = root;
+    this->grabbed_view = find_view_at(root, grab);
 }
 
 move_view_controller_t::~move_view_controller_t()
@@ -171,7 +172,7 @@ void move_view_controller_t::ensure_preview(wf_point start,
 void move_view_controller_t::input_motion(wf_point input)
 {
     auto view = find_view_at(root, input);
-    if (!view)
+    if (!view || view == this->grabbed_view)
     {
         /* No view, no preview */
         if (this->preview)
