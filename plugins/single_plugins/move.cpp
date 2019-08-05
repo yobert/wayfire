@@ -186,9 +186,8 @@ class wayfire_move : public wf::plugin_interface_t
             if (!view || !view->is_mapped())
                 return;
 
-            auto current_ws = output->workspace->get_current_workspace();
             auto current_ws_impl =
-                output->workspace->get_workspace_implementation(current_ws);
+                output->workspace->get_workspace_implementation();
             if (!current_ws_impl->view_movable(view))
                 return;
 

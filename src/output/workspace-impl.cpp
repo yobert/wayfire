@@ -133,8 +133,6 @@ class output_viewport_manager_t
     int current_vx;
     int current_vy;
 
-    std::vector<std::vector<
-            std::unique_ptr<workspace_implementation_t>>> workspace_impls;
     output_t *output;
 
   public:
@@ -152,16 +150,6 @@ class output_viewport_manager_t
 
         current_vx = 0;
         current_vy = 0;
-
-        workspace_impls.resize(vwidth);
-        for (auto& row : workspace_impls)
-        {
-            for (int j = 0; j < vheight; j++)
-            {
-                row.push_back(
-                    std::make_unique<default_workspace_implementation_t>());
-            }
-        }
     }
 
     /**
@@ -235,22 +223,6 @@ class output_viewport_manager_t
         views.erase(it, views.end());
 
         return views;
-    }
-
-    workspace_implementation_t* get_implementation(wf_point vt)
-    {
-        return workspace_impls[vt.x][vt.y].get();
-    }
-
-    bool set_implementation(wf_point vt,
-        std::unique_ptr<workspace_implementation_t> impl, bool overwrite)
-    {
-        bool replace = overwrite || !workspace_impls[vt.x][vt.y];
-
-        if (replace)
-            workspace_impls[vt.x][vt.y] = std::move(impl);
-
-        return replace;
     }
 
     wf_point get_current_workspace()
@@ -448,6 +420,8 @@ class workspace_manager::impl
 
     bool sent_autohide = false;
 
+    std::unique_ptr<workspace_implementation_t> workspace_impl;
+
   public:
     output_layer_manager_t layer_manager;
     output_viewport_manager_t viewport_manager;
@@ -463,6 +437,23 @@ class workspace_manager::impl
 
         o->connect_signal("view-change-viewport", &view_changed_viewport);
         o->connect_signal("output-configuration-changed", &output_geometry_changed);
+    }
+
+    workspace_implementation_t* get_implementation()
+    {
+        static default_workspace_implementation_t default_impl;
+        return workspace_impl ?  workspace_impl.get() : &default_impl;
+    }
+
+    bool set_implementation(std::unique_ptr<workspace_implementation_t> impl,
+        bool overwrite)
+    {
+        bool replace = overwrite || !workspace_impl;
+
+        if (replace)
+            workspace_impl = std::move(impl);
+
+        return replace;
     }
 
     void check_autohide_panels()
@@ -628,9 +619,9 @@ void workspace_manager::remove_view(wayfire_view view) { return pimpl->remove_vi
 uint32_t workspace_manager::get_view_layer(wayfire_view view) { return pimpl->layer_manager.get_view_layer(view); }
 std::vector<wayfire_view> workspace_manager::get_views_in_layer(uint32_t layers_mask) { return pimpl->layer_manager.get_views_in_layer(layers_mask); }
 
-workspace_implementation_t* workspace_manager::get_workspace_implementation(wf_point ws) { return pimpl->viewport_manager.get_implementation(ws); }
-bool workspace_manager::set_workspace_implementation(wf_point ws, std::unique_ptr<workspace_implementation_t> impl, bool overwrite)
-{ return pimpl->viewport_manager.set_implementation(ws, std::move(impl), overwrite); }
+workspace_implementation_t* workspace_manager::get_workspace_implementation() { return pimpl->get_implementation(); }
+bool workspace_manager::set_workspace_implementation(std::unique_ptr<workspace_implementation_t> impl, bool overwrite)
+{ return pimpl->set_implementation(std::move(impl), overwrite); }
 
 void workspace_manager::set_workspace(wf_point ws) { return pimpl->viewport_manager.set_workspace(ws); }
 wf_point workspace_manager::get_current_workspace() { return pimpl->viewport_manager.get_current_workspace(); }

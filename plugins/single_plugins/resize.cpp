@@ -181,9 +181,8 @@ class wayfire_resize : public wf::plugin_interface_t
         if (!view || view->role == wf::VIEW_ROLE_SHELL_VIEW || !view->is_mapped())
             return;
 
-        auto current_ws = output->workspace->get_current_workspace();
         auto current_ws_impl =
-            output->workspace->get_workspace_implementation(current_ws);
+            output->workspace->get_workspace_implementation();
         if (!current_ws_impl->view_resizable(view))
             return;
 
