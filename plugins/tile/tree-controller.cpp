@@ -11,6 +11,19 @@ namespace wf
 {
 namespace tile
 {
+
+int32_t count_fullscreen_views(nonstd::observer_ptr<tree_node_t> root)
+{
+    if (root->as_view_node())
+        return root->as_view_node()->view->fullscreen ? 1 : 0;
+
+    int32_t sum = 0;
+    for (auto& child : root->children)
+        sum += count_fullscreen_views({child});
+
+    return sum;
+}
+
 /**
  * Calculate which view node is at the given position
  *

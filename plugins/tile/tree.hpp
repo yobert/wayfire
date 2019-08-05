@@ -118,6 +118,10 @@ struct view_node_t : public tree_node_t
     wayfire_view view;
     /**
      * Set the geomety of the node and the contained view.
+     *
+     * Note that the resulting view geometry will not always be equal to the
+     * geometry of the node. For example, a fullscreen view will always have
+     * the geometry of the whole output.
      */
     void set_geometry(wf_geometry geometry) override;
 

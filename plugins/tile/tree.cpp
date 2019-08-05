@@ -215,6 +215,20 @@ void view_node_t::set_geometry(wf_geometry geometry)
     local_geometry.x -= vp.x * size.width;
     local_geometry.y -= vp.y * size.height;
 
+    /* If view is maximized, we want to use the full available geometry */
+    if (view->fullscreen)
+    {
+        int view_vp_x = std::floor(1.0 * geometry.x / size.width);
+        int view_vp_y = std::floor(1.0 * geometry.y / size.width);
+
+        local_geometry = {
+            (view_vp_x - vp.x) * size.width,
+            (view_vp_y - vp.y) * size.height,
+            size.width,
+            size.height,
+        };
+    }
+
     view->set_tiled(TILED_EDGES_ALL);
     view->set_geometry(local_geometry);
 }

@@ -11,6 +11,11 @@ class preview_indication_view_t;
 namespace tile
 {
 /**
+ * Count the number of fullscreen views in the given tree
+ */
+int32_t count_fullscreen_views(nonstd::observer_ptr<tree_node_t> root);
+
+/**
  * Represents the current mode in which the tile plugin is.
  *
  * Invariant: while a controller is active, the tree structure shouldn't change,

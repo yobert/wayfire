@@ -7,6 +7,20 @@
 
 namespace wf
 {
+class tile_workspace_implementation_t : public wf::workspace_implementation_t
+{
+  public:
+    bool view_movable(wayfire_view view) override
+    {
+        return wf::tile::view_node_t::get_node(view) == nullptr;
+    }
+
+    bool view_resizable(wayfire_view view) override
+    {
+        return wf::tile::view_node_t::get_node(view) == nullptr;
+    }
+};
+
 class tile_plugin_t : public wf::plugin_interface_t
 {
   private:
@@ -68,14 +82,26 @@ class tile_plugin_t : public wf::plugin_interface_t
         return true;
     }
 
+    static std::unique_ptr<wf::tile::tile_controller_t> get_default_controller()
+    {
+        return std::make_unique<wf::tile::tile_controller_t> ();
+    }
+
+    std::unique_ptr<wf::tile::tile_controller_t> controller =
+        get_default_controller();
+
     template<class Controller>
     void start_controller(wf_point grab)
     {
+        auto vp = output->workspace->get_current_workspace();
+        /* No action possible in this case */
+        if (count_fullscreen_views(roots[vp.x][vp.y]))
+            return;
+
         if (output->activate_plugin(grab_interface))
         {
             if (grab_interface->grab())
             {
-                auto vp = output->workspace->get_current_workspace();
                 controller = std::make_unique<Controller> (
                     roots[vp.x][vp.y], grab);
             } else
@@ -136,13 +162,28 @@ class tile_plugin_t : public wf::plugin_interface_t
         update_root_size(output->workspace->get_workarea());
     };
 
-    static std::unique_ptr<wf::tile::tile_controller_t> get_default_controller()
+    signal_callback_t on_tile_request = [=] (signal_data_t *data)
     {
-        return std::make_unique<wf::tile::tile_controller_t> ();
-    }
+        auto ev = static_cast<view_tiled_signal*> (data);
+        if (ev->carried_out || !tile::view_node_t::get_node(ev->view))
+            return;
 
-    std::unique_ptr<wf::tile::tile_controller_t> controller =
-        get_default_controller();
+        // we ignore those requests because we manage the tiled state manually
+        ev->carried_out = true;
+    };
+
+    signal_callback_t on_fullscreen_request = [=] (signal_data_t *data)
+    {
+        auto ev = static_cast<view_fullscreen_signal*> (data);
+        if (ev->carried_out || !tile::view_node_t::get_node(ev->view))
+            return;
+
+        ev->carried_out = true;
+
+        /* Set fullscreen, and trigger resizing of the views */
+        ev->view->set_fullscreen(ev->state);
+        update_root_size(output->workspace->get_workarea());
+    };
 
     button_callback on_retile_view = [=] (uint32_t button, int32_t x, int32_t y)
     {
@@ -163,10 +204,17 @@ class tile_plugin_t : public wf::plugin_interface_t
         this->grab_interface->capabilities = CAPABILITY_MANAGE_COMPOSITOR;
 
         initialize_roots();
+        // TODO: check whether this was successful
+        output->workspace->set_workspace_implementation(
+            std::make_unique<tile_workspace_implementation_t> (), true);
+
         output->connect_signal("unmap-view", &on_view_unmapped);
         output->connect_signal("attach-view", &on_view_attached);
         output->connect_signal("detach-view", &on_view_detached);
         output->connect_signal("reserved-workarea", &on_workarea_changed);
+        output->connect_signal("view-maximized-request", &on_tile_request);
+        output->connect_signal("view-fullscreen-request",
+            &on_fullscreen_request);
 
         auto button = new_static_option("<super> BTN_LEFT");
         output->add_button(button, &on_retile_view);
@@ -189,10 +237,15 @@ class tile_plugin_t : public wf::plugin_interface_t
 
     void fini() override
     {
+        output->workspace->set_workspace_implementation(nullptr);
+
         output->disconnect_signal("unmap-view", &on_view_unmapped);
         output->disconnect_signal("attach-view", &on_view_attached);
         output->disconnect_signal("detach-view", &on_view_detached);
         output->disconnect_signal("reserved-workarea", &on_workarea_changed);
+        output->disconnect_signal("view-maximized-request", &on_tile_request);
+        output->disconnect_signal("view-fullscreen-request",
+            &on_fullscreen_request);
     }
 };
 };
