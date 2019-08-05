@@ -31,15 +31,16 @@ class tile_plugin_t : public wf::plugin_interface_t
         update_root_size(output->workspace->get_workarea());
     }
 
-    void update_root_size(wf_geometry output_geometry)
+    void update_root_size(wf_geometry workarea)
     {
+        auto output_geometry = output->get_relative_geometry();
         auto wsize = output->workspace->get_workspace_grid_size();
         for (int i = 0; i < wsize.width; i++)
         {
             for (int j = 0; j < wsize.height; j++)
             {
                 /* Set size */
-                auto vp_geometry = output_geometry;
+                auto vp_geometry = workarea;
                 vp_geometry.x += i * output_geometry.width;
                 vp_geometry.y += j * output_geometry.height;
                 roots[i][j]->set_geometry(vp_geometry);
@@ -112,6 +113,16 @@ class tile_plugin_t : public wf::plugin_interface_t
         grab_interface->grab();
     };
 
+    button_callback on_resize_view = [=] (uint32_t button, int32_t x, int32_t y)
+    {
+        auto vp = output->workspace->get_current_workspace();
+        controller = std::make_unique<tile::resize_view_controller_t> (
+            roots[vp.x][vp.y], wf_point{x, y});
+
+        output->activate_plugin(grab_interface);
+        grab_interface->grab();
+    };
+
   public:
     void init(wayfire_config *config) override
     {
@@ -128,19 +139,18 @@ class tile_plugin_t : public wf::plugin_interface_t
         auto button = new_static_option("<super> BTN_LEFT");
         output->add_button(button, &on_retile_view);
 
+        auto rb = new_static_option("<super> BTN_RIGHT");
+        output->add_button(rb, &on_resize_view);
+
         grab_interface->callbacks.pointer.button =
             [=] (uint32_t b, uint32_t state)
         {
-            if (state == WLR_BUTTON_RELEASED &&
-                b == button->as_cached_button().button)
+            if (state == WLR_BUTTON_RELEASED)
             {
                 controller->input_released();
 
                 output->deactivate_plugin(grab_interface);
                 controller = get_default_controller();
-
-                /* Needed if some controller changed the view structure */
-                this->flatten_roots();
             }
         };
 

@@ -1,9 +1,11 @@
 #include "tree-controller.hpp"
 #include "../common/preview-indication.hpp"
 
+#include <set>
 #include <algorithm>
 #include <debug.hpp>
 #include <core.hpp>
+#include <util.hpp>
 
 namespace wf
 {
@@ -133,12 +135,50 @@ wf_geometry calculate_split_preview(nonstd::observer_ptr<tree_node_t> over,
 }
 
 /**
- * Insert @to_insert at the indicated position relative to @node
+ * Find the first view in the indicated direction
  */
-void insert_split(nonstd::observer_ptr<tree_node_t> node,
-    std::unique_ptr<tree_node_t> to_insert)
+nonstd::observer_ptr<view_node_t> find_first_view_in_direction(
+    nonstd::observer_ptr<tree_node_t> from, split_insertion_t direction)
 {
-    // TODO: stub
+    auto window = from->geometry;
+
+    /* Since nodes are arranged tightly into a grid, we can just find the
+     * proper edge and find the view there */
+    wf_point point;
+    switch(direction)
+    {
+        case INSERT_ABOVE:
+            point = {
+                window.x + window.width / 2,
+                window.y - 1,
+            };
+            break;
+        case INSERT_BELOW:
+            point = {
+                window.x + window.width / 2,
+                window.y + window.height,
+            };
+            break;
+        case INSERT_LEFT:
+            point = {
+                window.x - 1,
+                window.y + window.height / 2,
+            };
+            break;
+        case INSERT_RIGHT:
+            point = {
+                window.x + window.width,
+                window.y + window.height / 2,
+            };
+            break;
+        default:
+            assert(false);
+    }
+
+    auto root = from;
+    while (root->parent) root = root->parent;
+
+    return find_view_at(root, point);
 }
 
 /* ------------------------ move_view_controller_t -------------------------- */
@@ -247,8 +287,6 @@ void move_view_controller_t::input_released()
         int idx = find_idx(dropped_at);
         auto dropped_parent = dropped_at->parent;
 
-        log_info("create new split %d", idx);
-
         /* Remove both views */
         auto dropped_view = dropped_at->parent->remove_child(dropped_at);
         auto dragged_view = grabbed_view->parent->remove_child(grabbed_view);
@@ -271,6 +309,197 @@ void move_view_controller_t::input_released()
     flatten_tree(this->root);
 }
 
+wf_geometry eval(nonstd::observer_ptr<tree_node_t> node)
+{
+    return node ? node->geometry : wf_geometry{0, 0, 0, 0};
+}
+
+/* ----------------------- resize tile controller --------------------------- */
+resize_view_controller_t::resize_view_controller_t(
+    std::unique_ptr<tree_node_t>& uroot, wf_point grab)
+    : root(uroot)
+{
+    this->grabbed_view = find_view_at(root, grab);
+    this->last_point = grab;
+
+    if (this->grabbed_view)
+    {
+        this->resizing_edges = calculate_resizing_edges(grab);
+        horizontal_pair = this->find_resizing_pair(true);
+        vertical_pair   = this->find_resizing_pair(false);
+
+        log_info("found horiz resizing pair " Prwg Prwg,
+            Ewg(eval(horizontal_pair.first)), Ewg(eval(horizontal_pair.second)));
+        log_info("found vert resizing pair " Prwg Prwg,
+            Ewg(eval(vertical_pair.first)), Ewg(eval(vertical_pair.second)));
+
+    }
+}
+
+resize_view_controller_t::~resize_view_controller_t()
+{
+}
+
+uint32_t resize_view_controller_t::calculate_resizing_edges(wf_point grab)
+{
+    uint32_t result_edges = 0;
+    auto window = this->grabbed_view->geometry;
+    assert(window & grab);
+
+    if (grab.x < window.x + window.width / 2) {
+        result_edges |= WLR_EDGE_LEFT;
+    } else {
+        result_edges |= WLR_EDGE_RIGHT;
+    }
+
+    if (grab.y < window.y + window.height / 2) {
+        result_edges |= WLR_EDGE_TOP;
+    } else {
+        result_edges |= WLR_EDGE_BOTTOM;
+    }
+
+    return result_edges;
+}
+
+resize_view_controller_t::resizing_pair_t
+resize_view_controller_t::find_resizing_pair(bool horiz)
+{
+    split_insertion_t direction;
+
+    /* Calculate the direction in which we are looking for the resizing pair */
+    if (horiz)
+    {
+        if (this->resizing_edges & WLR_EDGE_TOP) {
+            direction = INSERT_ABOVE;
+        } else {
+            direction = INSERT_BELOW;
+        }
+    } else
+    {
+        if (this->resizing_edges & WLR_EDGE_LEFT) {
+            direction = INSERT_LEFT;
+        } else {
+            direction = INSERT_RIGHT;
+        }
+    }
+
+    /* Find a view in the resizing direction, then look for the least common
+     * ancestor(LCA) of the grabbed view and the found view.
+     *
+     * Then the resizing pair is a pair of children of the LCA */
+    auto pair_view =
+        find_first_view_in_direction(this->grabbed_view, direction);
+    log_info("direction %d pv " Prwg, direction, Ewg(eval(pair_view)));
+
+    if (!pair_view) // no pair
+        return {nullptr, grabbed_view};
+
+    /* Calculate all ancestors of the grabbed view */
+    std::set<nonstd::observer_ptr<tree_node_t>> grabbed_view_ancestors;
+
+    nonstd::observer_ptr<tree_node_t> ancestor = grabbed_view;
+    while (ancestor)
+    {
+        log_info("ancestor " Prwg, Ewg(eval(ancestor)));
+        grabbed_view_ancestors.insert(ancestor);
+        ancestor = ancestor->parent;
+    }
+
+    /* Find the LCA: this is the first ancestor of the pair_view which is also
+     * an ancestor of the grabbed view */
+    nonstd::observer_ptr<tree_node_t> lca = pair_view;
+    /* The child of lca we came from the second time */
+    nonstd::observer_ptr<tree_node_t> lca_successor = nullptr;
+    while (lca && !grabbed_view_ancestors.count({lca}))
+    {
+        lca_successor = lca;
+        lca = lca->parent;
+    }
+
+    log_info("lca is " Prwg, Ewg(eval(lca)));
+    log_info("lca succ is " Prwg, Ewg(eval(lca_successor)));
+
+    /* In the "worst" case, the root of the tree is an LCA.
+     * Also, an LCA is a split because it is an ancestor of two different
+     * view nodes */
+    assert(lca && lca->children.size());
+
+    resizing_pair_t result_pair;
+    for (auto& child : lca->children)
+    {
+        log_info("try first as " Prwg, Ewg(eval(child)));
+        if (grabbed_view_ancestors.count({child}))
+        {
+            log_info("found first");
+            result_pair.first = {child};
+            break;
+        }
+    }
+
+    result_pair.second = lca_successor;
+
+    /* Make sure the first node in the resizing pair is always to the
+     * left or above of the second one */
+    if (direction == INSERT_LEFT || direction == INSERT_ABOVE)
+        std::swap(result_pair.first, result_pair.second);
+
+    return result_pair;
+}
+
+void resize_view_controller_t::adjust_geometry(int32_t& x1, int32_t& len1,
+    int32_t& x2, int32_t& len2, int32_t delta)
+{
+    /*
+     * On the line:
+     *
+     * x1        (x1+len1)=x2         x2+len2-1
+     * ._______________.___________________.
+     */
+    constexpr int MIN_SIZE = 50;
+
+    int maxPositive = std::max(0, len2 - MIN_SIZE);
+    int maxNegative = std::max(0, len1 - MIN_SIZE);
+
+    /* Make sure we don't shrink one dimension too much */
+    delta = clamp(delta, -maxNegative, maxPositive);
+
+    /* Adjust sizes */
+    len1 += delta;
+    x2 += delta;
+    len2 -= delta;
+}
+
+void resize_view_controller_t::input_motion(wf_point input)
+{
+    if (!this->grabbed_view)
+        return;
+
+    if (horizontal_pair.first && horizontal_pair.second)
+    {
+        int dy = input.y - last_point.y;
+
+        auto g1 = horizontal_pair.first->geometry;
+        auto g2 = horizontal_pair.second->geometry;
+
+        adjust_geometry(g1.y, g1.height, g2.y, g2.height, dy);
+        horizontal_pair.first->set_geometry(g1);
+        horizontal_pair.second->set_geometry(g2);
+    }
+
+    if (vertical_pair.first && vertical_pair.second)
+    {
+        int dx = input.x - last_point.x;
+
+        auto g1 = vertical_pair.first->geometry;
+        auto g2 = vertical_pair.second->geometry;
+
+        adjust_geometry(g1.x, g1.width, g2.x, g2.width, dx);
+        vertical_pair.first->set_geometry(g1);
+        vertical_pair.second->set_geometry(g2);
+    }
+
+    this->last_point = input;
+}
 
 }
 }

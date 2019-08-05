@@ -42,7 +42,7 @@ class move_view_controller_t : public tile_controller_t
 {
   public:
     /**
-     * Start the dragging action.
+     * Start the drag-to-reorder action.
      *
      * @param root The root of the tiling tree which is currently being
      *             manipulated
@@ -50,8 +50,6 @@ class move_view_controller_t : public tile_controller_t
      */
     move_view_controller_t(std::unique_ptr<tree_node_t>& root,
         wf_point grab);
-
-    /** Called when the input is released */
     ~move_view_controller_t();
 
     void input_motion(wf_point input) override;
@@ -78,7 +76,70 @@ class move_view_controller_t : public tile_controller_t
      * Return the node under the input which is suitable for dropping on.
      */
     nonstd::observer_ptr<view_node_t> check_drop_destination(wf_point input);
+};
 
+class resize_view_controller_t : public tile_controller_t
+{
+  public:
+   /**
+     * Start the drag-to-resize action.
+     *
+     * @param root The root of the tiling tree which is currently being
+     *             manipulated
+     * @param Where the grab has started
+     */
+    resize_view_controller_t(std::unique_ptr<tree_node_t>& root,
+        wf_point grab);
+    ~resize_view_controller_t();
+
+    void input_motion(wf_point input) override;
+
+  protected:
+    std::unique_ptr<tree_node_t>& root;
+
+    /** Last input event location */
+    wf_point last_point;
+
+    /** Edges of the grabbed view that we're resizing */
+    uint32_t resizing_edges;
+    /** Calculate the resizing edges for the grabbing view. */
+    uint32_t calculate_resizing_edges(wf_point point);
+
+    /** The view we are resizing */
+    nonstd::observer_ptr<view_node_t> grabbed_view;
+
+    /*
+     * A resizing pair of nodes is a pair of nodes we need to resize
+     * The first one is always to the left/above the second one.
+     */
+    using resizing_pair_t = std::pair<nonstd::observer_ptr<tree_node_t>,
+          nonstd::observer_ptr<tree_node_t>>;
+
+    /** The horizontally-aligned pair we're resizing */
+    resizing_pair_t horizontal_pair;
+    /** The vertically-aligned pair we're resizing */
+    resizing_pair_t vertical_pair;
+
+    /*
+     * Find a resizing pair in the given direction.
+     *
+     * The resizing pair depends on the currently grabbed view and the
+     * resizing edges.
+     */
+    resizing_pair_t find_resizing_pair(bool horizontal);
+
+    /**
+     * Adjust the given positions and sizes while resizing.
+     *
+     * @param x1 The start of the first geometry
+     * @param len1 The dimension of the first geometry
+     * @param x2 The start of the second geometry, should be x1 + len1
+     * @param len2 The length of the second geometry
+     *
+     * @param delta How much change to apply
+     */
+    void adjust_geometry(int32_t& x1, int32_t& len1,
+        int32_t& x2, int32_t& len2, int32_t delta);
 };
 
 }
