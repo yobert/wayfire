@@ -62,14 +62,48 @@ class tile_plugin_t : public wf::plugin_interface_t
         if (view->role != wf::VIEW_ROLE_TOPLEVEL)
             return false;
 
+        if (view->parent)
+            return false;
+
         return true;
     }
 
-    signal_callback_t on_view_mapped = [=] (signal_data_t *data)
+    template<class Controller>
+    void start_controller(wf_point grab)
+    {
+        if (output->activate_plugin(grab_interface))
+        {
+            if (grab_interface->grab())
+            {
+                auto vp = output->workspace->get_current_workspace();
+                controller = std::make_unique<Controller> (
+                    roots[vp.x][vp.y], grab);
+            } else
+            {
+                output->deactivate_plugin(grab_interface);
+            }
+        }
+    }
+
+    void stop_controller(bool force_stop)
+    {
+        if (!output->is_plugin_active(grab_interface->name))
+            return;
+
+        if (!force_stop)
+            controller->input_released();
+
+        output->deactivate_plugin(grab_interface);
+        controller = get_default_controller();
+    }
+
+    signal_callback_t on_view_attached = [=] (signal_data_t *data)
     {
         auto view = get_signaled_view(data);
         if (!can_tile_view(view))
             return;
+
+        stop_controller(true);
 
         auto vp = output->workspace->get_current_workspace();
         auto view_node = std::make_unique<wf::tile::view_node_t> (view);
@@ -79,11 +113,18 @@ class tile_plugin_t : public wf::plugin_interface_t
 
     signal_callback_t on_view_unmapped = [=] (signal_data_t *data)
     {
+        stop_controller(true);
+    };
+
+    signal_callback_t on_view_detached = [=] (signal_data_t *data)
+    {
         auto view = get_signaled_view(data);
         auto view_node = wf::tile::view_node_t::get_node(view);
 
         if (!view_node)
             return;
+
+        stop_controller(true);
 
         view_node->parent->remove_child(view_node);
         /* View node is invalid now */
@@ -105,22 +146,12 @@ class tile_plugin_t : public wf::plugin_interface_t
 
     button_callback on_retile_view = [=] (uint32_t button, int32_t x, int32_t y)
     {
-        auto vp = output->workspace->get_current_workspace();
-        controller = std::make_unique<tile::move_view_controller_t> (
-            roots[vp.x][vp.y], wf_point{x, y});
-
-        output->activate_plugin(grab_interface);
-        grab_interface->grab();
+        start_controller<tile::move_view_controller_t> ({x, y});
     };
 
     button_callback on_resize_view = [=] (uint32_t button, int32_t x, int32_t y)
     {
-        auto vp = output->workspace->get_current_workspace();
-        controller = std::make_unique<tile::resize_view_controller_t> (
-            roots[vp.x][vp.y], wf_point{x, y});
-
-        output->activate_plugin(grab_interface);
-        grab_interface->grab();
+        start_controller<tile::resize_view_controller_t> ({x, y});
     };
 
   public:
@@ -129,11 +160,12 @@ class tile_plugin_t : public wf::plugin_interface_t
         this->grab_interface->name = "simple-tile";
         /* TODO: change how grab interfaces work - plugins should do ifaces on
          * their own, and should be able to have more than one */
-        this->grab_interface->capabilities = CAPABILITY_GRAB_INPUT;
+        this->grab_interface->capabilities = CAPABILITY_MANAGE_COMPOSITOR;
 
         initialize_roots();
-        output->connect_signal("attach-view", &on_view_mapped);
-        output->connect_signal("detach-view", &on_view_unmapped);
+        output->connect_signal("unmap-view", &on_view_unmapped);
+        output->connect_signal("attach-view", &on_view_attached);
+        output->connect_signal("detach-view", &on_view_detached);
         output->connect_signal("reserved-workarea", &on_workarea_changed);
 
         auto button = new_static_option("<super> BTN_LEFT");
@@ -146,12 +178,7 @@ class tile_plugin_t : public wf::plugin_interface_t
             [=] (uint32_t b, uint32_t state)
         {
             if (state == WLR_BUTTON_RELEASED)
-            {
-                controller->input_released();
-
-                output->deactivate_plugin(grab_interface);
-                controller = get_default_controller();
-            }
+                stop_controller(false);
         };
 
         grab_interface->callbacks.pointer.motion = [=] (int32_t x, int32_t y)
@@ -162,8 +189,9 @@ class tile_plugin_t : public wf::plugin_interface_t
 
     void fini() override
     {
-        output->disconnect_signal("attach-view", &on_view_mapped);
-        output->disconnect_signal("detach-view", &on_view_unmapped);
+        output->disconnect_signal("unmap-view", &on_view_unmapped);
+        output->disconnect_signal("attach-view", &on_view_attached);
+        output->disconnect_signal("detach-view", &on_view_detached);
         output->disconnect_signal("reserved-workarea", &on_workarea_changed);
     }
 };
