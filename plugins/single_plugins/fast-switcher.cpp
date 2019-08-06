@@ -6,7 +6,7 @@
 #include <linux/input-event-codes.h>
 
 /*
- * This plugin rovides abilities to switch between views.
+ * This plugin provides abilities to switch between views.
  * It works similarly to the alt-esc binding in Windows or GNOME
  */
 
@@ -79,13 +79,21 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
             output->workspace->get_current_workspace(), wf::WM_LAYERS, true);
     }
 
-    void view_chosen(int i)
+    void view_chosen(int i, bool reorder_only)
     {
+        /* No view available */
+        if (!(0 <= i && i < (int)views.size()))
+            return;
+
         set_view_alpha(views[i], 1.0);
-        for (int i = views.size() - 1; i >= 0; i--)
+        for (int i = (int)views.size() - 1; i >= 0; i--)
             output->workspace->bring_to_front(views[i]);
 
-        output->focus_view(views[i], true);
+        if (reorder_only) {
+            output->workspace->bring_to_front(views[i]);
+        } else {
+            output->focus_view(views[i], true);
+        }
     }
 
     void cleanup_view(wayfire_view view)
@@ -107,7 +115,7 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         {
             current_view_index =
                 (current_view_index + views.size() - 1) % views.size();
-            view_chosen(current_view_index);
+            view_chosen(current_view_index, true);
         }
     }
 
@@ -164,6 +172,8 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
 
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
+        view_chosen(current_view_index, false);
+
         active = false;
 
         output->disconnect_signal("view-disappeared", &destroyed);
@@ -176,7 +186,7 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         set_view_alpha(views[index], 0.7);
         index = (index + 1) % views.size();
 #undef index
-        view_chosen(current_view_index);
+        view_chosen(current_view_index, true);
     }
 
     void fini()
