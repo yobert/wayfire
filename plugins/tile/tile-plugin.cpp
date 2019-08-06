@@ -137,9 +137,8 @@ class tile_plugin_t : public wf::plugin_interface_t
         controller = get_default_controller();
     }
 
-    signal_callback_t on_view_attached = [=] (signal_data_t *data)
+    void attach_view(wayfire_view view)
     {
-        auto view = get_signaled_view(data);
         if (!can_tile_view(view))
             return;
 
@@ -147,8 +146,13 @@ class tile_plugin_t : public wf::plugin_interface_t
 
         auto vp = output->workspace->get_current_workspace();
         auto view_node = std::make_unique<wf::tile::view_node_t> (view);
-
         roots[vp.x][vp.y]->as_split_node()->add_child(std::move(view_node));
+    }
+
+    signal_callback_t on_view_attached = [=] (signal_data_t *data)
+    {
+        auto view = get_signaled_view(data);
+        attach_view(view);
     };
 
     signal_callback_t on_view_unmapped = [=] (signal_data_t *data)
@@ -156,19 +160,23 @@ class tile_plugin_t : public wf::plugin_interface_t
         stop_controller(true);
     };
 
+    /** Remove the given view from its tiling container */
+    void detach_view(nonstd::observer_ptr<tile::view_node_t> view)
+    {
+        stop_controller(true);
+
+        view->parent->remove_child(view);
+        /* View node is invalid now */
+        flatten_roots();
+    }
+
     signal_callback_t on_view_detached = [=] (signal_data_t *data)
     {
         auto view = get_signaled_view(data);
         auto view_node = wf::tile::view_node_t::get_node(view);
 
-        if (!view_node)
-            return;
-
-        stop_controller(true);
-
-        view_node->parent->remove_child(view_node);
-        /* View node is invalid now */
-        flatten_roots();
+        if (view_node)
+            detach_view(view_node);
     };
 
     signal_callback_t on_workarea_changed = [=] (signal_data_t *data)
@@ -205,15 +213,33 @@ class tile_plugin_t : public wf::plugin_interface_t
 
     key_callback on_toggle_fullscreen = [=] (uint32_t key)
     {
-        if (!output->activate_plugin(grab_interface))
+        auto view = output->get_active_view();
+        if (!view || !tile::view_node_t::get_node(view))
             return;
 
-        stop_controller(true);
-        output->deactivate_plugin(grab_interface);
-
-        auto view = output->get_active_view();
-        if (view)
+        if (output->activate_plugin(grab_interface))
+        {
+            stop_controller(true);
             set_view_fullscreen(view, !view->fullscreen);
+            output->deactivate_plugin(grab_interface);
+        }
+    };
+
+    key_callback on_toggle_tiled_state = [=] (uint32_t key)
+    {
+        auto view = output->get_active_view();
+        if (!view || !output->activate_plugin(grab_interface))
+            return;
+
+        auto existing_node = tile::view_node_t::get_node(view);
+        if (existing_node) {
+            detach_view(existing_node);
+            view->tile_request(0);
+        } else {
+            attach_view(view);
+        }
+
+        output->deactivate_plugin(grab_interface);
     };
 
     button_callback on_retile_view = [=] (uint32_t button, int32_t x, int32_t y)
@@ -255,6 +281,9 @@ class tile_plugin_t : public wf::plugin_interface_t
 
         auto toggle = new_static_option("<super> KEY_M");
         output->add_key(toggle, &on_toggle_fullscreen);
+
+        auto toggle_tile = new_static_option("<super> KEY_N");
+        output->add_key(toggle_tile, &on_toggle_tiled_state);
 
         grab_interface->callbacks.pointer.button =
             [=] (uint32_t b, uint32_t state)
