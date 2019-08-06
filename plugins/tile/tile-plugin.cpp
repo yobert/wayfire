@@ -186,6 +186,13 @@ class tile_plugin_t : public wf::plugin_interface_t
         ev->carried_out = true;
     };
 
+    void set_view_fullscreen(wayfire_view view, bool fullscreen)
+    {
+        /* Set fullscreen, and trigger resizing of the views */
+        view->set_fullscreen(fullscreen);
+        update_root_size(output->workspace->get_workarea());
+    }
+
     signal_callback_t on_fullscreen_request = [=] (signal_data_t *data)
     {
         auto ev = static_cast<view_fullscreen_signal*> (data);
@@ -193,10 +200,20 @@ class tile_plugin_t : public wf::plugin_interface_t
             return;
 
         ev->carried_out = true;
+        set_view_fullscreen(ev->view, ev->state);
+    };
 
-        /* Set fullscreen, and trigger resizing of the views */
-        ev->view->set_fullscreen(ev->state);
-        update_root_size(output->workspace->get_workarea());
+    key_callback on_toggle_fullscreen = [=] (uint32_t key)
+    {
+        if (!output->activate_plugin(grab_interface))
+            return;
+
+        stop_controller(true);
+        output->deactivate_plugin(grab_interface);
+
+        auto view = output->get_active_view();
+        if (view)
+            set_view_fullscreen(view, !view->fullscreen);
     };
 
     button_callback on_retile_view = [=] (uint32_t button, int32_t x, int32_t y)
@@ -235,6 +252,9 @@ class tile_plugin_t : public wf::plugin_interface_t
 
         auto rb = new_static_option("<super> BTN_RIGHT");
         output->add_button(rb, &on_resize_view);
+
+        auto toggle = new_static_option("<super> KEY_M");
+        output->add_key(toggle, &on_toggle_fullscreen);
 
         grab_interface->callbacks.pointer.button =
             [=] (uint32_t b, uint32_t state)
