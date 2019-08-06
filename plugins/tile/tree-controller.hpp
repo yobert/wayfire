@@ -63,6 +63,7 @@ class move_view_controller_t : public tile_controller_t
   protected:
     std::unique_ptr<tree_node_t>& root;
     nonstd::observer_ptr<view_node_t> grabbed_view;
+    wf::output_t* output;
     wf_point current_input;
 
     nonstd::observer_ptr<wf::preview_indication_view_t> preview;
@@ -71,11 +72,8 @@ class move_view_controller_t : public tile_controller_t
      *
      * @param now The position of the input now. Used only if the preview
      *            needs to be created.
-     *
-     * @param output The output on which to create the preview. Used only if
-     *               the preview needs to be created.
      */
-    void ensure_preview(wf_point now, wf::output_t *output);
+    void ensure_preview(wf_point now);
 
     /**
      * Return the node under the input which is suitable for dropping on.

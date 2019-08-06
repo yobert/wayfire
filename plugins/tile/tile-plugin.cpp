@@ -90,6 +90,20 @@ class tile_plugin_t : public wf::plugin_interface_t
     std::unique_ptr<wf::tile::tile_controller_t> controller =
         get_default_controller();
 
+    /**
+     * Translate coordinates from output-local coordinates to the coordinate
+     * system of the tiling trees, depending on the current workspace
+     */
+    wf_point get_global_coordinates(wf_point local_coordinates)
+    {
+        auto vp = output->workspace->get_current_workspace();
+        auto size = output->get_screen_size();
+        local_coordinates.x += size.width * vp.x;
+        local_coordinates.y += size.height * vp.y;
+
+        return local_coordinates;
+    }
+
     template<class Controller>
     void start_controller(wf_point grab)
     {
@@ -103,7 +117,7 @@ class tile_plugin_t : public wf::plugin_interface_t
             if (grab_interface->grab())
             {
                 controller = std::make_unique<Controller> (
-                    roots[vp.x][vp.y], grab);
+                    roots[vp.x][vp.y], get_global_coordinates(grab));
             } else
             {
                 output->deactivate_plugin(grab_interface);
@@ -231,7 +245,7 @@ class tile_plugin_t : public wf::plugin_interface_t
 
         grab_interface->callbacks.pointer.motion = [=] (int32_t x, int32_t y)
         {
-            controller->input_motion({x, y});
+            controller->input_motion(get_global_coordinates({x, y}));
         };
     }
 

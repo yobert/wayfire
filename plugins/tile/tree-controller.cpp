@@ -200,13 +200,17 @@ move_view_controller_t::move_view_controller_t(
     : root(uroot)
 {
     this->grabbed_view = find_view_at(root, grab);
+    this->output = this->grabbed_view->view->get_output();
     this->current_input = grab;
 }
 
 move_view_controller_t::~move_view_controller_t()
 {
     if (this->preview)
-        this->preview->set_target_geometry({0, 0}, 0.0, true);
+    {
+        this->preview->set_target_geometry(
+            get_output_local_coordinates(output, current_input), 0.0, true);
+    }
 }
 
 nonstd::observer_ptr<view_node_t>
@@ -219,8 +223,7 @@ move_view_controller_t::check_drop_destination(wf_point input)
     return dropped_at;
 }
 
-void move_view_controller_t::ensure_preview(wf_point start,
-    wf::output_t *output)
+void move_view_controller_t::ensure_preview(wf_point start)
 {
     if (this->preview)
         return;
@@ -240,16 +243,20 @@ void move_view_controller_t::input_motion(wf_point input)
     {
         /* No view, no preview */
         if (this->preview)
-            preview->set_target_geometry(input, 0.0);
+        {
+            preview->set_target_geometry(
+                get_output_local_coordinates(output, input), 0.0);
+        }
 
         return;
     }
 
     auto split = calculate_insert_type(view, input);
+    ensure_preview(get_output_local_coordinates(output, input));
 
-    ensure_preview(input, view->view->get_output());
-    this->preview->set_target_geometry(
-        calculate_split_preview(view, split), 1.0);
+    auto preview_geometry = calculate_split_preview(view, split);
+    preview_geometry = get_output_local_coordinates(output, preview_geometry);
+    this->preview->set_target_geometry(preview_geometry, 1.0);
 }
 
 /**

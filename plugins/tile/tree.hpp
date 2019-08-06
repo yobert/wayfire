@@ -147,6 +147,14 @@ void flatten_tree(std::unique_ptr<tree_node_t>& root);
  */
 nonstd::observer_ptr<split_node_t> get_root( nonstd::observer_ptr<tree_node_t> node);
 
+/**
+ * Transform coordinates from the tiling trees coordinate system to output-local
+ * coordinates.
+ */
+wf_geometry get_output_local_coordinates(wf::output_t *output, wf_geometry g);
+wf_point get_output_local_coordinates(wf::output_t *output, wf_point g);
+
+
 }
 }
 #endif /* end of include guard: WF_TILE_PLUGIN_TREE */

@@ -25,6 +25,25 @@ nonstd::observer_ptr<view_node_t> tree_node_t::as_view_node()
     return nonstd::make_observer(dynamic_cast<view_node_t*> (this));
 }
 
+wf_point get_output_local_coordinates(wf::output_t *output, wf_point p)
+{
+    auto vp = output->workspace->get_current_workspace();
+    auto size = output->get_screen_size();
+    p.x -= vp.x * size.width;
+    p.y -= vp.y * size.height;
+
+    return p;
+}
+
+wf_geometry get_output_local_coordinates(wf::output_t *output, wf_geometry g)
+{
+    auto new_tl = get_output_local_coordinates(output, wf_point{g.x, g.y});
+    g.x = new_tl.x;
+    g.y = new_tl.y;
+
+    return g;
+}
+
 /* ---------------------- split_node_t implementation ----------------------- */
 wf_geometry split_node_t::get_child_geometry(
     int32_t child_pos, int32_t child_size)
@@ -207,17 +226,15 @@ void view_node_t::set_geometry(wf_geometry geometry)
     /* Calculate view geometry in coordinates local to the active workspace,
      * because tree coordinates are kept in workspace-agnostic coordinates. */
     auto output = view->get_output();
-
-    auto vp = output->workspace->get_current_workspace();
-    auto size = output->get_screen_size();
-
-    auto local_geometry = geometry;
-    local_geometry.x -= vp.x * size.width;
-    local_geometry.y -= vp.y * size.height;
+    auto local_geometry = get_output_local_coordinates(
+        view->get_output(), geometry);
 
     /* If view is maximized, we want to use the full available geometry */
     if (view->fullscreen)
     {
+        auto vp = output->workspace->get_current_workspace();
+        auto size = output->get_screen_size();
+
         int view_vp_x = std::floor(1.0 * geometry.x / size.width);
         int view_vp_y = std::floor(1.0 * geometry.y / size.width);
 
