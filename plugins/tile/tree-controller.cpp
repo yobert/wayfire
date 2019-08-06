@@ -200,8 +200,11 @@ move_view_controller_t::move_view_controller_t(
     : root(uroot)
 {
     this->grabbed_view = find_view_at(root, grab);
-    this->output = this->grabbed_view->view->get_output();
-    this->current_input = grab;
+    if (this->grabbed_view)
+    {
+        this->output = this->grabbed_view->view->get_output();
+        this->current_input = grab;
+    }
 }
 
 move_view_controller_t::~move_view_controller_t()
@@ -236,8 +239,10 @@ void move_view_controller_t::ensure_preview(wf_point start)
 
 void move_view_controller_t::input_motion(wf_point input)
 {
-    this->current_input = input;
+    if (!this->grabbed_view)
+        return;
 
+    this->current_input = input;
     auto view = check_drop_destination(input);
     if (!view)
     {
@@ -273,8 +278,8 @@ static int find_idx(nonstd::observer_ptr<tree_node_t> view)
 
 void move_view_controller_t::input_released()
 {
-    auto dropped_at = find_view_at(this->root, this->current_input);
-    if (!dropped_at)
+    auto dropped_at = check_drop_destination(this->current_input);
+    if (!this->grabbed_view || !dropped_at)
         return;
 
     auto split = calculate_insert_type(dropped_at, current_input);
