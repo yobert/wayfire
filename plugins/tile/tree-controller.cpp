@@ -3,7 +3,6 @@
 
 #include <set>
 #include <algorithm>
-#include <debug.hpp>
 #include <core.hpp>
 #include <output.hpp>
 #include <workspace-manager.hpp>
@@ -147,20 +146,6 @@ nonstd::observer_ptr<view_node_t> find_view_at(
     return nullptr;
 }
 
-enum split_insertion_t
-{
-    /** Insert is invalid */
-    INSERT_NONE  = 0,
-    /** Insert above the view */
-    INSERT_ABOVE = 1,
-    /** Insert below the view */
-    INSERT_BELOW = 2,
-    /** Insert to the left of the view */
-    INSERT_LEFT  = 3,
-    /** Insert to the right of the view */
-    INSERT_RIGHT = 4,
-};
-
 /**
  * Calculate the position of the split that needs to be created if a view is
  * dropped at @input over @node
@@ -249,9 +234,6 @@ wf_geometry calculate_split_preview(nonstd::observer_ptr<tree_node_t> over,
     return preview;
 }
 
-/**
- * Find the first view in the indicated direction
- */
 nonstd::observer_ptr<view_node_t> find_first_view_in_direction(
     nonstd::observer_ptr<tree_node_t> from, split_insertion_t direction)
 {
@@ -454,12 +436,6 @@ resize_view_controller_t::resize_view_controller_t(
         this->resizing_edges = calculate_resizing_edges(grab);
         horizontal_pair = this->find_resizing_pair(true);
         vertical_pair   = this->find_resizing_pair(false);
-
-        log_info("found horiz resizing pair " Prwg Prwg,
-            Ewg(eval(horizontal_pair.first)), Ewg(eval(horizontal_pair.second)));
-        log_info("found vert resizing pair " Prwg Prwg,
-            Ewg(eval(vertical_pair.first)), Ewg(eval(vertical_pair.second)));
-
     }
 }
 
@@ -516,7 +492,6 @@ resize_view_controller_t::find_resizing_pair(bool horiz)
      * Then the resizing pair is a pair of children of the LCA */
     auto pair_view =
         find_first_view_in_direction(this->grabbed_view, direction);
-    log_info("direction %d pv " Prwg, direction, Ewg(eval(pair_view)));
 
     if (!pair_view) // no pair
         return {nullptr, grabbed_view};
@@ -527,7 +502,6 @@ resize_view_controller_t::find_resizing_pair(bool horiz)
     nonstd::observer_ptr<tree_node_t> ancestor = grabbed_view;
     while (ancestor)
     {
-        log_info("ancestor " Prwg, Ewg(eval(ancestor)));
         grabbed_view_ancestors.insert(ancestor);
         ancestor = ancestor->parent;
     }
@@ -543,9 +517,6 @@ resize_view_controller_t::find_resizing_pair(bool horiz)
         lca = lca->parent;
     }
 
-    log_info("lca is " Prwg, Ewg(eval(lca)));
-    log_info("lca succ is " Prwg, Ewg(eval(lca_successor)));
-
     /* In the "worst" case, the root of the tree is an LCA.
      * Also, an LCA is a split because it is an ancestor of two different
      * view nodes */
@@ -554,10 +525,8 @@ resize_view_controller_t::find_resizing_pair(bool horiz)
     resizing_pair_t result_pair;
     for (auto& child : lca->children)
     {
-        log_info("try first as " Prwg, Ewg(eval(child)));
         if (grabbed_view_ancestors.count({child}))
         {
-            log_info("found first");
             result_pair.first = {child};
             break;
         }

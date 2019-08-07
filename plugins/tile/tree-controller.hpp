@@ -23,6 +23,26 @@ void for_each_view(nonstd::observer_ptr<tree_node_t> root,
  */
 void restack_output_workspace(wf::output_t *output, wf_point workspace);
 
+enum split_insertion_t
+{
+    /** Insert is invalid */
+    INSERT_NONE  = 0,
+    /** Insert above the view */
+    INSERT_ABOVE = 1,
+    /** Insert below the view */
+    INSERT_BELOW = 2,
+    /** Insert to the left of the view */
+    INSERT_LEFT  = 3,
+    /** Insert to the right of the view */
+    INSERT_RIGHT = 4,
+};
+
+/**
+ * Find the first view in the indicated direction
+ */
+nonstd::observer_ptr<view_node_t> find_first_view_in_direction(
+    nonstd::observer_ptr<tree_node_t> from, split_insertion_t direction);
+
 /**
  * Represents the current mode in which the tile plugin is.
  *
