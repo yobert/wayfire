@@ -98,6 +98,18 @@ class output_layer_manager_t
         get_view_layer(view) = layer;
     }
 
+    void restack_below(wayfire_view view, wayfire_view above)
+    {
+        remove_view(view);
+        auto layer = get_view_layer(above);
+        auto& container = layers[layer_index_from_mask(layer)];
+        auto it = std::find(container.begin(), container.end(), above);
+        assert(it != container.end());
+
+        container.insert(std::next(it), view);
+        get_view_layer(view) = layer;
+    }
+
     std::vector<wayfire_view> get_views_in_layer(uint32_t layers_mask)
     {
         std::vector<wayfire_view> views;
@@ -553,6 +565,12 @@ class workspace_manager::impl
 
     void restack_above(wayfire_view view, wayfire_view below)
     {
+        if (!view || !below || view == below)
+        {
+            log_error("Cannot restack a view on top of itself");
+            return;
+        }
+
         uint32_t view_layer = layer_manager.get_view_layer(view);
         uint32_t below_layer = layer_manager.get_view_layer(below);
         if (view_layer == 0 || below_layer == 0 || view_layer != below_layer)
@@ -575,6 +593,26 @@ class workspace_manager::impl
         } else {
             layer_manager.restack_above(view, below);
         }
+    }
+
+    void restack_below(wayfire_view view, wayfire_view above)
+    {
+        if (!view || !above || view == above)
+        {
+            log_error("Cannot restack a view on top of itself");
+            return;
+        }
+
+        uint32_t view_layer = layer_manager.get_view_layer(view);
+        uint32_t below_layer = layer_manager.get_view_layer(above);
+        if (view_layer == 0 || below_layer == 0 || view_layer != below_layer)
+        {
+            log_error("restacking views from different layers(%d vs %d!)",
+                view_layer, below_layer);
+            return;
+        }
+
+        layer_manager.restack_below(view, above);
     }
 
     void remove_view(wayfire_view view)
@@ -615,6 +653,7 @@ void workspace_manager::move_to_workspace(wayfire_view view, wf_point ws) { retu
 void workspace_manager::add_view(wayfire_view view, layer_t layer) { return pimpl->add_view_to_layer(view, layer); }
 void workspace_manager::bring_to_front(wayfire_view view) { return pimpl->bring_to_front(view); }
 void workspace_manager::restack_above(wayfire_view view, wayfire_view below) { return pimpl->restack_above(view, below); }
+void workspace_manager::restack_below(wayfire_view view, wayfire_view below) { return pimpl->restack_below(view, below); }
 void workspace_manager::remove_view(wayfire_view view) { return pimpl->remove_view(view); }
 uint32_t workspace_manager::get_view_layer(wayfire_view view) { return pimpl->layer_manager.get_view_layer(view); }
 std::vector<wayfire_view> workspace_manager::get_views_in_layer(uint32_t layers_mask) { return pimpl->layer_manager.get_views_in_layer(layers_mask); }
