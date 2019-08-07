@@ -300,8 +300,16 @@ class tile_plugin_t : public wf::plugin_interface_t
         {
             auto adjacent = tile::find_first_view_in_direction(
                 tile::view_node_t::get_node(view), direction);
+
+            bool was_fullscreen = view->fullscreen;
             if (adjacent)
+            {
+                /* This will lower the fullscreen status of the view */
                 output->focus_view(adjacent->view, true);
+
+                if (was_fullscreen)
+                    adjacent->view->fullscreen_request(output, true);
+            }
         });
     }
 
