@@ -24,7 +24,7 @@ class tile_workspace_implementation_t : public wf::workspace_implementation_t
 class tile_plugin_t : public wf::plugin_interface_t
 {
   private:
-    wf_option tile_by_default;
+    wf_option tile_by_default, keep_fullscreen_on_adjacent;
     wf_option button_move, button_resize;
     wf_option key_toggle_tile, key_toggle_fullscreen;
 
@@ -167,8 +167,11 @@ class tile_plugin_t : public wf::plugin_interface_t
 
     signal_callback_t on_view_attached = [=] (signal_data_t *data)
     {
-        auto view = get_signaled_view(data);
-        attach_view(view);
+        if (tile_by_default->as_int())
+        {
+            auto view = get_signaled_view(data);
+            attach_view(view);
+        }
     };
 
     signal_callback_t on_view_unmapped = [=] (signal_data_t *data)
@@ -307,7 +310,7 @@ class tile_plugin_t : public wf::plugin_interface_t
                 /* This will lower the fullscreen status of the view */
                 output->focus_view(adjacent->view, true);
 
-                if (was_fullscreen)
+                if (was_fullscreen && keep_fullscreen_on_adjacent->as_int())
                     adjacent->view->fullscreen_request(output, true);
             }
         });
@@ -340,6 +343,9 @@ class tile_plugin_t : public wf::plugin_interface_t
         auto section = config->get_section("simple-tile");
 
         tile_by_default = section->get_option("tile_by_default", "1");
+        keep_fullscreen_on_adjacent = section->get_option(
+            "keep_fullscreen_on_adjacent", "1");
+
         button_move = section->get_option("button_move", "<super> BTN_LEFT");
         button_resize =
             section->get_option("button_resize", "<super> BTN_RIGHT");
@@ -350,16 +356,16 @@ class tile_plugin_t : public wf::plugin_interface_t
 
         key_focus_left  = section->get_option("key_focus_left", "<super> KEY_H");
         key_focus_right = section->get_option("key_focus_right", "<super> KEY_L");
-        key_focus_above = section->get_option("key_focus_above", "<super> KEY_J");
-        key_focus_below = section->get_option("key_focus_below", "<super> KEY_K");
+        key_focus_above = section->get_option("key_focus_above", "<super> KEY_K");
+        key_focus_below = section->get_option("key_focus_below", "<super> KEY_J");
     }
 
     void setup_callbacks()
     {
         output->add_button(button_move, &on_move_view);
         output->add_button(button_resize, &on_resize_view);
-        output->add_key(key_toggle_tile, &on_toggle_fullscreen);
-        output->add_key(key_toggle_fullscreen, &on_toggle_tiled_state);
+        output->add_key(key_toggle_tile, &on_toggle_tiled_state);
+        output->add_key(key_toggle_fullscreen, &on_toggle_fullscreen);
 
         output->add_key(key_focus_left,  &on_focus_adjacent);
         output->add_key(key_focus_right, &on_focus_adjacent);
