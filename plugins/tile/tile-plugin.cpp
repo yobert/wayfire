@@ -24,6 +24,10 @@ class tile_workspace_implementation_t : public wf::workspace_implementation_t
 class tile_plugin_t : public wf::plugin_interface_t
 {
   private:
+    wf_option tile_by_default;
+    wf_option button_move, button_resize;
+    wf_option key_toggle_tile, key_toggle_fullscreen;
+  private:
     std::vector<std::vector<std::unique_ptr<wf::tile::tree_node_t>>> roots;
 
     const wf::tile::split_direction_t default_split = wf::tile::SPLIT_VERTICAL;
@@ -271,7 +275,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         output->deactivate_plugin(grab_interface);
     };
 
-    button_callback on_retile_view = [=] (uint32_t button, int32_t x, int32_t y)
+    button_callback on_move_view = [=] (uint32_t button, int32_t x, int32_t y)
     {
         start_controller<tile::move_view_controller_t> ({x, y});
     };
@@ -280,6 +284,40 @@ class tile_plugin_t : public wf::plugin_interface_t
     {
         start_controller<tile::resize_view_controller_t> ({x, y});
     };
+
+    void load_options(wayfire_config *config)
+    {
+        auto section = config->get_section("simple-tile");
+
+        tile_by_default = section->get_option("tile_by_default", "1");
+        button_move = section->get_option("button_move", "<super> BTN_LEFT");
+        button_resize =
+            section->get_option("button_resize", "<super> BTN_RIGHT");
+
+        key_toggle_tile = section->get_option("key_toggle", "<super> KEY_T");
+        key_toggle_fullscreen =
+            section->get_option("key_toggle_fullscreen", "<super> KEY_M");
+    }
+
+    void setup_callbacks()
+    {
+        output->add_button(button_move, &on_move_view);
+        output->add_button(button_resize, &on_resize_view);
+        output->add_key(key_toggle_tile, &on_toggle_fullscreen);
+        output->add_key(key_toggle_fullscreen, &on_toggle_tiled_state);
+
+        grab_interface->callbacks.pointer.button =
+            [=] (uint32_t b, uint32_t state)
+            {
+                if (state == WLR_BUTTON_RELEASED)
+                    stop_controller(false);
+            };
+
+        grab_interface->callbacks.pointer.motion = [=] (int32_t x, int32_t y)
+        {
+            controller->input_motion(get_global_coordinates({x, y}));
+        };
+    }
 
   public:
     void init(wayfire_config *config) override
@@ -303,34 +341,18 @@ class tile_plugin_t : public wf::plugin_interface_t
             &on_fullscreen_request);
         output->connect_signal("focus-view", &on_focus_changed);
 
-        auto button = new_static_option("<super> BTN_LEFT");
-        output->add_button(button, &on_retile_view);
-
-        auto rb = new_static_option("<super> BTN_RIGHT");
-        output->add_button(rb, &on_resize_view);
-
-        auto toggle = new_static_option("<super> KEY_M");
-        output->add_key(toggle, &on_toggle_fullscreen);
-
-        auto toggle_tile = new_static_option("<super> KEY_N");
-        output->add_key(toggle_tile, &on_toggle_tiled_state);
-
-        grab_interface->callbacks.pointer.button =
-            [=] (uint32_t b, uint32_t state)
-        {
-            if (state == WLR_BUTTON_RELEASED)
-                stop_controller(false);
-        };
-
-        grab_interface->callbacks.pointer.motion = [=] (int32_t x, int32_t y)
-        {
-            controller->input_motion(get_global_coordinates({x, y}));
-        };
+        load_options(config);
+        setup_callbacks();
     }
 
     void fini() override
     {
-        output->workspace->set_workspace_implementation(nullptr);
+        output->workspace->set_workspace_implementation(nullptr, true);
+
+        output->rem_binding(&on_move_view);
+        output->rem_binding(&on_resize_view);
+        output->rem_binding(&on_toggle_fullscreen);
+        output->rem_binding(&on_toggle_tiled_state);
 
         output->disconnect_signal("unmap-view", &on_view_unmapped);
         output->disconnect_signal("attach-view", &on_view_attached);
