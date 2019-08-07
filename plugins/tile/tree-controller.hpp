@@ -11,9 +11,17 @@ class preview_indication_view_t;
 namespace tile
 {
 /**
- * Count the number of fullscreen views in the given tree
+ * Run callback for each view in the tree
  */
-int32_t count_fullscreen_views(nonstd::observer_ptr<tree_node_t> root);
+void for_each_view(nonstd::observer_ptr<tree_node_t> root,
+    std::function<void(wayfire_view)> callback);
+
+/**
+ * Restack the tiled views on the given output and workspace.
+ * The goal is that all views appear together in the stacking list, and that
+ * fullscreen views are always on the top of tiled non-fullscreen views.
+ */
+void restack_output_workspace(wf::output_t *output, wf_point workspace);
 
 /**
  * Represents the current mode in which the tile plugin is.

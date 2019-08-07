@@ -108,8 +108,14 @@ class tile_plugin_t : public wf::plugin_interface_t
     void start_controller(wf_point grab)
     {
         auto vp = output->workspace->get_current_workspace();
+
+        int count_fullscreen = 0;
+        for_each_view(roots[vp.x][vp.y], [&] (wayfire_view view) {
+            count_fullscreen += view->fullscreen;
+        });
+
         /* No action possible in this case */
-        if (count_fullscreen_views(roots[vp.x][vp.y]))
+        if (count_fullscreen)
             return;
 
         if (output->activate_plugin(grab_interface))
@@ -147,6 +153,9 @@ class tile_plugin_t : public wf::plugin_interface_t
         auto vp = output->workspace->get_current_workspace();
         auto view_node = std::make_unique<wf::tile::view_node_t> (view);
         roots[vp.x][vp.y]->as_split_node()->add_child(std::move(view_node));
+
+        tile::restack_output_workspace(output,
+            output->workspace->get_current_workspace());
     }
 
     signal_callback_t on_view_attached = [=] (signal_data_t *data)
@@ -164,10 +173,14 @@ class tile_plugin_t : public wf::plugin_interface_t
     void detach_view(nonstd::observer_ptr<tile::view_node_t> view)
     {
         stop_controller(true);
+        auto wview = view->view;
 
         view->parent->remove_child(view);
         /* View node is invalid now */
         flatten_roots();
+
+        if (wview->fullscreen)
+            wview->fullscreen_request(nullptr, false);
     }
 
     signal_callback_t on_view_detached = [=] (signal_data_t *data)
@@ -209,6 +222,22 @@ class tile_plugin_t : public wf::plugin_interface_t
 
         ev->carried_out = true;
         set_view_fullscreen(ev->view, ev->state);
+    };
+
+    signal_callback_t on_focus_changed = [=] (signal_data_t *data)
+    {
+        auto view = get_signaled_view(data);
+        if (tile::view_node_t::get_node(view) && !view->fullscreen)
+        {
+            auto vp = output->workspace->get_current_workspace();
+            for_each_view(roots[vp.x][vp.y], [&] (wayfire_view view) {
+                if (view->fullscreen)
+                    set_view_fullscreen(view, false);
+            });
+        }
+
+        tile::restack_output_workspace(output,
+            output->workspace->get_current_workspace());
     };
 
     key_callback on_toggle_fullscreen = [=] (uint32_t key)
@@ -272,6 +301,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         output->connect_signal("view-maximized-request", &on_tile_request);
         output->connect_signal("view-fullscreen-request",
             &on_fullscreen_request);
+        output->connect_signal("focus-view", &on_focus_changed);
 
         auto button = new_static_option("<super> BTN_LEFT");
         output->add_button(button, &on_retile_view);
@@ -309,6 +339,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         output->disconnect_signal("view-maximized-request", &on_tile_request);
         output->disconnect_signal("view-fullscreen-request",
             &on_fullscreen_request);
+        output->disconnect_signal("focus-view", &on_focus_changed);
     }
 };
 };
