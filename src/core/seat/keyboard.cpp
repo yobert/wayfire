@@ -14,12 +14,14 @@ extern "C"
 #include "touch.hpp"
 #include "input-manager.hpp"
 #include "compositor-view.hpp"
+#include "signal-definitions.hpp"
 
 void wf_keyboard::setup_listeners()
 {
     on_key.set_callback([&] (void *data)
     {
         auto ev = static_cast<wlr_event_keyboard_key*> (data);
+        emit_device_event_signal("keyboard_key", ev);
 
         auto seat = wf::get_core().get_current_seat();
         wlr_seat_set_keyboard(seat, this->device);
