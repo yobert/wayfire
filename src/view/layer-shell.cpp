@@ -76,6 +76,29 @@ wf::workspace_manager::anchored_edge anchor_to_edge(uint32_t edges)
 
 struct wf_layer_shell_manager
 {
+  private:
+    wf::signal_callback_t on_output_layout_changed = [=] (wf::signal_data_t*)
+    {
+        auto outputs = wf::get_core().output_layout->get_outputs();
+        for (auto wo : outputs)
+            arrange_layers(wo);
+    };
+
+    wf_layer_shell_manager()
+    {
+        wf::get_core().output_layout->connect_signal("configuration-changed",
+            &on_output_layout_changed);;
+    }
+
+  public:
+    static wf_layer_shell_manager& get_instance()
+    {
+        /* Delay instantiation until first call, at which point core should
+         * have been already initialized */
+        static wf_layer_shell_manager instance;
+        return instance;
+    }
+
     using layer_t = std::vector<wayfire_layer_shell_view*>;
     layer_t layers[4];
 
@@ -268,7 +291,6 @@ struct wf_layer_shell_manager
     }
 };
 
-static wf_layer_shell_manager layer_shell_manager;
 wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
     : wf::wlr_view_t(), lsurface(lsurf)
 {
@@ -311,7 +333,7 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
     on_destroy.connect(&lsurface->events.destroy);
     on_new_popup.connect(&lsurface->events.new_popup);
 
-    layer_shell_manager.arrange_unmapped_view(this);
+    wf_layer_shell_manager::get_instance().arrange_unmapped_view(this);
 }
 
 void wayfire_layer_shell_view::destroy()
@@ -334,13 +356,13 @@ void wayfire_layer_shell_view::map(wlr_surface *surface)
         zwlr_layer_to_wf_layer(lsurface->layer));
 
     wf::wlr_view_t::map(surface);
-    layer_shell_manager.handle_map(this);
+    wf_layer_shell_manager::get_instance().handle_map(this);
 }
 
 void wayfire_layer_shell_view::unmap()
 {
     wf::wlr_view_t::unmap();
-    layer_shell_manager.handle_unmap(this);
+    wf_layer_shell_manager::get_instance().handle_unmap(this);
 }
 
 void wayfire_layer_shell_view::commit()
@@ -354,7 +376,7 @@ void wayfire_layer_shell_view::commit()
 
     if (std::memcmp(state, &prev_state, sizeof(*state)))
     {
-        layer_shell_manager.arrange_layers(get_output());
+        wf_layer_shell_manager::get_instance().arrange_layers(get_output());
         prev_state = *state;
     }
 }
