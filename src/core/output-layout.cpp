@@ -16,7 +16,9 @@ extern "C"
 #define static
 #include <wlr/backend.h>
 #include <wlr/backend/drm.h>
+#include <wlr/backend/x11.h>
 #include <wlr/backend/noop.h>
+#include <wlr/backend/wayland.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_matrix.h>
 #include <wlr/types/wlr_output_layout.h>
@@ -223,7 +225,7 @@ namespace wf
         output_state_t current_state;
 
         std::unique_ptr<wf::output_t> output;
-        wl_listener_wrapper on_destroy;
+        wl_listener_wrapper on_destroy, on_mode;
         wf_option mode_opt, position_opt, scale_opt, transform_opt;
         const std::string default_value = "default";
 
@@ -238,6 +240,42 @@ namespace wf
             position_opt  = output_section->get_option("layout", default_value);
             scale_opt     = output_section->get_option("scale", "1");
             transform_opt = output_section->get_option("transform", "normal");
+
+            if (wlr_output_is_x11(handle) || wlr_output_is_wl(handle))
+            {
+                /* Nested backends can be resized by the user. We need to handle
+                 * these cases */
+                on_mode.set_callback([=] (void *data) {
+                    handle_mode_changed();
+                });
+                on_mode.connect(&handle->events.mode);
+            }
+        }
+
+        /**
+         * Update the current configuration based on the mode set by the
+         * backend.
+         */
+        void handle_mode_changed()
+        {
+            auto& lmanager = wf::get_core().output_layout;
+            auto config = lmanager->get_current_configuration();
+            if (config.count(handle) && handle->current_mode)
+            {
+                if (config[handle].source == OUTPUT_IMAGE_SOURCE_SELF)
+                {
+                    int width = config[handle].mode.width;
+                    int height = config[handle].mode.height;
+
+                    if (width != handle->current_mode->width ||
+                        height != handle->current_mode->height)
+                    {
+                        /* mode changed. Apply new configuration. */
+                        config[handle].mode = *handle->current_mode;
+                        lmanager->apply_configuration(config);
+                    }
+                }
+            }
         }
 
         wlr_output_mode select_default_mode()
