@@ -186,6 +186,8 @@ namespace wf
         /** If a timeout has been registered, but not fired yet, remove the
          * timeout. Otherwise no-op */
         void disconnect();
+        /** @return true if the event source is active */
+        bool is_connected();
 
         /* Run the stored call now, regardless of the timeout. No-op if not
          * connected */

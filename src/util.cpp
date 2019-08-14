@@ -486,8 +486,14 @@ namespace wf
 
     void wl_timer::disconnect()
     {
-        wl_event_source_remove(source);
+        if (source)
+            wl_event_source_remove(source);
         source = NULL;
+    }
+
+    bool wl_timer::is_connected()
+    {
+      return source != NULL;
     }
 
     void wl_timer::execute()
