@@ -226,8 +226,11 @@ wf::surface_interface_t *wf::view_interface_t::map_input_coordinates(
         local.x = view_relative_coordinates.x - child.position.x;
         local.y = view_relative_coordinates.y - child.position.y;
 
-        if (child.surface->accepts_input(local.x, local.y))
+        if (child.surface->accepts_input(
+                std::floor(local.x), std::floor(local.y)))
+        {
             return child.surface;
+        }
     }
 
     return nullptr;
