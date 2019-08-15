@@ -2,7 +2,7 @@
 #include "matcher-ast.hpp"
 
 #include <debug.hpp>
-#include <plugin.hpp>
+#include <singleton-plugin.hpp>
 #include <core.hpp>
 #include <output.hpp>
 #include <workspace-manager.hpp>
@@ -77,7 +77,7 @@ namespace wf
             }
         };
 
-        class match_core_data : public wf::custom_data_t
+        class matcher_plugin
         {
             signal_callback_t on_new_matcher_request = [=] (signal_data_t *data)
             {
@@ -96,7 +96,7 @@ namespace wf
             };
 
             public:
-            match_core_data()
+            matcher_plugin()
             {
                 wf::get_core().connect_signal(WF_MATCHER_CREATE_QUERY_SIGNAL,
                     &on_new_matcher_request);
@@ -105,18 +105,11 @@ namespace wf
             }
         };
 
-        class matcher_plugin : public wf::plugin_interface_t
+        class matcher_singleton : public wf::singleton_plugin_t<matcher_plugin>
         {
-            public:
-            void init(wayfire_config *conf) override
-            {
-                /* Will add the data if not existing, otherwise no-op */
-                wf::get_core().get_data_safe<match_core_data>();
-            }
-
             bool is_unloadable() override {return false;}
         };
     }
 }
 
-DECLARE_WAYFIRE_PLUGIN(wf::matcher::matcher_plugin);
+DECLARE_WAYFIRE_PLUGIN(wf::matcher::matcher_singleton);
