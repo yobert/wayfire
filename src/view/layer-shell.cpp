@@ -47,6 +47,7 @@ class wayfire_layer_shell_view : public wf::wlr_view_t
     wlr_layer_surface_v1_state prev_state;
 
     std::unique_ptr<wf::workspace_manager::anchored_area> anchored_area;
+    void remove_anchored(bool reflow);
 
     wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf);
     virtual ~wayfire_layer_shell_view() {}
@@ -110,11 +111,10 @@ struct wf_layer_shell_manager
 
     void handle_unmap(wayfire_layer_shell_view *view)
     {
+        view->remove_anchored(false);
+
         auto& cont = layers[view->lsurface->layer];
         auto it = std::find(cont.begin(), cont.end(), view);
-
-        if (view->anchored_area)
-            view->get_output()->workspace->remove_reserved_area(view->anchored_area.get());
 
         cont.erase(it);
         arrange_layers(view->get_output());
@@ -241,15 +241,11 @@ struct wf_layer_shell_manager
             if (v->lsurface->client_pending.keyboard_interactive && v->is_mapped())
                 focus_mask = zwlr_layer_to_wf_layer(v->lsurface->layer);
 
-            if (v->lsurface->client_pending.exclusive_zone > 0)
-            {
+            if (v->lsurface->client_pending.exclusive_zone > 0) {
                 set_exclusive_zone(v);
-            }
-            else if (v->anchored_area)
-            {
+            } else {
                 /* Make sure the view doesn't have a reserved area anymore */
-                output->workspace->remove_reserved_area(v->anchored_area.get());
-                v->anchored_area = nullptr;
+                v->remove_anchored(false);
             }
         }
 
@@ -343,6 +339,7 @@ void wayfire_layer_shell_view::destroy()
     on_destroy.disconnect();
     on_new_popup.disconnect();
 
+    remove_anchored(true);
     wf::wlr_view_t::destroy();
 }
 
@@ -361,6 +358,7 @@ void wayfire_layer_shell_view::map(wlr_surface *surface)
 
 void wayfire_layer_shell_view::unmap()
 {
+    log_info("unmap layer shell view");
     wf::wlr_view_t::unmap();
     wf_layer_shell_manager::get_instance().handle_unmap(this);
 }
@@ -425,6 +423,18 @@ void wayfire_layer_shell_view::configure(wf_geometry box)
 
     wf::wlr_view_t::move(box.x, box.y);
     wlr_layer_surface_v1_configure(lsurface, box.width, box.height);
+}
+
+void wayfire_layer_shell_view::remove_anchored(bool reflow)
+{
+    if (anchored_area)
+    {
+        get_output()->workspace->remove_reserved_area(anchored_area.get());
+        anchored_area = nullptr;
+
+        if (reflow)
+            get_output()->workspace->reflow_reserved_areas();
+    }
 }
 
 static wlr_layer_shell_v1 *layer_shell_handle;
