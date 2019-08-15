@@ -17,6 +17,7 @@ extern "C"
 #include <wlr/types/wlr_pointer_gestures_v1.h>
 #include <wlr/types/wlr_relative_pointer_v1.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
+#include <wlr/types/wlr_tablet_v2.h>
 
 #define static
 #include <wlr/render/wlr_renderer.h>
@@ -24,6 +25,7 @@ extern "C"
 #undef static
 }
 
+#include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -32,7 +34,6 @@ extern "C"
 #include "output.hpp"
 #include "workspace-manager.hpp"
 #include "seat/input-manager.hpp"
-#include "seat/input-inhibit.hpp"
 #include "seat/touch.hpp"
 #include "../view/view-impl.hpp"
 #include "../output/wayfire-shell.hpp"
@@ -85,9 +86,9 @@ struct wf_pointer_constraint
     {
         on_destroy.set_callback([=] (void*){
             // reset constraint
-            auto& impl = wf::get_core_impl();
-            if (impl.input->get_active_pointer_constraint() == constraint)
-                impl.input->set_pointer_constraint(nullptr, true);
+            auto& lpointer = wf::get_core_impl().input->lpointer;
+            if (lpointer->get_active_pointer_constraint() == constraint)
+                lpointer->set_pointer_constraint(nullptr, true);
 
             on_destroy.disconnect();
             delete this;
@@ -96,16 +97,14 @@ struct wf_pointer_constraint
         on_destroy.connect(&constraint->events.destroy);
 
         // set correct constraint
-        auto& impl = wf::get_core_impl();
-        if (impl.get_cursor_focus()->priv->wsurface == constraint->surface)
-            impl.input->set_pointer_constraint(constraint);
+        auto& lpointer = wf::get_core_impl().input->lpointer;
+        if (lpointer->get_focus()->priv->wsurface == constraint->surface)
+            lpointer->set_pointer_constraint(constraint);
     }
 };
 
-void wf::compositor_core_impl_t::init(wayfire_config *conf)
+void wf::compositor_core_impl_t::init()
 {
-    wf_input_device_internal::config.load(conf);
-
     protocols.data_device = wlr_data_device_manager_create(display);
     protocols.data_control = wlr_data_control_manager_v1_create(display);
     wlr_renderer_init_wl_display(renderer, display);
@@ -118,9 +117,12 @@ void wf::compositor_core_impl_t::init(wayfire_config *conf)
      * init_desktop_apis() should come before input */
     output_layout = std::make_unique<wf::output_layout_t> (backend);
     compositor = wlr_compositor_create(display, renderer);
-    init_desktop_apis(conf);
+    init_desktop_apis(config);
+
+    /* Somehow GTK requires the tablet_v2 to be advertised pretty early */
+    protocols.tablet_v2 = wlr_tablet_v2_create(display);
+
     input = std::make_unique<input_manager>();
-    log_info("input is %p", input.get());
 
     protocols.screencopy = wlr_screencopy_manager_v1_create(display);
     protocols.gamma_v1 = wlr_gamma_control_manager_v1_create(display);
@@ -130,7 +132,7 @@ void wf::compositor_core_impl_t::init(wayfire_config *conf)
         output_layout->get_handle());
 
     /* input-inhibit setup */
-    protocols.input_inhibit = create_input_inhibit();
+    protocols.input_inhibit = wlr_input_inhibit_manager_create(display);
     input_inhibit_activated.set_callback([&] (void*) {
         input->set_exclusive_focus(protocols.input_inhibit->active_client); });
     input_inhibit_activated.connect(&protocols.input_inhibit->events.activate);
@@ -197,33 +199,33 @@ void wf::compositor_core_impl_t::hide_cursor()
 
 void wf::compositor_core_impl_t::warp_cursor(int x, int y)
 {
-    input->cursor->warp_cursor(x, y);
+    input->cursor->warp_cursor({1.0 * x, 1.0 * y});
 }
 
-const int wf::compositor_core_t::invalid_coordinate;
-std::tuple<int, int> wf::compositor_core_impl_t::get_cursor_position()
+wf_pointf wf::compositor_core_impl_t::get_cursor_position()
 {
-    if (input->cursor)
-        return std::tuple<int, int> (input->cursor->cursor->x, input->cursor->cursor->y);
-    else
-        return std::tuple<int, int> (invalid_coordinate, invalid_coordinate);
+    if (input->cursor) {
+        return input->cursor->get_cursor_position();
+    } else {
+        return {invalid_coordinate, invalid_coordinate};
+    }
 }
 
-std::tuple<int, int> wf::compositor_core_impl_t::get_touch_position(int id)
+wf_pointf wf::compositor_core_impl_t::get_touch_position(int id)
 {
     if (!input->our_touch)
-        return std::make_tuple(invalid_coordinate, invalid_coordinate);
+        return {invalid_coordinate, invalid_coordinate};
 
     auto it = input->our_touch->gesture_recognizer.current.find(id);
     if (it != input->our_touch->gesture_recognizer.current.end())
-        return std::make_tuple(it->second.sx, it->second.sy);
+        return it->second.current;
 
-    return std::make_tuple(invalid_coordinate, invalid_coordinate);
+    return {invalid_coordinate, invalid_coordinate};
 }
 
 wf::surface_interface_t* wf::compositor_core_impl_t::get_cursor_focus()
 {
-    return input->cursor_focus;
+    return input->lpointer->get_focus();
 }
 
 wayfire_view wf::compositor_core_t::get_cursor_focus_view()
@@ -257,6 +259,11 @@ wf::compositor_core_impl_t::get_input_devices()
         list.push_back(nonstd::make_observer(dev.get()));
 
     return list;
+}
+
+wlr_cursor* wf::compositor_core_impl_t::get_wlr_cursor()
+{
+    return input->cursor->cursor;
 }
 
 void wf::compositor_core_impl_t::focus_output(wf::output_t *wo)
@@ -383,7 +390,7 @@ void wf::compositor_core_impl_t::add_view(
 void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
 {
     if (new_focus && !new_focus->is_mapped())
-        return set_active_view(nullptr);
+        new_focus = nullptr;
 
     bool refocus = (input->keyboard_focus == new_focus);
     log_debug("set active view to %s", new_focus ? new_focus->get_title().c_str() : "nil");
@@ -405,7 +412,7 @@ void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
     auto seat = get_current_seat();
     if (new_focus)
     {
-        wf::get_core_impl().input->set_keyboard_focus(new_focus, seat);
+        input->set_keyboard_focus(new_focus, seat);
 
         /* Don't resend activated if focusing the exact same view, some Xwayland
          * programs have problems with this.
@@ -415,7 +422,7 @@ void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
             new_focus->set_activated(true);
     } else
     {
-        wf::get_core_impl().input->set_keyboard_focus(nullptr, seat);
+        input->set_keyboard_focus(nullptr, seat);
     }
 
     if (!input->keyboard_focus ||
@@ -473,6 +480,9 @@ void wf::compositor_core_impl_t::run(std::string command)
         } else {
             _exit(0);
         }
+    } else {
+        int status;
+        waitpid(pid, &status, 0);
     }
 }
 

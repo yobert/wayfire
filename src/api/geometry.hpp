@@ -19,7 +19,12 @@ struct wf_point
     int x, y;
 };
 
-struct wf_surface_size_t
+struct wf_pointf
+{
+    double x, y;
+};
+
+struct wf_size_t
 {
     int32_t width;
     int32_t height;
@@ -34,6 +39,7 @@ bool operator == (const wf_geometry& a, const wf_geometry& b);
 bool operator != (const wf_geometry& a, const wf_geometry& b);
 
 wf_point    operator + (const wf_point& a, const wf_point& b);
+wf_point    operator - (const wf_point& a, const wf_point& b);
 wf_point    operator + (const wf_point& a, const wf_geometry& b);
 wf_geometry operator + (const wf_geometry &a, const wf_point& b);
 wf_point    operator - (const wf_point& a);

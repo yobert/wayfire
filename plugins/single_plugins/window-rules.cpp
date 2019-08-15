@@ -183,11 +183,11 @@ class wayfire_window_rules : public wf::plugin_interface_t
                 return result;
 
             exec.action = [w,h] (wayfire_view view) mutable {
-                GetTuple(sw, sh, view->get_output()->get_screen_size());
+                auto screen_size = view->get_output()->get_screen_size();
                 if (w > 100000)
-                    w = sw;
+                    w = screen_size.width;
                 if (h > 100000)
-                    h = sh;
+                    h = screen_size.height;
                 view->resize(w, h);
             };
         } else if (ends_with(action, "set maximized"))

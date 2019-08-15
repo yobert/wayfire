@@ -101,7 +101,7 @@ class surface_interface_t
     virtual wf_point get_offset() = 0;
 
     /** @return The surface dimensions */
-    virtual wf_surface_size_t get_size() const = 0;
+    virtual wf_size_t get_size() const = 0;
 
     /**
      * Test whether the surface accepts touch or pointer input at the given

@@ -2,7 +2,9 @@
 #define CORE_HPP
 
 #include "object.hpp"
+#include <geometry.hpp>
 
+#include <limits>
 #include <vector>
 #include <nonstd/observer_ptr.h>
 
@@ -11,6 +13,7 @@ extern "C"
     struct wlr_backend;
     struct wlr_renderer;
     struct wlr_seat;
+    struct wlr_cursor;
     struct wlr_data_device_manager;
     struct wlr_data_control_manager_v1;
     struct wlr_linux_dmabuf_v1;
@@ -27,6 +30,7 @@ extern "C"
     struct wlr_pointer_gestures_v1;
     struct wlr_relative_pointer_manager_v1;
     struct wlr_pointer_constraints_v1;
+    struct wlr_tablet_manager_v2;
 
 #include <wayland-server.h>
 }
@@ -91,6 +95,7 @@ class compositor_core_t : public wf::object_base_t
         wlr_pointer_gestures_v1 *pointer_gestures;
         wlr_relative_pointer_manager_v1 *relative_pointer;
         wlr_pointer_constraints_v1 *pointer_constraints;
+        wlr_tablet_manager_v2 *tablet_v2;
     } protocols;
 
     std::string to_string() const { return "wayfire-core"; }
@@ -114,19 +119,20 @@ class compositor_core_t : public wf::object_base_t
     virtual void warp_cursor(int x, int y) = 0;
 
     /** no such coordinate will ever realistically be used for input */
-    static const int invalid_coordinate = -123456789;
+    static constexpr double invalid_coordinate =
+        std::numeric_limits<double>::quiet_NaN();
 
     /**
      * @return The current cursor position in global coordinates or
      * {invalid_coordinate, invalid_coordinate} if no cursor.
      */
-    virtual std::tuple<int, int> get_cursor_position() = 0;
+    virtual wf_pointf get_cursor_position() = 0;
 
     /**
      * @return The current position of the given touch point, or
      * {invalid_coordinate,invalid_coordinate} if it is not found.
      */
-    virtual std::tuple<int, int> get_touch_position(int id) = 0;
+    virtual wf_pointf get_touch_position(int id) = 0;
 
     /**
      * @return The surface which has the cursor focus, or null if none.
@@ -148,6 +154,11 @@ class compositor_core_t : public wf::object_base_t
      */
     virtual std::vector<nonstd::observer_ptr<wf::input_device_t>>
         get_input_devices() = 0;
+
+    /**
+     * @return the wlr_cursor used for the input devices
+     */
+    virtual wlr_cursor* get_wlr_cursor() = 0;
 
     /**
      * Add a view to the compositor's view list. The view will be freed when

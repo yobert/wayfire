@@ -89,13 +89,13 @@ int wf_blur_base::calculate_blur_radius()
 
 void wf_blur_base::damage_all_workspaces()
 {
-    GetTuple(vw, vh, output->workspace->get_workspace_grid_size());
-    for (int vx = 0; vx < vw; vx++)
+    auto wsize = output->workspace->get_workspace_grid_size();
+    for (int vx = 0; vx < wsize.width; vx++)
     {
-        for (int vy = 0; vy < vh; vy++)
+        for (int vy = 0; vy < wsize.height; vy++)
         {
             output->render->damage(
-                output->render->get_ws_box(std::make_tuple(vx, vy)));
+                output->render->get_ws_box({vx, vy}));
         }
     }
 }

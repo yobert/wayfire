@@ -53,7 +53,7 @@ class output_t : public wf::object_base_t
      * 3860x2160, scale 2 and transform 90, then get_screen_size will report
      * that it has logical resolution of 1080x1920
      */
-    std::tuple<int, int> get_screen_size() const;
+    wf_size_t get_screen_size() const;
 
     /**
      * Same as get_screen_size() but returns a wf_geometry with x,y = 0
@@ -74,16 +74,20 @@ class output_t : public wf::object_base_t
     /**
      * Gets the cursor position relative to the output
      */
-    std::tuple<int, int> get_cursor_position() const;
+    wf_pointf get_cursor_position() const;
 
     /**
      * Activates a plugin. Note that this may not succeed, if a plugin with the
      * same abilities is already active. However the same plugin might be
      * activated twice.
      *
+     * @param ignore_input_inhibit If set to true, plugin activation will be
+     * allowed even if a lockscreen is active.
+     *
      * @return true if the plugin was successfully activated, false otherwise.
      */
-    virtual bool activate_plugin(const plugin_grab_interface_uptr& owner) = 0;
+    virtual bool activate_plugin(const plugin_grab_interface_uptr& owner,
+        bool ignore_input_inhibit = false) = 0;
 
     /**
      * Deactivates a plugin once, i.e if the plugin was activated more than

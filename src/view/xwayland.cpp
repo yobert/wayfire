@@ -447,8 +447,8 @@ void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
     {
         /* if surface center is outside of anything, try to check the output
          * where the pointer is */
-        GetTuple(cx, cy, wf::get_core().get_cursor_position());
-        wo = wf::get_core().output_layout->get_output_at(cx, cy);
+        auto gc = wf::get_core().get_cursor_position();
+        wo = wf::get_core().output_layout->get_output_at(gc.x, gc.y);
     }
 
     if (!wo)

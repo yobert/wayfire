@@ -67,7 +67,7 @@ struct view_minimize_request_signal : public _view_signal
 struct change_viewport_signal : public wf::signal_data_t
 {
     bool carried_out;
-    std::tuple<int, int> old_viewport, new_viewport;
+    wf_point old_viewport, new_viewport;
 };
 using change_viewport_notify = change_viewport_signal;
 
@@ -103,6 +103,12 @@ namespace wf
     {
         nonstd::observer_ptr<input_device_t> device;
         bool state;
+    };
+
+    /* in input-device-added and input-device-removed signals from core */
+    struct input_device_signal : public signal_data_t
+    {
+        nonstd::observer_ptr<input_device_t> device;
     };
 }
 

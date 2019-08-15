@@ -311,9 +311,9 @@ class wayfire_grid : public wf::plugin_interface_t
     /* calculates the target geometry so that it is centered around the pointer */
     wf_geometry calculate_restored_geometry(wf_geometry base_restored)
     {
-        GetTuple(cx, cy, output->get_cursor_position());
-        base_restored.x = cx - base_restored.width / 2;
-        base_restored.y = cy - base_restored.height / 2;
+        auto oc = output->get_cursor_position();
+        base_restored.x = oc.x - base_restored.width / 2;
+        base_restored.y = oc.y - base_restored.height / 2;
 
         /* if the view goes outside of the workarea, try to move it back inside */
         auto wa = output->workspace->get_workarea();

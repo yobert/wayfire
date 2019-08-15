@@ -221,7 +221,7 @@ bool wf::wlr_surface_base_t::_is_mapped() const
     return surface;
 }
 
-wf_surface_size_t wf::wlr_surface_base_t::_get_size() const
+wf_size_t wf::wlr_surface_base_t::_get_size() const
 {
     if (!_is_mapped())
         return {0, 0};

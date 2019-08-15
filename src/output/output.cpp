@@ -72,8 +72,9 @@ void wf::output_t::refocus(wayfire_view skip_view)
 
     if (views.empty())
     {
-        if (wf::get_core().get_active_output() == this)
+        if (wf::get_core().get_active_output() == this) {
             log_debug("warning: no focused views in the focused layer, probably a bug");
+        }
 
         /* Usually, we focus a layer so that a particular view has focus, i.e
          * we expect that there is a view in the focused layer. However we
@@ -92,11 +93,11 @@ wf::output_t::~output_t()
 }
 wf::output_impl_t::~output_impl_t() { }
 
-std::tuple<int, int> wf::output_t::get_screen_size() const
+wf_size_t wf::output_t::get_screen_size() const
 {
     int w, h;
     wlr_output_effective_resolution(handle, &w, &h);
-    return std::make_tuple(w, h);
+    return {w, h};
 }
 
 wf_geometry wf::output_t::get_relative_geometry() const
@@ -143,12 +144,11 @@ void wf::output_t::ensure_pointer() const
     } */
 }
 
-std::tuple<int, int> wf::output_t::get_cursor_position() const
+wf_pointf wf::output_t::get_cursor_position() const
 {
-    GetTuple(x, y, wf::get_core().get_cursor_position());
     auto og = get_layout_geometry();
-
-    return std::make_tuple(x - og.x, y - og.y);
+    auto gc = wf::get_core().get_cursor_position();
+    return {gc.x - og.x, gc.y - og.y};
 }
 
 bool wf::output_t::ensure_visible(wayfire_view v)
@@ -170,13 +170,13 @@ bool wf::output_t::ensure_visible(wayfire_view v)
 
     int dvx = std::floor(1.0 * dx / g.width);
     int dvy = std::floor(1.0 * dy / g.height);
-    GetTuple(vx, vy, workspace->get_current_workspace());
+    auto cws = workspace->get_current_workspace();
 
     change_viewport_signal data;
 
     data.carried_out = false;
-    data.old_viewport = std::make_tuple(vx, vy);
-    data.new_viewport = std::make_tuple(vx + dvx, vy + dvy);
+    data.old_viewport = cws;
+    data.new_viewport = cws + wf_point{dvx, dvy};
 
     emit_signal("set-workspace-request", &data);
     if (!data.carried_out)
@@ -196,7 +196,12 @@ void wf::output_impl_t::focus_view(wayfire_view v, bool raise)
 {
     if (v && workspace->get_view_layer(v) < wf::get_core().get_focused_layer())
     {
-        log_info("Denying focus request for a view from a lower layer than the focused layer");
+        auto active_view = get_active_view();
+        if (active_view && active_view->get_app_id().find("$unfocus") == 0)
+            return focus_view(nullptr, false);
+
+        log_debug("Denying focus request for a view from a lower layer than the"
+            " focused layer");
         return;
     }
 
@@ -237,12 +242,16 @@ wayfire_view wf::output_impl_t::get_active_view() const
     return active_view;
 }
 
-bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner)
+bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner,
+    bool ignore_inhibit)
 {
     if (!owner)
         return false;
 
     if (wf::get_core().get_active_output() != this)
+        return false;
+
+    if (this->inhibited && !ignore_inhibit)
         return false;
 
     if (active_plugins.find(owner.get()) != active_plugins.end())
@@ -303,8 +312,10 @@ wf::plugin_grab_interface_t* wf::output_impl_t::get_input_grab_interface()
     return nullptr;
 }
 
-void wf::output_impl_t::break_active_plugins()
+void wf::output_impl_t::inhibit_plugins()
 {
+    this->inhibited = true;
+
     std::vector<wf::plugin_grab_interface_t*> ifaces;
     for (auto p : active_plugins)
     {
@@ -314,6 +325,16 @@ void wf::output_impl_t::break_active_plugins()
 
     for (auto p : ifaces)
         p->callbacks.cancel();
+}
+
+void wf::output_impl_t::uninhibit_plugins()
+{
+    this->inhibited = false;
+}
+
+bool wf::output_impl_t::is_inhibited() const
+{
+    return this->inhibited;
 }
 
 /* simple wrappers for wf::get_core_impl().input, as it isn't exposed to plugins */

@@ -38,7 +38,7 @@ class compositor_core_impl_t : public compositor_core_t
     /**
      * Initialize the compositor core. Called only by main()
      */
-    void init(wayfire_config *config);
+    void init();
     wayfire_shell *wf_shell;
     wf_gtk_shell *gtk_shell;
 
@@ -56,13 +56,14 @@ class compositor_core_impl_t : public compositor_core_t
     void hide_cursor() override;
     void warp_cursor(int x, int y) override;
 
-    std::tuple<int, int> get_cursor_position() override;
-    std::tuple<int, int> get_touch_position(int id) override;
+    wf_pointf get_cursor_position() override;
+    wf_pointf get_touch_position(int id) override;
 
     wf::surface_interface_t *get_cursor_focus() override;
     wf::surface_interface_t *get_touch_focus() override;
 
     std::vector<nonstd::observer_ptr<wf::input_device_t>> get_input_devices() override;
+    virtual wlr_cursor* get_wlr_cursor() override;
 
     void add_view(std::unique_ptr<wf::view_interface_t> view) override;
     void set_active_view(wayfire_view v) override;

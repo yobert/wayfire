@@ -27,8 +27,8 @@ class wf_view_transformer_t
 
         // TODO: rename
         // transformed_to_local_point -> untransform/reverse()
-        virtual wf_point local_to_transformed_point(wf_geometry view, wf_point point) = 0;
-        virtual wf_point transformed_to_local_point(wf_geometry view, wf_point point) = 0;
+        virtual wf_pointf local_to_transformed_point(wf_geometry view, wf_pointf point) = 0;
+        virtual wf_pointf transformed_to_local_point(wf_geometry view, wf_pointf point) = 0;
 
         /* return the boundingbox of region after applying all transformations */
         virtual wlr_box get_bounding_box(wf_geometry view, wlr_box region);
@@ -60,11 +60,6 @@ class wf_view_transformer_t
         virtual ~wf_view_transformer_t() {}
 };
 
-enum
-{
-    WF_INVALID_INPUT_COORDINATES = (1 << 31)
-};
-
 /* 2D transforms operate with a coordinate system centered at the
  * center of the main surface(the wayfire_view_t) */
 class wf_2D_view : public wf_view_transformer_t
@@ -82,8 +77,8 @@ class wf_2D_view : public wf_view_transformer_t
 
         virtual uint32_t get_z_order() { return WF_TRANSFORMER_2D; }
 
-        virtual wf_point local_to_transformed_point(wf_geometry view, wf_point point);
-        virtual wf_point transformed_to_local_point(wf_geometry view, wf_point point);
+        virtual wf_pointf local_to_transformed_point(wf_geometry view, wf_pointf point);
+        virtual wf_pointf transformed_to_local_point(wf_geometry view, wf_pointf point);
 
         virtual void render_box(uint32_t src_tex, wlr_box src_box,
             wlr_box scissor_box, const wf_framebuffer& target_fb);
@@ -106,8 +101,8 @@ class wf_3D_view : public wf_view_transformer_t
 
         virtual uint32_t get_z_order() { return WF_TRANSFORMER_3D; }
 
-        virtual wf_point local_to_transformed_point(wf_geometry view, wf_point point);
-        virtual wf_point transformed_to_local_point(wf_geometry view, wf_point point);
+        virtual wf_pointf local_to_transformed_point(wf_geometry view, wf_pointf point);
+        virtual wf_pointf transformed_to_local_point(wf_geometry view, wf_pointf point);
 
         virtual void render_box(uint32_t src_tex, wlr_box src_box,
             wlr_box scissor_box, const wf_framebuffer& target_fb);

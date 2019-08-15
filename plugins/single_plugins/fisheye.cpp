@@ -167,12 +167,12 @@ class wayfire_fisheye : public wf::plugin_interface_t
         void render(const wf_framebuffer_base& source,
             const wf_framebuffer_base& dest)
         {
-            GetTuple(x, y, output->get_cursor_position());
-            wlr_box box = {x, y, 1, 1};
+            auto oc = output->get_cursor_position();
+            wlr_box box = {(int)oc.x, (int)oc.y, 1, 1};
             box = output->render->get_target_framebuffer().
                 framebuffer_box_from_geometry_box(box);
-            x = box.x;
-            y = box.y;
+            oc.x = box.x;
+            oc.y = box.y;
 
             static const float vertexData[] = {
                 -1.0f, -1.0f,
@@ -190,7 +190,7 @@ class wayfire_fisheye : public wf::plugin_interface_t
             GL_CALL(glBindTexture(GL_TEXTURE_2D, source.tex));
             GL_CALL(glActiveTexture(GL_TEXTURE0));
 
-            GL_CALL(glUniform2f(mouseID, x, y));
+            GL_CALL(glUniform2f(mouseID, oc.x, oc.y));
             GL_CALL(glUniform2f(resID, dest.viewport_width, dest.viewport_height));
             GL_CALL(glUniform1f(radiusID, radius->as_double()));
             GL_CALL(glUniform1f(zoomID, current_zoom));

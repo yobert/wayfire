@@ -10,7 +10,7 @@ namespace wf
  * given workspace.  */
 struct workspace_stream_t
 {
-    std::tuple<int, int> ws;
+    wf_point ws;
     wf_framebuffer_base buffer;
     bool running = false;
 

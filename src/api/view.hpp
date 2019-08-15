@@ -151,16 +151,14 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
     /**
      * Find the surface in the view's tree which contains the given point.
      *
-     * @param cursor_x The x coordinate
-     * @param cursor_y The y coordinate
-     * @param sx The x coordinate of the point relative to the returned surface
-     * @param sy The y coordinate of the point relative to the returned surface
+     * @param cursor The coordinate of the point to search at
+     * @param local The coordinate of the point relative to the returned surface
      *
      * @return The surface which is at the given point, or nullptr if no such
-     *         surface was found (in which case sx and sy have no meaning)
+     *         surface was found (in which case local has no meaning)
      */
     virtual surface_interface_t *map_input_coordinates(
-        int cursor_x, int cursor_y, int &sx, int &sy);
+        wf_pointf cursor, wf_pointf& local);
 
     /**
      * Transform the given point's coordinates into the local coordinate system
@@ -171,7 +169,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      * @param surface The reference surface, or null for view-local coordinates
      * @return The point in surface-local coordinates
      */
-    virtual wf_point global_to_local_point(const wf_point& arg,
+    virtual wf_pointf global_to_local_point(const wf_pointf& arg,
         surface_interface_t* surface);
 
     /**
@@ -314,6 +312,16 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
     /** @return the bounding box of the view up to the given transformer */
     wlr_box get_bounding_box(
         nonstd::observer_ptr<wf_view_transformer_t> transformer);
+
+    /**
+     * Transform a point with the view's transformers.
+     *
+     * @param point The point in output-local coordinates, before applying the
+     *              view transformers.
+     * @return The point in output-local coordinates after applying the
+     *         view transformers.
+     */
+    wf_pointf transform_point(const wf_pointf& point);
 
     /** @return a bounding box of the given box after applying the
      * transformers of the view */

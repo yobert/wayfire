@@ -153,7 +153,7 @@ void wf::wlr_view_t::move(int x, int y)
     set_position(x, y, get_wm_geometry(), true);
 }
 
-void wf::wlr_view_t::adjust_anchored_edge(wf_surface_size_t new_size)
+void wf::wlr_view_t::adjust_anchored_edge(wf_size_t new_size)
 {
     if (view_impl->edges)
     {

@@ -262,13 +262,10 @@ class wayfire_move : public wf::plugin_interface_t
             if (!view)
                 return;
 
-            GetTuple(tx, ty, wf::get_core().get_touch_position(0));
-            if (tx != wf::compositor_core_t::invalid_coordinate &&
-                ty != wf::compositor_core_t::invalid_coordinate)
-            {
+            auto touch = wf::get_core().get_touch_position(0);
+            if (!std::isnan(touch.x) && !std::isnan(touch.y)) {
                 is_using_touch = true;
-            } else
-            {
+            } else {
                 is_using_touch = false;
             }
 
@@ -290,7 +287,10 @@ class wayfire_move : public wf::plugin_interface_t
             if (view->get_output() != output)
                 return;
 
-            if (!output->activate_plugin(grab_interface))
+            uint32_t view_layer = output->workspace->get_view_layer(view);
+            /* Allow moving an on-screen keyboard while screen is locked */
+            bool ignore_inhibit = view_layer == wf::LAYER_DESKTOP_WIDGET;
+            if (!output->activate_plugin(grab_interface, ignore_inhibit))
                 return;
 
             if (!grab_interface->grab()) {
@@ -300,9 +300,7 @@ class wayfire_move : public wf::plugin_interface_t
 
             stuck_in_slot = !view->tiled_edges && !view->fullscreen;
             grabbed_geometry = view->get_wm_geometry();
-
-            GetTuple(sx, sy, get_input_coords());
-            grab_start = {sx, sy};
+            grab_start = get_input_coords();
 
             output->focus_view(view, true);
             if (enable_snap->as_int())
@@ -311,7 +309,7 @@ class wayfire_move : public wf::plugin_interface_t
             this->view = view;
             output->render->set_redraw_always();
 
-            start_wobbly(view, sx, sy);
+            start_wobbly(view, grab_start.x, grab_start.y);
             if (!stuck_in_slot)
                 snap_wobbly(view, view->get_bounding_box());
 
@@ -406,8 +404,8 @@ class wayfire_move : public wf::plugin_interface_t
             /* Destroy previous preview */
             if (slot.preview)
             {
-                GetTuple(ix, iy, get_input_coords());
-                slot.preview->set_target_geometry({ix, iy, 1, 1}, 0);
+                auto input = get_input_coords();
+                slot.preview->set_target_geometry({input.x, input.y, 1, 1}, 0);
                 slot.preview = nullptr;
             }
 
@@ -425,8 +423,9 @@ class wayfire_move : public wf::plugin_interface_t
                 if (query.out_geometry.width <= 0 || query.out_geometry.height <= 0)
                     return;
 
-                GetTuple(ix, iy, get_input_coords());
-                auto preview = new wf_move_snap_preview(output, {ix, iy, 1, 1});
+                auto input = get_input_coords();
+                auto preview = new wf_move_snap_preview(output,
+                    {input.x, input.y, 1, 1});
 
                 wf::get_core().add_view(
                     std::unique_ptr<wf::view_interface_t> (preview));
@@ -453,22 +452,23 @@ class wayfire_move : public wf::plugin_interface_t
         }
 
         /* Returns the currently used input coordinates in global compositor space */
-        std::tuple<int, int> get_global_input_coords()
+        wf_point get_global_input_coords()
         {
+            wf_pointf input;
             if (is_using_touch) {
-                return wf::get_core().get_touch_position(0);
+                input = wf::get_core().get_touch_position(0);
             } else {
-                return wf::get_core().get_cursor_position();
+                input = wf::get_core().get_cursor_position();
             }
+
+            return {(int)input.x, (int)input.y};
         }
 
         /* Returns the currently used input coordinates in output-local space */
-        std::tuple<int, int> get_input_coords()
+        wf_point get_input_coords()
         {
-            GetTuple(gx, gy, get_global_input_coords());
             auto og = output->get_layout_geometry();
-
-            return std::tuple<int, int> {gx - og.x, gy - og.y};
+            return get_global_input_coords() - wf_point{og.x, og.y};
         }
 
         /* Moves the view to another output and sends a move request */
@@ -575,9 +575,9 @@ class wayfire_move : public wf::plugin_interface_t
         {
             /* The mouse isn't on our output anymore -> transfer ownership of
              * the move operation to the other output where the input currently is */
-            GetTuple(global_x, global_y, get_global_input_coords());
+            auto global = get_global_input_coords();
             auto target_output =
-                wf::get_core().output_layout->get_output_at(global_x, global_y);
+                wf::get_core().output_layout->get_output_at(global.x, global.y);
             if (target_output != output)
             {
                 /* The move plugin on the next output will create new mirror views */
@@ -604,12 +604,11 @@ class wayfire_move : public wf::plugin_interface_t
 
         void handle_input_motion()
         {
-            GetTuple(x, y, get_input_coords());
+            auto input = get_input_coords();
+            move_wobbly(view, input.x, input.y);
 
-            move_wobbly(view, x, y);
-
-            int dx = x - grab_start.x;
-            int dy = y - grab_start.y;
+            int dx = input.x - grab_start.x;
+            int dy = input.y - grab_start.y;
 
             if (std::sqrt(dx * dx + dy * dy) >= snap_off_threshold->as_cached_int() &&
                 !stuck_in_slot && enable_snap_off->as_int())
@@ -625,7 +624,7 @@ class wayfire_move : public wf::plugin_interface_t
 
             /* TODO: possibly show some visual indication */
             if (enable_snap->as_cached_int())
-                update_slot(calc_slot(x, y));
+                update_slot(calc_slot(input.x, input.y));
         }
 
         void fini()

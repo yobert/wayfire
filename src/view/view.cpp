@@ -166,10 +166,9 @@ wlr_box wf::view_interface_t::get_bounding_box()
     return transform_region(get_untransformed_bounding_box());
 }
 
-#define INVALID_COORDS(p) (p.x == WF_INVALID_INPUT_COORDINATES || \
-    p.y == WF_INVALID_INPUT_COORDINATES)
+#define INVALID_COORDS(p) (std::isnan(p.x) || std::isnan(p.y))
 
-wf_point wf::view_interface_t::global_to_local_point(const wf_point& arg,
+wf_pointf wf::view_interface_t::global_to_local_point(const wf_pointf& arg,
     wf::surface_interface_t* surface)
 {
     if (!is_mapped())
@@ -177,7 +176,7 @@ wf_point wf::view_interface_t::global_to_local_point(const wf_point& arg,
 
     /* First, untransform the coordinates to make them relative to the view's
      * internal coordinate system */
-    wf_point result = arg;
+    wf_pointf result = arg;
     if (view_impl->transforms.size())
     {
         auto box = get_untransformed_bounding_box();
@@ -214,20 +213,20 @@ wf_point wf::view_interface_t::global_to_local_point(const wf_point& arg,
 }
 
 wf::surface_interface_t *wf::view_interface_t::map_input_coordinates(
-    int cursor_x, int cursor_y, int &sx, int &sy)
+    wf_pointf cursor, wf_pointf& local)
 {
     if (!is_mapped())
         return nullptr;
 
     auto view_relative_coordinates =
-        global_to_local_point({cursor_x, cursor_y}, nullptr);
+        global_to_local_point(cursor, nullptr);
 
     for (auto& child : enumerate_surfaces({0, 0}))
     {
-        sx = view_relative_coordinates.x - child.position.x;
-        sy = view_relative_coordinates.y - child.position.y;
+        local.x = view_relative_coordinates.x - child.position.x;
+        local.y = view_relative_coordinates.y - child.position.y;
 
-        if (child.surface->accepts_input(sx, sy))
+        if (child.surface->accepts_input(local.x, local.y))
             return child.surface;
     }
 
@@ -662,6 +661,20 @@ wlr_box wf::view_interface_t::transform_region(const wlr_box& region)
         nonstd::observer_ptr<wf_view_transformer_t>(nullptr));
 }
 
+wf_pointf wf::view_interface_t::transform_point(const wf_pointf& point)
+{
+    auto result = point;
+    auto view = get_untransformed_bounding_box();
+
+    view_impl->transforms.for_each([&] (auto& tr)
+    {
+        result = tr->transform->local_to_transformed_point(view, result);
+        view = tr->transform->get_bounding_box(view, view);
+    });
+
+    return result;
+}
+
 bool wf::view_interface_t::intersects_region(const wlr_box& region)
 {
     /* fallback to the whole transformed boundingbox, if it exists */
@@ -860,20 +873,20 @@ void wf::view_interface_t::damage_raw(const wlr_box& box)
      * their damage to all workspaces as well */
     if (role == wf::VIEW_ROLE_SHELL_VIEW)
     {
-        GetTuple(vw, vh, get_output()->workspace->get_workspace_grid_size());
-        GetTuple(vx, vy, get_output()->workspace->get_current_workspace());
+        auto wsize = get_output()->workspace->get_workspace_grid_size();
+        auto cws = get_output()->workspace->get_current_workspace();
 
         /* Damage only the visible region of the shell view.
          * This prevents hidden panels from spilling damage onto other workspaces */
         wlr_box ws_box = get_output()->render->get_damage_box();
         wlr_box visible_damage = wf_geometry_intersection(damage_box, ws_box);
 
-        for (int i = 0; i < vw; i++)
+        for (int i = 0; i < wsize.width; i++)
         {
-            for (int j = 0; j < vh; j++)
+            for (int j = 0; j < wsize.height; j++)
             {
-                const int dx = (i - vx) * ws_box.width;
-                const int dy = (j - vy) * ws_box.height;
+                const int dx = (i - cws.x) * ws_box.width;
+                const int dy = (j - cws.y) * ws_box.height;
                 get_output()->render->damage(visible_damage + wf_point{dx, dy});
             }
         }

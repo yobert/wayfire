@@ -72,7 +72,7 @@ class wlr_surface_base_t
      * surface_implementation_t
      */
     virtual bool _is_mapped() const;
-    virtual wf_surface_size_t _get_size() const;
+    virtual wf_size_t _get_size() const;
     virtual void _simple_render(const wf_framebuffer& fb, int x, int y,
         const wf_region& damage);
 
@@ -100,7 +100,7 @@ class wlr_child_surface_base_t :
 
     /* Just pass to the default wlr surface implementation */
     virtual bool is_mapped() const override { return _is_mapped(); }
-    virtual wf_surface_size_t get_size() const override { return _get_size(); }
+    virtual wf_size_t get_size() const override { return _get_size(); }
     virtual void simple_render(const wf_framebuffer& fb, int x, int y,
         const wf_region& damage) override {
         _simple_render(fb, x, y, damage);

@@ -415,6 +415,10 @@ static void zwf_shell_manager_get_wm_surface(struct wl_client *client,
             layer = wf::LAYER_LOCK;
             break;
 
+        case ZWF_WM_SURFACE_V1_ROLE_DESKTOP_WIDGET:
+            layer = wf::LAYER_DESKTOP_WIDGET;
+            break;
+
         default:
             log_error ("Invalid role for shell view");
     }

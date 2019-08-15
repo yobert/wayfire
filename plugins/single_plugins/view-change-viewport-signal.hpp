@@ -5,7 +5,7 @@
 
 struct view_change_viewport_signal : public _view_signal
 {
-    std::tuple<int, int> from, to;
+    wf_point from, to;
 };
 
 #endif /* end of include guard: VIEW_CHANGE_VIEWPORT_CPP */

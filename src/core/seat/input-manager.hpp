@@ -7,6 +7,7 @@
 
 #include "seat.hpp"
 #include "cursor.hpp"
+#include "pointer.hpp"
 #include "plugin.hpp"
 #include "view.hpp"
 
@@ -58,9 +59,6 @@ using wf_binding_ptr = std::unique_ptr<wf_binding>;
 class input_manager
 {
     private:
-      wf::plugin_grab_interface_t* active_grab = nullptr;
-        bool session_active = true;
-
         wf::wl_listener_wrapper input_device_created, request_start_drag, start_drag,
                                 request_set_cursor, request_set_selection,
                                 request_set_primary_selection;
@@ -78,30 +76,17 @@ class input_manager
 
         void create_seat();
 
-        // returns the surface under the given global coordinates
-        // if no such surface (return NULL), lx and ly are undefined
-        wf::surface_interface_t* input_surface_at(int x, int y,
-            int& lx, int& ly);
-
         void validate_drag_request(wlr_seat_request_start_drag_event *ev);
-        void update_drag_icon();
-
-        /* TODO: move this in a wf_keyboard struct,
-         * This might not work with multiple keyboards */
-        uint32_t mod_binding_key = 0; /* The keycode which triggered the modifier binding */
         std::chrono::steady_clock::time_point mod_binding_start;
         std::vector<std::function<void()>> match_keys(uint32_t mods, uint32_t key, uint32_t mod_binding_key = 0);
 
         wf::signal_callback_t surface_map_state_changed;
-
-        wf_region constraint_region;
-        wlr_pointer_constraint_v1 *active_pointer_constraint = nullptr;
-
-        wf_point get_cursor_position_relative_to_cursor_focus();
-        wf_point get_cursor_position_relative_to_cursor_focus(double x, double y);
-        wf_point get_absolute_cursor_from_relative(wf_point relative);
+        wf::signal_callback_t output_added;
 
     public:
+        /* TODO: move this in a wf_keyboard struct,
+         * This might not work with multiple keyboards */
+        uint32_t mod_binding_key = 0; /* The keycode which triggered the modifier binding */
 
         input_manager();
         ~input_manager();
@@ -109,20 +94,19 @@ class input_manager
         void handle_new_input(wlr_input_device *dev);
         void handle_input_destroyed(wlr_input_device *dev);
 
-        void update_cursor_position(uint32_t time_msec, bool real_update = true);
-        void update_cursor_focus(wf::surface_interface_t *surface, int lx, int ly);
-        void set_touch_focus(wf::surface_interface_t *surface, uint32_t time, int id, int lx, int ly);
+        void update_drag_icon();
 
-        void set_pointer_constraint(wlr_pointer_constraint_v1 *constraint, bool last_destroyed = false);
-        wlr_pointer_constraint_v1 *get_active_pointer_constraint();
+        void set_touch_focus(wf::surface_interface_t *surface, uint32_t time, int id, wf_pointf local);
 
-        wl_client *exclusive_client = NULL;
+       wf::plugin_grab_interface_t* active_grab = nullptr;
+       wl_client *exclusive_client = NULL;
 
         wlr_seat *seat = nullptr;
         std::unique_ptr<wf_cursor> cursor;
+        std::unique_ptr<wf::LogicalPointer> lpointer;
 
         wayfire_view keyboard_focus;
-        wf::surface_interface_t* cursor_focus = nullptr, *touch_focus = nullptr;
+        wf::surface_interface_t* touch_focus = nullptr;
 
         std::unique_ptr<wf_touch> our_touch;
         std::unique_ptr<wf_drag_icon> drag_icon;
@@ -141,34 +125,25 @@ class input_manager
 
         bool can_focus_surface(wf::surface_interface_t *surface);
         void set_exclusive_focus(wl_client *client);
+        // returns the surface under the given global coordinates
+        // if no such surface (return NULL), lx and ly are undefined
+        wf::surface_interface_t* input_surface_at(wf_pointf global, wf_pointf& local);
 
-        void toggle_session();
         uint32_t get_modifiers();
 
         void free_output_bindings(wf::output_t *output);
 
-        void handle_pointer_axis  (wlr_event_pointer_axis *ev);
-        void handle_pointer_motion(wlr_event_pointer_motion *ev);
-        void handle_pointer_motion_absolute(wlr_event_pointer_motion_absolute *ev);
-        bool handle_pointer_button(wlr_event_pointer_button *ev);
-        void handle_pointer_frame();
-
-        void handle_pointer_swipe_begin(wlr_event_pointer_swipe_begin *ev);
-        void handle_pointer_swipe_update(wlr_event_pointer_swipe_update *ev);
-        void handle_pointer_swipe_end(wlr_event_pointer_swipe_end *ev);
-        void handle_pointer_pinch_begin(wlr_event_pointer_pinch_begin *ev);
-        void handle_pointer_pinch_update(wlr_event_pointer_pinch_update *ev);
-        void handle_pointer_pinch_end(wlr_event_pointer_pinch_end *ev);
-
         bool handle_keyboard_key(uint32_t key, uint32_t state);
         void handle_keyboard_mod(uint32_t key, uint32_t state);
 
-        void handle_touch_down  (uint32_t time, int32_t id, int32_t x, int32_t y);
-        void handle_touch_motion(uint32_t time, int32_t id, int32_t x, int32_t y);
+        void handle_touch_down  (uint32_t time, int32_t id, wf_pointf pos);
+        void handle_touch_motion(uint32_t time, int32_t id, wf_pointf pos, bool real_update);
         void handle_touch_up    (uint32_t time, int32_t id);
 
         void handle_gesture(wf_touch_gesture g);
 
+        bool check_button_bindings(uint32_t button);
+        bool check_axis_bindings(wlr_event_pointer_axis *ev);
         void check_touch_bindings(int32_t x, int32_t y);
 
         wf_binding* new_binding(wf_binding_type type, wf_option value, wf::output_t *output, void *callback);

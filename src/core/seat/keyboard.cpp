@@ -9,11 +9,11 @@ extern "C"
 
 #include "keyboard.hpp"
 #include "../core-impl.hpp"
+#include "../../output/output-impl.hpp"
 #include "cursor.hpp"
 #include "touch.hpp"
 #include "input-manager.hpp"
 #include "compositor-view.hpp"
-#include "input-inhibit.hpp"
 
 void wf_keyboard::setup_listeners()
 {
@@ -100,8 +100,6 @@ wf_keyboard::~wf_keyboard() { }
 
 void input_manager::set_keyboard_focus(wayfire_view view, wlr_seat *seat)
 {
-    auto kbd = wlr_seat_get_keyboard(seat);
-
     auto surface = view ? view->get_keyboard_focus_surface() : NULL;
     auto iv = interactive_view_from_view(view.get());
     auto oiv = interactive_view_from_view(keyboard_focus.get());
@@ -112,16 +110,19 @@ void input_manager::set_keyboard_focus(wayfire_view view, wlr_seat *seat)
         iv->handle_keyboard_enter();
 
     /* Don't focus if we have an active grab */
-    if (kbd != NULL && !active_grab)
+    if (!active_grab)
     {
-        wlr_seat_keyboard_notify_enter(seat, surface, kbd->keycodes,
-            kbd->num_keycodes, &kbd->modifiers);
-    } else
-    {
-        wlr_seat_keyboard_notify_enter(seat, surface, NULL, 0, NULL);
+        auto kbd = wlr_seat_get_keyboard(seat);
+        wlr_seat_keyboard_notify_enter(seat, surface,
+            kbd ? kbd->keycodes : NULL,
+            kbd ? kbd->num_keycodes : 0,
+            kbd ? &kbd->modifiers : NULL);
+        keyboard_focus = view;
     }
-
-    keyboard_focus = view;
+    else
+    {
+        wlr_seat_keyboard_notify_enter(seat, NULL, NULL, 0, NULL);
+    }
 }
 
 static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
@@ -135,7 +136,9 @@ static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)
         return false;
 
     /* Somebody inhibited the output, most probably a lockscreen */
-    if (is_output_inhibited(wf::get_core().get_active_output()))
+    auto output_impl =
+        static_cast<wf::output_impl_t*> (wf::get_core().get_active_output());
+    if (output_impl->is_inhibited())
         return false;
 
     int target_vt = key - KEY_F1 + 1;
@@ -147,6 +150,9 @@ static uint32_t mod_from_key(wlr_seat *seat, uint32_t key)
 {
     xkb_keycode_t keycode = key + 8;
     auto keyboard = wlr_seat_get_keyboard(seat);
+    if (!keyboard)
+        return 0; // potentially a bug?
+
     const xkb_keysym_t *keysyms;
     auto keysyms_len = xkb_state_key_get_syms(keyboard->xkb_state, keycode, &keysyms);
 
@@ -229,10 +235,10 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
         /* as long as we have pressed only modifiers, we should check for modifier bindings on release */
         if (mod)
         {
-            bool modifiers_only = !cursor->count_pressed_buttons
+            bool modifiers_only = !lpointer->has_pressed_buttons()
                 && (!our_touch || our_touch->gesture_recognizer.current.empty());
 
-            for (size_t i = 0; i < kbd->num_keycodes; i++)
+            for (size_t i = 0; kbd && i < kbd->num_keycodes; i++)
                 if (!mod_from_key(seat, kbd->keycodes[i]))
                     modifiers_only = false;
 
