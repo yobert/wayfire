@@ -51,6 +51,9 @@ conf_data.set('INSTALL_PREFIX', get_option('prefix'))
 add_project_arguments(['-DWLR_USE_UNSTABLE'], language: ['cpp', 'c'])
 add_project_link_arguments(['-rdynamic', '-Wl,-E'], language: 'cpp')
 
+ccp = meson.get_compiler('cpp')
+wlroots_has_xwayland = ccp.get_define('WLR_HAS_XWAYLAND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
+
 if get_option('buildtype') == 'debug' or get_option('enable_debug_output')
   conf_data.set('WAYFIRE_DEBUG_ENABLED', true)
 else
@@ -98,6 +101,7 @@ summary = [
 	'debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED')),
 	'     imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
 	'      gles32: @0@'.format(conf_data.get('USE_GLES32')),
+	'    xwayland: @0@'.format(wlroots_has_xwayland),
 	'graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG')),
 	'----------------',
 	''
