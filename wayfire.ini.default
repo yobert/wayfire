@@ -1,8 +1,7 @@
 [core]
-plugins = viewport_impl resize command vswitch oswitch rotator grid \
-          window-rules autostart wrot place invert animate move switcher \
-          fast-switcher fisheye zoom expo cube wobbly decoration alpha \
-          idle
+plugins = resize command vswitch oswitch grid window-rules autostart \
+          wrot place invert animate move switcher fast-switcher \
+          fisheye zoom expo cube wobbly decoration alpha idle \
 
 # number of horizontal workspaces
 vwidth = 3
