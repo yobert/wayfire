@@ -182,6 +182,12 @@ wayfire_xdg_view<XdgToplevelVersion>::wayfire_xdg_view(XdgToplevelVersion *top)
     xdg_toplevel->base->data = dynamic_cast<view_interface_t*> (this);
     // set initial parent
     on_set_parent.emit(nullptr);
+
+    if (xdg_toplevel->client_pending.fullscreen)
+        fullscreen_request(get_output(), true);
+
+    if (xdg_toplevel->client_pending.maximized)
+        tile_request(wf::TILED_EDGES_ALL);
 }
 
 template<class XdgToplevelVersion>
@@ -209,12 +215,6 @@ wf_geometry get_xdg_geometry<wlr_xdg_toplevel_v6>(wlr_xdg_toplevel_v6 *toplevel)
 template<class XdgToplevelVersion>
 void wayfire_xdg_view<XdgToplevelVersion>::map(wlr_surface *surface)
 {
-    if (xdg_toplevel->client_pending.maximized)
-        tile_request(wf::TILED_EDGES_ALL);
-
-    if (xdg_toplevel->client_pending.fullscreen)
-        fullscreen_request(get_output(), true);
-
     wlr_view_t::map(surface);
     create_toplevel();
 }
