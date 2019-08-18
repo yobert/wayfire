@@ -1,11 +1,9 @@
 /**
  * Implementation of the wayfire-shell-unstable-v2 protocol
  */
-#include <algorithm>
 #include "output.hpp"
 #include "core.hpp"
 #include "debug.hpp"
-#include "workspace-manager.hpp"
 #include "output-layout.hpp"
 #include "render-manager.hpp"
 #include "wayfire-shell.hpp"
@@ -44,8 +42,6 @@ class wfs_hotspot : public noncopyable_t
         auto gcf = wf::get_core().get_cursor_position();
         wf_point gc{(int)gcf.x, (int)gcf.y};
 
-        log_info("check cursor position %d %d " Prwg, gc.x, gc.y, Ewg(hotspot_geometry));
-
         if (!(hotspot_geometry & gc))
         {
             /* Cursor outside of the hotspot */
@@ -63,7 +59,6 @@ class wfs_hotspot : public noncopyable_t
 
         if (!timer.is_connected())
         {
-            log_info("connect timer");
             timer.set_timeout(timeout_ms, [=] () {
                 hotspot_triggered = true;
                 zwf_hotspot_v2_send_triggered(hotspot_resource);
@@ -275,6 +270,66 @@ static void handle_output_destroy(wl_resource *resource)
     wl_resource_set_user_data(resource, nullptr);
 }
 
+/* ------------------------------ wfs_surface ------------------------------- */
+static void handle_surface_destroy(wl_resource *resource);
+static void handle_zwf_surface_interactive_move(wl_client*,
+    wl_resource *resource);
+
+static struct zwf_surface_v2_interface zwf_surface_impl = {
+    .interactive_move = handle_zwf_surface_interactive_move,
+};
+
+/**
+ * Represents a zwf_surface_v2.
+ * Lifetime is managed by the wl_resource
+ */
+class wfs_surface : public noncopyable_t
+{
+    wl_resource *resource;
+    wayfire_view view;
+
+    wf::signal_callback_t on_unmap = [=] (wf::signal_data_t *data)
+    {
+        view = nullptr;
+    };
+
+  public:
+    wfs_surface(wayfire_view view, wl_client *client, int id)
+    {
+        this->view = view;
+
+        resource = wl_resource_create(client, &zwf_surface_v2_interface, 1, id);
+        wl_resource_set_implementation(resource, &zwf_surface_impl,
+            this, handle_surface_destroy);
+
+        view->connect_signal("unmap", &on_unmap);
+    }
+
+    ~wfs_surface()
+    {
+        if (this->view)
+            view->disconnect_signal("unmap", &on_unmap);
+    }
+
+    void interactive_move()
+    {
+        if (view) view->move_request();
+    }
+};
+
+static void handle_zwf_surface_interactive_move(wl_client*, wl_resource *resource)
+{
+    auto surface = (wfs_surface*)wl_resource_get_user_data(resource);
+    surface->interactive_move();
+}
+
+static void handle_surface_destroy(wl_resource *resource)
+{
+    auto surface = (wfs_surface*)wl_resource_get_user_data(resource);
+    delete surface;
+    wl_resource_set_user_data(resource, nullptr);
+}
+
 static void zwf_shell_manager_get_wf_output(wl_client *client,
     wl_resource *resource, wl_resource *output, uint32_t id)
 {
@@ -291,7 +346,12 @@ static void zwf_shell_manager_get_wf_output(wl_client *client,
 static void zwf_shell_manager_get_wf_surface(wl_client *client,
     wl_resource *resource, wl_resource *surface, uint32_t id)
 {
-    // TODO: stub
+    auto view = wf::wl_surface_to_wayfire_view(surface);
+    if (view)
+    {
+        /* Will be freed when the resource is destroyed */
+        new wfs_surface(view, client, id);
+    }
 }
 
 const struct zwf_shell_manager_v2_interface zwf_shell_manager_v2_impl =
