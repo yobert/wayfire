@@ -42,7 +42,8 @@ class vswitch : public wf::plugin_interface_t
     wayfire_view get_top_view()
     {
         auto ws = output->workspace->get_current_workspace();
-        auto views = output->workspace->get_views_on_workspace(ws, wf::LAYER_WORKSPACE, true);
+        auto views = output->workspace->get_views_on_workspace(ws,
+            wf::LAYER_WORKSPACE | wf::LAYER_FULLSCREEN, true);
 
         return views.empty() ? nullptr : views[0];
     }

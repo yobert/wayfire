@@ -4,6 +4,7 @@
 #include <signal-definitions.hpp>
 
 #include "tree-controller.hpp"
+#include "../single_plugins/view-change-viewport-signal.hpp"
 
 namespace wf
 {
@@ -150,14 +151,16 @@ class tile_plugin_t : public wf::plugin_interface_t
         controller = get_default_controller();
     }
 
-    void attach_view(wayfire_view view)
+    void attach_view(wayfire_view view, wf_point vp = {-1, -1})
     {
         if (!can_tile_view(view))
             return;
 
         stop_controller(true);
 
-        auto vp = output->workspace->get_current_workspace();
+        if (vp == wf_point{-1, -1})
+            vp = output->workspace->get_current_workspace();
+
         auto view_node = std::make_unique<wf::tile::view_node_t> (view);
         roots[vp.x][vp.y]->as_split_node()->add_child(std::move(view_node));
 
@@ -248,6 +251,34 @@ class tile_plugin_t : public wf::plugin_interface_t
 
         tile::restack_output_workspace(output,
             output->workspace->get_current_workspace());
+    };
+
+    void change_view_workspace(wayfire_view view, wf_point vp = {-1, -1})
+    {
+        auto existing_node = wf::tile::view_node_t::get_node(view);
+        if (existing_node)
+        {
+            detach_view(existing_node);
+            attach_view(view, vp);
+        }
+    }
+
+    signal_callback_t on_view_change_viewport = [=] (signal_data_t *data)
+    {
+        auto ev = (view_change_viewport_signal*) (data);
+        change_view_workspace(ev->view, ev->to);
+    };
+
+    signal_callback_t on_view_minimized = [=] (signal_data_t *data)
+    {
+        auto ev = (view_minimize_request_signal*) data;
+        auto existing_node = wf::tile::view_node_t::get_node(ev->view);
+
+        if (ev->state && existing_node)
+            detach_view(existing_node);
+
+        if (!ev->state && tile_by_default->as_cached_int())
+            attach_view(ev->view);
     };
 
     /**
@@ -406,6 +437,8 @@ class tile_plugin_t : public wf::plugin_interface_t
         output->connect_signal("view-fullscreen-request",
             &on_fullscreen_request);
         output->connect_signal("focus-view", &on_focus_changed);
+        output->connect_signal("view-change-viewport", &on_view_change_viewport);
+        output->connect_signal("view-minimize-request", &on_view_minimized);
 
         load_options(config);
         setup_callbacks();
@@ -429,6 +462,9 @@ class tile_plugin_t : public wf::plugin_interface_t
         output->disconnect_signal("view-fullscreen-request",
             &on_fullscreen_request);
         output->disconnect_signal("focus-view", &on_focus_changed);
+        output->disconnect_signal("view-change-viewport",
+            &on_view_change_viewport);
+        output->disconnect_signal("view-minimize-request", &on_view_minimized);
     }
 };
 };
