@@ -407,9 +407,6 @@ void wf::view_interface_t::minimize_request(bool state)
 
 void wf::view_interface_t::fullscreen_request(wf::output_t *out, bool state)
 {
-    if (fullscreen == state)
-        return;
-
     auto wo = (out ?: (get_output() ?: wf::get_core().get_active_output()));
     assert(wo);
 
