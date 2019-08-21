@@ -129,6 +129,12 @@ struct view_node_t : public tree_node_t
     static nonstd::observer_ptr<view_node_t> get_node(wayfire_view view);
 
   private:
+    struct scale_transformer_t;
+    nonstd::observer_ptr<scale_transformer_t> transformer;
+    signal_callback_t on_geometry_changed;
+
+    wf_geometry calculate_target_geometry();
+    void update_transformer();
 };
 
 /**

@@ -4,6 +4,7 @@
 
 #include <output.hpp>
 #include <workspace-manager.hpp>
+#include <view-transform.hpp>
 #include <algorithm>
 
 namespace wf
@@ -203,26 +204,67 @@ struct view_node_custom_data_t : public custom_data_t
     }
 };
 
+/**
+ * A simple transformer to scale and translate the view in such a way that
+ * its displayed wm geometry region is a specified box on the screen
+ */
+static const std::string scale_transformer_name =
+    "simple-tile-scale-transformer";
+struct view_node_t::scale_transformer_t : public wf_2D_view
+{
+    wf_geometry box;
+
+    scale_transformer_t(wayfire_view view, wf_geometry box)
+        : wf_2D_view(view)
+    {
+        set_box(box);
+    }
+
+    void set_box(wf_geometry box)
+    {
+        assert(box.width > 0 && box.height > 0);
+
+        this->view->damage();
+
+        auto current = this->view->get_wm_geometry();
+        if (current.width <= 0 || current.height <= 0)
+        {
+            /* view possibly unmapped?? */
+            return;
+        }
+
+        double scale_horiz = 1.0 * box.width / current.width;
+        double scale_vert = 1.0 * box.height / current.height;
+
+        /* Position of top-left corner after scaling */
+        double scaled_x = current.x + (current.width / 2.0 * (1 - scale_horiz));
+        double scaled_y = current.y + (current.height / 2.0 * (1 - scale_vert));
+
+        this->scale_x = scale_horiz;
+        this->scale_y = scale_vert;
+        this->translation_x = box.x - scaled_x;
+        this->translation_y = box.y - scaled_y;
+    }
+};
+
 view_node_t::view_node_t(wayfire_view view)
 {
     this->view = view;
     view->store_data(std::make_unique<view_node_custom_data_t> (this));
+
+    this->on_geometry_changed = [=] (wf::signal_data_t*) {update_transformer(); };
+    view->connect_signal("geometry-changed", &on_geometry_changed);
 }
 
 view_node_t::~view_node_t()
 {
+    view->pop_transformer(scale_transformer_name);
+    view->disconnect_signal("geometry-changed", &on_geometry_changed);
     view->erase_data<view_node_custom_data_t>();
 }
 
-void view_node_t::set_geometry(wf_geometry geometry)
+wf_geometry view_node_t::calculate_target_geometry()
 {
-    tree_node_t::set_geometry(geometry);
-
-    if (!view->is_mapped())
-        return;
-
-    log_info("set view node " Prwg, Ewg(geometry));
-
     /* Calculate view geometry in coordinates local to the active workspace,
      * because tree coordinates are kept in workspace-agnostic coordinates. */
     auto output = view->get_output();
@@ -246,8 +288,47 @@ void view_node_t::set_geometry(wf_geometry geometry)
         };
     }
 
+    return local_geometry;
+}
+
+void view_node_t::set_geometry(wf_geometry geometry)
+{
+    tree_node_t::set_geometry(geometry);
+
+    if (!view->is_mapped())
+        return;
+
     view->set_tiled(TILED_EDGES_ALL);
-    view->set_geometry(local_geometry);
+    view->set_geometry(calculate_target_geometry());
+}
+
+void view_node_t::update_transformer()
+{
+    auto target_geometry = calculate_target_geometry();
+    if (target_geometry.width <= 0 || target_geometry.height <= 0)
+        return;
+
+    auto wm = view->get_wm_geometry();
+    auto transformer = static_cast<scale_transformer_t*> (
+        view->get_transformer(scale_transformer_name).get());
+
+    if (wm != target_geometry)
+    {
+        if (!transformer)
+        {
+            auto tr = std::make_unique<scale_transformer_t>(view, target_geometry);
+            transformer = tr.get();
+            view->add_transformer(std::move(tr), scale_transformer_name);
+        } else
+        {
+            transformer->set_box(target_geometry);
+        }
+    }
+    else
+    {
+        if (transformer)
+            view->pop_transformer(scale_transformer_name);
+    }
 }
 
 nonstd::observer_ptr<view_node_t> view_node_t::get_node(wayfire_view view)

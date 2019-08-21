@@ -262,9 +262,22 @@ class output_viewport_manager_t
             return;
         }
 
+        change_viewport_signal data;
+        data.old_viewport = {current_vx, current_vy};
+        data.new_viewport = {nws.x, nws.y};
+
+        /* The part below is tricky, because with the current architecture
+         * we cannot make the viewport change look atomic, i.e the workspace
+         * is changed first, and then all views are moved.
+         *
+         * We first change the viewport, and then adjust the position of the
+         * views. */
+        current_vx = nws.x;
+        current_vy = nws.y;
+
         auto screen = output->get_screen_size();
-        auto dx = (current_vx - nws.x) * screen.width;
-        auto dy = (current_vy - nws.y) * screen.height;
+        auto dx = (data.old_viewport.x - nws.x) * screen.width;
+        auto dy = (data.old_viewport.y - nws.y) * screen.height;
 
         for (auto& v : output->workspace->get_views_in_layer(MIDDLE_LAYERS))
         {
@@ -272,12 +285,6 @@ class output_viewport_manager_t
                 v->get_wm_geometry().y + dy);
         }
 
-        change_viewport_signal data;
-        data.old_viewport = {current_vx, current_vy};
-        data.new_viewport = {nws.x, nws.y};
-
-        current_vx = nws.x;
-        current_vy = nws.y;
         output->emit_signal("viewport-changed", &data);
 
         /* unfocus view from last workspace */
