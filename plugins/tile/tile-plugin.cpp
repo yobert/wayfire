@@ -1,5 +1,6 @@
 #include <plugin.hpp>
 #include <output.hpp>
+#include <core.hpp>
 #include <workspace-manager.hpp>
 #include <signal-definitions.hpp>
 
@@ -112,8 +113,8 @@ class tile_plugin_t : public wf::plugin_interface_t
         return local_coordinates;
     }
 
-    template<class Controller>
-    void start_controller(wf_point grab)
+    /** Check whether we currently have a fullscreen tiled view */
+    bool has_fullscreen_view()
     {
         auto vp = output->workspace->get_current_workspace();
 
@@ -122,14 +123,28 @@ class tile_plugin_t : public wf::plugin_interface_t
             count_fullscreen += view->fullscreen;
         });
 
+        return count_fullscreen > 0;
+    }
+
+    /** Check whether the current pointer focus is tiled view */
+    bool has_tiled_focus()
+    {
+        auto focus = wf::get_core().get_cursor_focus_view();
+        return focus && tile::view_node_t::get_node(focus);
+    }
+
+    template<class Controller>
+    void start_controller(wf_point grab)
+    {
         /* No action possible in this case */
-        if (count_fullscreen)
+        if (has_fullscreen_view() || !has_tiled_focus())
             return;
 
         if (output->activate_plugin(grab_interface))
         {
             if (grab_interface->grab())
             {
+                auto vp = output->workspace->get_current_workspace();
                 controller = std::make_unique<Controller> (
                     roots[vp.x][vp.y], get_global_coordinates(grab));
             } else
