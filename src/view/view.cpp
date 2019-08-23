@@ -533,6 +533,8 @@ void wf::view_interface_t::set_decoration(surface_interface_t *frame)
     // next commit
     set_geometry(target_wm_geometry);
     damage();
+
+    emit_signal("decoration-changed", nullptr);
 }
 
 void wf::view_interface_t::add_transformer(

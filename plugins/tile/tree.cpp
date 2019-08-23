@@ -253,13 +253,18 @@ view_node_t::view_node_t(wayfire_view view)
     view->store_data(std::make_unique<view_node_custom_data_t> (this));
 
     this->on_geometry_changed = [=] (wf::signal_data_t*) {update_transformer(); };
+    this->on_decoration_changed = [=] (wf::signal_data_t*) {
+        set_geometry(geometry);
+    };
     view->connect_signal("geometry-changed", &on_geometry_changed);
+    view->connect_signal("decoration-changed", &on_decoration_changed);
 }
 
 view_node_t::~view_node_t()
 {
     view->pop_transformer(scale_transformer_name);
     view->disconnect_signal("geometry-changed", &on_geometry_changed);
+    view->disconnect_signal("decoration-changed", &on_decoration_changed);
     view->erase_data<view_node_custom_data_t>();
 }
 

@@ -131,7 +131,7 @@ struct view_node_t : public tree_node_t
   private:
     struct scale_transformer_t;
     nonstd::observer_ptr<scale_transformer_t> transformer;
-    signal_callback_t on_geometry_changed;
+    signal_callback_t on_geometry_changed, on_decoration_changed;
 
     wf_geometry calculate_target_geometry();
     void update_transformer();
