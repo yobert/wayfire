@@ -98,6 +98,18 @@ class output_layer_manager_t
         get_view_layer(view) = layer;
     }
 
+    void restack_below(wayfire_view view, wayfire_view above)
+    {
+        remove_view(view);
+        auto layer = get_view_layer(above);
+        auto& container = layers[layer_index_from_mask(layer)];
+        auto it = std::find(container.begin(), container.end(), above);
+        assert(it != container.end());
+
+        container.insert(std::next(it), view);
+        get_view_layer(view) = layer;
+    }
+
     std::vector<wayfire_view> get_views_in_layer(uint32_t layers_mask)
     {
         std::vector<wayfire_view> views;
@@ -133,8 +145,6 @@ class output_viewport_manager_t
     int current_vx;
     int current_vy;
 
-    std::vector<std::vector<
-            std::unique_ptr<workspace_implementation_t>>> workspace_impls;
     output_t *output;
 
   public:
@@ -152,16 +162,6 @@ class output_viewport_manager_t
 
         current_vx = 0;
         current_vy = 0;
-
-        workspace_impls.resize(vwidth);
-        for (auto& row : workspace_impls)
-        {
-            for (int j = 0; j < vheight; j++)
-            {
-                row.push_back(
-                    std::make_unique<default_workspace_implementation_t>());
-            }
-        }
     }
 
     /**
@@ -237,22 +237,6 @@ class output_viewport_manager_t
         return views;
     }
 
-    workspace_implementation_t* get_implementation(wf_point vt)
-    {
-        return workspace_impls[vt.x][vt.y].get();
-    }
-
-    bool set_implementation(wf_point vt,
-        std::unique_ptr<workspace_implementation_t> impl, bool overwrite)
-    {
-        bool replace = overwrite || !workspace_impls[vt.x][vt.y];
-
-        if (replace)
-            workspace_impls[vt.x][vt.y] = std::move(impl);
-
-        return replace;
-    }
-
     wf_point get_current_workspace()
     {
         return {current_vx, current_vy};
@@ -278,9 +262,22 @@ class output_viewport_manager_t
             return;
         }
 
+        change_viewport_signal data;
+        data.old_viewport = {current_vx, current_vy};
+        data.new_viewport = {nws.x, nws.y};
+
+        /* The part below is tricky, because with the current architecture
+         * we cannot make the viewport change look atomic, i.e the workspace
+         * is changed first, and then all views are moved.
+         *
+         * We first change the viewport, and then adjust the position of the
+         * views. */
+        current_vx = nws.x;
+        current_vy = nws.y;
+
         auto screen = output->get_screen_size();
-        auto dx = (current_vx - nws.x) * screen.width;
-        auto dy = (current_vy - nws.y) * screen.height;
+        auto dx = (data.old_viewport.x - nws.x) * screen.width;
+        auto dy = (data.old_viewport.y - nws.y) * screen.height;
 
         for (auto& v : output->workspace->get_views_in_layer(MIDDLE_LAYERS))
         {
@@ -288,12 +285,6 @@ class output_viewport_manager_t
                 v->get_wm_geometry().y + dy);
         }
 
-        change_viewport_signal data;
-        data.old_viewport = {current_vx, current_vy};
-        data.new_viewport = {nws.x, nws.y};
-
-        current_vx = nws.x;
-        current_vy = nws.y;
         output->emit_signal("viewport-changed", &data);
 
         /* unfocus view from last workspace */
@@ -448,6 +439,8 @@ class workspace_manager::impl
 
     bool sent_autohide = false;
 
+    std::unique_ptr<workspace_implementation_t> workspace_impl;
+
   public:
     output_layer_manager_t layer_manager;
     output_viewport_manager_t viewport_manager;
@@ -463,6 +456,23 @@ class workspace_manager::impl
 
         o->connect_signal("view-change-viewport", &view_changed_viewport);
         o->connect_signal("output-configuration-changed", &output_geometry_changed);
+    }
+
+    workspace_implementation_t* get_implementation()
+    {
+        static default_workspace_implementation_t default_impl;
+        return workspace_impl ?  workspace_impl.get() : &default_impl;
+    }
+
+    bool set_implementation(std::unique_ptr<workspace_implementation_t> impl,
+        bool overwrite)
+    {
+        bool replace = overwrite || !workspace_impl;
+
+        if (replace)
+            workspace_impl = std::move(impl);
+
+        return replace;
     }
 
     void check_autohide_panels()
@@ -562,6 +572,12 @@ class workspace_manager::impl
 
     void restack_above(wayfire_view view, wayfire_view below)
     {
+        if (!view || !below || view == below)
+        {
+            log_error("Cannot restack a view on top of itself");
+            return;
+        }
+
         uint32_t view_layer = layer_manager.get_view_layer(view);
         uint32_t below_layer = layer_manager.get_view_layer(below);
         if (view_layer == 0 || below_layer == 0 || view_layer != below_layer)
@@ -584,6 +600,26 @@ class workspace_manager::impl
         } else {
             layer_manager.restack_above(view, below);
         }
+    }
+
+    void restack_below(wayfire_view view, wayfire_view above)
+    {
+        if (!view || !above || view == above)
+        {
+            log_error("Cannot restack a view on top of itself");
+            return;
+        }
+
+        uint32_t view_layer = layer_manager.get_view_layer(view);
+        uint32_t below_layer = layer_manager.get_view_layer(above);
+        if (view_layer == 0 || below_layer == 0 || view_layer != below_layer)
+        {
+            log_error("restacking views from different layers(%d vs %d!)",
+                view_layer, below_layer);
+            return;
+        }
+
+        layer_manager.restack_below(view, above);
     }
 
     void remove_view(wayfire_view view)
@@ -624,13 +660,14 @@ void workspace_manager::move_to_workspace(wayfire_view view, wf_point ws) { retu
 void workspace_manager::add_view(wayfire_view view, layer_t layer) { return pimpl->add_view_to_layer(view, layer); }
 void workspace_manager::bring_to_front(wayfire_view view) { return pimpl->bring_to_front(view); }
 void workspace_manager::restack_above(wayfire_view view, wayfire_view below) { return pimpl->restack_above(view, below); }
+void workspace_manager::restack_below(wayfire_view view, wayfire_view below) { return pimpl->restack_below(view, below); }
 void workspace_manager::remove_view(wayfire_view view) { return pimpl->remove_view(view); }
 uint32_t workspace_manager::get_view_layer(wayfire_view view) { return pimpl->layer_manager.get_view_layer(view); }
 std::vector<wayfire_view> workspace_manager::get_views_in_layer(uint32_t layers_mask) { return pimpl->layer_manager.get_views_in_layer(layers_mask); }
 
-workspace_implementation_t* workspace_manager::get_workspace_implementation(wf_point ws) { return pimpl->viewport_manager.get_implementation(ws); }
-bool workspace_manager::set_workspace_implementation(wf_point ws, std::unique_ptr<workspace_implementation_t> impl, bool overwrite)
-{ return pimpl->viewport_manager.set_implementation(ws, std::move(impl), overwrite); }
+workspace_implementation_t* workspace_manager::get_workspace_implementation() { return pimpl->get_implementation(); }
+bool workspace_manager::set_workspace_implementation(std::unique_ptr<workspace_implementation_t> impl, bool overwrite)
+{ return pimpl->set_implementation(std::move(impl), overwrite); }
 
 void workspace_manager::set_workspace(wf_point ws) { return pimpl->viewport_manager.set_workspace(ws); }
 wf_point workspace_manager::get_current_workspace() { return pimpl->viewport_manager.get_current_workspace(); }

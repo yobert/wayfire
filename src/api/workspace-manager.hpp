@@ -124,6 +124,12 @@ class workspace_manager
     void restack_above(wayfire_view view, wayfire_view below);
 
     /**
+     * Restack the view below the given view. The stacking order of other views
+     * is left unchanged
+     */
+    void restack_below(wayfire_view view, wayfire_view above);
+
+    /**
      * Remove the view from its layer. This effectively means that the view is
      * now invisible on the output.
      */
@@ -140,21 +146,21 @@ class workspace_manager
     std::vector<wayfire_view> get_views_in_layer(uint32_t layers_mask);
 
     /**
-     * @return The workspace implementation for the given workspace
+     * @return The current workspace implementation
      */
-    workspace_implementation_t* get_workspace_implementation(wf_point ws);
+    workspace_implementation_t* get_workspace_implementation();
 
     /**
-     * Set the implementation for the given workspace.
-     * @param ws - The workspace whose implementation should be set
+     * Set the active workspace implementation
      * @param impl - The workspace implementation, or null if default
      * @param overwrite - Whether to set the implementation even if another
      *        non-default implementation has already been set.
      *
      * @return true iff the implementation has been set
      */
-    bool set_workspace_implementation(wf_point ws,
-        std::unique_ptr<workspace_implementation_t> impl, bool overwrite = false);
+    bool set_workspace_implementation(
+        std::unique_ptr<workspace_implementation_t> impl,
+        bool overwrite = false);
 
     /**
      * Change the active workspace.

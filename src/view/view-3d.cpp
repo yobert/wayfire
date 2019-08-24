@@ -124,10 +124,10 @@ wf_pointf wf_2D_view::transformed_to_local_point(wf_geometry geometry, wf_pointf
     point = get_center_relative_coords(view->get_wm_geometry(), point);
     float x = point.x, y = point.y;
 
-    x /= scale_x; y /= scale_y;
-    rotate_xy(x, y, -angle);
     x -= translation_x;
     y += translation_y;
+    rotate_xy(x, y, -angle);
+    x /= scale_x; y /= scale_y;
 
     return get_absolute_coords_from_relative(view->get_wm_geometry(), {x, y});
 }

@@ -300,8 +300,19 @@ class wayfire_grid : public wf::plugin_interface_t
         output->connect_signal("view-fullscreen-request", &on_fullscreen_signal);
     }
 
+    bool can_adjust_view(wayfire_view view)
+    {
+        auto workspace_impl =
+            output->workspace->get_workspace_implementation();
+        return workspace_impl->view_movable(view) &&
+            workspace_impl->view_resizable(view);
+    }
+
     void handle_slot(wayfire_view view, int slot, wf_point delta = {0, 0})
     {
+        if (!can_adjust_view(view))
+            return;
+
         view->get_data_safe<wf_grid_slot_data>()->slot = slot;
         ensure_grid_view(view)->adjust_target_geometry(
             get_slot_dimensions(slot) + delta,
@@ -404,8 +415,11 @@ class wayfire_grid : public wf::plugin_interface_t
     {
         auto data = static_cast<view_tiled_signal*> (ddata);
 
-        if (data->carried_out || data->desired_size.width <= 0)
+        if (data->carried_out || data->desired_size.width <= 0 ||
+            !can_adjust_view(data->view))
+        {
             return;
+        }
 
         data->carried_out = true;
         uint32_t slot = get_slot_from_tiled_edges(data->edges);
@@ -427,8 +441,11 @@ class wayfire_grid : public wf::plugin_interface_t
         auto data = static_cast<view_fullscreen_signal*> (ev);
         static const std::string fs_data_name = "grid-saved-fs";
 
-        if (data->carried_out || data->desired_size.width <= 0)
+        if (data->carried_out || data->desired_size.width <= 0 ||
+            !can_adjust_view(data->view))
+        {
             return;
+        }
 
         data->carried_out = true;
         ensure_grid_view(data->view)->adjust_target_geometry(

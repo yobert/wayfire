@@ -15,6 +15,7 @@
 
 #include "snap_signal.hpp"
 #include "../wobbly/wobbly-signal.hpp"
+#include "../common/preview-indication.hpp"
 
 class wf_move_mirror_view : public wf::mirror_view_t
 {
@@ -53,99 +54,6 @@ class wf_move_mirror_view : public wf::mirror_view_t
     }
 };
 
-struct move_snap_preview_animation
-{
-    wf_geometry start_geometry, end_geometry;
-    wf_transition alpha;
-};
-
-class wf_move_snap_preview : public wf::color_rect_view_t
-{
-    wf::effect_hook_t pre_paint;
-
-    const wf_color base_color = {0.5, 0.5, 1, 0.5};
-    const wf_color base_border = {0.25, 0.25, 0.5, 0.8};
-    const int base_border_w = 3;
-
-    public:
-    wf_duration duration;
-    move_snap_preview_animation animation;
-
-    wf_move_snap_preview(wf::output_t *output, wf_geometry start_geometry)
-        : wf::color_rect_view_t()
-    {
-        set_output(output);
-
-        animation.start_geometry = animation.end_geometry = start_geometry;
-        animation.alpha = {0, 1};
-
-        duration = wf_duration{new_static_option("200")};
-        pre_paint = [=] () { update_animation(); };
-        get_output()->render->add_effect(&pre_paint, wf::OUTPUT_EFFECT_PRE);
-
-        set_color(base_color);
-        set_border_color(base_border);
-        set_border(base_border_w);
-
-        get_output()->workspace->add_view(self(), wf::LAYER_TOP);
-    }
-
-    void set_target_geometry(wf_geometry target, float alpha = -1)
-    {
-        animation.start_geometry.x = duration.progress(
-            animation.start_geometry.x, animation.end_geometry.x);
-        animation.start_geometry.y = duration.progress(
-            animation.start_geometry.y, animation.end_geometry.y);
-        animation.start_geometry.width = duration.progress(
-            animation.start_geometry.width, animation.end_geometry.width);
-        animation.start_geometry.height = duration.progress(
-            animation.start_geometry.height, animation.end_geometry.height);
-
-        if (alpha == -1)
-            alpha = animation.alpha.end;
-        animation.alpha = {duration.progress(animation.alpha), alpha};
-
-        animation.end_geometry = target;
-        duration.start();
-    }
-
-    void update_animation()
-    {
-        wf_geometry current;
-        current.x = duration.progress(animation.start_geometry.x,
-            animation.end_geometry.x);
-        current.y = duration.progress(animation.start_geometry.y,
-            animation.end_geometry.y);
-        current.width = duration.progress(animation.start_geometry.width,
-            animation.end_geometry.width);
-        current.height = duration.progress(animation.start_geometry.height,
-            animation.end_geometry.height);
-
-        if (current != geometry)
-            set_geometry(current);
-
-
-        auto alpha = duration.progress(animation.alpha);
-        if (base_color.a * alpha != _color.a)
-        {
-            _color.a = alpha * base_color.a;
-            _border_color.a = alpha * base_border.a;
-
-            set_color(_color);
-            set_border_color(_border_color);
-        }
-
-        /* The end of unmap animation, just exit */
-        if (!duration.running() && animation.alpha.end <= 0.01)
-            close();
-    }
-
-    virtual ~wf_move_snap_preview()
-    {
-        get_output()->render->rem_effect(&pre_paint);
-    }
-};
-
 class wayfire_move : public wf::plugin_interface_t
 {
     wf::signal_callback_t move_request, view_destroyed;
@@ -160,7 +68,7 @@ class wayfire_move : public wf::plugin_interface_t
     bool stuck_in_slot = false;
 
     struct {
-        nonstd::observer_ptr<wf_move_snap_preview> preview;
+        nonstd::observer_ptr<wf::preview_indication_view_t> preview;
         int slot_id = 0;
     } slot;
 
@@ -278,9 +186,8 @@ class wayfire_move : public wf::plugin_interface_t
             if (!view || !view->is_mapped())
                 return;
 
-            auto current_ws = output->workspace->get_current_workspace();
             auto current_ws_impl =
-                output->workspace->get_workspace_implementation(current_ws);
+                output->workspace->get_workspace_implementation();
             if (!current_ws_impl->view_movable(view))
                 return;
 
@@ -405,7 +312,8 @@ class wayfire_move : public wf::plugin_interface_t
             if (slot.preview)
             {
                 auto input = get_input_coords();
-                slot.preview->set_target_geometry({input.x, input.y, 1, 1}, 0);
+                slot.preview->set_target_geometry(
+                    {input.x, input.y, 1, 1}, 0, true);
                 slot.preview = nullptr;
             }
 
@@ -424,7 +332,7 @@ class wayfire_move : public wf::plugin_interface_t
                     return;
 
                 auto input = get_input_coords();
-                auto preview = new wf_move_snap_preview(output,
+                auto preview = new wf::preview_indication_view_t(output,
                     {input.x, input.y, 1, 1});
 
                 wf::get_core().add_view(
