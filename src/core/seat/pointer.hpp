@@ -1,6 +1,7 @@
 #ifndef WF_SEAT_POINTER_HPP
 #define WF_SEAT_POINTER_HPP
 
+#include <cmath>
 #include <nonstd/observer_ptr.h>
 #include <surface.hpp>
 #include <util.hpp>
