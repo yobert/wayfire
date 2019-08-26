@@ -1,3 +1,4 @@
+#include <cmath>
 #include <plugin.hpp>
 #include <debug.hpp>
 #include <output.hpp>
