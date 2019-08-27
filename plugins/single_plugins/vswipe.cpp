@@ -58,7 +58,8 @@ class vswipe : public wf::plugin_interface_t
 
         wf_option animation_duration;
         wf_option background_color;
-        wf_option enable;
+        wf_option enable_horizontal;
+        wf_option enable_vertical;
         wf_option ignore_cancel;
         wf_option fingers;
         wf_option gap;
@@ -80,7 +81,8 @@ class vswipe : public wf::plugin_interface_t
         animation_duration = section->get_option("duration", "180");
         duration = wf_duration(animation_duration);
 
-        enable = section->get_option("enable", "1");
+        enable_horizontal = section->get_option("enable_horizontal", "1");
+        enable_vertical = section->get_option("enable_vertical", "1");
         ignore_cancel = section->get_option("ignore_cancel", "1");
         fingers = section->get_option("fingers", "4");
         gap = section->get_option("gap", "32");
@@ -176,7 +178,7 @@ class vswipe : public wf::plugin_interface_t
 
     wf::signal_callback_t on_swipe_begin = [=] (wf::signal_data_t *data)
     {
-        if (!enable->as_cached_int())
+        if (!enable_horizontal->as_cached_int() && !enable_vertical->as_cached_int())
             return;
 
         if (output->is_plugin_active(grab_interface->name))
@@ -276,11 +278,11 @@ class vswipe : public wf::plugin_interface_t
             horizontal &= state.initial_deltas.x > state.initial_deltas.y;
             vertical &= state.initial_deltas.y > state.initial_deltas.x;
 
-            if (horizontal || grid.height == 1)
+            if (horizontal && grid.width > 1 && enable_horizontal->as_cached_int())
             {
                 start_swipe(HORIZONTAL);
             }
-            else if (vertical || grid.width == 1)
+            else if (vertical && grid.height > 1 && enable_vertical->as_cached_int())
             {
                 start_swipe(VERTICAL);
             }
