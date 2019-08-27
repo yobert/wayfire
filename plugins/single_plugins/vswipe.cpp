@@ -193,13 +193,6 @@ class vswipe : public wf::plugin_interface_t
         if (!(output->get_relative_geometry() & output->get_cursor_position()))
             return;
 
-        wf::get_core().focus_output(output);
-
-        if (!output->activate_plugin(grab_interface))
-            return;
-
-        grab_interface->grab();
-
         state.swiping = true;
         state.direction = UNKNOWN;
         state.initial_deltas = {0.0, 0.0};
@@ -224,15 +217,21 @@ class vswipe : public wf::plugin_interface_t
         streams.prev.ws = {-1, -1};
         streams.next.ws = {-1, -1};
         streams.curr.ws = wf_point {ws.x, ws.y};
-
-        output->render->set_renderer(renderer);
-        output->render->damage_whole();
     };
 
     void start_swipe(swipe_direction_t direction)
     {
         assert(direction != UNKNOWN);
         state.direction = direction;
+
+        wf::get_core().focus_output(output);
+
+        if (!output->activate_plugin(grab_interface))
+            return;
+
+        grab_interface->grab();
+        output->render->set_renderer(renderer);
+        output->render->damage_whole();
 
         auto ws = output->workspace->get_current_workspace();
         auto grid = output->workspace->get_workspace_grid_size();
