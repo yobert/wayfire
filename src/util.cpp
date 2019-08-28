@@ -477,6 +477,13 @@ namespace wf
 
     void wl_timer::set_timeout(uint32_t timeout_ms, callback_t call)
     {
+        if (timeout_ms == 0)
+        {
+            disconnect();
+            call();
+            return;
+        }
+
         this->call = call;
         if (!source)
             source = wl_event_loop_add_timer(get_core().ev_loop, handle_timeout, this);
