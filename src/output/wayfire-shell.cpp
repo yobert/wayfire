@@ -24,7 +24,7 @@ class wfs_hotspot : public noncopyable_t
     wf_geometry hotspot_geometry;
 
     bool hotspot_triggered = false;
-    wf::wl_idle_call idle_check_cursor;
+    wf::wl_idle_call idle_check_input;
     wf::wl_timer timer;
 
     uint32_t timeout_ms;
@@ -32,18 +32,31 @@ class wfs_hotspot : public noncopyable_t
 
     wf::signal_callback_t on_motion_event = [=] (wf::signal_data_t *data)
     {
-        idle_check_cursor.run_once([=] () { check_cursor_position(); });
+        idle_check_input.run_once([=] () {
+            auto gcf = wf::get_core().get_cursor_position();
+            wf_point gc{(int)gcf.x, (int)gcf.y};
+            process_input_motion(gc);
+        });
+    };
+
+    wf::signal_callback_t on_touch_motion_event = [=] (wf::signal_data_t *data)
+    {
+        idle_check_input.run_once([=] () {
+            auto gcf = wf::get_core().get_touch_position(0);
+            wf_point gc{(int)gcf.x, (int)gcf.y};
+            process_input_motion(gc);
+        });
     };
 
     wf::signal_callback_t on_output_removed;
 
-    void check_cursor_position()
+    void process_input_motion(wf_point gc)
     {
-        auto gcf = wf::get_core().get_cursor_position();
-        wf_point gc{(int)gcf.x, (int)gcf.y};
-
         if (!(hotspot_geometry & gc))
         {
+            if (hotspot_triggered)
+                zwf_hotspot_v2_send_leave(hotspot_resource);
+
             /* Cursor outside of the hotspot */
             hotspot_triggered = false;
             timer.disconnect();
@@ -61,7 +74,7 @@ class wfs_hotspot : public noncopyable_t
         {
             timer.set_timeout(timeout_ms, [=] () {
                 hotspot_triggered = true;
-                zwf_hotspot_v2_send_triggered(hotspot_resource);
+                zwf_hotspot_v2_send_enter(hotspot_resource);
             });
         }
     }
@@ -116,11 +129,14 @@ class wfs_hotspot : public noncopyable_t
             {
                 /* Make hotspot inactive by setting the region to empty */
                 hotspot_geometry = {0, 0, 0, 0};
-                check_cursor_position();
+                process_input_motion({0, 0});
             }
         };
 
         wf::get_core().connect_signal("pointer_motion", &on_motion_event);
+        wf::get_core().connect_signal("tablet_axis", &on_motion_event);
+        wf::get_core().connect_signal("touch_motion", &on_touch_motion_event);
+
         wf::get_core().output_layout->connect_signal("output-removed",
             &on_output_removed);
     }
@@ -128,6 +144,9 @@ class wfs_hotspot : public noncopyable_t
     ~wfs_hotspot()
     {
         wf::get_core().disconnect_signal("pointer_motion", &on_motion_event);
+        wf::get_core().disconnect_signal("tablet_axis", &on_motion_event);
+        wf::get_core().disconnect_signal("touch_motion", &on_touch_motion_event);
+
         wf::get_core().output_layout->disconnect_signal("output-removed",
             &on_output_removed);
     }
