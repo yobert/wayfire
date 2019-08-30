@@ -45,7 +45,7 @@ plugin_manager::plugin_manager(wf::output_t *o, wayfire_config *config)
         idle_reaload_plugins.run_once([&] () {reload_dynamic_plugins(); });
     };
 
-    plugins_opt->updated.push_back(&list_updated);
+    plugins_opt->add_updated_handler(&list_updated);
 }
 
 void plugin_manager::deinit_plugins(bool unloadable)
@@ -67,9 +67,7 @@ plugin_manager::~plugin_manager()
     deinit_plugins(false);
 
     loaded_plugins.clear();
-    plugins_opt->updated.erase(
-        std::remove(plugins_opt->updated.begin(), plugins_opt->updated.end(),
-            &list_updated), plugins_opt->updated.end());
+    plugins_opt->rem_updated_handler(&list_updated);
 }
 
 void plugin_manager::init_plugin(wayfire_plugin& p)
