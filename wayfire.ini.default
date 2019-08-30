@@ -274,6 +274,6 @@ mode = normal
 
 # different combinations result in various levels of blur strength,
 # performance and visual appearance.
-kawase_offset = 2
-kawase_degrade = 3
-kawase_iterations = 3
+kawase_offset = 3
+kawase_degrade = 1
+kawase_iterations = 5
