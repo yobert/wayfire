@@ -61,7 +61,6 @@ class vswipe : public wf::plugin_interface_t
         wf_option background_color;
         wf_option enable_horizontal;
         wf_option enable_vertical;
-        wf_option ignore_cancel;
         wf_option fingers;
         wf_option gap;
         wf_option threshold;
@@ -84,7 +83,6 @@ class vswipe : public wf::plugin_interface_t
 
         enable_horizontal = section->get_option("enable_horizontal", "1");
         enable_vertical = section->get_option("enable_vertical", "1");
-        ignore_cancel = section->get_option("ignore_cancel", "1");
         fingers = section->get_option("fingers", "4");
         gap = section->get_option("gap", "32");
         threshold = section->get_option("threshold", "0.35");
@@ -327,26 +325,23 @@ class vswipe : public wf::plugin_interface_t
         int target_delta = 0;
         wf_point target_workspace = {state.vx, state.vy};
 
-        if (!ev->cancelled || ignore_cancel->as_int())
+        switch (state.direction)
         {
-            switch (state.direction)
-            {
-                case UNKNOWN:
-                    target_delta = 0;
-                    break;
-                case HORIZONTAL:
-                    target_delta = vswipe_finish_target(state.delta_sum,
-                        state.vx, state.vw, state.delta_prev + state.delta_last,
-                        move_threshold, fast_threshold);
-                    target_workspace.x -= target_delta;
-                    break;
-                case VERTICAL:
-                    target_delta = vswipe_finish_target(state.delta_sum,
-                        state.vy, state.vh, state.delta_prev + state.delta_last,
-                        move_threshold, fast_threshold);
-                    target_workspace.y -= target_delta;
-                    break;
-            }
+            case UNKNOWN:
+                target_delta = 0;
+                break;
+            case HORIZONTAL:
+                target_delta = vswipe_finish_target(state.delta_sum,
+                    state.vx, state.vw, state.delta_prev + state.delta_last,
+                    move_threshold, fast_threshold);
+                target_workspace.x -= target_delta;
+                break;
+            case VERTICAL:
+                target_delta = vswipe_finish_target(state.delta_sum,
+                    state.vy, state.vh, state.delta_prev + state.delta_last,
+                    move_threshold, fast_threshold);
+                target_workspace.y -= target_delta;
+                break;
         }
 
         transition = {state.delta_sum, target_delta + state.gap * target_delta};
