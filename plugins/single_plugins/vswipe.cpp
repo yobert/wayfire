@@ -35,6 +35,7 @@ class vswipe : public wf::plugin_interface_t
 
         struct {
             bool swiping = false;
+            bool animating = false;
             swipe_direction_t direction;
 
             wf_pointf initial_deltas;
@@ -351,6 +352,7 @@ class vswipe : public wf::plugin_interface_t
         transition = {state.delta_sum, target_delta + state.gap * target_delta};
 
         output->workspace->set_workspace(target_workspace);
+        state.animating = true;
         output->render->set_redraw_always();
         duration.start();
     };
@@ -368,7 +370,12 @@ class vswipe : public wf::plugin_interface_t
             output->render->workspace_stream_stop(streams.next);
 
         output->render->set_renderer(nullptr);
-        output->render->set_redraw_always(false);
+
+        if (state.animating)
+        {
+            output->render->set_redraw_always(false);
+            state.animating = false;
+        }
     }
 
     void fini()
@@ -381,6 +388,10 @@ class vswipe : public wf::plugin_interface_t
         streams.curr.buffer.release();
         streams.next.buffer.release();
         OpenGL::render_end();
+
+        wf::get_core().disconnect_signal("pointer-swipe-begin", &on_swipe_begin);
+        wf::get_core().disconnect_signal("pointer-swipe-update", &on_swipe_update);
+        wf::get_core().disconnect_signal("pointer-swipe-end", &on_swipe_end);
     }
 };
 
