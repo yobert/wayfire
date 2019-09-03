@@ -1,4 +1,4 @@
-tile = shared_module('tile',
+tile = shared_module('simple-tile',
         ['tile-plugin.cpp', 'tree.cpp', 'tree-controller.cpp'],
         include_directories: [wayfire_api_inc, wayfire_conf_inc],
         dependencies: [wlroots, pixman, wfconfig],
