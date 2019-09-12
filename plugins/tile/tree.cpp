@@ -283,7 +283,7 @@ wf_geometry view_node_t::calculate_target_geometry()
         auto size = output->get_screen_size();
 
         int view_vp_x = std::floor(1.0 * geometry.x / size.width);
-        int view_vp_y = std::floor(1.0 * geometry.y / size.width);
+        int view_vp_y = std::floor(1.0 * geometry.y / size.height);
 
         local_geometry = {
             (view_vp_x - vp.x) * size.width,
