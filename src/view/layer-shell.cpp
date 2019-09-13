@@ -21,23 +21,6 @@ static const uint32_t both_vert =
 static const uint32_t both_horiz =
     ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
 
-static wf::layer_t zwlr_layer_to_wf_layer(zwlr_layer_shell_v1_layer layer)
-{
-    switch (layer)
-    {
-        case ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY:
-            return wf::LAYER_LOCK;
-        case ZWLR_LAYER_SHELL_V1_LAYER_TOP:
-            return wf::LAYER_TOP;
-        case ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM:
-            return wf::LAYER_BOTTOM;
-        case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND:
-            return wf::LAYER_BACKGROUND;
-        default:
-            throw std::domain_error("Invalid layer for layer surface!");
-    }
-}
-
 class wayfire_layer_shell_view : public wf::wlr_view_t
 {
     wf::wl_listener_wrapper on_map, on_unmap, on_destroy, on_new_popup;
@@ -59,6 +42,9 @@ class wayfire_layer_shell_view : public wf::wlr_view_t
     void destroy() override;
 
     void configure(wf_geometry geometry);
+
+    /** Calculate the target layer for this layer surface */
+    wf::layer_t get_layer();
 };
 
 wf::workspace_manager::anchored_edge anchor_to_edge(uint32_t edges)
@@ -239,7 +225,7 @@ struct wf_layer_shell_manager
         for (auto v : views)
         {
             if (v->lsurface->client_pending.keyboard_interactive && v->is_mapped())
-                focus_mask = zwlr_layer_to_wf_layer(v->lsurface->layer);
+                focus_mask = v->get_layer();
 
             if (v->lsurface->client_pending.exclusive_zone > 0) {
                 set_exclusive_zone(v);
@@ -343,22 +329,47 @@ void wayfire_layer_shell_view::destroy()
     wf::wlr_view_t::destroy();
 }
 
+wf::layer_t wayfire_layer_shell_view::get_layer()
+{
+    static const std::vector<std::string> desktop_widget_ids = {
+        "keyboard",
+        "de-widget",
+    };
+
+    auto it = std::find(desktop_widget_ids.begin(),
+        desktop_widget_ids.end(), nonull(lsurface->namespace_t));
+
+    switch (lsurface->layer)
+    {
+        case ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY:
+            if (it != desktop_widget_ids.end())
+                return wf::LAYER_DESKTOP_WIDGET;
+
+            return wf::LAYER_LOCK;
+        case ZWLR_LAYER_SHELL_V1_LAYER_TOP:
+            return wf::LAYER_TOP;
+        case ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM:
+            return wf::LAYER_BOTTOM;
+        case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND:
+            return wf::LAYER_BACKGROUND;
+        default:
+            throw std::domain_error("Invalid layer for layer surface!");
+    }
+}
+
 void wayfire_layer_shell_view::map(wlr_surface *surface)
 {
     /* Read initial data */
     view_impl->keyboard_focus_enabled = lsurface->current.keyboard_interactive;
     handle_app_id_changed(nonull(lsurface->namespace_t));
 
-    get_output()->workspace->add_view(self(),
-        zwlr_layer_to_wf_layer(lsurface->layer));
-
+    get_output()->workspace->add_view(self(), get_layer());
     wf::wlr_view_t::map(surface);
     wf_layer_shell_manager::get_instance().handle_map(this);
 }
 
 void wayfire_layer_shell_view::unmap()
 {
-    log_info("unmap layer shell view");
     wf::wlr_view_t::unmap();
     wf_layer_shell_manager::get_instance().handle_unmap(this);
 }

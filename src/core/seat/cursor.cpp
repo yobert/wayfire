@@ -7,6 +7,7 @@
 #include "compositor-surface.hpp"
 #include "output-layout.hpp"
 #include "tablet.hpp"
+#include "signal-definitions.hpp"
 
 extern "C" {
 #include <wlr/util/region.h>
@@ -49,6 +50,7 @@ void wf_cursor::setup_listeners()
 #define setup_passthrough_callback(evname) \
     on_##evname.set_callback([&] (void *data) { \
         auto ev = static_cast<wlr_event_pointer_##evname *> (data); \
+        emit_device_event_signal("pointer_" #evname, ev); \
         core.input->lpointer->handle_pointer_##evname (ev); \
         wlr_idle_notify_activity(core.protocols.idle, core.get_current_seat()); \
     }); \
@@ -71,8 +73,9 @@ void wf_cursor::setup_listeners()
      * manage them
      */
 #define setup_tablet_callback(evname) \
-    on_tablet_##evname.set_callback([=] (void *data) { \
+    on_tablet_##evname.set_callback([&] (void *data) { \
         auto ev = static_cast<wlr_event_tablet_tool_##evname *> (data); \
+        emit_device_event_signal("tablet_" #evname, ev); \
         if (ev->device->tablet->data) { \
             auto tablet = \
                 static_cast<wf::tablet_t*> (ev->device->tablet->data); \

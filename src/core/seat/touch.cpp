@@ -235,6 +235,7 @@ wf_touch::wf_touch(wlr_cursor *cursor)
     on_down.set_callback([&] (void *data)
     {
         auto ev = static_cast<wlr_event_touch_down*> (data);
+        emit_device_event_signal("touch_down", &ev);
 
         double lx, ly;
         wlr_cursor_absolute_to_layout_coords(
@@ -252,6 +253,7 @@ wf_touch::wf_touch(wlr_cursor *cursor)
     on_up.set_callback([&] (void *data)
     {
         auto ev = static_cast<wlr_event_touch_up*> (data);
+        emit_device_event_signal("touch_up", ev);
         gesture_recognizer.unregister_touch(ev->time_msec, ev->touch_id);
 
         wlr_idle_notify_activity(wf::get_core().protocols.idle,
@@ -261,6 +263,8 @@ wf_touch::wf_touch(wlr_cursor *cursor)
     on_motion.set_callback([&] (void *data)
     {
         auto ev = static_cast<wlr_event_touch_motion*> (data);
+        emit_device_event_signal("touch_motion", &ev);
+
         auto touch = static_cast<wf_touch*> (ev->device->data);
 
         double lx, ly;

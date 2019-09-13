@@ -669,7 +669,7 @@ workspace_implementation_t* workspace_manager::get_workspace_implementation() { 
 bool workspace_manager::set_workspace_implementation(std::unique_ptr<workspace_implementation_t> impl, bool overwrite)
 { return pimpl->set_implementation(std::move(impl), overwrite); }
 
-void workspace_manager::set_workspace(wf_point ws) { return pimpl->viewport_manager.set_workspace(ws); }
+void workspace_manager::set_workspace(wf_point ws) { return pimpl->set_workspace(ws); }
 wf_point workspace_manager::get_current_workspace() { return pimpl->viewport_manager.get_current_workspace(); }
 wf_size_t workspace_manager::get_workspace_grid_size() { return pimpl->viewport_manager.get_workspace_grid_size(); }
 

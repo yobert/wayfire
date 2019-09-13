@@ -89,9 +89,9 @@ class vswipe : public wf::plugin_interface_t
         delta_threshold = section->get_option("delta_threshold", "24");
         speed_factor = section->get_option("speed_factor", "256");
         speed_cap = section->get_option("speed_cap", "0.05");
-        wf::get_core().connect_signal("pointer-swipe-begin", &on_swipe_begin);
-        wf::get_core().connect_signal("pointer-swipe-update", &on_swipe_update);
-        wf::get_core().connect_signal("pointer-swipe-end", &on_swipe_end);
+        wf::get_core().connect_signal("pointer_swipe_begin", &on_swipe_begin);
+        wf::get_core().connect_signal("pointer_swipe_update", &on_swipe_update);
+        wf::get_core().connect_signal("pointer_swipe_end", &on_swipe_end);
 
         background_color = section->get_option("background", "0 0 0 1");
 
@@ -175,6 +175,7 @@ class vswipe : public wf::plugin_interface_t
             output->render->workspace_stream_update(s);
     }
 
+    template<class wlr_event> using event = wf::input_event_signal<wlr_event>;
     wf::signal_callback_t on_swipe_begin = [=] (wf::signal_data_t *data)
     {
         if (!enable_horizontal->as_cached_int() && !enable_vertical->as_cached_int())
@@ -183,7 +184,8 @@ class vswipe : public wf::plugin_interface_t
         if (output->is_plugin_active(grab_interface->name))
             return;
 
-        auto ev = static_cast<wf::swipe_begin_signal*> (data)->ev;
+        auto ev = static_cast<
+            event<wlr_event_pointer_swipe_begin>*> (data)->event;
         if (static_cast<int>(ev->fingers) != fingers->as_cached_int())
             return;
 
@@ -255,7 +257,8 @@ class vswipe : public wf::plugin_interface_t
         if (!state.swiping)
             return;
 
-        auto ev = static_cast<wf::swipe_update_signal*> (data)->ev;
+        auto ev = static_cast<
+            event<wlr_event_pointer_swipe_update>*> (data)->event;
 
         if (state.direction == UNKNOWN)
         {
@@ -314,9 +317,6 @@ class vswipe : public wf::plugin_interface_t
             return;
 
         state.swiping = false;
-
-        auto ev = static_cast<wf::swipe_end_signal*>(data)->ev;
-
         const double move_threshold =
             clamp(threshold->as_cached_double(), 0.0, 1.0);
         const double fast_threshold =
@@ -384,9 +384,9 @@ class vswipe : public wf::plugin_interface_t
         streams.next.buffer.release();
         OpenGL::render_end();
 
-        wf::get_core().disconnect_signal("pointer-swipe-begin", &on_swipe_begin);
-        wf::get_core().disconnect_signal("pointer-swipe-update", &on_swipe_update);
-        wf::get_core().disconnect_signal("pointer-swipe-end", &on_swipe_end);
+        wf::get_core().disconnect_signal("pointer_swipe_begin", &on_swipe_begin);
+        wf::get_core().disconnect_signal("pointer_swipe_update", &on_swipe_update);
+        wf::get_core().disconnect_signal("pointer_swipe_end", &on_swipe_end);
     }
 };
 

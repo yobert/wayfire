@@ -95,10 +95,6 @@ wf::output_t *get_signaled_output(wf::signal_data_t *data);
 using output_added_signal = _output_signal;
 using output_removed_signal = _output_signal;
 
-struct wlr_event_pointer_swipe_begin;
-struct wlr_event_pointer_swipe_update;
-struct wlr_event_pointer_swipe_end;
-
 namespace wf
 {
     class input_device_t;
@@ -115,19 +111,35 @@ namespace wf
         nonstd::observer_ptr<input_device_t> device;
     };
 
-    struct swipe_begin_signal : public wf::signal_data_t
+    /**
+     * Used for the following events:
+     *
+     * pointer_motion, pointer_motion_abs, pointer_button, pointer_axis,
+     * pointer_swipe_begin, pointer_swipe_update, pointer_swipe_end,
+     * pointer_pinch_begin, pointer_pinch_update, pointer_pinch_end,
+     *
+     * keyboard_key,
+     *
+     * touch_down, touch_up, touch_motion,
+     *
+     * tablet_proximity, tablet_axis, tablet_button, tablet_tip
+     *
+     * The template parameter is the corresponding type of wlr events.
+     *
+     * The input event signals are sent from core whenever a new input from an
+     * input device arrives. The events are sent before any processing is done,
+     * and they are independent of plugin input grabs and other wayfire input
+     * mechanisms.
+     *
+     * The event data can be modified by plugins, and then the modified event
+     * will be used instead. However plugins which modify the event must ensure
+     * that subsequent events are adjusted accordingly as well.
+     */
+    template<class wlr_event_t>
+    struct input_event_signal : public wf::signal_data_t
     {
-        wlr_event_pointer_swipe_begin *ev;
-    };
-
-    struct swipe_update_signal : public wf::signal_data_t
-    {
-        wlr_event_pointer_swipe_update *ev;
-    };
-
-    struct swipe_end_signal : public wf::signal_data_t
-    {
-        wlr_event_pointer_swipe_end *ev;
+        /* The event as it has arrived from wlroots */
+        wlr_event_t *event;
     };
 }
 

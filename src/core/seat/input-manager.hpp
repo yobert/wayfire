@@ -10,6 +10,8 @@
 #include "pointer.hpp"
 #include "plugin.hpp"
 #include "view.hpp"
+#include "core.hpp"
+#include "signal-definitions.hpp"
 
 extern "C"
 {
@@ -150,5 +152,13 @@ class input_manager
         void rem_binding(void *callback);
         void rem_binding(wf_binding *binding);
 };
+
+template<class EventType>
+void emit_device_event_signal(std::string event_name, EventType *event)
+{
+    wf::input_event_signal<EventType> data;
+    data.event = event;
+    wf::get_core().emit_signal(event_name, &data);
+}
 
 #endif /* end of include guard: INPUT_MANAGER_HPP */
