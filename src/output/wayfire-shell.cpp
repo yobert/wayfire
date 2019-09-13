@@ -183,12 +183,21 @@ class wfs_output : public noncopyable_t
     uint32_t num_inhibits = 0;
     wl_resource *resource;
     wf::output_t *output;
+
+    void disconnect_from_output()
+    {
+        wf::get_core().output_layout->disconnect_signal("output-removed",
+            &on_output_removed);
+        output->disconnect_signal("autohide-panels", &on_autohide_panels);
+        this->output = nullptr;
+    }
+
     wf::signal_callback_t on_output_removed = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<output_removed_signal*> (data);
         if (ev->output == this->output)
-            this->output = nullptr;
-    };
+            disconnect_from_output();
+       };
 
     wf::signal_callback_t on_autohide_panels = [=] (wf::signal_data_t *data)
     {
@@ -221,10 +230,7 @@ class wfs_output : public noncopyable_t
             return;
         }
 
-        wf::get_core().output_layout->disconnect_signal("output-removed",
-            &on_output_removed);
-        output->disconnect_signal("autohide-panels", &on_autohide_panels);
-
+        disconnect_from_output();
         /* Remove any remaining inhibits, otherwise the compositor will never
          * be "unlocked" */
         while (num_inhibits > 0)
