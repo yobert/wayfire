@@ -14,6 +14,7 @@
 #include <signal-definitions.hpp>
 
 #include "snap_signal.hpp"
+#include "move-snap-helper.hpp"
 #include "../wobbly/wobbly-signal.hpp"
 #include "../common/preview-indication.hpp"
 
@@ -54,6 +55,7 @@ class wf_move_mirror_view : public wf::mirror_view_t
     }
 };
 
+
 class wayfire_move : public wf::plugin_interface_t
 {
     wf::signal_callback_t move_request, view_destroyed;
@@ -61,19 +63,16 @@ class wayfire_move : public wf::plugin_interface_t
     touch_callback touch_activate_binding;
     wayfire_view view;
 
-    wf_option enable_snap, enable_snap_off, snap_threshold, snap_off_threshold;
+    wf_option enable_snap, snap_threshold;
     bool is_using_touch;
     bool was_client_request;
-
-    bool stuck_in_slot = false;
 
     struct {
         nonstd::observer_ptr<wf::preview_indication_view_t> preview;
         int slot_id = 0;
     } slot;
 
-    wf_geometry grabbed_geometry;
-    wf_point grab_start;
+#define MOVE_HELPER view->get_data<wf::move_snap_helper_t>()
 
     public:
         void init(wayfire_config *config)
@@ -108,9 +107,7 @@ class wayfire_move : public wf::plugin_interface_t
             output->add_touch(new_static_option("<super>"), &touch_activate_binding);
 
             enable_snap = section->get_option("enable_snap", "1");
-            enable_snap_off = section->get_option("enable_snap_off", "1");
             snap_threshold = section->get_option("snap_threshold", "2");
-            snap_off_threshold = section->get_option("snap_off_threshold", "0");
 
             using namespace std::placeholders;
             grab_interface->callbacks.pointer.button =
@@ -118,13 +115,13 @@ class wayfire_move : public wf::plugin_interface_t
             {
                 /* the request usually comes with the left button ... */
                 if (state == WLR_BUTTON_RELEASED && was_client_request && b == BTN_LEFT)
-                    return input_pressed(state);
+                    return input_pressed(state, false);
 
                 if (b != button->as_button().button)
                     return;
 
                 is_using_touch = false;
-                input_pressed(state);
+                input_pressed(state, false);
             };
 
             grab_interface->callbacks.pointer.motion = [=] (int x, int y)
@@ -141,12 +138,12 @@ class wayfire_move : public wf::plugin_interface_t
             grab_interface->callbacks.touch.up = [=] (int32_t id)
             {
                 if (id == 0)
-                    input_pressed(WLR_BUTTON_RELEASED);
+                    input_pressed(WLR_BUTTON_RELEASED, false);
             };
 
             grab_interface->callbacks.cancel = [=] ()
             {
-                input_pressed(WLR_BUTTON_RELEASED);
+                input_pressed(WLR_BUTTON_RELEASED, false);
             };
 
             move_request = std::bind(std::mem_fn(&wayfire_move::move_requested), this, _1);
@@ -155,10 +152,7 @@ class wayfire_move : public wf::plugin_interface_t
             view_destroyed = [=] (wf::signal_data_t* data)
             {
                 if (get_signaled_view(data) == view)
-                {
-                    view = nullptr;
-                    input_pressed(WLR_BUTTON_RELEASED);
-                }
+                    input_pressed(WLR_BUTTON_RELEASED, true);
             };
             output->connect_signal("detach-view", &view_destroyed);
             output->connect_signal("view-disappeared", &view_destroyed);
@@ -205,9 +199,8 @@ class wayfire_move : public wf::plugin_interface_t
                 return;
             }
 
-            stuck_in_slot = !view->tiled_edges && !view->fullscreen;
-            grabbed_geometry = view->get_wm_geometry();
-            grab_start = get_input_coords();
+            view->store_data(std::make_unique<wf::move_snap_helper_t> (
+                    view, get_input_coords()));
 
             output->focus_view(view, true);
             if (enable_snap->as_int())
@@ -215,16 +208,10 @@ class wayfire_move : public wf::plugin_interface_t
 
             this->view = view;
             output->render->set_redraw_always();
-
-            start_wobbly(view, grab_start.x, grab_start.y);
-            if (!stuck_in_slot)
-                snap_wobbly(view, view->get_bounding_box());
-
             update_multi_output();
-            view->set_moving(true);
         }
 
-        void input_pressed(uint32_t state)
+        void input_pressed(uint32_t state, bool view_destroyed)
         {
             if (state != WLR_BUTTON_RELEASED)
                 return;
@@ -235,18 +222,25 @@ class wayfire_move : public wf::plugin_interface_t
 
             /* The view was moved to another output or was destroyed,
              * we don't have to do anything more */
-            if (!view)
+            if (view_destroyed)
+            {
+                view->erase_data<wf::move_snap_helper_t>();
+                this->view = nullptr;
                 return;
+            }
 
-            end_wobbly(view);
-            view->set_moving(false);
+            MOVE_HELPER->handle_input_released();
+            view->erase_data<wf::move_snap_helper_t>();
 
             /* Delete any mirrors we have left, showing an animation */
             delete_mirror_views(true);
 
             /* Don't do snapping, etc for shell views */
             if (view->role == wf::VIEW_ROLE_SHELL_VIEW)
+            {
+                this->view = nullptr;
                 return;
+            }
 
             /* Snap the view */
             if (enable_snap && slot.slot_id != 0)
@@ -260,6 +254,7 @@ class wayfire_move : public wf::plugin_interface_t
                 update_slot(0);
             }
 
+            this->view = nullptr;
         }
 
         /* Calculate the slot to which the view would be snapped if the input
@@ -344,21 +339,6 @@ class wayfire_move : public wf::plugin_interface_t
             }
         }
 
-        /* The input has moved enough so we remove the view from its slot */
-        void unsnap()
-        {
-            stuck_in_slot = 1;
-            if (view->fullscreen)
-                view->fullscreen_request(view->get_output(), false);
-
-            if (view->tiled_edges)
-                view->tile_request(0);
-
-            /* view geometry might change after unmaximize/unfullscreen, so update position */
-            grabbed_geometry = view->get_wm_geometry();
-            snap_wobbly(view, {}, false);
-        }
-
         /* Returns the currently used input coordinates in global compositor space */
         wf_point get_global_input_coords()
         {
@@ -393,8 +373,6 @@ class wayfire_move : public wf::plugin_interface_t
             int dy = old_g.y - new_g.y;
 
             view->move(wm_g.x + dx, wm_g.y + dy);
-            translate_wobbly(view, dx, dy);
-
             view->set_moving(false);
 
             wf::get_core().move_view_to_output(view, new_output);
@@ -513,32 +491,25 @@ class wayfire_move : public wf::plugin_interface_t
         void handle_input_motion()
         {
             auto input = get_input_coords();
-            move_wobbly(view, input.x, input.y);
+            MOVE_HELPER->handle_motion(get_input_coords());
 
-            int dx = input.x - grab_start.x;
-            int dy = input.y - grab_start.y;
-
-            if (std::sqrt(dx * dx + dy * dy) >= snap_off_threshold->as_cached_int() &&
-                !stuck_in_slot && enable_snap_off->as_int())
-            {
-                unsnap();
-            }
-
-            if (!stuck_in_slot)
-                return;
-
-            view->move(grabbed_geometry.x + dx, grabbed_geometry.y + dy);
             update_multi_output();
-
-            /* TODO: possibly show some visual indication */
-            if (enable_snap->as_cached_int())
-                update_slot(calc_slot(input.x, input.y));
+            /* View might get destroyed when updating multi-output */
+            if (view)
+            {
+                if (enable_snap->as_cached_int() && !MOVE_HELPER->is_view_fixed())
+                    update_slot(calc_slot(input.x, input.y));
+            } else
+            {
+                /* View was destroyed, hide slot */
+                update_slot(0);
+            }
         }
 
         void fini()
         {
             if (grab_interface->is_grabbed())
-                input_pressed(WLR_BUTTON_RELEASED);
+                input_pressed(WLR_BUTTON_RELEASED, false);
 
             output->rem_binding(&activate_binding);
             output->rem_binding(&touch_activate_binding);
