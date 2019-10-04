@@ -103,6 +103,11 @@ void wf_blur_base::damage_all_workspaces()
 void wf_blur_base::render_iteration(wf_framebuffer_base& in,
     wf_framebuffer_base& out, int width, int height)
 {
+    /* Special case for small regions where we can't really blur, because we
+     * simply have too few pixels */
+    width = std::max(width, 1);
+    height = std::max(height, 1);
+
     out.allocate(width, height);
     out.bind();
 
@@ -116,8 +121,8 @@ wlr_box wf_blur_base::copy_region(wf_framebuffer_base& result,
     auto subbox = source.framebuffer_box_from_damage_box(
         wlr_box_from_pixman_box(region.get_extents()));
 
-    auto source_box = source.framebuffer_box_from_geometry_box(
-        source.geometry);
+    auto source_box = source.framebuffer_box_from_geometry_box({
+        0, 0, source.geometry.width, source.geometry.height});
 
     /* Scaling down might cause issues like flickering or some discrepancies
      * between the source and final image.
