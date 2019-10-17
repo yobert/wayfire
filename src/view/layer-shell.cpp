@@ -91,7 +91,7 @@ struct wf_layer_shell_manager
 
     void handle_map(wayfire_layer_shell_view *view)
     {
-        layers[view->lsurface->layer].push_back(view);
+        layers[view->lsurface->current.layer].push_back(view);
         arrange_layers(view->get_output());
     }
 
@@ -99,7 +99,7 @@ struct wf_layer_shell_manager
     {
         view->remove_anchored(false);
 
-        auto& cont = layers[view->lsurface->layer];
+        auto& cont = layers[view->lsurface->current.layer];
         auto it = std::find(cont.begin(), cont.end(), view);
 
         cont.erase(it);
@@ -278,7 +278,7 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
 {
     log_debug("Create a layer surface: namespace %s layer %d anchor %d,"
               "size %dx%d, margin top:%d, down:%d, left:%d, right:%d",
-              lsurf->namespace_t, lsurf->layer, lsurf->client_pending.anchor,
+              lsurf->namespace_t, lsurf->current.layer, lsurf->client_pending.anchor,
               lsurf->client_pending.desired_width, lsurf->client_pending.desired_height,
               lsurf->client_pending.margin.top,
               lsurf->client_pending.margin.bottom,
@@ -339,7 +339,7 @@ wf::layer_t wayfire_layer_shell_view::get_layer()
     auto it = std::find(desktop_widget_ids.begin(),
         desktop_widget_ids.end(), nonull(lsurface->namespace_t));
 
-    switch (lsurface->layer)
+    switch (lsurface->current.layer)
     {
         case ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY:
             if (it != desktop_widget_ids.end())
