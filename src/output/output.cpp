@@ -248,9 +248,6 @@ bool wf::output_impl_t::can_activate_plugin(const plugin_grab_interface_uptr& ow
     if (!owner)
         return false;
 
-    if (wf::get_core().get_active_output() != this)
-        return false;
-
     if (this->inhibited && !ignore_inhibit)
         return false;
 
