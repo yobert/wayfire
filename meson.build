@@ -45,6 +45,7 @@ conf_data = configuration_data()
 
 conf_data.set('WF_SRC_DIR', meson.source_root())
 conf_data.set('INSTALL_PREFIX', get_option('prefix'))
+conf_data.set('PLUGIN_PATH', join_paths(get_option('prefix'), get_option('libdir'), 'wayfire'))
 
 # needed to dlopen() plugins
 # -E is for RTTI/dynamic_cast across plugins
