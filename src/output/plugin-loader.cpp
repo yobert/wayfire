@@ -158,7 +158,7 @@ void plugin_manager::reload_dynamic_plugins()
     std::stringstream stream(plugin_list);
     std::vector<std::string> next_plugins;
 
-    auto plugin_prefix = std::string(INSTALL_PREFIX "/lib/wayfire/");
+    auto plugin_prefix = std::string(PLUGIN_PATH "/");
 
     std::string plugin_name;
     while(stream >> plugin_name)
