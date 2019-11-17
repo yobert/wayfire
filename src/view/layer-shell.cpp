@@ -87,7 +87,8 @@ struct wf_layer_shell_manager
     }
 
     using layer_t = std::vector<wayfire_layer_shell_view*>;
-    layer_t layers[4];
+    static constexpr int COUNT_LAYERS = 4;
+    layer_t layers[COUNT_LAYERS];
 
     void handle_map(wayfire_layer_shell_view *view)
     {
@@ -95,14 +96,25 @@ struct wf_layer_shell_manager
         arrange_layers(view->get_output());
     }
 
+    void remove_view_from_layer(wayfire_layer_shell_view *view, uint32_t layer)
+    {
+        auto& cont = layers[layer];
+        auto it = std::find(cont.begin(), cont.end(), view);
+        if (it != cont.end())
+            cont.erase(it);
+    }
+
+    void handle_move_layer(wayfire_layer_shell_view *view)
+    {
+        for (int i = 0; i < COUNT_LAYERS; i++)
+            remove_view_from_layer(view, i);
+        handle_map(view);
+    }
+
     void handle_unmap(wayfire_layer_shell_view *view)
     {
         view->remove_anchored(false);
-
-        auto& cont = layers[view->lsurface->current.layer];
-        auto it = std::find(cont.begin(), cont.end(), view);
-
-        cont.erase(it);
+        remove_view_from_layer(view, view->lsurface->current.layer);
         arrange_layers(view->get_output());
     }
 
@@ -385,7 +397,18 @@ void wayfire_layer_shell_view::commit()
 
     if (std::memcmp(state, &prev_state, sizeof(*state)))
     {
-        wf_layer_shell_manager::get_instance().arrange_layers(get_output());
+        /* Update layer manualy */
+        if (prev_state.layer != state->layer)
+        {
+            get_output()->workspace->add_view(self(), get_layer());
+            /* Will also trigger reflowing */
+            wf_layer_shell_manager::get_instance().handle_move_layer(this);
+        } else
+        {
+            /* Reflow reserved areas and positions */
+            wf_layer_shell_manager::get_instance().arrange_layers(get_output());
+        }
+
         prev_state = *state;
     }
 }
