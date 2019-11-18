@@ -81,6 +81,8 @@ void wf_cursor::setup_listeners()
                 static_cast<wf::tablet_t*> (ev->device->tablet->data); \
             tablet->handle_##evname (ev); \
         } \
+        wlr_idle_notify_activity(wf::get_core().protocols.idle, \
+            wf::get_core().get_current_seat()); \
     }); \
     on_tablet_##evname.connect(&cursor->events.tablet_tool_##evname);
 
