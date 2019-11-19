@@ -37,19 +37,24 @@ static void reposition_relative_to_parent(wayfire_view view)
     if (view->parent->is_mapped())
     {
         auto parent_g = view->parent->get_wm_geometry();
-        int sx = parent_g.x + (parent_g.width  - wm_geometry.width) / 2;
-        int sy = parent_g.y + (parent_g.height - wm_geometry.height) / 2;
-
-        view->move(sx, sy);
+        wm_geometry.x = parent_g.x + (parent_g.width  - wm_geometry.width) / 2;
+        wm_geometry.y = parent_g.y + (parent_g.height - wm_geometry.height) / 2;
     }
     else
     {
         /* if we have a parent which still isn't mapped, we cannot determine
          * the view's position, so we center it on the screen */
-        int sx = workarea.width / 2 - wm_geometry.width / 2;
-        int sy = workarea.height/ 2 - wm_geometry.height/ 2;
+        wm_geometry.x = workarea.width / 2 - wm_geometry.width / 2;
+        wm_geometry.y = workarea.height/ 2 - wm_geometry.height/ 2;
+    }
 
-        view->move(sx, sy);
+    /* make sure view is visible afterwards */
+    wm_geometry = clamp(wm_geometry, workarea);
+    view->move(wm_geometry.x, wm_geometry.y);
+    if (wm_geometry.width != view->get_wm_geometry().width ||
+        wm_geometry.height != view->get_wm_geometry().height)
+    {
+        view->resize(wm_geometry.width, wm_geometry.height);
     }
 }
 
