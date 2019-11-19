@@ -2,6 +2,7 @@
 #include <debug.hpp>
 
 #include <map>
+#include <set>
 #include <regex>
 
 namespace wf
@@ -263,8 +264,18 @@ namespace wf
         {
             any_expression_t(string expression)
             {
-                if (util::trim(expression) != "any")
-                    throw std::invalid_argument("Expression isn't \"any\"");
+                auto trimmed = util::trim(expression);
+                const std::set<string> valid_values = {
+                    "any",
+                    "1",
+                    "all",
+                };
+
+                if (valid_values.count(trimmed) == 0)
+                {
+                    throw std::invalid_argument(
+                        "Expression isn't \"any\", \"1\", or \"all\"");
+                }
             }
 
             bool evaluate(const view_t& view) override
@@ -277,8 +288,16 @@ namespace wf
         {
             none_expression_t(string expression)
             {
-                if (util::trim(expression) != "none")
+                auto trimmed = util::trim(expression);
+                const std::set<string> valid_values = {
+                    "none",
+                    "0",
+                };
+
+                if (valid_values.count(trimmed) == 0)
+                {
                     throw std::invalid_argument("Expression isn't \"none\"");
+                }
             }
 
             bool evaluate(const view_t& view) override
