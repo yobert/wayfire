@@ -212,7 +212,6 @@ class wayfire_unmanaged_xwayland_view : public wayfire_xwayland_view_base
 
     void commit() override;
     void map(wlr_surface *surface)override;
-    void unmap()override;
 
     ~wayfire_unmanaged_xwayland_view() { }
 };
@@ -514,16 +513,6 @@ void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
         /* And focus them, since they are a new window */
         get_output()->focus_view(self());
     }
-}
-
-void wayfire_unmanaged_xwayland_view::unmap()
-{
-    /* O-R focuseable views are treated like normal windows, i.e they have the
-     * pre-unmap event and have unmap animations */
-    if (view_impl->keyboard_focus_enabled)
-        emit_view_pre_unmap();
-
-    wf::wlr_view_t::unmap();
 }
 
 static wlr_xwayland *xwayland_handle = nullptr;

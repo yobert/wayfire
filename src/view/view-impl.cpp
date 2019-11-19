@@ -279,10 +279,7 @@ void wf::wlr_view_t::map(wlr_surface *surface)
 void wf::wlr_view_t::unmap()
 {
     damage();
-    /* Pre-unmap is typically used for animations. If the view is a regular
-     * toplevel view, we don't need to animate */
-    if (this->role == wf::VIEW_ROLE_TOPLEVEL)
-        emit_view_pre_unmap();
+    emit_view_pre_unmap();
 
     destroy_toplevel();
 
