@@ -152,15 +152,20 @@ class wayfire_blur : public wf::plugin_interface_t
         /* Toggles the blur state of the view the user clicked on */
         button_toggle = [=] (uint32_t, int, int)
         {
+            if (!output->can_activate_plugin(grab_interface))
+                return false;
+
             auto view = wf::get_core().get_cursor_focus_view();
             if (!view)
-                return;
+                return false;
 
             if (view->get_transformer(transformer_name)) {
                 view->pop_transformer(transformer_name);
             } else {
                 add_transformer(view);
             }
+
+            return true;
         };
         output->add_button(section->get_option("toggle", "<super> <alt> BTN_LEFT"),
             &button_toggle);

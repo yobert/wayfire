@@ -111,8 +111,8 @@ class WayfireSwitcher : public wf::plugin_interface_t
         duration = wf_duration{speed, wf_animation::circle};
         background_dim_duration = wf_duration{speed, wf_animation::circle};
 
-        next_view_binding = [=] (uint32_t) { handle_switch_request(-1); };
-        prev_view_binding = [=] (uint32_t) { handle_switch_request(1); };
+        next_view_binding = [=] (uint32_t) { return handle_switch_request(-1); };
+        prev_view_binding = [=] (uint32_t) { return handle_switch_request(1); };
 
         output->add_key(section->get_option("next_view", "<super> KEY_TAB"),
             &next_view_binding);
@@ -130,10 +130,12 @@ class WayfireSwitcher : public wf::plugin_interface_t
             {
                 /* We set it to -1 to indicate that the user hasn't done anything yet */
                 touch_total_dx = -1;
-                handle_switch_request(0);
+                return handle_switch_request(0);
             } else {
                 handle_done();
             }
+
+            return true;
         };
 
         auto gesture_activator = section->get_option("gesture_toggle", "edge-swipe down 3");
@@ -182,16 +184,16 @@ class WayfireSwitcher : public wf::plugin_interface_t
         }
     }
 
-    void handle_switch_request(int dir)
+    bool handle_switch_request(int dir)
     {
         if (get_workspace_views().empty())
-            return;
+            return false;
 
         /* If we haven't grabbed, then we haven't setup anything */
         if (!output->is_plugin_active(grab_interface->name))
         {
             if (!init_switcher())
-                return;
+                return false;
         }
 
         /* Maybe we're still animating the exit animation from a previous
@@ -210,6 +212,8 @@ class WayfireSwitcher : public wf::plugin_interface_t
         {
             next_view(dir);
         }
+
+        return true;
     }
 
     /* When switcher is done and starts animating towards end */

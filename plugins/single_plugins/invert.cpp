@@ -61,6 +61,9 @@ class wayfire_invert_screen : public wf::plugin_interface_t
         auto section = config->get_section("invert");
         auto toggle_key = section->get_option("toggle", "<super> KEY_I");
 
+        grab_interface->name = "invert";
+        grab_interface->capabilities = 0;
+
         hook = [=] (const wf_framebuffer_base& source,
             const wf_framebuffer_base& destination) {
             render(source, destination);
@@ -68,6 +71,9 @@ class wayfire_invert_screen : public wf::plugin_interface_t
 
 
         toggle_cb = [=] (wf_activator_source, uint32_t) {
+            if (!output->can_activate_plugin(grab_interface))
+                return false;
+
             if (active)
             {
                 output->render->rem_post(&hook);
@@ -77,6 +83,8 @@ class wayfire_invert_screen : public wf::plugin_interface_t
             }
 
             active = !active;
+
+            return true;
         };
 
         load_program();

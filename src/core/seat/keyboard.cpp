@@ -175,9 +175,10 @@ static uint32_t mod_from_key(wlr_seat *seat, uint32_t key)
     return 0;
 }
 
-std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state, uint32_t key, uint32_t mod_binding_key)
+std::vector<std::function<bool()>> input_manager::match_keys(uint32_t mod_state,
+    uint32_t key, uint32_t mod_binding_key)
 {
-    std::vector<std::function<void()>> callbacks;
+    std::vector<std::function<bool()>> callbacks;
 
     uint32_t actual_key = key == 0 ? mod_binding_key : key;
 
@@ -190,7 +191,7 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
              * so force copy the callback into the lambda */
             auto callback = binding->call.key;
             callbacks.push_back([actual_key, callback] () {
-                (*callback) (actual_key);
+                return (*callback) (actual_key);
             });
         }
     }
@@ -206,7 +207,7 @@ std::vector<std::function<void()>> input_manager::match_keys(uint32_t mod_state,
              * Also, do not send keys for modifier bindings */
             auto callback = binding->call.activator;
             callbacks.push_back([=] () {
-                (*callback) (ACTIVATOR_SOURCE_KEYBINDING,
+                return (*callback) (ACTIVATOR_SOURCE_KEYBINDING,
                     mod_from_key(seat, actual_key) ? 0 : actual_key);
             });
         }
@@ -226,7 +227,7 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
     if (mod)
         handle_keyboard_mod(mod, state);
 
-    std::vector<std::function<void()>> callbacks;
+    std::vector<std::function<bool()>> callbacks;
     auto kbd = wlr_seat_get_keyboard(seat);
 
     if (state == WLR_KEY_PRESSED)
@@ -273,13 +274,14 @@ bool input_manager::handle_keyboard_key(uint32_t key, uint32_t state)
         mod_binding_key = 0;
     }
 
+    bool keybinding_handled = false;
     for (auto call : callbacks)
-        call();
+        keybinding_handled |= call();
 
     auto iv = interactive_view_from_view(keyboard_focus.get());
     if (iv) iv->handle_key(key, state);
 
-    return active_grab || !callbacks.empty();
+    return active_grab || keybinding_handled;
 }
 
 void input_manager::handle_keyboard_mod(uint32_t modifier, uint32_t state)

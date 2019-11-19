@@ -33,7 +33,7 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         activate_key = section->get_option("activate", "<alt> KEY_TAB");
         init_binding = [=] (uint32_t key)
         {
-            fast_switch();
+            return fast_switch();
         };
 
         output->add_key(activate_key, &init_binding);
@@ -135,20 +135,20 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         view->damage();
     }
 
-    void fast_switch()
+    bool fast_switch()
     {
         if (active)
-            return;
+            return false;
 
         if (!output->activate_plugin(grab_interface))
-            return;
+            return false;
 
         update_views();
 
         if (views.size() < 1)
         {
             output->deactivate_plugin(grab_interface);
-            return;
+            return false;
         }
 
         current_view_index = 0;
@@ -163,6 +163,8 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
 
         output->connect_signal("view-disappeared", &destroyed);
         output->connect_signal("detach-view", &destroyed);
+
+        return true;
     }
 
     void switch_terminate()

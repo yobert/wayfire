@@ -58,15 +58,15 @@ class wayfire_command : public wf::plugin_interface_t
         BINDING_REPEAT,
         BINDING_ALWAYS,
     };
-    void on_binding(std::string command, binding_mode mode, wf_activator_source source,
+    bool on_binding(std::string command, binding_mode mode, wf_activator_source source,
         uint32_t value)
     {
         /* We already have a repeatable command, do not accept further bindings */
         if (repeat.pressed_key || repeat.pressed_button)
-            return;
+            return false;
 
         if (!output->activate_plugin(grab_interface, mode == BINDING_ALWAYS))
-            return;
+            return false;
 
         wf::get_core().run(command.c_str());
 
@@ -75,7 +75,7 @@ class wayfire_command : public wf::plugin_interface_t
             value == 0)
         {
             output->deactivate_plugin(grab_interface);
-            return;
+            return false;
         }
 
         repeat.repeat_command = command;
@@ -94,6 +94,8 @@ class wayfire_command : public wf::plugin_interface_t
 
         wf::get_core().connect_signal("pointer_button", &on_button_event);
         wf::get_core().connect_signal("keyboard_key", &on_key_event);
+
+        return true;
     }
 
     std::function<void()> on_repeat_delay_timeout = [=] ()

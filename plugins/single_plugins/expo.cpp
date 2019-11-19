@@ -23,11 +23,15 @@ class wayfire_expo : public wf::plugin_interface_t
     activator_callback toggle_cb = [=] (wf_activator_source, uint32_t)
     {
         if (!state.active) {
-            activate();
+            return activate();
         } else {
-            if (!zoom_animation.running() || state.zoom_in)
+            if (!zoom_animation.running() || state.zoom_in) {
                 deactivate();
+                return true;
+            }
         }
+
+        return false;
     };
 
     wf_option action_button;
@@ -123,10 +127,10 @@ class wayfire_expo : public wf::plugin_interface_t
         output->connect_signal("view-disappeared", &view_removed);
     }
 
-    void activate()
+    bool activate()
     {
         if (!output->activate_plugin(grab_interface))
-            return;
+            return false;
 
         grab_interface->grab();
 
@@ -141,6 +145,8 @@ class wayfire_expo : public wf::plugin_interface_t
 
         output->render->set_renderer(renderer);
         output->render->set_redraw_always();
+
+        return true;
     }
 
     void deactivate()

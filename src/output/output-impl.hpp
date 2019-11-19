@@ -29,6 +29,8 @@ class output_impl_t : public output_t
     /**
      * Implementations of the public APIs
      */
+    bool can_activate_plugin(const plugin_grab_interface_uptr& owner,
+        bool ignore_inhibit) override;
     bool activate_plugin(const plugin_grab_interface_uptr& owner,
         bool ignore_inhibit) override;
     bool deactivate_plugin(const plugin_grab_interface_uptr& owner) override;

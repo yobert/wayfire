@@ -31,13 +31,13 @@ class wf_wrot : public wf::plugin_interface_t
             call = [=] (uint32_t, int x, int y)
             {
                 if (!output->activate_plugin(grab_interface))
-                    return;
+                    return false;
 
                 current_view = wf::get_core().get_cursor_focus_view();
                 if (!current_view || current_view->role != wf::VIEW_ROLE_TOPLEVEL)
                 {
                     output->deactivate_plugin(grab_interface);
-                    return;
+                    return false;
                 }
 
                 output->focus_view(current_view, true);
@@ -45,6 +45,8 @@ class wf_wrot : public wf::plugin_interface_t
 
                 last_x = x;
                 last_y = y;
+
+                return true;
             };
 
             auto button = (*config)["wrot"]->get_option("activate", "<alt> BTN_RIGHT");

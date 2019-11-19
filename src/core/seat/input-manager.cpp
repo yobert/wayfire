@@ -367,7 +367,7 @@ void input_manager::free_output_bindings(wf::output_t *output)
 
 bool input_manager::check_button_bindings(uint32_t button)
 {
-    std::vector<std::function<void()>> callbacks;
+    std::vector<std::function<bool()>> callbacks;
 
     auto oc = wf::get_core().get_active_output()->get_cursor_position();
     auto mod_state = get_modifiers();
@@ -381,7 +381,7 @@ bool input_manager::check_button_bindings(uint32_t button)
              * so force copy the callback into the lambda */
             auto callback = binding->call.button;
             callbacks.push_back([=] () {
-                (*callback) (button, oc.x, oc.y);
+                return (*callback) (button, oc.x, oc.y);
             });
         }
     }
@@ -395,15 +395,16 @@ bool input_manager::check_button_bindings(uint32_t button)
              * so force copy the callback into the lambda */
             auto callback = binding->call.activator;
             callbacks.push_back([=] () {
-                (*callback) (ACTIVATOR_SOURCE_BUTTONBINDING, button);
+                return (*callback) (ACTIVATOR_SOURCE_BUTTONBINDING, button);
             });
         }
     }
 
+    bool binding_handled = false;
     for (auto call : callbacks)
-        call();
+        binding_handled |= call();
 
-    return !callbacks.empty();
+    return !callbacks.empty() && binding_handled;
 }
 
 bool input_manager::check_axis_bindings(wlr_event_pointer_axis *ev)

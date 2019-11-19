@@ -101,10 +101,18 @@ class wayfire_idle_singleton : public wf::singleton_plugin_t<wayfire_idle>
     {
         singleton_plugin_t::init(config);
 
+        grab_interface->name = "idle";
+        grab_interface->capabilities = 0;
+
         auto binding = config->get_section("idle")
             ->get_option("toggle", "<super> <shift> KEY_I");
         toggle = [=] (wf_activator_source, uint32_t) {
+            if (!output->can_activate_plugin(grab_interface))
+                return false;
+
             get_instance().toggle_idle();
+
+            return true;
         };
 
         output->add_activator(binding, &toggle);

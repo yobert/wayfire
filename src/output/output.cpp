@@ -242,7 +242,7 @@ wayfire_view wf::output_impl_t::get_active_view() const
     return active_view;
 }
 
-bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner,
+bool wf::output_impl_t::can_activate_plugin(const plugin_grab_interface_uptr& owner,
     bool ignore_inhibit)
 {
     if (!owner)
@@ -255,11 +255,7 @@ bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner,
         return false;
 
     if (active_plugins.find(owner.get()) != active_plugins.end())
-    {
-        log_debug("output %s: activate plugin %s again", handle->name, owner->name.c_str());
-        active_plugins.insert(owner.get());
         return true;
-    }
 
     for(auto act_owner : active_plugins)
     {
@@ -269,8 +265,21 @@ bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner,
             return false;
     }
 
+    return true;
+}
+
+bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner,
+    bool ignore_inhibit)
+{
+    if (!can_activate_plugin(owner, ignore_inhibit))
+        return false;
+
+    if (active_plugins.find(owner.get()) != active_plugins.end())
+        log_debug("output %s: activate plugin %s again", handle->name, owner->name.c_str());
+    else
+        log_debug("output %s: activate plugin %s", handle->name, owner->name.c_str());
+
     active_plugins.insert(owner.get());
-    log_debug("output %s: activate plugin %s", handle->name, owner->name.c_str());
     return true;
 }
 
