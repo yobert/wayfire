@@ -6,6 +6,7 @@
 
 #include "tree-controller.hpp"
 #include "../single_plugins/view-change-viewport-signal.hpp"
+#include "../matcher/matcher.hpp"
 
 namespace wf
 {
@@ -26,6 +27,7 @@ class tile_workspace_implementation_t : public wf::workspace_implementation_t
 class tile_plugin_t : public wf::plugin_interface_t
 {
   private:
+    std::unique_ptr<wf::matcher::view_matcher> tile_by_default_matcher;
     wf_option tile_by_default, keep_fullscreen_on_adjacent;
     wf_option button_move, button_resize;
     wf_option key_toggle_tile, key_toggle_fullscreen;
@@ -183,13 +185,17 @@ class tile_plugin_t : public wf::plugin_interface_t
             output->workspace->get_current_workspace());
     }
 
+    bool tile_window_by_default(wayfire_view view)
+    {
+        return wf::matcher::evaluate(tile_by_default_matcher, view) &&
+            can_tile_view(view);
+    }
+
     signal_callback_t on_view_attached = [=] (signal_data_t *data)
     {
-        if (tile_by_default->as_int())
-        {
-            auto view = get_signaled_view(data);
+        auto view = get_signaled_view(data);
+        if (tile_window_by_default(view))
             attach_view(view);
-        }
     };
 
     signal_callback_t on_view_unmapped = [=] (signal_data_t *data)
@@ -292,7 +298,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         if (ev->state && existing_node)
             detach_view(existing_node);
 
-        if (!ev->state && tile_by_default->as_cached_int())
+        if (!ev->state && tile_window_by_default(ev->view))
             attach_view(ev->view);
     };
 
@@ -388,7 +394,8 @@ class tile_plugin_t : public wf::plugin_interface_t
     {
         auto section = config->get_section("simple-tile");
 
-        tile_by_default = section->get_option("tile_by_default", "1");
+        tile_by_default = section->get_option("tile_by_default", "any");
+        tile_by_default_matcher = wf::matcher::get_matcher(tile_by_default);
         keep_fullscreen_on_adjacent = section->get_option(
             "keep_fullscreen_on_adjacent", "1");
 
