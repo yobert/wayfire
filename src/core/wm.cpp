@@ -188,7 +188,7 @@ void wayfire_handle_focus_parent::init(wayfire_config*)
             return;
 
         auto root = view;
-        while(root->parent)
+        while(root->parent && root->parent->is_mapped())
             root = root->parent;
 
         auto views = enumerate_views(root);
