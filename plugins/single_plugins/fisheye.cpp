@@ -125,6 +125,9 @@ class wayfire_fisheye : public wf::plugin_interface_t
     public:
         void init(wayfire_config *config)
         {
+            grab_interface->name = "fisheye";
+            grab_interface->capabilities = 0;
+
             auto section = config->get_section("fisheye");
             auto toggle_key = section->get_option("toggle", "<super> KEY_F");
             radius = section->get_option("radius", "300");
@@ -139,22 +142,27 @@ class wayfire_fisheye : public wf::plugin_interface_t
             hook_set = active = false;
             toggle_cb = [=] (wf_activator_source, uint32_t)
             {
-                    if (active)
-                    {
-                        active = false;
-                        duration.start(duration.progress(), 0);
-                    } else
-                    {
-                        active = true;
-                        duration.start(duration.progress(), target_zoom);
+                if (!output->can_activate_plugin(grab_interface))
+                    return false;
 
-                        if (!hook_set)
-                        {
-                            hook_set = true;
-                            output->render->add_post(&hook);
-                            output->render->set_redraw_always();
-                        }
+                if (active)
+                {
+                    active = false;
+                    duration.start(duration.progress(), 0);
+                } else
+                {
+                    active = true;
+                    duration.start(duration.progress(), target_zoom);
+
+                    if (!hook_set)
+                    {
+                        hook_set = true;
+                        output->render->add_post(&hook);
+                        output->render->set_redraw_always();
                     }
+                }
+
+                return true;
             };
             output->add_activator(toggle_key, &toggle_cb);
 

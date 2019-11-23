@@ -20,14 +20,22 @@ class wayfire_zoom_screen : public wf::plugin_interface_t
     public:
         void init(wayfire_config *config)
         {
+            grab_interface->name = "zoom";
+            grab_interface->capabilities = 0;
+
             hook = [=] (const wf_framebuffer_base& source, const wf_framebuffer_base& dest) {
                 render(source, dest);
             };
 
             axis = [=] (wlr_event_pointer_axis* ev)
             {
-                if (ev->orientation == WLR_AXIS_ORIENTATION_VERTICAL)
-                    update_zoom_target(ev->delta);
+                if (!output->can_activate_plugin(grab_interface))
+                    return false;
+                if (ev->orientation != WLR_AXIS_ORIENTATION_VERTICAL)
+                    return false;
+
+                update_zoom_target(ev->delta);
+                return true;
             };
 
             auto section = config->get_section("zoom");

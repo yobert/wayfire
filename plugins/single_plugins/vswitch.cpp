@@ -54,15 +54,15 @@ class vswitch : public wf::plugin_interface_t
         grab_interface->capabilities = wf::CAPABILITY_MANAGE_DESKTOP;
         grab_interface->callbacks.cancel = [=] () {stop_switch();};
 
-        callback_left  = [=] (wf_activator_source, uint32_t) { add_direction(-1,  0); };
-        callback_right = [=] (wf_activator_source, uint32_t) { add_direction( 1,  0); };
-        callback_up    = [=] (wf_activator_source, uint32_t) { add_direction( 0, -1); };
-        callback_down  = [=] (wf_activator_source, uint32_t) { add_direction( 0,  1); };
+        callback_left  = [=] (wf_activator_source, uint32_t) { return add_direction(-1,  0); };
+        callback_right = [=] (wf_activator_source, uint32_t) { return add_direction( 1,  0); };
+        callback_up    = [=] (wf_activator_source, uint32_t) { return add_direction( 0, -1); };
+        callback_down  = [=] (wf_activator_source, uint32_t) { return add_direction( 0,  1); };
 
-        callback_win_left  = [=] (wf_activator_source, uint32_t) { add_direction(-1,  0, get_top_view()); };
-        callback_win_right = [=] (wf_activator_source, uint32_t) { add_direction( 1,  0, get_top_view()); };
-        callback_win_up    = [=] (wf_activator_source, uint32_t) { add_direction( 0, -1, get_top_view()); };
-        callback_win_down  = [=] (wf_activator_source, uint32_t) { add_direction( 0,  1, get_top_view()); };
+        callback_win_left  = [=] (wf_activator_source, uint32_t) { return add_direction(-1,  0, get_top_view()); };
+        callback_win_right = [=] (wf_activator_source, uint32_t) { return add_direction( 1,  0, get_top_view()); };
+        callback_win_up    = [=] (wf_activator_source, uint32_t) { return add_direction( 0, -1, get_top_view()); };
+        callback_win_down  = [=] (wf_activator_source, uint32_t) { return add_direction( 0,  1, get_top_view()); };
 
         auto section   = config->get_section("vswitch");
 
@@ -97,13 +97,13 @@ class vswitch : public wf::plugin_interface_t
         return output->is_plugin_active(grab_interface->name);
     }
 
-    void add_direction(int x, int y, wayfire_view view = nullptr)
+    bool add_direction(int x, int y, wayfire_view view = nullptr)
     {
         if (!x && !y)
-            return;
+            return false;
 
-        if (!is_active())
-            start_switch();
+        if (!is_active() && !start_switch())
+            return false;
 
         if (view && view->role != wf::VIEW_ROLE_TOPLEVEL)
             view = nullptr;
@@ -122,6 +122,8 @@ class vswitch : public wf::plugin_interface_t
         dy = {duration.progress(dy), 1.0 * tvy - cws.y};
 
         duration.start();
+
+        return true;
     }
 
     wf::signal_callback_t on_set_workspace_request = [=] (wf::signal_data_t *data)

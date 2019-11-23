@@ -136,24 +136,26 @@ class tile_plugin_t : public wf::plugin_interface_t
     }
 
     template<class Controller>
-    void start_controller(wf_point grab)
+    bool start_controller(wf_point grab)
     {
         /* No action possible in this case */
         if (has_fullscreen_view() || !has_tiled_focus())
-            return;
+            return false;
 
-        if (output->activate_plugin(grab_interface))
+        if (!output->activate_plugin(grab_interface))
+            return false;
+
+        if (grab_interface->grab())
         {
-            if (grab_interface->grab())
-            {
-                auto vp = output->workspace->get_current_workspace();
-                controller = std::make_unique<Controller> (
-                    roots[vp.x][vp.y], get_global_coordinates(grab));
-            } else
-            {
-                output->deactivate_plugin(grab_interface);
-            }
+            auto vp = output->workspace->get_current_workspace();
+            controller = std::make_unique<Controller> (
+                roots[vp.x][vp.y], get_global_coordinates(grab));
+        } else
+        {
+            output->deactivate_plugin(grab_interface);
         }
+
+        return true;
     }
 
     void stop_controller(bool force_stop)
@@ -309,26 +311,30 @@ class tile_plugin_t : public wf::plugin_interface_t
      *
      * @param need_tiled Whether the view needs to be tiled
      */
-    void conditioned_view_execute(bool need_tiled,
+    bool conditioned_view_execute(bool need_tiled,
         std::function<void(wayfire_view)> func)
     {
         auto view = output->get_active_view();
         if (!view)
-            return;
+            return false;
 
         if (need_tiled && !tile::view_node_t::get_node(view))
-            return;
+            return false;
 
         if (output->activate_plugin(grab_interface))
         {
             func(view);
             output->deactivate_plugin(grab_interface);
+
+            return true;
         }
+
+        return false;
     }
 
     key_callback on_toggle_fullscreen = [=] (uint32_t key)
     {
-        conditioned_view_execute(true, [=] (wayfire_view view)
+        return conditioned_view_execute(true, [=] (wayfire_view view)
         {
             stop_controller(true);
             set_view_fullscreen(view, !view->fullscreen);
@@ -337,7 +343,7 @@ class tile_plugin_t : public wf::plugin_interface_t
 
     key_callback on_toggle_tiled_state = [=] (uint32_t key)
     {
-        conditioned_view_execute(false, [=] (wayfire_view view)
+        return conditioned_view_execute(false, [=] (wayfire_view view)
         {
             auto existing_node = tile::view_node_t::get_node(view);
             if (existing_node) {
@@ -349,9 +355,9 @@ class tile_plugin_t : public wf::plugin_interface_t
         });
     };
 
-    void focus_adjacent(tile::split_insertion_t direction)
+    bool focus_adjacent(tile::split_insertion_t direction)
     {
-        conditioned_view_execute(true, [=] (wayfire_view view)
+        return conditioned_view_execute(true, [=] (wayfire_view view)
         {
             auto adjacent = tile::find_first_view_in_direction(
                 tile::view_node_t::get_node(view), direction);
@@ -371,23 +377,25 @@ class tile_plugin_t : public wf::plugin_interface_t
     key_callback on_focus_adjacent = [=] (uint32_t key)
     {
         if (key == key_focus_left->as_cached_key().keyval)
-            focus_adjacent(tile::INSERT_LEFT);
+            return focus_adjacent(tile::INSERT_LEFT);
         if (key == key_focus_right->as_cached_key().keyval)
-            focus_adjacent(tile::INSERT_RIGHT);
+            return focus_adjacent(tile::INSERT_RIGHT);
         if (key == key_focus_above->as_cached_key().keyval)
-            focus_adjacent(tile::INSERT_ABOVE);
+            return focus_adjacent(tile::INSERT_ABOVE);
         if (key == key_focus_below->as_cached_key().keyval)
-            focus_adjacent(tile::INSERT_BELOW);
+            return focus_adjacent(tile::INSERT_BELOW);
+
+        return false;
     };
 
     button_callback on_move_view = [=] (uint32_t button, int32_t x, int32_t y)
     {
-        start_controller<tile::move_view_controller_t> ({x, y});
+        return start_controller<tile::move_view_controller_t> ({x, y});
     };
 
     button_callback on_resize_view = [=] (uint32_t button, int32_t x, int32_t y)
     {
-        start_controller<tile::resize_view_controller_t> ({x, y});
+        return start_controller<tile::resize_view_controller_t> ({x, y});
     };
 
     void load_options(wayfire_config *config)

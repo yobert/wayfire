@@ -90,7 +90,9 @@ class wayfire_move : public wf::plugin_interface_t
                 auto view = wf::get_core().get_cursor_focus_view();
 
                 if (view && view->role != wf::VIEW_ROLE_SHELL_VIEW)
-                    initiate(view);
+                    return initiate(view);
+
+                return false;
             };
 
             touch_activate_binding = [=] (int32_t sx, int32_t sy)
@@ -100,7 +102,9 @@ class wayfire_move : public wf::plugin_interface_t
                 auto view = wf::get_core().get_touch_focus_view();
 
                 if (view && view->role != wf::VIEW_ROLE_SHELL_VIEW)
-                    initiate(view);
+                    return initiate(view);
+
+                return false;
             };
 
             output->add_button(button, &activate_binding);
@@ -175,28 +179,28 @@ class wayfire_move : public wf::plugin_interface_t
             initiate(view);
         }
 
-        void initiate(wayfire_view view)
+        bool initiate(wayfire_view view)
         {
             if (!view || !view->is_mapped())
-                return;
+                return false;
 
             auto current_ws_impl =
                 output->workspace->get_workspace_implementation();
             if (!current_ws_impl->view_movable(view))
-                return;
+                return false;
 
             if (view->get_output() != output)
-                return;
+                return false;
 
             uint32_t view_layer = output->workspace->get_view_layer(view);
             /* Allow moving an on-screen keyboard while screen is locked */
             bool ignore_inhibit = view_layer == wf::LAYER_DESKTOP_WIDGET;
             if (!output->activate_plugin(grab_interface, ignore_inhibit))
-                return;
+                return false;
 
             if (!grab_interface->grab()) {
                 output->deactivate_plugin(grab_interface);
-                return;
+                return false;
             }
 
             view->store_data(std::make_unique<wf::move_snap_helper_t> (
@@ -209,6 +213,8 @@ class wayfire_move : public wf::plugin_interface_t
             this->view = view;
             output->render->set_redraw_always();
             update_multi_output();
+
+            return true;
         }
 
         void input_pressed(uint32_t state, bool view_destroyed)

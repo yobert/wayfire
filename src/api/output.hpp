@@ -77,6 +77,15 @@ class output_t : public wf::object_base_t
     wf_pointf get_cursor_position() const;
 
     /**
+     * Checks if a plugin can activate. This may not succeed if a plugin
+     * with the same abilities is already active or if input is inhibited.
+     *
+     * @return true if the plugin is able to be activated, false otherwise.
+     */
+    virtual bool can_activate_plugin(const plugin_grab_interface_uptr& owner,
+        bool ignore_input_inhibit = false) = 0;
+
+    /**
      * Activates a plugin. Note that this may not succeed, if a plugin with the
      * same abilities is already active. However the same plugin might be
      * activated twice.

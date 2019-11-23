@@ -240,8 +240,11 @@ class wayfire_grid : public wf::plugin_interface_t
 
     activator_callback restore = [=] (wf_activator_source, uint32_t)
     {
+        if (!output->can_activate_plugin(grab_interface))
+            return false;
         auto view = output->get_active_view();
         view->tile_request(0);
+        return true;
     };
     wf_option_callback restore_opt_changed = [=] ()
     {
@@ -276,9 +279,11 @@ class wayfire_grid : public wf::plugin_interface_t
             {
                 auto view = output->get_active_view();
                 if (!view || view->role != wf::VIEW_ROLE_TOPLEVEL)
-                    return;
+                    return false;
 
                 handle_slot(view, i);
+
+                return true;
             };
 
             output->add_activator(keys[i], &bindings[i]);

@@ -16,10 +16,12 @@ void wayfire_exit::init(wayfire_config*)
         auto output_impl =
             static_cast<wf::output_impl_t*> (wf::get_core().get_active_output());
         if (output_impl->is_inhibited())
-            return;
+            return false;
 
         wf::get_core().emit_signal("shutdown", nullptr);
         wl_display_terminate(wf::get_core().display);
+
+        return true;
     };
 
     output->add_key(new_static_option("<ctrl> <alt> KEY_BACKSPACE"), &key);
@@ -39,11 +41,13 @@ void wayfire_close::init(wayfire_config *config)
     callback = [=] (wf_activator_source, uint32_t)
     {
         if (!output->activate_plugin(grab_interface))
-            return;
+            return false;
 
         output->deactivate_plugin(grab_interface);
         auto view = output->get_active_view();
         if (view && view->role == wf::VIEW_ROLE_TOPLEVEL) view->close();
+
+        return true;
     };
 
     output->add_activator(key, &callback);
@@ -67,11 +71,13 @@ void wayfire_focus::init(wayfire_config *)
 
     on_button = [=] (uint32_t button, int x, int y) {
         this->check_focus_surface(wf::get_core().get_cursor_focus());
+        return true;
     };
     output->add_button(new_static_option("BTN_LEFT"), &on_button);
 
     on_touch = [=] (int x, int y) {
         this->check_focus_surface(wf::get_core().get_touch_focus());
+        return true;
     };
     output->add_touch(new_static_option(""), &on_touch);
 

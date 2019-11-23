@@ -103,17 +103,17 @@ class wayfire_cube : public wf::plugin_interface_t
 
         auto button = section->get_option("activate", "<alt> <ctrl> BTN_LEFT");
         activate_binding = [=] (uint32_t, int32_t, int32_t) {
-            input_grabbed();
+            return input_grabbed();
         };
 
         auto key_left = section->get_option("rotate_left", "<alt> <ctrl> KEY_LEFT");
         rotate_left = [=] (wf_activator_source, uint32_t) {
-            move_vp(-1);
+            return move_vp(-1);
         };
 
         auto key_right = section->get_option("rotate_right", "<alt> <ctrl> KEY_RIGHT");
         rotate_right = [=] (wf_activator_source, uint32_t) {
-            move_vp(1);
+            return move_vp(1);
         };
 
         output->add_button(button, &activate_binding);
@@ -290,10 +290,10 @@ class wayfire_cube : public wf::plugin_interface_t
     }
 
     /* Start moving to a workspace to the left/right using the keyboard */
-    void move_vp(int dir)
+    bool move_vp(int dir)
     {
         if (!activate())
-            return;
+            return false;
 
         /* After the rotation is done, we want to exit cube and focus the target workspace */
         animation.in_exit = true;
@@ -307,13 +307,15 @@ class wayfire_cube : public wf::plugin_interface_t
         animation.duration.start();
         update_view_matrix();
         output->render->schedule_redraw();
+
+        return true;
     }
 
     /* Initiate with an button grab. */
-    void input_grabbed()
+    bool input_grabbed()
     {
         if (!activate())
-            return;
+            return false;
 
         saved_pointer_position = wf::get_core().get_cursor_position();
         wf::get_core().hide_cursor();
@@ -339,6 +341,8 @@ class wayfire_cube : public wf::plugin_interface_t
 
         update_view_matrix();
         output->render->schedule_redraw();
+
+        return true;
     }
 
     /* Mouse grab was released */

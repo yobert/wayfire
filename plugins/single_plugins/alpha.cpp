@@ -79,21 +79,25 @@ class wayfire_alpha : public wf::plugin_interface_t
     axis_callback axis_cb = [=] (wlr_event_pointer_axis* ev)
     {
         if (!output->activate_plugin(grab_interface))
-            return;
+            return false;
 
         output->deactivate_plugin(grab_interface);
 
         auto view = wf::get_core().get_cursor_focus_view();
         if (!view)
-            return;
+            return false;
 
         auto layer = output->workspace->get_view_layer(view);
 
         if (layer == wf::LAYER_BACKGROUND)
-            return;
+            return false;
 
-        if (ev->orientation == WLR_AXIS_ORIENTATION_VERTICAL)
+        if (ev->orientation == WLR_AXIS_ORIENTATION_VERTICAL) {
             update_alpha(view, ev->delta);
+            return true;
+        }
+
+        return false;
     };
 
     wf_option_callback min_value_changed = [=] ()

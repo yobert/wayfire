@@ -80,7 +80,7 @@ class input_manager
 
         void validate_drag_request(wlr_seat_request_start_drag_event *ev);
         std::chrono::steady_clock::time_point mod_binding_start;
-        std::vector<std::function<void()>> match_keys(uint32_t mods, uint32_t key, uint32_t mod_binding_key = 0);
+        std::vector<std::function<bool()>> match_keys(uint32_t mods, uint32_t key, uint32_t mod_binding_key = 0);
 
         wf::signal_callback_t surface_map_state_changed;
         wf::signal_callback_t output_added;
