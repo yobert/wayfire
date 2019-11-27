@@ -13,6 +13,7 @@
 #include "simple-background.hpp"
 #include "skydome.hpp"
 #include "cubemap.hpp"
+#include "cube-control-signal.hpp"
 
 #define Z_OFFSET_NEAR 0.89567f
 #define Z_OFFSET_FAR  2.00000f
@@ -119,6 +120,7 @@ class wayfire_cube : public wf::plugin_interface_t
         output->add_button(button, &activate_binding);
         output->add_activator(key_left, &rotate_left);
         output->add_activator(key_right, &rotate_right);
+        output->connect_signal("cube-control", &on_cube_control);
 
         grab_interface->callbacks.pointer.button = [=] (uint32_t b, uint32_t s)
         {
@@ -228,6 +230,38 @@ class wayfire_cube : public wf::plugin_interface_t
         auto wsize = output->workspace->get_workspace_grid_size();
         streams.resize(wsize.width);
         animation.projection = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
+    }
+
+    wf::signal_callback_t on_cube_control = [=] (wf::signal_data_t *data)
+    {
+        cube_control_signal *d = dynamic_cast<cube_control_signal*>(data);
+        rotate_and_zoom_cube(d->angle, d->zoom, d->last_frame);
+        d->carried_out = true;
+    };
+
+    void rotate_and_zoom_cube(double angle, double zoom, bool last_frame)
+    {
+        if (last_frame)
+        {
+            deactivate();
+            return;
+        }
+
+        if (!activate())
+            return;
+
+        float offset_z = identity_z_offset + Z_OFFSET_NEAR;
+
+        animation.rotation = {angle, angle};
+
+        animation.offset_y = {0.0, 0.0};
+        animation.offset_z = {offset_z, offset_z};
+
+        animation.zoom = {zoom, zoom};
+
+        animation.duration.start();
+        update_view_matrix();
+        output->render->schedule_redraw();
     }
 
     /* Tries to initialize renderer, activate plugin, etc. */
@@ -588,6 +622,7 @@ class wayfire_cube : public wf::plugin_interface_t
         OpenGL::render_end();
 
         output->rem_binding(&activate_binding);
+        output->disconnect_signal("cube-control", &on_cube_control);
     }
 };
 
