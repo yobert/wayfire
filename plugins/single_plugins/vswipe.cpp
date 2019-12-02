@@ -227,12 +227,14 @@ class vswipe : public wf::plugin_interface_t
 
         wf::get_core().focus_output(output);
 
+        bool was_active = output->is_plugin_active(grab_interface->name);
         if (!output->activate_plugin(grab_interface))
             return;
 
         grab_interface->grab();
         output->render->set_renderer(renderer);
-        output->render->damage_whole();
+        if (!was_active)
+            output->render->set_redraw_always();
 
         auto ws = output->workspace->get_current_workspace();
         auto grid = output->workspace->get_workspace_grid_size();
@@ -313,7 +315,6 @@ class vswipe : public wf::plugin_interface_t
         double new_delta_start = smooth_transition->as_int() ?
             delta_smooth.progress() : new_delta_end;
         delta_smooth.start(new_delta_start, new_delta_end);;
-        output->render->damage_whole();
     };
 
     wf::signal_callback_t on_swipe_end = [=] (wf::signal_data_t *data)
@@ -354,13 +355,16 @@ class vswipe : public wf::plugin_interface_t
 
         output->workspace->set_workspace(target_workspace);
         state.animating = true;
-        output->render->set_redraw_always();
     };
 
     void finalize_and_exit()
     {
         state.swiping = false;
         grab_interface->ungrab();
+
+        if (output->is_plugin_active(grab_interface->name))
+            output->render->set_redraw_always(false);
+
         output->deactivate_plugin(grab_interface);
 
         if (streams.prev.running)
@@ -370,12 +374,7 @@ class vswipe : public wf::plugin_interface_t
             output->render->workspace_stream_stop(streams.next);
 
         output->render->set_renderer(nullptr);
-
-        if (state.animating)
-        {
-            output->render->set_redraw_always(false);
-            state.animating = false;
-        }
+        state.animating = false;
     }
 
     void fini()
