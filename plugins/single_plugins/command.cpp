@@ -75,7 +75,7 @@ class wayfire_command : public wf::plugin_interface_t
             value == 0)
         {
             output->deactivate_plugin(grab_interface);
-            return false;
+            return true;
         }
 
         repeat.repeat_command = command;
