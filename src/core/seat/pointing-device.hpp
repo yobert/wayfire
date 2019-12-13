@@ -16,8 +16,10 @@ struct pointing_device_t : public wf_input_device_internal
     {
         wf_option mouse_cursor_speed;
         wf_option mouse_scroll_speed;
+        wf_option mouse_accel_profile;
         wf_option touchpad_cursor_speed;
         wf_option touchpad_scroll_speed;
+        wf_option touchpad_accel_profile;
         wf_option touchpad_tap_enabled;
         wf_option touchpad_click_method;
         wf_option touchpad_scroll_method;
