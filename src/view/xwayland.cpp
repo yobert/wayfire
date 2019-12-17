@@ -126,6 +126,8 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
                 clamp(configure_geometry, get_output()->get_relative_geometry());
         }
 
+        send_configure(configure_geometry.width, configure_geometry.height);
+
         if (view_impl->frame)
         {
             configure_geometry =
@@ -133,7 +135,6 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         }
 
         set_geometry(configure_geometry);
-        send_configure(configure_geometry.width, configure_geometry.height);
     }
 
     virtual void close() override
