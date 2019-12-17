@@ -12,7 +12,9 @@ void wf::pointing_device_t::config_t::load(wayfire_config *config)
 {
     auto section = (*config)["input"];
     mouse_cursor_speed              = section->get_option("mouse_cursor_speed", "0");
+    mouse_accel_profile             = section->get_option("mouse_accel_profile", "default");
     touchpad_cursor_speed           = section->get_option("touchpad_cursor_speed", "0");
+    touchpad_accel_profile          = section->get_option("touchpad_accel_profile", "default");
     touchpad_tap_enabled            = section->get_option("tap_to_click", "1");
     touchpad_click_method           = section->get_option("click_method", "default");
     touchpad_scroll_method          = section->get_option("scroll_method", "default");
@@ -35,6 +37,20 @@ void wf::pointing_device_t::update_options()
     {
         libinput_device_config_accel_set_speed(dev,
             config.touchpad_cursor_speed->as_cached_double());
+
+        if (config.touchpad_accel_profile->as_string() == "default") {
+            libinput_device_config_accel_set_profile(dev,
+                libinput_device_config_accel_get_default_profile(dev));
+        } else if (config.touchpad_accel_profile->as_string() == "none") {
+            libinput_device_config_accel_set_profile(dev,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_NONE);
+        } else if (config.touchpad_accel_profile->as_string() == "adaptive") {
+            libinput_device_config_accel_set_profile(dev,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE);
+        } else if (config.touchpad_accel_profile->as_string() == "flat") {
+            libinput_device_config_accel_set_profile(dev,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT);
+        }
 
         libinput_device_config_tap_set_enabled(dev,
             config.touchpad_tap_enabled->as_cached_int() ?
@@ -88,5 +104,19 @@ void wf::pointing_device_t::update_options()
     } else {
         libinput_device_config_accel_set_speed(dev,
             config.mouse_cursor_speed->as_cached_double());
+
+        if (config.mouse_accel_profile->as_string() == "default") {
+            libinput_device_config_accel_set_profile(dev,
+                libinput_device_config_accel_get_default_profile(dev));
+        } else if (config.mouse_accel_profile->as_string() == "none") {
+            libinput_device_config_accel_set_profile(dev,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_NONE);
+        } else if (config.mouse_accel_profile->as_string() == "adaptive") {
+            libinput_device_config_accel_set_profile(dev,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE);
+        } else if (config.mouse_accel_profile->as_string() == "flat") {
+            libinput_device_config_accel_set_profile(dev,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT);
+        }
     }
 }
