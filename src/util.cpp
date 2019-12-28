@@ -1,6 +1,8 @@
 #include "wayfire/util.hpp"
 #include <wayfire/debug.hpp>
 #include <wayfire/core.hpp>
+#include <sstream>
+#include <iomanip>
 #include <ctime>
 #include <cmath>
 
@@ -10,6 +12,26 @@ extern "C"
 }
 
 /* Geometry helpers */
+std::ostream& operator << (std::ostream& stream, const wf_geometry& geometry)
+{
+    stream << '(' << geometry.x << ',' << geometry.y
+        << ' ' << geometry.width << 'x' << geometry.y << ')';
+    return stream;
+}
+
+std::ostream& operator << (std::ostream& stream, const wf_point& point)
+{
+    stream << '(' << point.x << ',' << point.y << ')';
+    return stream;
+}
+
+std::ostream& operator << (std::ostream& stream, const wf_pointf& pointf)
+{
+    stream << std::fixed << std::setprecision(4) <<
+        '(' << pointf.x << ',' << pointf.y << ')';
+    return stream;
+}
+
 bool operator == (const wf_point& a, const wf_point& b)
 {
     return a.x == b.x && a.y == b.y;

@@ -1,6 +1,7 @@
 #ifndef WF_GEOMETRY_HPP
 #define WF_GEOMETRY_HPP
 
+#include <sstream>
 extern "C"
 {
 #include <wlr/types/wlr_box.h>
@@ -58,5 +59,10 @@ bool operator & (const wf_geometry& r1, const wf_geometry& r2);
  * the resulting geometry has undefined (x,y) and width == height == 0 */
 wf_geometry wf_geometry_intersection(const wf_geometry& r1,
     const wf_geometry& r2);
+
+/* Make geometry and point printable */
+std::ostream& operator << (std::ostream& stream, const wf_geometry& geometry);
+std::ostream& operator << (std::ostream& stream, const wf_point& point);
+std::ostream& operator << (std::ostream& stream, const wf_pointf& pointf);
 
 #endif /* end of include guard: WF_GEOMETRY_HPP */
