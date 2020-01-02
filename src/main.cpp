@@ -156,14 +156,40 @@ static wf::log::color_mode_t detect_color_mode()
         wf::log::LOG_COLOR_MODE_ON : wf::log::LOG_COLOR_MODE_OFF;
 }
 
+static void wlr_log_handler(wlr_log_importance level,
+    const char *fmt, va_list args)
+{
+    const int bufsize = 4 * 1024;
+    char buffer[bufsize];
+    vsnprintf(buffer, bufsize, fmt, args);
+
+    wf::log::log_level_t wlevel;
+    switch (level)
+    {
+        case WLR_ERROR:
+            wlevel = wf::log::LOG_LEVEL_ERROR;
+            break;
+        case WLR_INFO:
+            wlevel = wf::log::LOG_LEVEL_INFO;
+            break;
+        case WLR_DEBUG:
+            wlevel = wf::log::LOG_LEVEL_DEBUG;
+            break;
+        default:
+            return;
+    }
+
+    wf::log::log_plain(wlevel, buffer);
+}
+
 int main(int argc, char *argv[])
 {
 #ifdef WAYFIRE_DEBUG_ENABLED
-    wlr_log_init(WLR_DEBUG, NULL);
+    wlr_log_init(WLR_DEBUG, wlr_log_handler);
     wf::log::initialize_logging(std::cout, wf::log::LOG_LEVEL_DEBUG,
         detect_color_mode());
 #else
-    wlr_log_init(WLR_ERROR, NULL);
+    wlr_log_init(WLR_ERROR, wlr_log_handler);
     wf::log::initialize_logging(std::cout, wf::log::LOG_LEVEL_WARNING,
         detect_color_mode());
 #endif
