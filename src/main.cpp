@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
         detect_color_mode());
 #else
     wlr_log_init(WLR_ERROR, wlr_log_handler);
-    wf::log::initialize_logging(std::cout, wf::log::LOG_LEVEL_WARNING,
+    wf::log::initialize_logging(std::cout, wf::log::LOG_LEVEL_WARN,
         detect_color_mode());
 #endif
 
