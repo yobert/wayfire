@@ -1,9 +1,10 @@
-#include "wayfire/core.hpp"
-#include "wayfire/output.hpp"
-#include "wayfire/opengl.hpp"
-#include "wayfire/compositor-view.hpp"
-#include "wayfire/signal-definitions.hpp"
-#include "wayfire/debug.hpp"
+#include <wayfire/core.hpp>
+#include <wayfire/output.hpp>
+#include <wayfire/opengl.hpp>
+#include <wayfire/compositor-view.hpp>
+#include <wayfire/signal-definitions.hpp>
+#include <wayfire/debug.hpp>
+#include <cstring>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -76,7 +77,7 @@ void wf::mirror_view_t::simple_render(const wf::framebuffer_t& fb, int x, int y,
     /* Normally we shouldn't copy framebuffers. But in this case we can assume
      * nothing will break, because the copy will be destroyed immediately */
     wf::framebuffer_t copy;
-    memcpy((void*)&copy, (void*)&fb, sizeof(wf::framebuffer_t));
+    std::memcpy((void*)&copy, (void*)&fb, sizeof(wf::framebuffer_t));
 
     /* The base view is in another coordinate system, we need to calculate the
      * difference between the two, so that it appears at the correct place.
