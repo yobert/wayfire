@@ -2,11 +2,12 @@
 #include <cstring>
 
 #include "xdg-shell.hpp"
-#include "core.hpp"
-#include "debug.hpp"
-#include "output.hpp"
-#include "workspace-manager.hpp"
-#include "output-layout.hpp"
+#include "wayfire/core.hpp"
+#include "wayfire/debug.hpp"
+#include <wayfire/util/log.hpp>
+#include "wayfire/output.hpp"
+#include "wayfire/workspace-manager.hpp"
+#include "wayfire/output-layout.hpp"
 #include "view-impl.hpp"
 
 extern "C"
@@ -41,7 +42,7 @@ class wayfire_layer_shell_view : public wf::wlr_view_t
     void close() override;
     void destroy() override;
 
-    void configure(wf_geometry geometry);
+    void configure(wf::geometry_t geometry);
 
     /** Calculate the target layer for this layer surface */
     wf::layer_t get_layer();
@@ -158,14 +159,14 @@ struct wf_layer_shell_manager
 
         if (edges == 0 || __builtin_popcount(edges) > 1)
         {
-            log_error ("Unsupported: layer-shell exclusive zone for surfaces anchored to 0, 2 or 4 edges");
+            LOGE ("Unsupported: layer-shell exclusive zone for surfaces anchored to 0, 2 or 4 edges");
             return;
         }
 
         if (!v->anchored_area)
         {
             v->anchored_area = std::make_unique<wf::workspace_manager::anchored_area>();
-            v->anchored_area->reflowed = [v] (wf_geometry geometry, wf_geometry _)
+            v->anchored_area->reflowed = [v] (wf::geometry_t geometry, wf::geometry_t _)
             { v->configure(geometry); };
             /* Notice that the reflowed areas won't be changed until we call
              * reflow_reserved_areas(). However, by that time the information
@@ -179,13 +180,13 @@ struct wf_layer_shell_manager
             v->lsurface->current.desired_height : v->lsurface->current.desired_width;
     }
 
-    void pin_view(wayfire_layer_shell_view *v, wf_geometry usable_workarea)
+    void pin_view(wayfire_layer_shell_view *v, wf::geometry_t usable_workarea)
     {
         auto state = &v->lsurface->current;
         auto bounds = v->lsurface->current.exclusive_zone < 0 ?
             v->get_output()->get_relative_geometry() : usable_workarea;
 
-        wf_geometry box;
+        wf::geometry_t box;
         box.x = box.y = 0;
         box.width = state->desired_width;
         box.height = state->desired_height;
@@ -288,14 +289,8 @@ struct wf_layer_shell_manager
 wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
     : wf::wlr_view_t(), lsurface(lsurf)
 {
-    log_debug("Create a layer surface: namespace %s layer %d anchor %d,"
-              "size %dx%d, margin top:%d, down:%d, left:%d, right:%d",
-              lsurf->namespace_t, lsurf->current.layer, lsurf->client_pending.anchor,
-              lsurf->client_pending.desired_width, lsurf->client_pending.desired_height,
-              lsurf->client_pending.margin.top,
-              lsurf->client_pending.margin.bottom,
-              lsurf->client_pending.margin.left,
-              lsurf->client_pending.margin.right);
+    LOGD("Create a layer surface: namespace ", lsurf->namespace_t,
+        " layer ", lsurf->current.layer);
 
     if (lsurf->output)
     {
@@ -305,7 +300,7 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
 
     if (!get_output())
     {
-        log_error ("Couldn't find output for the layer surface");
+        LOGE ("Couldn't find output for the layer surface");
         close();
         return;
     }
@@ -419,7 +414,7 @@ void wayfire_layer_shell_view::close()
     wlr_layer_surface_v1_close(lsurface);
 }
 
-void wayfire_layer_shell_view::configure(wf_geometry box)
+void wayfire_layer_shell_view::configure(wf::geometry_t box)
 {
     auto state = &lsurface->current;
     if ((state->anchor & both_horiz) == both_horiz)
@@ -451,7 +446,7 @@ void wayfire_layer_shell_view::configure(wf_geometry box)
     }
 
     if (box.width < 0 || box.height < 0) {
-        log_error ("layer-surface has calculated width and height < 0");
+        LOGE ("layer-surface has calculated width and height < 0");
         close();
     }
 

@@ -1,9 +1,10 @@
 #include "matcher-ast.hpp"
-#include <debug.hpp>
+#include <wayfire/debug.hpp>
 
 #include <map>
 #include <set>
 #include <regex>
+#include <wayfire/util/log.hpp>
 
 namespace wf
 {
@@ -72,7 +73,7 @@ namespace wf
                 try {
                     result = std::regex_match(text, std::regex(pattern));
                 } catch (const std::exception& e) {
-                    log_error ("Invalid regular expression: %s", pattern.c_str());
+                    LOGE ("Invalid regular expression: %s", pattern.c_str());
                 }
 
                 return result;

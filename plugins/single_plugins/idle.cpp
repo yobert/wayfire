@@ -3,17 +3,16 @@ extern "C"
 #include <wlr/types/wlr_idle.h>
 }
 
-#include "singleton-plugin.hpp"
-#include "render-manager.hpp"
-#include "output.hpp"
-#include "core.hpp"
-#include "config.hpp"
-#include "output-layout.hpp"
-#include "workspace-manager.hpp"
+#include "wayfire/singleton-plugin.hpp"
+#include "wayfire/render-manager.hpp"
+#include "wayfire/output.hpp"
+#include "wayfire/core.hpp"
+#include "wayfire/output-layout.hpp"
+#include "wayfire/workspace-manager.hpp"
 #include "../cube/cube-control-signal.hpp"
 
 #include <cmath>
-#include <animation.hpp>
+#include <wayfire/util/duration.hpp>
 
 #define ZOOM_BASE 1.0
 
@@ -24,52 +23,51 @@ enum screensaver_state
     SCREENSAVER_STOPPING
 };
 
+using namespace wf::animation;
+class screensaver_animation_t : public duration_t
+{
+  public:
+    using duration_t::duration_t;
+    timed_transition_t rot{*this};
+    timed_transition_t zoom{*this};
+    timed_transition_t ease{*this};
+};
+
 class wayfire_idle
 {
-    wf::effect_hook_t render_hook;
     double rotation = 0.0;
-    wf_duration duration;
-    wf_transition rot_transition, zoom_transition;
+
+    wf::option_wrapper_t<int> zoom_speed{"idle/cube_zoom_speed"};
+    screensaver_animation_t screensaver_animation{zoom_speed};
+
+    wf::option_wrapper_t<int> dpms_timeout{"idle/dpms_timeout"};
+    wf::option_wrapper_t<int> screensaver_timeout{"idle/screensaver_timeout"};
+    wf::option_wrapper_t<double> cube_rotate_speed{"idle/cube_rotate_speed"};
+    wf::option_wrapper_t<double> cube_max_zoom{"idle/cube_max_zoom"};
+
     screensaver_state state = SCREENSAVER_DISABLED;
     std::map<wf::output_t*, bool> screensaver_hook_set;
     bool outputs_inhibited = false;
     bool idle_enabled = true;
     uint32_t last_time;
+
     wlr_idle_timeout *timeout_screensaver = NULL;
     wlr_idle_timeout *timeout_dpms = NULL;
     wf::wl_listener_wrapper on_idle_screensaver, on_resume_screensaver;
     wf::wl_listener_wrapper on_idle_dpms, on_resume_dpms;
 
-    wf_option dpms_timeout, screensaver_timeout;
-    wf_option cube_zoom_speed, cube_rotate_speed, cube_zoom_end;
-    wf_option_callback dpms_timeout_updated = [=] () {
-        create_dpms_timeout(dpms_timeout->as_int());
-    };
-    wf_option_callback screensaver_timeout_updated = [=] () {
-        create_screensaver_timeout(screensaver_timeout->as_int());
-    };
-
-    public:
+  public:
     wayfire_idle()
     {
-        dpms_timeout = wf::get_core().config->get_section("idle")
-            ->get_option("dpms_timeout", "-1");
-        screensaver_timeout = wf::get_core().config->get_section("idle")
-            ->get_option("screensaver_timeout", "-1");
-        cube_zoom_speed = wf::get_core().config->get_section("idle")
-            ->get_option("cube_zoom_speed", "1000");
-        cube_rotate_speed = wf::get_core().config->get_section("idle")
-            ->get_option("cube_rotate_speed", "1.0");
-        cube_zoom_end = wf::get_core().config->get_section("idle")
-            ->get_option("cube_max_zoom", "1.5");
+        dpms_timeout.set_callback([=] () {
+            create_dpms_timeout(dpms_timeout);
+        });
+        create_dpms_timeout(dpms_timeout);
 
-        render_hook = [=] () { screensaver_frame(); };
-
-        dpms_timeout->add_updated_handler(&dpms_timeout_updated);
-        dpms_timeout_updated();
-        screensaver_timeout->add_updated_handler(&screensaver_timeout_updated);
-        screensaver_timeout_updated();
-        duration = wf_duration(cube_zoom_speed);
+        screensaver_timeout.set_callback([=] () {
+            create_screensaver_timeout(screensaver_timeout);
+        });
+        create_screensaver_timeout(screensaver_timeout);
     }
 
     void destroy_dpms_timeout()
@@ -147,7 +145,7 @@ class wayfire_idle
         {
             if (screensaver_hook_set[output])
             {
-                output->render->rem_effect(&render_hook);
+                output->render->rem_effect(&screensaver_frame);
                 screensaver_hook_set[output] = false;
             }
             output->render->add_inhibit(true);
@@ -163,13 +161,14 @@ class wayfire_idle
         cube_control_signal data;
         data.angle = 0.0;
         data.zoom = ZOOM_BASE;
+        data.ease = 0.0;
         data.last_frame = true;
         for (auto& output : wf::get_core().output_layout->get_outputs())
         {
             output->emit_signal("cube-control", &data);
             if (screensaver_hook_set[output])
             {
-                output->render->rem_effect(&render_hook);
+                output->render->rem_effect(&screensaver_frame);
                 screensaver_hook_set[output] = false;
             }
             if (state == SCREENSAVER_DISABLED && outputs_inhibited)
@@ -182,37 +181,33 @@ class wayfire_idle
         state = SCREENSAVER_DISABLED;
     }
 
-    void screensaver_frame()
+    wf::effect_hook_t screensaver_frame = [=]()
     {
         cube_control_signal data;
         bool all_outputs_active = true;
-        uint32_t current = get_current_time();
+        uint32_t current = wf::get_current_time();
         uint32_t elapsed = current - last_time;
 
         last_time = current;
 
-        if (state == SCREENSAVER_STOPPING && !duration.running())
+        if (state == SCREENSAVER_STOPPING && !screensaver_animation.running())
         {
             screensaver_terminate();
             return;
         }
 
-        if (state == SCREENSAVER_STOPPING)
-        {
-            rotation = duration.progress(rot_transition);
-        }
-        else
-        {
-            rotation += (cube_rotate_speed->as_double() / 5000.0) * elapsed;
+        if (state == SCREENSAVER_STOPPING) {
+            rotation  = screensaver_animation.rot;
+        } else {
+            rotation += (cube_rotate_speed / 5000.0) * elapsed;
         }
 
         if (rotation > M_PI * 2)
-        {
             rotation -= M_PI * 2;
-        }
 
         data.angle = rotation;
-        data.zoom = duration.progress(zoom_transition);
+        data.zoom = screensaver_animation.zoom;
+        data.ease = screensaver_animation.ease;
         data.last_frame = false;
 
         for (auto& output : wf::get_core().output_layout->get_outputs())
@@ -237,13 +232,14 @@ class wayfire_idle
             wlr_idle_notify_activity(wf::get_core().protocols.idle,
                 wf::get_core().get_current_seat());
         }
-    }
+    };
 
     void start_screensaver()
     {
         cube_control_signal data;
         data.angle = 0.0;
         data.zoom = ZOOM_BASE;
+        data.ease = 0.0;
         data.last_frame = false;
         bool all_outputs_active = true;
         bool hook_set = false;
@@ -260,7 +256,8 @@ class wayfire_idle
             {
                 if (!screensaver_hook_set[output] && !hook_set)
                 {
-                    output->render->add_effect(&render_hook, wf::OUTPUT_EFFECT_PRE);
+                    output->render->add_effect(
+                        &screensaver_frame, wf::OUTPUT_EFFECT_PRE);
                     hook_set = screensaver_hook_set[output] = true;
                 }
             }
@@ -280,9 +277,10 @@ class wayfire_idle
         }
 
         rotation = 0.0;
-        zoom_transition = {ZOOM_BASE, cube_zoom_end->as_double()};
-        duration.start();
-        last_time = get_current_time();
+        screensaver_animation.zoom.set(ZOOM_BASE, cube_max_zoom);
+        screensaver_animation.ease.set(0.0, 1.0);
+        screensaver_animation.start();
+        last_time = wf::get_current_time();
     }
 
     void stop_screensaver()
@@ -303,18 +301,16 @@ class wayfire_idle
 
         state = SCREENSAVER_STOPPING;
         double end = rotation > M_PI ? M_PI * 2 : 0.0;
-        rot_transition = {rotation, end};
-        zoom_transition = {duration.progress(zoom_transition), ZOOM_BASE};
-        duration.start();
+        screensaver_animation.rot.set(rotation, end);
+        screensaver_animation.zoom.restart_with_end(ZOOM_BASE);
+        screensaver_animation.ease.restart_with_end(0.0);
+        screensaver_animation.start();
     }
 
     ~wayfire_idle()
     {
         destroy_dpms_timeout();
         destroy_screensaver_timeout();
-
-        dpms_timeout->rem_updated_handler(&dpms_timeout_updated);
-        screensaver_timeout->rem_updated_handler(&screensaver_timeout_updated);
 
         /* Make sure idle is enabled */
         if (!idle_enabled)
@@ -344,26 +340,24 @@ class wayfire_idle
 
 class wayfire_idle_singleton : public wf::singleton_plugin_t<wayfire_idle>
 {
-    activator_callback toggle;
-    void init(wayfire_config *config) override
+    wf::activator_callback toggle = [=] (wf::activator_source_t, uint32_t)
     {
-        singleton_plugin_t::init(config);
+        if (!output->can_activate_plugin(grab_interface))
+            return false;
 
+        get_instance().toggle_idle();
+        return true;
+    };
+
+    void init() override
+    {
+        singleton_plugin_t::init();
         grab_interface->name = "idle";
         grab_interface->capabilities = 0;
 
-        auto binding = config->get_section("idle")
-            ->get_option("toggle", "<super> <shift> KEY_I");
-        toggle = [=] (wf_activator_source, uint32_t) {
-            if (!output->can_activate_plugin(grab_interface))
-                return false;
-
-            get_instance().toggle_idle();
-
-            return true;
-        };
-
-        output->add_activator(binding, &toggle);
+        output->add_activator(
+            wf::option_wrapper_t<wf::activatorbinding_t>{"idle/toggle"},
+            &toggle);
     }
 
     void fini() override

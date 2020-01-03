@@ -1,9 +1,10 @@
-#include "debug.hpp"
-#include "core.hpp"
-#include "output.hpp"
-#include "workspace-manager.hpp"
-#include "decorator.hpp"
-#include "output-layout.hpp"
+#include "wayfire/debug.hpp"
+#include <wayfire/util/log.hpp>
+#include "wayfire/core.hpp"
+#include "wayfire/output.hpp"
+#include "wayfire/workspace-manager.hpp"
+#include "wayfire/decorator.hpp"
+#include "wayfire/output-layout.hpp"
 #include "../core/core-impl.hpp"
 #include "view-impl.hpp"
 
@@ -107,7 +108,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         wf::wlr_view_t::destroy();
     }
 
-    virtual void configure_request(wf_geometry configure_geometry)
+    virtual void configure_request(wf::geometry_t configure_geometry)
     {
         /* Wayfire positions views relative to their output, but Xwayland
          * windows have a global positioning. So, we need to make sure that we
@@ -122,8 +123,8 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
             /* It is possible the client requests to position itself on another
              * output. However, we want to make sure that the view stays on its
              * output, since this is how Wayland works */
-            configure_geometry =
-                clamp(configure_geometry, get_output()->get_relative_geometry());
+            configure_geometry = wf::clamp(configure_geometry,
+                get_output()->get_relative_geometry());
         }
 
         send_configure(configure_geometry.width, configure_geometry.height);
@@ -152,7 +153,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         {
             /* such a configure request would freeze xwayland.
              * This is most probably a bug somewhere in the compositor. */
-            log_error("Configuring a xwayland surface with width/height <0");
+            LOGE("Configuring a xwayland surface with width/height <0");
             return;
         }
 
@@ -226,8 +227,8 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
     wayfire_xwayland_view(wlr_xwayland_surface *xww)
         : wayfire_xwayland_view_base(xww)
     {
-        log_info("new xwayland surface %s class: %s instance: %s",
-            nonull(xw->title), nonull(xw->class_t), nonull(xw->instance));
+        LOGE("new xwayland surface ", xw->title,
+            " class: ", xw->class_t, " instance: ", xw->instance);
 
         on_request_move.set_callback([&] (void*) { move_request(); });
         on_request_resize.set_callback([&] (void*) { resize_request(); });
@@ -300,12 +301,12 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
             if (xw->width > 0 && xw->height > 0)
             {
                 /* Save geometry which the window has put itself in */
-                wf_geometry save_geometry = {
+                wf::geometry_t save_geometry = {
                     xw->x, xw->y, xw->width, xw->height
                 };
 
                 /* Make sure geometry is properly visible on the view output */
-                save_geometry = clamp(save_geometry,
+                save_geometry = wf::clamp(save_geometry,
                     get_output()->workspace->get_workarea());
                 this->view_impl->last_windowed_geometry = save_geometry;
             }
@@ -403,10 +404,9 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         auto default_app_id = get_app_id();
         auto instance_app_id = nonull(xw->instance);
 
-        auto app_id_mode = (*wf::get_core().config)["workarounds"]
-            ->get_option("app_id_mode", "stock");
-
-        if (app_id_mode->as_string() == "full") {
+        std::string app_id_mode =
+            wf::option_wrapper_t<std::string> ("workarounds/app_id_mode");
+        if (app_id_mode == "full") {
             app_id = default_app_id + " " + instance_app_id;
         } else {
             app_id = default_app_id;
@@ -427,8 +427,8 @@ wayfire_unmanaged_xwayland_view::
 wayfire_unmanaged_xwayland_view(wlr_xwayland_surface *xww)
     : wayfire_xwayland_view_base(xww)
 {
-    log_info("new unmanaged xwayland surface %s class: %s instance: %s",
-             nonull(xw->title), nonull(xw->class_t), nonull(xw->instance));
+    LOGE("new unmanaged xwayland surface ", xw->title, " class: ", xw->class_t,
+        " instance: ", xw->instance);
 
     xw->data = this;
     role = wf::VIEW_ROLE_UNMANAGED;
