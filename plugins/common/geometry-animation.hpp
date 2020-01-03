@@ -14,23 +14,23 @@ class geometry_animation_t : public duration_t
     timed_transition_t width{*this};
     timed_transition_t height{*this};
 
-    void set_start(wf_geometry geometry)
+    void set_start(wf::geometry_t geometry)
     {
         copy_fields(geometry, &timed_transition_t::start);
     }
 
-    void set_end(wf_geometry geometry)
+    void set_end(wf::geometry_t geometry)
     {
         copy_fields(geometry, &timed_transition_t::end);
     }
 
-    operator wf_geometry() const
+    operator wf::geometry_t() const
     {
         return { (int)x, (int)y, (int)width, (int)height };
     }
 
   protected:
-    void copy_fields(wf_geometry geometry, double timed_transition_t::* member)
+    void copy_fields(wf::geometry_t geometry, double timed_transition_t::* member)
     {
         this->x.*member = geometry.x;
         this->y.*member = geometry.y;

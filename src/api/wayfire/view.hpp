@@ -17,11 +17,11 @@ struct wlr_surface;
 namespace wf
 {
 class view_interface_t;
+class decorator_frame_t_t;
+class view_transformer_t;
 }
-using wayfire_view = nonstd::observer_ptr<wf::view_interface_t>;
 
-class wf_decorator_frame_t;
-class wf_view_transformer_t;
+using wayfire_view = nonstd::observer_ptr<wf::view_interface_t>;
 
 namespace wf
 {
@@ -101,7 +101,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      * A convenience function, has the same effect as calling move and resize
      * atomically.
      */
-    virtual void set_geometry(wf_geometry g);
+    virtual void set_geometry(wf::geometry_t g);
 
     /**
      * Start a resizing mode for this view. While a view is resizing, one edge
@@ -134,14 +134,14 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      *
      * @return The wm geometry of the view.
      */
-    virtual wf_geometry get_wm_geometry();
+    virtual wf::geometry_t get_wm_geometry();
 
     /**
      * @return the geometry of the view. Coordinates are relative to the current
      * workspace of the view's output, or with undefined origin if the view is
      * not on any output. This doesn't take into account the view's transformers.
      */
-    virtual wf_geometry get_output_geometry() = 0;
+    virtual wf::geometry_t get_output_geometry() = 0;
 
     /**
      * @return The bounding box of the view, which includes all (sub)surfaces,
@@ -159,7 +159,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      *         surface was found (in which case local has no meaning)
      */
     virtual surface_interface_t *map_input_coordinates(
-        wf_pointf cursor, wf_pointf& local);
+        wf::pointf_t cursor, wf::pointf_t& local);
 
     /**
      * Transform the given point's coordinates into the local coordinate system
@@ -170,7 +170,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      * @param surface The reference surface, or null for view-local coordinates
      * @return The point in surface-local coordinates
      */
-    virtual wf_pointf global_to_local_point(const wf_pointf& arg,
+    virtual wf::pointf_t global_to_local_point(const wf::pointf_t& arg,
         surface_interface_t* surface);
 
     /**
@@ -259,7 +259,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      * Set the decoration surface for the view.
      *
      * @param frame The surface to be set as a decoration. It must be subclass
-     * of both surface_interface_t and of wf_decorator_frame_t, and its parent
+     * of both surface_interface_t and of wf::decorator_frame_t_t, and its parent
      * surface must be this view.
      *
      * The life-time of the decoration is managed by the view itself, so after
@@ -287,22 +287,22 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      * of the internal FBO are updated.
      * */
 
-    void add_transformer(std::unique_ptr<wf_view_transformer_t> transformer);
+    void add_transformer(std::unique_ptr<wf::view_transformer_t> transformer);
 
     /**
      * Add a transformer with the given name. Note that you can add multiple
      * transforms with the same name.
      */
-    void add_transformer(std::unique_ptr<wf_view_transformer_t> transformer,
+    void add_transformer(std::unique_ptr<wf::view_transformer_t> transformer,
         std::string name);
 
     /** @return a transformer with the give name, or null */
-    nonstd::observer_ptr<wf_view_transformer_t> get_transformer(
+    nonstd::observer_ptr<wf::view_transformer_t> get_transformer(
         std::string name);
 
     /** remove a transformer */
     void pop_transformer(
-        nonstd::observer_ptr<wf_view_transformer_t> transformer);
+        nonstd::observer_ptr<wf::view_transformer_t> transformer);
     /** remove all transformers with the given name */
     void pop_transformer(std::string name);
     /** @return true if the view has active transformers */
@@ -312,7 +312,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
     wlr_box get_bounding_box(std::string transformer);
     /** @return the bounding box of the view up to the given transformer */
     wlr_box get_bounding_box(
-        nonstd::observer_ptr<wf_view_transformer_t> transformer);
+        nonstd::observer_ptr<wf::view_transformer_t> transformer);
 
     /**
      * Transform a point with the view's transformers.
@@ -322,7 +322,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      * @return The point in output-local coordinates after applying the
      *         view transformers.
      */
-    wf_pointf transform_point(const wf_pointf& point);
+    wf::pointf_t transform_point(const wf::pointf_t& point);
 
     /** @return a bounding box of the given box after applying the
      * transformers of the view */
@@ -334,7 +334,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
     /** @return a bounding box of the given box after applying the transformers
      * of the view up to the given transformer */
     wlr_box transform_region(const wlr_box& box,
-        nonstd::observer_ptr<wf_view_transformer_t> transformer);
+        nonstd::observer_ptr<wf::view_transformer_t> transformer);
 
     /**
      * @return true if the region intersects any of the surfaces in the view's
@@ -355,8 +355,8 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      * @return true if the render operation was successful, and false if the
                     view is both unmapped and has no snapshot.
      */
-    bool render_transformed(const wf_framebuffer& framebuffer,
-        const wf_region& damage);
+    bool render_transformed(const framebuffer_t& framebuffer,
+        const region_t& damage);
 
     /**
      * A snapshot of the view is a copy of the view's contents into a
@@ -373,7 +373,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
     view_interface_t();
 
     /** get_offset() is not valid for views */
-    virtual wf_point get_offset() override { return {0, 0}; }
+    virtual wf::point_t get_offset() override { return {0, 0}; }
 
     /**
      * Damage the given box. It is assumed that the box is already transformed
@@ -393,7 +393,7 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
     /**
      * @return the bounding box of the view before transformers
      */
-    virtual wf_geometry get_untransformed_bounding_box();
+    virtual wf::geometry_t get_untransformed_bounding_box();
 
     virtual void destruct() override;
 

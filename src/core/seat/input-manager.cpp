@@ -157,7 +157,7 @@ input_manager::input_manager()
             auto touch_points = our_touch->gesture_recognizer.current;
             for (auto f : touch_points)
             {
-                our_touch->gesture_recognizer.update_touch(get_current_time(),
+                our_touch->gesture_recognizer.update_touch(wf::get_current_time(),
                     f.first, f.second.current, false);
             }
         }
@@ -266,8 +266,8 @@ bool input_manager::can_focus_surface(wf::surface_interface_t *surface)
     return true;
 }
 
-wf::surface_interface_t* input_manager::input_surface_at(wf_pointf global,
-    wf_pointf& local)
+wf::surface_interface_t* input_manager::input_surface_at(wf::pointf_t global,
+    wf::pointf_t& local)
 {
     auto output = wf::get_core().output_layout->get_output_coords_at(global, global);
     /* If the output at these coordinates was just destroyed or some other edge case */
@@ -312,11 +312,11 @@ void input_manager::set_exclusive_focus(wl_client *client)
 
 /* add/remove bindings */
 
-wf_binding* input_manager::new_binding(wf_binding_type type,
+wf::binding_t* input_manager::new_binding(wf_binding_type type,
     std::shared_ptr<wf::config::option_base_t> value,
     wf::output_t *output, void *callback)
 {
-    auto binding = std::make_unique<wf_binding>();
+    auto binding = std::make_unique<wf::binding_t>();
 
     assert(value && output && callback);
 
@@ -348,19 +348,19 @@ void input_manager::rem_binding(binding_criteria criteria)
     }
 }
 
-void input_manager::rem_binding(wf_binding *binding)
+void input_manager::rem_binding(wf::binding_t *binding)
 {
-    rem_binding([=] (wf_binding *ptr) { return binding == ptr; });
+    rem_binding([=] (wf::binding_t *ptr) { return binding == ptr; });
 }
 
 void input_manager::rem_binding(void *callback)
 {
-    rem_binding([=] (wf_binding* ptr) {return ptr->call.raw == callback; });
+    rem_binding([=] (wf::binding_t* ptr) {return ptr->call.raw == callback; });
 }
 
 void input_manager::free_output_bindings(wf::output_t *output)
 {
-    rem_binding([=] (wf_binding* binding) {
+    rem_binding([=] (wf::binding_t* binding) {
         return binding->output == output;
     });
 }
@@ -404,7 +404,7 @@ bool input_manager::check_button_bindings(uint32_t button)
              * so force copy the callback into the lambda */
             auto callback = binding->call.activator;
             callbacks.push_back([=] () {
-                return (*callback) (ACTIVATOR_SOURCE_BUTTONBINDING, button);
+                return (*callback) (wf::ACTIVATOR_SOURCE_BUTTONBINDING, button);
             });
         }
     }
@@ -418,7 +418,7 @@ bool input_manager::check_button_bindings(uint32_t button)
 
 bool input_manager::check_axis_bindings(wlr_event_pointer_axis *ev)
 {
-    std::vector<axis_callback*> callbacks;
+    std::vector<wf::axis_callback*> callbacks;
     auto mod_state = get_modifiers();
 
     for (auto& binding : bindings[WF_BINDING_AXIS])

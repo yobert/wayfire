@@ -26,12 +26,12 @@ class fade_animation : public animation_base
             this->progression.flip();
 
         name = "animation-fade-" + std::to_string(type);
-        view->add_transformer(std::make_unique<wf_2D_view> (view), name);
+        view->add_transformer(std::make_unique<wf::view_2D> (view), name);
     }
 
     bool step() override
     {
-        auto transform = dynamic_cast<wf_2D_view*> (view->get_transformer(name).get());
+        auto transform = dynamic_cast<wf::view_2D*> (view->get_transformer(name).get());
         transform->alpha = this->progression;
         return progression.running();
     }
@@ -57,7 +57,7 @@ class zoom_animation_t : public duration_t
 class zoom_animation : public animation_base
 {
     wayfire_view view;
-    wf_2D_view *our_transform = nullptr;
+    wf::view_2D *our_transform = nullptr;
     zoom_animation_t progression;
 
     public:
@@ -104,8 +104,8 @@ class zoom_animation : public animation_base
             progression.offset_y.flip();
         }
 
-        our_transform = new wf_2D_view(view);
-        view->add_transformer(std::unique_ptr<wf_2D_view> (our_transform));
+        our_transform = new wf::view_2D(view);
+        view->add_transformer(std::unique_ptr<wf::view_2D> (our_transform));
     }
 
     bool step() override

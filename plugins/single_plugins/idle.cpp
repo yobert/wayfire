@@ -185,7 +185,7 @@ class wayfire_idle
     {
         cube_control_signal data;
         bool all_outputs_active = true;
-        uint32_t current = get_current_time();
+        uint32_t current = wf::get_current_time();
         uint32_t elapsed = current - last_time;
 
         last_time = current;
@@ -280,7 +280,7 @@ class wayfire_idle
         screensaver_animation.zoom.set(ZOOM_BASE, cube_max_zoom);
         screensaver_animation.ease.set(0.0, 1.0);
         screensaver_animation.start();
-        last_time = get_current_time();
+        last_time = wf::get_current_time();
     }
 
     void stop_screensaver()
@@ -340,7 +340,7 @@ class wayfire_idle
 
 class wayfire_idle_singleton : public wf::singleton_plugin_t<wayfire_idle>
 {
-    activator_callback toggle = [=] (wf_activator_source, uint32_t)
+    wf::activator_callback toggle = [=] (wf::activator_source_t, uint32_t)
     {
         if (!output->can_activate_plugin(grab_interface))
             return false;

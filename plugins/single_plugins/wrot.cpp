@@ -17,7 +17,7 @@ static double vlen(double x1, double y1) // length of vector centered at the ori
 
 class wf_wrot : public wf::plugin_interface_t
 {
-    button_callback call;
+    wf::button_callback call;
 
     int last_x, last_y;
     wayfire_view current_view;
@@ -55,9 +55,9 @@ class wf_wrot : public wf::plugin_interface_t
             grab_interface->callbacks.pointer.motion = [=] (int x, int y)
             {
                 if (!current_view->get_transformer("wrot"))
-                    current_view->add_transformer(std::make_unique<wf_2D_view> (current_view), "wrot");
+                    current_view->add_transformer(std::make_unique<wf::view_2D> (current_view), "wrot");
 
-                auto tr = dynamic_cast<wf_2D_view*> (current_view->get_transformer("wrot").get());
+                auto tr = dynamic_cast<wf::view_2D*> (current_view->get_transformer("wrot").get());
                 assert(tr);
 
                 current_view->damage();

@@ -3,7 +3,7 @@
 
 wf_cube_simple_background::wf_cube_simple_background() {}
 
-void wf_cube_simple_background::render_frame(const wf_framebuffer& fb,
+void wf_cube_simple_background::render_frame(const wf::framebuffer_t& fb,
     wf_cube_animation_attribs&)
 {
     OpenGL::render_begin(fb);

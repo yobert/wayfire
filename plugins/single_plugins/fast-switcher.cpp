@@ -112,16 +112,16 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         if (!view->get_transformer(transformer_name))
         {
             view->add_transformer(
-                std::make_unique<wf_2D_view>(view), transformer_name);
+                std::make_unique<wf::view_2D>(view), transformer_name);
         }
 
-        auto tr = dynamic_cast<wf_2D_view*> (
+        auto tr = dynamic_cast<wf::view_2D*> (
             view->get_transformer(transformer_name).get());
         tr->alpha = alpha;
         view->damage();
     }
 
-    key_callback fast_switch_start = [=] (uint32_t)
+    wf::key_callback fast_switch_start = [=] (uint32_t)
     {
         if (active)
             return false;

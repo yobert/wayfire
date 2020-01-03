@@ -213,7 +213,7 @@ std::vector<std::function<bool()>> input_manager::match_keys(uint32_t mod_state,
              * Also, do not send keys for modifier bindings */
             auto callback = binding->call.activator;
             callbacks.push_back([=] () {
-                return (*callback) (ACTIVATOR_SOURCE_KEYBINDING,
+                return (*callback) (wf::ACTIVATOR_SOURCE_KEYBINDING,
                     mod_from_key(seat, actual_key) ? 0 : actual_key);
             });
         }

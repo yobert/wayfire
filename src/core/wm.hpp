@@ -11,15 +11,15 @@ struct wm_focus_request : public wf::signal_data_t
 };
 
 class wayfire_close : public wf::plugin_interface_t {
-    activator_callback callback;
+    wf::activator_callback callback;
     public:
         void init() override;
         void fini() override;
 };
 
 class wayfire_focus : public wf::plugin_interface_t {
-    button_callback on_button;
-    touch_callback on_touch;
+    wf::button_callback on_button;
+    wf::touch_callback on_touch;
     wf::signal_callback_t on_view_disappear,
         on_view_output_change, on_wm_focus_request;
 
@@ -34,7 +34,7 @@ class wayfire_focus : public wf::plugin_interface_t {
 };
 
 class wayfire_exit : public wf::plugin_interface_t {
-    key_callback key;
+    wf::key_callback key;
     public:
         void init() override;
         void fini() override;

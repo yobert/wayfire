@@ -9,76 +9,82 @@
 #include "wayfire/geometry.hpp"
 
 /* ---------------------- pixman utility functions -------------------------- */
-struct wf_region
+namespace wf
 {
-    wf_region();
+struct region_t
+{
+    region_t();
     /* Makes a copy of the given region */
-    wf_region(pixman_region32_t *damage);
-    wf_region(const wlr_box& box);
-    ~wf_region();
+    region_t(pixman_region32_t *damage);
+    region_t(const wlr_box& box);
+    ~region_t();
 
-    wf_region(const wf_region& other);
-    wf_region(wf_region&& other);
+    region_t(const region_t& other);
+    region_t(region_t&& other);
 
-    wf_region& operator = (const wf_region& other);
-    wf_region& operator = (wf_region&& other);
+    region_t& operator = (const region_t& other);
+    region_t& operator = (region_t&& other);
 
     bool empty() const;
     void clear();
 
     void expand_edges(int amount);
     pixman_box32_t get_extents() const;
-    bool contains_point(const wf_point& point) const;
-    bool contains_pointf(const wf_pointf& point) const;
+    bool contains_point(const point_t& point) const;
+    bool contains_pointf(const pointf_t& point) const;
 
     /* Translate the region */
-    wf_region operator + (const wf_point& vector) const;
-    wf_region& operator += (const wf_point& vector);
+    region_t operator + (const point_t& vector) const;
+    region_t& operator += (const point_t& vector);
 
-    wf_region operator * (float scale) const;
-    wf_region& operator *= (float scale);
+    region_t operator * (float scale) const;
+    region_t& operator *= (float scale);
 
     /* Region intersection */
-    wf_region operator & (const wlr_box& box) const;
-    wf_region operator & (const wf_region& other) const;
-    wf_region& operator &= (const wlr_box& box);
-    wf_region& operator &= (const wf_region& other);
+    region_t operator & (const wlr_box& box) const;
+    region_t operator & (const region_t& other) const;
+    region_t& operator &= (const wlr_box& box);
+    region_t& operator &= (const region_t& other);
 
     /* Region union */
-    wf_region operator | (const wlr_box& other) const;
-    wf_region operator | (const wf_region& other) const;
-    wf_region& operator |= (const wlr_box& other);
-    wf_region& operator |= (const wf_region& other);
+    region_t operator | (const wlr_box& other) const;
+    region_t operator | (const region_t& other) const;
+    region_t& operator |= (const wlr_box& other);
+    region_t& operator |= (const region_t& other);
 
     /* Subtract the box/region from the current region */
-    wf_region operator ^ (const wlr_box& box) const;
-    wf_region operator ^ (const wf_region& other) const;
-    wf_region& operator ^= (const wlr_box& box);
-    wf_region& operator ^= (const wf_region& other);
+    region_t operator ^ (const wlr_box& box) const;
+    region_t operator ^ (const region_t& other) const;
+    region_t& operator ^= (const wlr_box& box);
+    region_t& operator ^= (const region_t& other);
 
     pixman_region32_t *to_pixman();
 
     const pixman_box32_t* begin() const;
     const pixman_box32_t* end() const;
 
-    private:
+  private:
     pixman_region32_t _region;
     /* Returns a const-casted pixman_region32_t*, useful in const operators
      * where we use this->_region as only source for calculations, but pixman
      * won't let us pass a const pixman_region32_t* */
     pixman_region32_t* unconst() const;
 };
+}
 
 wlr_box wlr_box_from_pixman_box(const pixman_box32_t& box);
 pixman_box32_t pixman_box_from_wlr_box(const wlr_box& box);
 
 /* ------------------------- misc helper functions ------------------------- */
+namespace wf
+{
+/** Convert timespect to milliseconds. */
 int64_t timespec_to_msec(const timespec& ts);
 
-/* Returns current time in msec, using CLOCK_MONOTONIC as a base */
+/** Returns current time in msec, using CLOCK_MONOTONIC as a base */
 uint32_t get_current_time();
 
-/* Ensure that value is in the interval [min, max] */
+/** Return the closest valume to @value which is in [@min, @max] */
 template<class T>
 T clamp(T value, T min, T max)
 {
@@ -89,7 +95,8 @@ T clamp(T value, T min, T max)
  * Return the closest geometry to window which is completely inside the output.
  * The returned geometry might be smaller, but never bigger than window.
  */
-wf_geometry clamp(wf_geometry window, wf_geometry output);
+geometry_t clamp(geometry_t window, geometry_t output);
+}
 
 namespace wf
 {

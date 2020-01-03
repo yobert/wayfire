@@ -43,7 +43,7 @@ static int repeat_once_handler(void *callback)
 
 class wayfire_command : public wf::plugin_interface_t
 {
-    std::vector<activator_callback> bindings;
+    std::vector<wf::activator_callback> bindings;
 
     struct
     {
@@ -59,7 +59,7 @@ class wayfire_command : public wf::plugin_interface_t
         BINDING_REPEAT,
         BINDING_ALWAYS,
     };
-    bool on_binding(std::string command, binding_mode mode, wf_activator_source source,
+    bool on_binding(std::string command, binding_mode mode, wf::activator_source_t source,
         uint32_t value)
     {
         /* We already have a repeatable command, do not accept further bindings */
@@ -72,7 +72,7 @@ class wayfire_command : public wf::plugin_interface_t
         wf::get_core().run(command.c_str());
 
         /* No repeat necessary in any of those cases */
-        if (mode != BINDING_REPEAT || source == ACTIVATOR_SOURCE_GESTURE ||
+        if (mode != BINDING_REPEAT || source == wf::ACTIVATOR_SOURCE_GESTURE ||
             value == 0)
         {
             output->deactivate_plugin(grab_interface);
@@ -80,7 +80,7 @@ class wayfire_command : public wf::plugin_interface_t
         }
 
         repeat.repeat_command = command;
-        if (source == ACTIVATOR_SOURCE_KEYBINDING) {
+        if (source == wf::ACTIVATOR_SOURCE_KEYBINDING) {
             repeat.pressed_key = value;
         } else {
             repeat.pressed_button = value;

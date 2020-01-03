@@ -108,7 +108,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         wf::wlr_view_t::destroy();
     }
 
-    virtual void configure_request(wf_geometry configure_geometry)
+    virtual void configure_request(wf::geometry_t configure_geometry)
     {
         /* Wayfire positions views relative to their output, but Xwayland
          * windows have a global positioning. So, we need to make sure that we
@@ -123,8 +123,8 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
             /* It is possible the client requests to position itself on another
              * output. However, we want to make sure that the view stays on its
              * output, since this is how Wayland works */
-            configure_geometry =
-                clamp(configure_geometry, get_output()->get_relative_geometry());
+            configure_geometry = wf::clamp(configure_geometry,
+                get_output()->get_relative_geometry());
         }
 
         send_configure(configure_geometry.width, configure_geometry.height);
@@ -301,12 +301,12 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
             if (xw->width > 0 && xw->height > 0)
             {
                 /* Save geometry which the window has put itself in */
-                wf_geometry save_geometry = {
+                wf::geometry_t save_geometry = {
                     xw->x, xw->y, xw->width, xw->height
                 };
 
                 /* Make sure geometry is properly visible on the view output */
-                save_geometry = clamp(save_geometry,
+                save_geometry = wf::clamp(save_geometry,
                     get_output()->workspace->get_workarea());
                 this->view_impl->last_windowed_geometry = save_geometry;
             }

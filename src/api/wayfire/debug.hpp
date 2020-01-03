@@ -7,5 +7,9 @@
 
 #define nonull(x) ((x) ? (x) : ("nil"))
 
-void wf_print_trace();
+namespace wf
+{
+void print_trace();
+}
+
 #endif

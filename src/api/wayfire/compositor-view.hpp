@@ -61,13 +61,13 @@ class mirror_view_t : public wf::view_interface_t, wf::compositor_surface_t
 
     /* surface_interface_t implementation */
     virtual bool is_mapped() const override;
-    virtual wf_size_t get_size() const override;
-    virtual void simple_render(const wf_framebuffer& fb, int x, int y,
-        const wf_region& damage) override;
+    virtual wf::dimensions_t get_size() const override;
+    virtual void simple_render(const wf::framebuffer_t& fb, int x, int y,
+        const wf::region_t& damage) override;
 
     /* view_interface_t implementation */
     virtual void move(int x, int y) override;
-    virtual wf_geometry get_output_geometry() override;
+    virtual wf::geometry_t get_output_geometry() override;
 
     virtual wlr_surface *get_keyboard_focus_surface() override;
     virtual bool is_focuseable() const override;
@@ -85,7 +85,7 @@ class color_rect_view_t : public wf::view_interface_t, wf::compositor_surface_t
     wf::color_t _border_color;
     int border;
 
-    wf_geometry geometry;
+    wf::geometry_t geometry;
     bool _is_mapped;
   public:
     /**
@@ -108,14 +108,14 @@ class color_rect_view_t : public wf::view_interface_t, wf::compositor_surface_t
 
     /* required for surface_interface_t */
     virtual bool is_mapped() const override;
-    virtual wf_size_t get_size() const override;
-    virtual void simple_render(const wf_framebuffer& fb, int x, int y,
-        const wf_region& damage) override;
+    virtual wf::dimensions_t get_size() const override;
+    virtual void simple_render(const wf::framebuffer_t& fb, int x, int y,
+        const wf::region_t& damage) override;
 
     /* required for view_interface_t */
     virtual void move(int x, int y) override;
     virtual void resize(int w, int h) override;
-    virtual wf_geometry get_output_geometry() override;
+    virtual wf::geometry_t get_output_geometry() override;
 
     virtual wlr_surface *get_keyboard_focus_surface() override;
     virtual bool is_focuseable() const override;

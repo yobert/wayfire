@@ -23,9 +23,9 @@ static int particle_count_for_width(int width)
     return particles * std::min(width / 400.0, 3.5);
 }
 
-class FireTransformer : public wf_view_transformer_t
+class FireTransformer : public wf::view_transformer_t
 {
-    wf_geometry last_boundingbox;
+    wf::geometry_t last_boundingbox;
 
     public:
     ParticleSystem ps;
@@ -40,17 +40,17 @@ class FireTransformer : public wf_view_transformer_t
 
     ~FireTransformer() { }
 
-    virtual wf_pointf local_to_transformed_point(wf_geometry view, wf_pointf point) { return point; }
-    virtual wf_pointf transformed_to_local_point(wf_geometry view, wf_pointf point) { return point; }
+    virtual wf::pointf_t local_to_transformed_point(wf::geometry_t view, wf::pointf_t point) { return point; }
+    virtual wf::pointf_t transformed_to_local_point(wf::geometry_t view, wf::pointf_t point) { return point; }
 
     static constexpr int left_border = 50;
     static constexpr int right_border = 50;
     static constexpr int top_border = 100;
     static constexpr int bottom_border = 50;
 
-    uint32_t get_z_order() { return WF_TRANSFORMER_HIGHLEVEL + 1; }
+    uint32_t get_z_order() { return wf::TRANSFORMER_HIGHLEVEL + 1; }
 
-    virtual wlr_box get_bounding_box(wf_geometry view, wlr_box region)
+    virtual wlr_box get_bounding_box(wf::geometry_t view, wlr_box region)
     {
         last_boundingbox = view;
         ps.resize(particle_count_for_width(last_boundingbox.width));
@@ -90,7 +90,7 @@ class FireTransformer : public wf_view_transformer_t
     }
 
     virtual void render_box(uint32_t src_tex, wlr_box src_box,
-        wlr_box scissor_box, const wf_framebuffer& target_fb)
+        wlr_box scissor_box, const wf::framebuffer_t& target_fb)
     {
         OpenGL::render_begin(target_fb);
         target_fb.scissor(scissor_box);

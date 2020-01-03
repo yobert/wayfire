@@ -56,8 +56,8 @@ class compositor_core_impl_t : public compositor_core_t
     void hide_cursor() override;
     void warp_cursor(int x, int y) override;
 
-    wf_pointf get_cursor_position() override;
-    wf_pointf get_touch_position(int id) override;
+    wf::pointf_t get_cursor_position() override;
+    wf::pointf_t get_touch_position(int id) override;
 
     wf::surface_interface_t *get_cursor_focus() override;
     wf::surface_interface_t *get_touch_focus() override;

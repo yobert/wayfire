@@ -140,17 +140,17 @@ class WayfireSwitcher : public wf::plugin_interface_t
         grab_interface->callbacks.cancel = [=] () {deinit_switcher();};
     }
 
-    key_callback next_view_binding = [=] (uint32_t)
+    wf::key_callback next_view_binding = [=] (uint32_t)
     {
         return handle_switch_request(-1);
     };
 
-    key_callback prev_view_binding = [=] (uint32_t)
+    wf::key_callback prev_view_binding = [=] (uint32_t)
     {
         return handle_switch_request(1);
     };
 
-    gesture_callback touch_activate = [=] (wf::touchgesture_t*)
+    wf::gesture_callback touch_activate = [=] (wf::touchgesture_t*)
     {
         if (!active)
         {
@@ -361,7 +361,7 @@ class WayfireSwitcher : public wf::plugin_interface_t
     }
 
     /* Calculate how much a view should be scaled to fit into the slots */
-    float calculate_scaling_factor(const wf_geometry& bbox) const
+    float calculate_scaling_factor(const wf::geometry_t& bbox) const
     {
         /* Each view should not be more than this percentage of the
          * width/height of the output */
@@ -540,11 +540,11 @@ class WayfireSwitcher : public wf::plugin_interface_t
             {
                 if (!view->get_transformer(switcher_transformer_background))
                 {
-                    view->add_transformer(std::make_unique<wf_3D_view> (view),
+                    view->add_transformer(std::make_unique<wf::view_3D> (view),
                         switcher_transformer_background);
                 }
 
-                auto tr = dynamic_cast<wf_3D_view*> (
+                auto tr = dynamic_cast<wf::view_3D*> (
                     view->get_transformer(switcher_transformer_background).get());
                 tr->color[0] = tr->color[1] = tr->color[2] = dim;
             }
@@ -560,7 +560,7 @@ class WayfireSwitcher : public wf::plugin_interface_t
          * the whole output */
         if (!view->get_transformer(switcher_transformer))
         {
-            view->add_transformer(std::make_unique<wf_3D_view> (view),
+            view->add_transformer(std::make_unique<wf::view_3D> (view),
                 switcher_transformer);
         }
 
@@ -570,9 +570,9 @@ class WayfireSwitcher : public wf::plugin_interface_t
         return sw;
     }
 
-    void render_view(const SwitcherView& sv, const wf_framebuffer& buffer)
+    void render_view(const SwitcherView& sv, const wf::framebuffer_t& buffer)
     {
-        auto transform = dynamic_cast<wf_3D_view*> (
+        auto transform = dynamic_cast<wf::view_3D*> (
             sv.view->get_transformer(switcher_transformer).get());
         assert(transform);
 
@@ -596,7 +596,7 @@ class WayfireSwitcher : public wf::plugin_interface_t
         transform->color[3] = 1.0;
     }
 
-    wf::render_hook_t switcher_renderer = [=] (const wf_framebuffer& fb)
+    wf::render_hook_t switcher_renderer = [=] (const wf::framebuffer_t& fb)
     {
         OpenGL::render_begin(fb);
         OpenGL::clear({0, 0, 0, 1});

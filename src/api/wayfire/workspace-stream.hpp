@@ -10,8 +10,8 @@ namespace wf
  * given workspace.  */
 struct workspace_stream_t
 {
-    wf_point ws;
-    wf_framebuffer_base buffer;
+    wf::point_t ws;
+    wf::framebuffer_base_t buffer;
     bool running = false;
 
     float scale_x = 1.0;
@@ -31,12 +31,12 @@ struct workspace_stream_t
 /** Emitted whenever a workspace stream is being started or stopped */
 struct stream_signal_t : public wf::signal_data_t
 {
-    stream_signal_t(wf_region& damage, const wf_framebuffer& _fb)
+    stream_signal_t(wf::region_t& damage, const wf::framebuffer_t& _fb)
         : raw_damage(damage), fb(_fb) { }
 
     /* Raw damage, can be adjusted by the signal handlers. */
-    wf_region& raw_damage;
-    const wf_framebuffer& fb;
+    wf::region_t& raw_damage;
+    const wf::framebuffer_t& fb;
 };
 }
 

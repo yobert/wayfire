@@ -93,23 +93,23 @@ wf::output_t::~output_t()
 }
 wf::output_impl_t::~output_impl_t() { }
 
-wf_size_t wf::output_t::get_screen_size() const
+wf::dimensions_t wf::output_t::get_screen_size() const
 {
     int w, h;
     wlr_output_effective_resolution(handle, &w, &h);
     return {w, h};
 }
 
-wf_geometry wf::output_t::get_relative_geometry() const
+wf::geometry_t wf::output_t::get_relative_geometry() const
 {
-    wf_geometry g;
+    wf::geometry_t g;
     g.x = g.y = 0;
     wlr_output_effective_resolution(handle, &g.width, &g.height);
 
     return g;
 }
 
-wf_geometry wf::output_t::get_layout_geometry() const
+wf::geometry_t wf::output_t::get_layout_geometry() const
 {
     auto box = wlr_output_layout_get_box(
         wf::get_core().output_layout->get_handle(), handle);
@@ -144,7 +144,7 @@ void wf::output_t::ensure_pointer() const
     } */
 }
 
-wf_pointf wf::output_t::get_cursor_position() const
+wf::pointf_t wf::output_t::get_cursor_position() const
 {
     auto og = get_layout_geometry();
     auto gc = wf::get_core().get_cursor_position();
@@ -157,7 +157,7 @@ bool wf::output_t::ensure_visible(wayfire_view v)
     auto g = this->get_relative_geometry();
 
     /* Compute the percentage of the view which is visible */
-    auto intersection = wf_geometry_intersection(bbox, g);
+    auto intersection = wf::geometry_intersection(bbox, g);
     double area = 1.0 * intersection.width * intersection.height;
     area /= 1.0 * bbox.width * bbox.height;
 
@@ -176,7 +176,7 @@ bool wf::output_t::ensure_visible(wayfire_view v)
 
     data.carried_out = false;
     data.old_viewport = cws;
-    data.new_viewport = cws + wf_point{dvx, dvy};
+    data.new_viewport = cws + wf::point_t{dvx, dvy};
 
     emit_signal("set-workspace-request", &data);
     if (!data.carried_out)
@@ -346,43 +346,43 @@ bool wf::output_impl_t::is_inhibited() const
 }
 
 /* simple wrappers for wf::get_core_impl().input, as it isn't exposed to plugins */
-wf_binding *wf::output_t::add_key(option_sptr_t<keybinding_t> key, key_callback *callback)
+wf::binding_t *wf::output_t::add_key(option_sptr_t<keybinding_t> key, wf::key_callback *callback)
 {
     return wf::get_core_impl().input->new_binding(WF_BINDING_KEY, key, this, callback);
 }
 
-wf_binding *wf::output_t::add_axis(option_sptr_t<keybinding_t> axis, axis_callback *callback)
+wf::binding_t *wf::output_t::add_axis(option_sptr_t<keybinding_t> axis, wf::axis_callback *callback)
 {
     return wf::get_core_impl().input->new_binding(WF_BINDING_AXIS, axis, this, callback);
 }
 
-wf_binding *wf::output_t::add_touch(option_sptr_t<keybinding_t> mod, touch_callback *callback)
+wf::binding_t *wf::output_t::add_touch(option_sptr_t<keybinding_t> mod, wf::touch_callback *callback)
 {
     return wf::get_core_impl().input->new_binding(WF_BINDING_TOUCH, mod, this, callback);
 }
 
-wf_binding *wf::output_t::add_button(option_sptr_t<buttonbinding_t> button,
-        button_callback *callback)
+wf::binding_t *wf::output_t::add_button(option_sptr_t<buttonbinding_t> button,
+        wf::button_callback *callback)
 {
     return wf::get_core_impl().input->new_binding(WF_BINDING_BUTTON, button,
         this, callback);
 }
 
-wf_binding *wf::output_t::add_gesture(option_sptr_t<touchgesture_t> gesture,
-        gesture_callback *callback)
+wf::binding_t *wf::output_t::add_gesture(option_sptr_t<touchgesture_t> gesture,
+        wf::gesture_callback *callback)
 {
     return wf::get_core_impl().input->new_binding(WF_BINDING_GESTURE, gesture,
         this, callback);
 }
 
-wf_binding *wf::output_t::add_activator(
-    option_sptr_t<activatorbinding_t> activator, activator_callback *callback)
+wf::binding_t *wf::output_t::add_activator(
+    option_sptr_t<activatorbinding_t> activator, wf::activator_callback *callback)
 {
     return wf::get_core_impl().input->new_binding(WF_BINDING_ACTIVATOR, activator,
         this, callback);
 }
 
-void wf::output_t::rem_binding(wf_binding *binding)
+void wf::output_t::rem_binding(wf::binding_t *binding)
 {
     wf::get_core_impl().input->rem_binding(binding);
 }

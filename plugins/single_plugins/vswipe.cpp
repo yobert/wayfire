@@ -36,7 +36,7 @@ class vswipe : public wf::plugin_interface_t
             bool animating = false;
             swipe_direction_t direction;
 
-            wf_pointf initial_deltas;
+            wf::pointf_t initial_deltas;
             double gap = 0.0;
 
             double delta_prev = 0.0;
@@ -75,7 +75,7 @@ class vswipe : public wf::plugin_interface_t
         wf::get_core().connect_signal("pointer_swipe_begin", &on_swipe_begin);
         wf::get_core().connect_signal("pointer_swipe_update", &on_swipe_update);
         wf::get_core().connect_signal("pointer_swipe_end", &on_swipe_end);
-        renderer = [=] (const wf_framebuffer& buffer) { render(buffer); };
+        renderer = [=] (const wf::framebuffer_t& buffer) { render(buffer); };
     }
 
     /**
@@ -99,7 +99,7 @@ class vswipe : public wf::plugin_interface_t
         assert(false); // not reached
     }
 
-    void render(const wf_framebuffer &fb)
+    void render(const wf::framebuffer_t &fb)
     {
         if (!smooth_delta.running() && !state.swiping)
             finalize_and_exit();
@@ -199,7 +199,7 @@ class vswipe : public wf::plugin_interface_t
          * determine whether swipe is horizontal or vertical */
         streams.prev.ws = {-1, -1};
         streams.next.ws = {-1, -1};
-        streams.curr.ws = wf_point {ws.x, ws.y};
+        streams.curr.ws = wf::point_t {ws.x, ws.y};
     };
 
     void start_swipe(swipe_direction_t direction)
@@ -224,15 +224,15 @@ class vswipe : public wf::plugin_interface_t
         if (direction == HORIZONTAL)
         {
             if (ws.x > 0)
-                streams.prev.ws = wf_point{ws.x - 1, ws.y};
+                streams.prev.ws = wf::point_t{ws.x - 1, ws.y};
             if (ws.x < grid.width - 1)
-                streams.next.ws = wf_point{ws.x + 1, ws.y};
+                streams.next.ws = wf::point_t{ws.x + 1, ws.y};
         } else //if (direction == VERTICAL)
         {
             if (ws.y > 0)
-                streams.prev.ws = wf_point{ws.x, ws.y - 1};
+                streams.prev.ws = wf::point_t{ws.x, ws.y - 1};
             if (ws.y < grid.height - 1)
-                streams.next.ws = wf_point{ws.x, ws.y + 1};
+                streams.next.ws = wf::point_t{ws.x, ws.y + 1};
         }
     }
 
@@ -304,11 +304,11 @@ class vswipe : public wf::plugin_interface_t
             return;
 
         state.swiping = false;
-        const double move_threshold = clamp((double)threshold, 0.0, 1.0);
-        const double fast_threshold = clamp((double)delta_threshold, 0.0, 1000.0);
+        const double move_threshold = wf::clamp((double)threshold, 0.0, 1.0);
+        const double fast_threshold = wf::clamp((double)delta_threshold, 0.0, 1000.0);
 
         int target_delta = 0;
-        wf_point target_workspace = {state.vx, state.vy};
+        wf::point_t target_workspace = {state.vx, state.vy};
 
         switch (state.direction)
         {

@@ -21,7 +21,7 @@
 class wf_move_mirror_view : public wf::mirror_view_t
 {
     int _dx, _dy;
-    wf_geometry geometry;
+    wf::geometry_t geometry;
     public:
 
     wf_move_mirror_view(wayfire_view view, wf::output_t *output, int dx, int dy) :
@@ -32,10 +32,10 @@ class wf_move_mirror_view : public wf::mirror_view_t
         emit_map_state_change(this);
     }
 
-    virtual wf_geometry get_output_geometry()
+    virtual wf::geometry_t get_output_geometry()
     {
         if (base_view)
-            geometry = base_view->get_bounding_box() + wf_point{_dx, _dy};
+            geometry = base_view->get_bounding_box() + wf::point_t{_dx, _dy};
 
         return geometry;
     }
@@ -59,8 +59,8 @@ class wf_move_mirror_view : public wf::mirror_view_t
 class wayfire_move : public wf::plugin_interface_t
 {
     wf::signal_callback_t move_request, view_destroyed;
-    button_callback activate_binding;
-    touch_callback touch_activate_binding;
+    wf::button_callback activate_binding;
+    wf::touch_callback touch_activate_binding;
     wayfire_view view;
 
     wf::option_wrapper_t<bool> enable_snap{"move/enable_snap"};
@@ -268,7 +268,7 @@ class wayfire_move : public wf::plugin_interface_t
         int calc_slot(int x, int y)
         {
             auto g = output->workspace->get_workarea();
-            if (!(output->get_relative_geometry() & wf_point{x, y}))
+            if (!(output->get_relative_geometry() & wf::point_t{x, y}))
                 return 0;
 
             if (view && output->workspace->get_view_layer(view) != wf::LAYER_WORKSPACE)
@@ -346,9 +346,9 @@ class wayfire_move : public wf::plugin_interface_t
         }
 
         /* Returns the currently used input coordinates in global compositor space */
-        wf_point get_global_input_coords()
+        wf::point_t get_global_input_coords()
         {
-            wf_pointf input;
+            wf::pointf_t input;
             if (is_using_touch) {
                 input = wf::get_core().get_touch_position(0);
             } else {
@@ -359,10 +359,10 @@ class wayfire_move : public wf::plugin_interface_t
         }
 
         /* Returns the currently used input coordinates in output-local space */
-        wf_point get_input_coords()
+        wf::point_t get_input_coords()
         {
             auto og = output->get_layout_geometry();
-            return get_global_input_coords() - wf_point{og.x, og.y};
+            return get_global_input_coords() - wf::point_t{og.x, og.y};
         }
 
         /* Moves the view to another output and sends a move request */
@@ -481,7 +481,7 @@ class wayfire_move : public wf::plugin_interface_t
 
             auto current_og = output->get_layout_geometry();
             auto current_geometry =
-                view->get_bounding_box() + wf_point{current_og.x, current_og.y};
+                view->get_bounding_box() + wf::point_t{current_og.x, current_og.y};
 
             for (auto& wo : wf::get_core().output_layout->get_outputs())
             {

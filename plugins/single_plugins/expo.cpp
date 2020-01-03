@@ -32,7 +32,7 @@ class expo_animation_t : public duration_t
 class wayfire_expo : public wf::plugin_interface_t
 {
   private:
-    activator_callback toggle_cb = [=] (wf_activator_source, uint32_t)
+    wf::activator_callback toggle_cb = [=] (wf::activator_source_t, uint32_t)
     {
         if (!state.active) {
             return activate();
@@ -123,7 +123,7 @@ class wayfire_expo : public wf::plugin_interface_t
             finalize_and_exit();
         };
 
-        renderer = [=] (const wf_framebuffer& buffer) { render(buffer); };
+        renderer = [=] (const wf::framebuffer_t& buffer) { render(buffer); };
 
         output->connect_signal("detach-view", &view_removed);
         output->connect_signal("view-disappeared", &view_removed);
@@ -159,12 +159,12 @@ class wayfire_expo : public wf::plugin_interface_t
         calculate_zoom(false);
     }
 
-    wf_geometry get_grid_geometry()
+    wf::geometry_t get_grid_geometry()
     {
         auto wsize = output->workspace->get_workspace_grid_size();
         auto full_g = output->get_layout_geometry();
 
-        wf_geometry grid;
+        wf::geometry_t grid;
         grid.x = grid.y = 0;
         grid.width = full_g.width * wsize.width;
         grid.height = full_g.height * wsize.height;
@@ -172,7 +172,7 @@ class wayfire_expo : public wf::plugin_interface_t
         return grid;
     }
 
-    wf_point input_grab_origin;
+    wf::point_t input_grab_origin;
     void handle_input_press(int32_t x, int32_t y, uint32_t state)
     {
         if (animation.running())
@@ -193,9 +193,9 @@ class wayfire_expo : public wf::plugin_interface_t
     }
 
 #define MOVE_HELPER moving_view->get_data<wf::move_snap_helper_t>()
-    const wf_point offscreen_point = {-10, -10};
+    const wf::point_t offscreen_point = {-10, -10};
 
-    void handle_input_move(wf_point to)
+    void handle_input_move(wf::point_t to)
     {
         if (!state.button_pressed)
             return;
@@ -223,7 +223,7 @@ class wayfire_expo : public wf::plugin_interface_t
             input_coordinates_to_global_coordinates(global_x, global_y);
 
             auto grid = get_grid_geometry();
-            if (!(grid & wf_point{global_x, global_y}))
+            if (!(grid & wf::point_t{global_x, global_y}))
                 return;
 
             MOVE_HELPER->handle_motion(
@@ -234,8 +234,8 @@ class wayfire_expo : public wf::plugin_interface_t
     }
 
     wayfire_view moving_view;
-    wf_point move_started_ws;
-    void start_move(wayfire_view view, wf_point grab)
+    wf::point_t move_started_ws;
+    void start_move(wayfire_view view, wf::point_t grab)
     {
         /* target workspace has been updated on the last click
          * so it has accurate information about views' viewport */
@@ -305,7 +305,7 @@ class wayfire_expo : public wf::plugin_interface_t
      * Find the coordinate of the given point from output-local coordinates
      * to output-workspace-local coordinates
      */
-    wf_point input_coordinates_to_output_local_coordinates(wf_point ip)
+    wf::point_t input_coordinates_to_output_local_coordinates(wf::point_t ip)
     {
         input_coordinates_to_global_coordinates(ip.x, ip.y);
 
@@ -340,7 +340,7 @@ class wayfire_expo : public wf::plugin_interface_t
         input_coordinates_to_global_coordinates(x, y);
 
         auto grid = get_grid_geometry();
-        if (!(grid & wf_point{x, y}))
+        if (!(grid & wf::point_t{x, y}))
             return;
 
         target_vx = x / og.width;
@@ -371,7 +371,7 @@ class wayfire_expo : public wf::plugin_interface_t
      * that all of the workspaces become visible.
      *
      * The scale+translate part is calculated in zoom_target */
-    void render(const wf_framebuffer &fb)
+    void render(const wf::framebuffer_t &fb)
     {
         update_streams();
 

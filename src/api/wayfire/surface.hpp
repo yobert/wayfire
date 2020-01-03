@@ -8,12 +8,12 @@
 
 #include "wayfire/geometry.hpp"
 
-struct wf_region;
-struct wf_framebuffer;
 namespace wf
 {
 class output_t;
 class surface_interface_t;
+struct framebuffer_t;
+struct region_t;
 
 /**
  * A surface and its position on the screen.
@@ -26,7 +26,7 @@ struct surface_iterator_t
      * The position of the surface relative to the topmost surface in the
      * surface tree
      */
-    wf_point position;
+    wf::point_t position;
 };
 
 /**
@@ -80,7 +80,7 @@ class surface_interface_t
      * The surfaces should be ordered from the topmost to the bottom-most one.
      */
     virtual std::vector<surface_iterator_t> enumerate_surfaces(
-        wf_point surface_origin = {0, 0});
+        wf::point_t surface_origin = {0, 0});
 
     /**
      * @return The output the surface is currently attached to. Note this
@@ -98,10 +98,10 @@ class surface_interface_t
     virtual void set_output(wf::output_t* output);
 
     /** @return The offset of this surface relative to its parent surface.  */
-    virtual wf_point get_offset() = 0;
+    virtual wf::point_t get_offset() = 0;
 
     /** @return The surface dimensions */
-    virtual wf_size_t get_size() const = 0;
+    virtual wf::dimensions_t get_size() const = 0;
 
     /**
      * Test whether the surface accepts touch or pointer input at the given
@@ -131,7 +131,7 @@ class surface_interface_t
      * @param x The x position of the surface in the coordinate system of region
      * @param y The y position of the surface in the coordinate system of region
      */
-    virtual void subtract_opaque(wf_region& region, int x, int y);
+    virtual void subtract_opaque(wf::region_t& region, int x, int y);
 
     /**
      * Request that the opaque region is shrunk by a certain amount of pixels
@@ -160,8 +160,8 @@ class surface_interface_t
      * @param damage The damaged region of the surface. Nothing should be drawn
      * outside of it.
      */
-    virtual void simple_render(const wf_framebuffer& fb, int x, int y,
-        const wf_region& damage) = 0;
+    virtual void simple_render(const wf::framebuffer_t& fb, int x, int y,
+        const wf::region_t& damage) = 0;
 
     /** Private data for surface_interface_t, used for the implementation of
      * provided functions */

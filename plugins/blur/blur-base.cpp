@@ -93,8 +93,8 @@ void wf_blur_base::damage_all_workspaces()
     }
 }
 
-void wf_blur_base::render_iteration(wf_framebuffer_base& in,
-    wf_framebuffer_base& out, int width, int height)
+void wf_blur_base::render_iteration(wf::framebuffer_base_t& in,
+    wf::framebuffer_base_t& out, int width, int height)
 {
     /* Special case for small regions where we can't really blur, because we
      * simply have too few pixels */
@@ -108,8 +108,8 @@ void wf_blur_base::render_iteration(wf_framebuffer_base& in,
     GL_CALL(glDrawArrays(GL_TRIANGLE_FAN, 0, 4));
 }
 
-wlr_box wf_blur_base::copy_region(wf_framebuffer_base& result,
-    const wf_framebuffer& source, const wf_region& region)
+wlr_box wf_blur_base::copy_region(wf::framebuffer_base_t& result,
+    const wf::framebuffer_t& source, const wf::region_t& region)
 {
     auto subbox = source.framebuffer_box_from_damage_box(
         wlr_box_from_pixman_box(region.get_extents()));
@@ -141,7 +141,7 @@ wlr_box wf_blur_base::copy_region(wf_framebuffer_base& result,
 }
 
 void wf_blur_base::pre_render(uint32_t src_tex, wlr_box src_box,
-    const wf_region& damage, const wf_framebuffer& target_fb)
+    const wf::region_t& damage, const wf::framebuffer_t& target_fb)
 {
     int degrade = degrade_opt;
     auto damage_box = copy_region(fb[0], target_fb, damage);
@@ -173,7 +173,7 @@ void wf_blur_base::pre_render(uint32_t src_tex, wlr_box src_box,
     /* we subtract target_fb's position to so that
      * view box is relative to framebuffer */
     auto view_box = target_fb.framebuffer_box_from_geometry_box(
-        src_box + wf_point{-target_fb.geometry.x, -target_fb.geometry.y});
+        src_box + wf::point_t{-target_fb.geometry.x, -target_fb.geometry.y});
 
     OpenGL::render_begin();
     fb[1].allocate(view_box.width, view_box.height);
@@ -185,7 +185,7 @@ void wf_blur_base::pre_render(uint32_t src_tex, wlr_box src_box,
      * together in render()
      *
      * local_geometry is damage_box relative to view box */
-    wlr_box local_box = damage_box + wf_point{-view_box.x, -view_box.y};
+    wlr_box local_box = damage_box + wf::point_t{-view_box.x, -view_box.y};
     GL_CALL(glBlitFramebuffer(0, 0, scaled_width, scaled_height,
             local_box.x,
             view_box.height - local_box.y - local_box.height,
@@ -197,7 +197,7 @@ void wf_blur_base::pre_render(uint32_t src_tex, wlr_box src_box,
 }
 
 void wf_blur_base::render(uint32_t src_tex, wlr_box src_box, wlr_box scissor_box,
-    const wf_framebuffer& target_fb)
+    const wf::framebuffer_t& target_fb)
 {
     wlr_box fb_geom = target_fb.framebuffer_box_from_geometry_box(target_fb.geometry);
     auto view_box = target_fb.framebuffer_box_from_geometry_box(src_box);

@@ -29,7 +29,7 @@ wf_drag_icon::wf_drag_icon(wlr_drag_icon *ic)
     on_destroy.connect(&icon->events.destroy);
 }
 
-wf_point wf_drag_icon::get_offset()
+wf::point_t wf_drag_icon::get_offset()
 {
     auto pos = icon->drag->grab_type == WLR_DRAG_GRAB_KEYBOARD_TOUCH ?
         wf::get_core().get_touch_position(icon->drag->touch_id) :
@@ -199,8 +199,8 @@ wf_input_device_internal::wf_input_device_internal(wlr_input_device *dev)
     on_destroy.connect(&dev->events.destroy);
 }
 
-wf_pointf get_surface_relative_coords(wf::surface_interface_t *surface,
-    const wf_pointf& point)
+wf::pointf_t get_surface_relative_coords(wf::surface_interface_t *surface,
+    const wf::pointf_t& point)
 {
     auto og = surface->get_output()->get_layout_geometry();
     auto local = point;

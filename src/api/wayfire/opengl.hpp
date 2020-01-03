@@ -32,18 +32,20 @@ struct gl_geometry
     float x1, y1, x2, y2;
 };
 
+namespace wf
+{
 /* Simple framebuffer, used mostly to allocate framebuffers for workspace
  * streams.
  *
  * Resources (tex/fb) are not automatically destroyed */
-struct wf_framebuffer_base : public noncopyable_t
+struct framebuffer_base_t : public noncopyable_t
 {
     GLuint tex = -1, fb = -1;
     int32_t viewport_width = 0, viewport_height = 0;
 
-    wf_framebuffer_base() = default;
-    wf_framebuffer_base(wf_framebuffer_base&& other);
-    wf_framebuffer_base& operator = (wf_framebuffer_base&& other);
+    framebuffer_base_t() = default;
+    framebuffer_base_t(framebuffer_base_t&& other);
+    framebuffer_base_t& operator = (framebuffer_base_t&& other);
 
     /* The functions below assume they are called between
      * OpenGL::render_begin() and OpenGL::render_end() */
@@ -70,15 +72,15 @@ struct wf_framebuffer_base : public noncopyable_t
     void reset();
 
     private:
-    void copy_state(wf_framebuffer_base&& other);
+    void copy_state(framebuffer_base_t&& other);
 };
 
 /* A more feature-complete framebuffer.
  * It represents an area of the output, with the corresponding dimensions,
  * transforms, etc */
-struct wf_framebuffer : public wf_framebuffer_base
+struct framebuffer_t : public framebuffer_base_t
 {
-    wf_geometry geometry = {0, 0, 0, 0};
+    wf::geometry_t geometry = {0, 0, 0, 0};
 
     uint32_t wl_transform = WL_OUTPUT_TRANSFORM_NORMAL;
     float scale = 1.0;
@@ -108,12 +110,13 @@ struct wf_framebuffer : public wf_framebuffer_base
 
     /* Returns a region in damage coordinate system which corresponds to the
      * whole area of the framebuffer */
-    wf_region get_damage_region() const;
+    wf::region_t get_damage_region() const;
 
     /* Returns a matrix which contains an orthographic projection from "geometry"
      * coordinates to the framebuffer coordinates. */
     glm::mat4 get_orthographic_projection() const;
 };
+}
 
 namespace OpenGL
 {
@@ -124,7 +127,7 @@ namespace OpenGL
      * The other functions below assume they are called between render_begin()
      * and render_end() */
     void render_begin(); // use if you just want to bind GL context but won't draw
-    void render_begin(const wf_framebuffer_base& fb);
+    void render_begin(const wf::framebuffer_base_t& fb);
     void render_begin(int32_t viewport_width, int32_t viewport_height, uint32_t fb = 0);
 
     /* Call this to indicate an end of the rendering.

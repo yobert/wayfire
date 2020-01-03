@@ -63,9 +63,9 @@ std::pair<wlr_output_mode, bool> parse_output_mode(std::string modeline)
     return {mode, true};
 }
 
-std::pair<wf_point, bool> parse_output_layout(std::string layout)
+std::pair<wf::point_t, bool> parse_output_layout(std::string layout)
 {
-    wf_point pos;
+    wf::point_t pos;
     int read;
 
     if (layout.find("@") != layout.npos)
@@ -198,7 +198,7 @@ namespace wf
         /* A note: at this point, some views might already have been deleted */
     }
 
-    constexpr wf_point output_state_t::default_position;
+    constexpr wf::point_t output_state_t::default_position;
     bool output_state_t::operator == (const output_state_t& other) const
     {
         if (source == OUTPUT_IMAGE_SOURCE_NONE)
@@ -1170,7 +1170,7 @@ namespace wf
             }
         }
 
-        wf::output_t *get_output_coords_at(const wf_pointf& origin, wf_pointf& closest)
+        wf::output_t *get_output_coords_at(const wf::pointf_t& origin, wf::pointf_t& closest)
         {
             wlr_output_layout_closest_point(output_layout, NULL,
                 origin.x, origin.y, &closest.x, &closest.y);
@@ -1189,7 +1189,7 @@ namespace wf
 
         wf::output_t *get_output_at(int x, int y)
         {
-            wf_pointf dummy;
+            wf::pointf_t dummy;
             return get_output_coords_at({1.0 * x, 1.0 * y}, dummy);
         }
 
@@ -1211,7 +1211,7 @@ namespace wf
     { return pimpl->get_handle(); }
     wf::output_t *output_layout_t::get_output_at(int x, int y)
     { return pimpl->get_output_at(x, y); }
-    wf::output_t *output_layout_t::get_output_coords_at(wf_pointf origin, wf_pointf& closest)
+    wf::output_t *output_layout_t::get_output_coords_at(wf::pointf_t origin, wf::pointf_t& closest)
     { return pimpl->get_output_coords_at(origin, closest); }
     size_t output_layout_t::get_num_outputs()
     { return pimpl->get_num_outputs(); }

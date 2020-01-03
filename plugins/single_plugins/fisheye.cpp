@@ -143,7 +143,7 @@ class wayfire_fisheye : public wf::plugin_interface_t
             load_program();
         }
 
-        activator_callback toggle_cb = [=] (wf_activator_source, uint32_t)
+        wf::activator_callback toggle_cb = [=] (wf::activator_source_t, uint32_t)
         {
             if (!output->can_activate_plugin(grab_interface))
                 return false;
@@ -167,8 +167,8 @@ class wayfire_fisheye : public wf::plugin_interface_t
             return true;
         };
 
-        wf::post_hook_t render_hook = [=](const wf_framebuffer_base& source,
-            const wf_framebuffer_base& dest)
+        wf::post_hook_t render_hook = [=](const wf::framebuffer_base_t& source,
+            const wf::framebuffer_base_t& dest)
         {
             auto oc = output->get_cursor_position();
             wlr_box box = {(int)oc.x, (int)oc.y, 1, 1};

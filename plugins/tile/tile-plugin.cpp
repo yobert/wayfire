@@ -58,7 +58,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         update_root_size(output->workspace->get_workarea());
     }
 
-    void update_root_size(wf_geometry workarea)
+    void update_root_size(wf::geometry_t workarea)
     {
         auto output_geometry = output->get_relative_geometry();
         auto wsize = output->workspace->get_workspace_grid_size();
@@ -107,7 +107,7 @@ class tile_plugin_t : public wf::plugin_interface_t
      * Translate coordinates from output-local coordinates to the coordinate
      * system of the tiling trees, depending on the current workspace
      */
-    wf_point get_global_coordinates(wf_point local_coordinates)
+    wf::point_t get_global_coordinates(wf::point_t local_coordinates)
     {
         auto vp = output->workspace->get_current_workspace();
         auto size = output->get_screen_size();
@@ -138,7 +138,7 @@ class tile_plugin_t : public wf::plugin_interface_t
     }
 
     template<class Controller>
-    bool start_controller(wf_point grab)
+    bool start_controller(wf::point_t grab)
     {
         /* No action possible in this case */
         if (has_fullscreen_view() || !has_tiled_focus())
@@ -172,14 +172,14 @@ class tile_plugin_t : public wf::plugin_interface_t
         controller = get_default_controller();
     }
 
-    void attach_view(wayfire_view view, wf_point vp = {-1, -1})
+    void attach_view(wayfire_view view, wf::point_t vp = {-1, -1})
     {
         if (!can_tile_view(view))
             return;
 
         stop_controller(true);
 
-        if (vp == wf_point{-1, -1})
+        if (vp == wf::point_t{-1, -1})
             vp = output->workspace->get_current_workspace();
 
         auto view_node = std::make_unique<wf::tile::view_node_t> (view);
@@ -278,7 +278,7 @@ class tile_plugin_t : public wf::plugin_interface_t
             output->workspace->get_current_workspace());
     };
 
-    void change_view_workspace(wayfire_view view, wf_point vp = {-1, -1})
+    void change_view_workspace(wayfire_view view, wf::point_t vp = {-1, -1})
     {
         auto existing_node = wf::tile::view_node_t::get_node(view);
         if (existing_node)
@@ -334,7 +334,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         return false;
     }
 
-    key_callback on_toggle_fullscreen = [=] (uint32_t key)
+    wf::key_callback on_toggle_fullscreen = [=] (uint32_t key)
     {
         return conditioned_view_execute(true, [=] (wayfire_view view)
         {
@@ -343,7 +343,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         });
     };
 
-    key_callback on_toggle_tiled_state = [=] (uint32_t key)
+    wf::key_callback on_toggle_tiled_state = [=] (uint32_t key)
     {
         return conditioned_view_execute(false, [=] (wayfire_view view)
         {
@@ -376,7 +376,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         });
     }
 
-    key_callback on_focus_adjacent = [=] (uint32_t key)
+    wf::key_callback on_focus_adjacent = [=] (uint32_t key)
     {
         if (key == key_focus_left.raw_option->get_value().get_key())
             return focus_adjacent(tile::INSERT_LEFT);
@@ -390,12 +390,12 @@ class tile_plugin_t : public wf::plugin_interface_t
         return false;
     };
 
-    button_callback on_move_view = [=] (uint32_t button, int32_t x, int32_t y)
+    wf::button_callback on_move_view = [=] (uint32_t button, int32_t x, int32_t y)
     {
         return start_controller<tile::move_view_controller_t> ({x, y});
     };
 
-    button_callback on_resize_view = [=] (uint32_t button, int32_t x, int32_t y)
+    wf::button_callback on_resize_view = [=] (uint32_t button, int32_t x, int32_t y)
     {
         return start_controller<tile::resize_view_controller_t> ({x, y});
     };

@@ -41,21 +41,21 @@ struct resize_request_signal : public _view_signal
 /* sent when the view geometry changes */
 struct view_geometry_changed_signal : public _view_signal
 {
-    wf_geometry old_geometry;
+    wf::geometry_t old_geometry;
 };
 
 struct view_tiled_signal : public _view_signal
 {
     uint32_t edges;
     bool carried_out = false;
-    wf_geometry desired_size;
+    wf::geometry_t desired_size;
 };
 
 struct view_fullscreen_signal : public _view_signal
 {
     bool state;
     bool carried_out = false;
-    wf_geometry desired_size;
+    wf::geometry_t desired_size;
 };
 
 struct view_minimize_request_signal : public _view_signal
@@ -72,15 +72,15 @@ struct view_minimize_request_signal : public _view_signal
 struct change_viewport_signal : public wf::signal_data_t
 {
     bool carried_out;
-    wf_point old_viewport, new_viewport;
+    wf::point_t old_viewport, new_viewport;
 };
 using change_viewport_notify = change_viewport_signal;
 
 /* sent when the workspace implementation actually reserves the workarea */
 struct reserved_workarea_signal : public wf::signal_data_t
 {
-    wf_geometry old_workarea;
-    wf_geometry new_workarea;
+    wf::geometry_t old_workarea;
+    wf::geometry_t new_workarea;
 };
 
 // TODO: this is a private signal, maybe we should hide it? */

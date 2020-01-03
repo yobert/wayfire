@@ -20,7 +20,7 @@ namespace wf
 class move_snap_helper_t : public wf::custom_data_t
 {
     wayfire_view view;
-    wf_point grab;
+    wf::point_t grab;
 
     /* TODO: figure out where to put these options */
     wf::option_wrapper_t<bool> enable_snap_off{"move/enable_snap_off"};
@@ -31,7 +31,7 @@ class move_snap_helper_t : public wf::custom_data_t
                       to its upper-left corner */
 
   public:
-    move_snap_helper_t(wayfire_view view, wf_point grab)
+    move_snap_helper_t(wayfire_view view, wf::point_t grab)
     {
         this->view = view;
         this->grab = grab;
@@ -60,7 +60,7 @@ class move_snap_helper_t : public wf::custom_data_t
      *
      * @param to The new grab point position, in output-local coordinates.
      */
-    virtual void handle_motion(wf_point to)
+    virtual void handle_motion(wf::point_t to)
     {
         move_wobbly(view, to.x, to.y);
 
@@ -111,12 +111,12 @@ class move_snap_helper_t : public wf::custom_data_t
             view->tile_request(0);
     }
 
-    wf_point last_grabbing_position;
+    wf::point_t last_grabbing_position;
     /** Adjust the view position so that it stays around the grabbing point */
     virtual void adjust_around_grab()
     {
         auto wmg = view->get_wm_geometry();
-        wf_point target_position = {
+        wf::point_t target_position = {
             int(last_grabbing_position.x - px * wmg.width),
             int(last_grabbing_position.y - py * wmg.height),
         };

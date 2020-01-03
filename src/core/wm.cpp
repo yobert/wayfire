@@ -37,7 +37,7 @@ void wayfire_close::init()
 {
     grab_interface->capabilities = wf::CAPABILITY_GRAB_INPUT;
     wf::option_wrapper_t<wf::activatorbinding_t> key("core/close_top_view");
-    callback = [=] (wf_activator_source, uint32_t)
+    callback = [=] (wf::activator_source_t, uint32_t)
     {
         if (!output->activate_plugin(grab_interface))
             return false;

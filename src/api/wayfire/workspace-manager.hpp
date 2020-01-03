@@ -85,7 +85,7 @@ class workspace_manager
     /**
      * Check if the given view is visible on the given workspace
      */
-    bool view_visible_on(wayfire_view view, wf_point ws);
+    bool view_visible_on(wayfire_view view, wf::point_t ws);
 
     /**
      * Get a list of all views visible on the given workspace
@@ -94,14 +94,14 @@ class workspace_manager
      * @param wm_only - If set to true, then only the view's wm geometry
      *        will be taken into account when computing visibility.
      */
-    std::vector<wayfire_view> get_views_on_workspace(wf_point ws,
+    std::vector<wayfire_view> get_views_on_workspace(wf::point_t ws,
         uint32_t layer_mask, bool wm_only);
 
     /**
      * Ensure that the view's wm_geometry is visible on the workspace ws. This
      * involves moving the view as appropriate.
      */
-    void move_to_workspace(wayfire_view view, wf_point ws);
+    void move_to_workspace(wayfire_view view, wf::point_t ws);
 
     /**
      * Add the given view to the given layer. If the view was already added to
@@ -167,17 +167,17 @@ class workspace_manager
      *
      * @param The new active workspace.
      */
-    void set_workspace(wf_point ws);
+    void set_workspace(wf::point_t ws);
 
     /**
      * @return The given workspace
      */
-    wf_point get_current_workspace();
+    wf::point_t get_current_workspace();
 
     /**
      * @return The number of workspace columns and rows
      */
-    wf_size_t get_workspace_grid_size();
+    wf::dimensions_t get_workspace_grid_size();
 
     /**
      * Special clients like panels can reserve place from an edge of the output.
@@ -210,7 +210,7 @@ class workspace_manager
          * The first passed geometry is the geometry of the anchored area. The
          * second one is the available workarea at the moment that the current
          * workarea was considered. */
-        std::function<void(wf_geometry, wf_geometry)> reflowed;
+        std::function<void(wf::geometry_t, wf::geometry_t)> reflowed;
     };
 
     /**
@@ -233,7 +233,7 @@ class workspace_manager
     /**
      * @return The free space of the output after reserving the space for panels
      */
-    wf_geometry get_workarea();
+    wf::geometry_t get_workarea();
 
     workspace_manager(output_t *output);
     ~workspace_manager();

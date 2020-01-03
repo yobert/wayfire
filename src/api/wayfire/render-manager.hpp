@@ -4,19 +4,18 @@
 #include "wayfire/output.hpp"
 #include "wayfire/object.hpp"
 
-struct wf_framebuffer_base;
-struct wf_framebuffer;
-struct wf_region;
-
 namespace wf
 {
+struct framebuffer_base_t;
+struct framebuffer_t;
+struct region_t;
 struct workspace_stream_t;
 /** Render hooks can be used to override Wayfire's built-in rendering. The
  * plugin which sets the hook gains full control over what and how is drawn
  * to the screen. Workspace streams however are not affected.
  *
  * @param fb Indicates the framebuffer that the custom renderer should draw to */
-using render_hook_t = std::function<void(const wf_framebuffer& fb)>;
+using render_hook_t = std::function<void(const wf::framebuffer_t& fb)>;
 
 /* Effect hooks provide the plugins with a way to execute custom code
  * at certain parts of the repaint cycle */
@@ -49,8 +48,8 @@ enum output_effect_type_t
  *
  * @param destination Indicates where the processed image should be stored.
  */
-using post_hook_t = std::function<void(const wf_framebuffer_base& source,
-    const wf_framebuffer_base& destination)>;
+using post_hook_t = std::function<void(const wf::framebuffer_base_t& source,
+    const wf::framebuffer_base_t& destination)>;
 
 /** Render manager
  *
@@ -127,7 +126,7 @@ class render_manager : public wf::signal_provider_t
      * frame. Note that a larger region might actually be repainted due to
      * double buffering
      */
-    wf_region get_scheduled_damage();
+    wf::region_t get_scheduled_damage();
 
     /**
      * Damage all workspaces of the output. Should not be used inside render
@@ -155,7 +154,7 @@ class render_manager : public wf::signal_provider_t
      * @param region The output region to be damaged, in output-local
      *        coordinates.
      */
-    void damage(const wf_region& region);
+    void damage(const wf::region_t& region);
 
     /**
      * @return A box in output-local coordinates containing the visible part
@@ -167,13 +166,13 @@ class render_manager : public wf::signal_provider_t
      * @return A box in output-local coordinates containing the given
      * workspace of the output (returned value depends on current workspace).
      */
-    wlr_box get_ws_box(wf_point ws) const;
+    wlr_box get_ws_box(wf::point_t ws) const;
 
     /**
      * @return The framebuffer on which all rendering operations except post
      * effects happen.
      */
-    wf_framebuffer get_target_framebuffer() const;
+    wf::framebuffer_t get_target_framebuffer() const;
 
     /**
      * Initialize a workspace stream. If you need to change the stream's

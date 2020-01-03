@@ -28,7 +28,7 @@ class compositor_surface_t
     virtual void on_touch_motion(int x, int y) {}
 };
 
-compositor_surface_t *wf_compositor_surface_from_surface(
+compositor_surface_t *compositor_surface_from_surface(
     wf::surface_interface_t *surface);
 }
 

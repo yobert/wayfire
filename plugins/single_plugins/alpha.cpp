@@ -46,13 +46,13 @@ class wayfire_alpha : public wf::plugin_interface_t
 
     void update_alpha(wayfire_view view, float delta)
     {
-        wf_2D_view *transformer;
+        wf::view_2D *transformer;
         float alpha;
 
         if (!view->get_transformer("alpha"))
-            view->add_transformer(std::make_unique<wf_2D_view> (view), "alpha");
+            view->add_transformer(std::make_unique<wf::view_2D> (view), "alpha");
 
-        transformer = dynamic_cast<wf_2D_view*> (view->get_transformer("alpha").get());
+        transformer = dynamic_cast<wf::view_2D*> (view->get_transformer("alpha").get());
         alpha = transformer->alpha;
 
         alpha -= delta * 0.003;
@@ -71,7 +71,7 @@ class wayfire_alpha : public wf::plugin_interface_t
         }
     }
 
-    axis_callback axis_cb = [=] (wlr_event_pointer_axis* ev)
+    wf::axis_callback axis_cb = [=] (wlr_event_pointer_axis* ev)
     {
         if (!output->activate_plugin(grab_interface))
             return false;
@@ -102,7 +102,7 @@ class wayfire_alpha : public wf::plugin_interface_t
             if (!view->get_transformer("alpha"))
                 continue;
 
-            wf_2D_view *transformer = dynamic_cast<wf_2D_view*> (view->get_transformer("alpha").get());
+            wf::view_2D *transformer = dynamic_cast<wf::view_2D*> (view->get_transformer("alpha").get());
 
             if (transformer->alpha < min_value)
             {

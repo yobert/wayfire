@@ -42,7 +42,7 @@ class wayfire_layer_shell_view : public wf::wlr_view_t
     void close() override;
     void destroy() override;
 
-    void configure(wf_geometry geometry);
+    void configure(wf::geometry_t geometry);
 
     /** Calculate the target layer for this layer surface */
     wf::layer_t get_layer();
@@ -166,7 +166,7 @@ struct wf_layer_shell_manager
         if (!v->anchored_area)
         {
             v->anchored_area = std::make_unique<wf::workspace_manager::anchored_area>();
-            v->anchored_area->reflowed = [v] (wf_geometry geometry, wf_geometry _)
+            v->anchored_area->reflowed = [v] (wf::geometry_t geometry, wf::geometry_t _)
             { v->configure(geometry); };
             /* Notice that the reflowed areas won't be changed until we call
              * reflow_reserved_areas(). However, by that time the information
@@ -180,13 +180,13 @@ struct wf_layer_shell_manager
             v->lsurface->current.desired_height : v->lsurface->current.desired_width;
     }
 
-    void pin_view(wayfire_layer_shell_view *v, wf_geometry usable_workarea)
+    void pin_view(wayfire_layer_shell_view *v, wf::geometry_t usable_workarea)
     {
         auto state = &v->lsurface->current;
         auto bounds = v->lsurface->current.exclusive_zone < 0 ?
             v->get_output()->get_relative_geometry() : usable_workarea;
 
-        wf_geometry box;
+        wf::geometry_t box;
         box.x = box.y = 0;
         box.width = state->desired_width;
         box.height = state->desired_height;
@@ -414,7 +414,7 @@ void wayfire_layer_shell_view::close()
     wlr_layer_surface_v1_close(lsurface);
 }
 
-void wayfire_layer_shell_view::configure(wf_geometry box)
+void wayfire_layer_shell_view::configure(wf::geometry_t box)
 {
     auto state = &lsurface->current;
     if ((state->anchor & both_horiz) == both_horiz)

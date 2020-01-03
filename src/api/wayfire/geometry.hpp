@@ -7,54 +7,57 @@ extern "C"
 #include <wlr/types/wlr_box.h>
 }
 
-struct wf_point
+namespace wf
+{
+struct point_t
 {
     int x, y;
 };
 
-struct wf_pointf
+struct pointf_t
 {
     double x, y;
 };
 
-struct wf_size_t
+struct dimensions_t
 {
     int32_t width;
     int32_t height;
 };
 
-using wf_geometry = wlr_box;
-
-bool operator == (const wf_point& a, const wf_point& b);
-bool operator != (const wf_point& a, const wf_point& b);
-
-bool operator == (const wf_geometry& a, const wf_geometry& b);
-bool operator != (const wf_geometry& a, const wf_geometry& b);
-
-wf_point    operator + (const wf_point& a, const wf_point& b);
-wf_point    operator - (const wf_point& a, const wf_point& b);
-wf_point    operator + (const wf_point& a, const wf_geometry& b);
-wf_geometry operator + (const wf_geometry &a, const wf_point& b);
-wf_point    operator - (const wf_point& a);
-
-/* @return The length of the given vector */
-double abs(const wf_point &p);
-
-/* Returns true if point is inside rect */
-bool operator & (const wf_geometry& rect, const wf_point& point);
-/* Returns true if point is inside rect */
-bool operator & (const wf_geometry& rect, const wf_pointf& point);
-/* Returns true if the two geometries have a common point */
-bool operator & (const wf_geometry& r1, const wf_geometry& r2);
+using geometry_t = wlr_box;
 
 /* Returns the intersection of the two boxes, if the boxes don't intersect,
  * the resulting geometry has undefined (x,y) and width == height == 0 */
-wf_geometry wf_geometry_intersection(const wf_geometry& r1,
-    const wf_geometry& r2);
+geometry_t geometry_intersection(const geometry_t& r1,
+    const geometry_t& r2);
+}
+
+bool operator == (const wf::point_t& a, const wf::point_t& b);
+bool operator != (const wf::point_t& a, const wf::point_t& b);
+
+bool operator == (const wf::geometry_t& a, const wf::geometry_t& b);
+bool operator != (const wf::geometry_t& a, const wf::geometry_t& b);
+
+wf::point_t    operator + (const wf::point_t& a, const wf::point_t& b);
+wf::point_t    operator - (const wf::point_t& a, const wf::point_t& b);
+wf::point_t    operator + (const wf::point_t& a, const wf::geometry_t& b);
+wf::geometry_t operator + (const wf::geometry_t &a, const wf::point_t& b);
+wf::point_t    operator - (const wf::point_t& a);
+
+/* @return The length of the given vector */
+double abs(const wf::point_t &p);
+
+/* Returns true if point is inside rect */
+bool operator & (const wf::geometry_t& rect, const wf::point_t& point);
+/* Returns true if point is inside rect */
+bool operator & (const wf::geometry_t& rect, const wf::pointf_t& point);
+/* Returns true if the two geometries have a common point */
+bool operator & (const wf::geometry_t& r1, const wf::geometry_t& r2);
 
 /* Make geometry and point printable */
-std::ostream& operator << (std::ostream& stream, const wf_geometry& geometry);
-std::ostream& operator << (std::ostream& stream, const wf_point& point);
-std::ostream& operator << (std::ostream& stream, const wf_pointf& pointf);
+std::ostream& operator << (std::ostream& stream, const wf::geometry_t& geometry);
+std::ostream& operator << (std::ostream& stream, const wf::point_t& point);
+std::ostream& operator << (std::ostream& stream, const wf::pointf_t& pointf);
 
 #endif /* end of include guard: WF_GEOMETRY_HPP */

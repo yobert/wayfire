@@ -76,7 +76,7 @@ void wf_cube_background_cubemap::reload_texture()
 
 #include "cubemap-vertex-data.hpp"
 
-void wf_cube_background_cubemap::render_frame(const wf_framebuffer& fb,
+void wf_cube_background_cubemap::render_frame(const wf::framebuffer_t& fb,
     wf_cube_animation_attribs& attribs)
 {
     reload_texture();

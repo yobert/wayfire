@@ -9,7 +9,7 @@ class wayfire_output_manager : public wf::plugin_interface_t
 {
     wf::wl_idle_call idle_next_output;
 
-    activator_callback switch_output = [=] (wf_activator_source, uint32_t)
+    wf::activator_callback switch_output = [=] (wf::activator_source_t, uint32_t)
     {
         if (!output->activate_plugin(grab_interface))
             return false;
@@ -26,7 +26,7 @@ class wayfire_output_manager : public wf::plugin_interface_t
         return true;
     };
 
-    activator_callback switch_output_with_window = [=] (wf_activator_source, uint32_t)
+    wf::activator_callback switch_output_with_window = [=] (wf::activator_source_t, uint32_t)
     {
         if (!output->can_activate_plugin(grab_interface))
             return false;
@@ -37,7 +37,7 @@ class wayfire_output_manager : public wf::plugin_interface_t
 
         if (!view)
         {
-            switch_output(ACTIVATOR_SOURCE_KEYBINDING, 0);
+            switch_output(wf::ACTIVATOR_SOURCE_KEYBINDING, 0);
             return true;
         }
 

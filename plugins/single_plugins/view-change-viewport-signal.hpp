@@ -5,7 +5,7 @@
 
 struct view_change_viewport_signal : public _view_signal
 {
-    wf_point from, to;
+    wf::point_t from, to;
 };
 
 #endif /* end of include guard: VIEW_CHANGE_VIEWPORT_CPP */

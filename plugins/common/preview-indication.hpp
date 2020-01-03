@@ -41,7 +41,7 @@ class preview_indication_view_t : public wf::color_rect_view_t
      * @param start_geometry The geometry the preview should have, relative to
      *                       the output
      */
-    preview_indication_view_t(wf::output_t *output, wf_geometry start_geometry)
+    preview_indication_view_t(wf::output_t *output, wf::geometry_t start_geometry)
         : wf::color_rect_view_t(), animation(wf::create_option<int>(200))
     {
         set_output(output);
@@ -61,8 +61,8 @@ class preview_indication_view_t : public wf::color_rect_view_t
     }
 
     /** A convenience wrapper around the full version */
-    preview_indication_view_t(wf::output_t *output, wf_point start)
-        :preview_indication_view_t(output, wf_geometry{start.x, start.y, 1, 1})
+    preview_indication_view_t(wf::output_t *output, wf::point_t start)
+        :preview_indication_view_t(output, wf::geometry_t{start.x, start.y, 1, 1})
     { }
 
     /**
@@ -71,7 +71,7 @@ class preview_indication_view_t : public wf::color_rect_view_t
      * @param close Whether the view should be closed when the target is
      *              reached.
      */
-    void set_target_geometry(wf_geometry target, float alpha, bool close = false)
+    void set_target_geometry(wf::geometry_t target, float alpha, bool close = false)
     {
         animation.x.restart_with_end(target.x);
         animation.y.restart_with_end(target.y);
@@ -83,9 +83,9 @@ class preview_indication_view_t : public wf::color_rect_view_t
     }
 
     /**
-     * A wrapper around set_target_geometry(wf_geometry, double, bool)
+     * A wrapper around set_target_geometry(wf::geometry_t, double, bool)
      */
-    void set_target_geometry(wf_point point, double alpha,
+    void set_target_geometry(wf::point_t point, double alpha,
         bool should_close = false)
     {
         return set_target_geometry({point.x, point.y, 1, 1},
@@ -101,7 +101,7 @@ class preview_indication_view_t : public wf::color_rect_view_t
     /** Update the current state */
     void update_animation()
     {
-        wf_geometry current = animation;
+        wf::geometry_t current = animation;
         if (current != geometry)
             set_geometry(current);
 

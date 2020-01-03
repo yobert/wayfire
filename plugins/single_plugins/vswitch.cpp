@@ -15,12 +15,12 @@
 #include "../wobbly/wobbly-signal.hpp"
 #include <wayfire/util/duration.hpp>
 
-class vswitch_view_transformer : public wf_2D_view
+class vswitch_view_transformer : public wf::view_2D
 {
     public:
         static const std::string name;
-        vswitch_view_transformer(wayfire_view view) : wf_2D_view(view) {}
-        virtual uint32_t get_z_order() override { return WF_TRANSFORMER_BLUR - 1; }
+        vswitch_view_transformer(wayfire_view view) : view_2D(view) {}
+        virtual uint32_t get_z_order() override { return wf::TRANSFORMER_BLUR - 1; }
 };
 const std::string vswitch_view_transformer::name = "vswitch-transformer";
 
@@ -36,10 +36,10 @@ class vswitch_animation_t : public duration_t
 class vswitch : public wf::plugin_interface_t
 {
     private:
-        activator_callback callback_left, callback_right, callback_up, callback_down;
-        activator_callback callback_win_left, callback_win_right, callback_win_up, callback_win_down;
+        wf::activator_callback callback_left, callback_right, callback_up, callback_down;
+        wf::activator_callback callback_win_left, callback_win_right, callback_win_up, callback_win_down;
 
-        gesture_callback gesture_cb;
+        wf::gesture_callback gesture_cb;
         vswitch_animation_t animation;
         wayfire_view grabbed_view = nullptr;
 
@@ -59,15 +59,15 @@ class vswitch : public wf::plugin_interface_t
         grab_interface->capabilities = wf::CAPABILITY_MANAGE_DESKTOP;
         grab_interface->callbacks.cancel = [=] () {stop_switch();};
 
-        callback_left  = [=] (wf_activator_source, uint32_t) { return add_direction(-1,  0); };
-        callback_right = [=] (wf_activator_source, uint32_t) { return add_direction( 1,  0); };
-        callback_up    = [=] (wf_activator_source, uint32_t) { return add_direction( 0, -1); };
-        callback_down  = [=] (wf_activator_source, uint32_t) { return add_direction( 0,  1); };
+        callback_left  = [=] (wf::activator_source_t, uint32_t) { return add_direction(-1,  0); };
+        callback_right = [=] (wf::activator_source_t, uint32_t) { return add_direction( 1,  0); };
+        callback_up    = [=] (wf::activator_source_t, uint32_t) { return add_direction( 0, -1); };
+        callback_down  = [=] (wf::activator_source_t, uint32_t) { return add_direction( 0,  1); };
 
-        callback_win_left  = [=] (wf_activator_source, uint32_t) { return add_direction(-1,  0, get_top_view()); };
-        callback_win_right = [=] (wf_activator_source, uint32_t) { return add_direction( 1,  0, get_top_view()); };
-        callback_win_up    = [=] (wf_activator_source, uint32_t) { return add_direction( 0, -1, get_top_view()); };
-        callback_win_down  = [=] (wf_activator_source, uint32_t) { return add_direction( 0,  1, get_top_view()); };
+        callback_win_left  = [=] (wf::activator_source_t, uint32_t) { return add_direction(-1,  0, get_top_view()); };
+        callback_win_right = [=] (wf::activator_source_t, uint32_t) { return add_direction( 1,  0, get_top_view()); };
+        callback_win_up    = [=] (wf::activator_source_t, uint32_t) { return add_direction( 0, -1, get_top_view()); };
+        callback_win_down  = [=] (wf::activator_source_t, uint32_t) { return add_direction( 0,  1, get_top_view()); };
 
         wf::option_wrapper_t<wf::activatorbinding_t> binding_left{"vswitch/binding_left"};
         wf::option_wrapper_t<wf::activatorbinding_t> binding_right{"vswitch/binding_right"};
@@ -117,8 +117,8 @@ class vswitch : public wf::plugin_interface_t
          * of the workspace grid */
         auto cws = output->workspace->get_current_workspace();
         auto wsize = output->workspace->get_workspace_grid_size();
-        int tvx = clamp(cws.x + animation.dx.end + x, 0.0, wsize.width - 1.0);
-        int tvy = clamp(cws.y + animation.dy.end + y, 0.0, wsize.height - 1.0);
+        int tvx = wf::clamp(cws.x + animation.dx.end + x, 0.0, wsize.width - 1.0);
+        int tvy = wf::clamp(cws.y + animation.dy.end + y, 0.0, wsize.height - 1.0);
 
         animation.dx.restart_with_end(1.0 * tvx - cws.x);
         animation.dy.restart_with_end(1.0 * tvy - cws.y);

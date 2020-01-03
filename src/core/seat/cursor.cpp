@@ -131,12 +131,12 @@ void wf_cursor::hide_cursor()
     wlr_cursor_set_surface(cursor, NULL, 0, 0);
 }
 
-void wf_cursor::warp_cursor(wf_pointf point)
+void wf_cursor::warp_cursor(wf::pointf_t point)
 {
     wlr_cursor_warp_closest(cursor, NULL, point.x, point.y);
 }
 
-wf_pointf wf_cursor::get_cursor_position()
+wf::pointf_t wf_cursor::get_cursor_position()
 {
     return {cursor->x, cursor->y};
 }

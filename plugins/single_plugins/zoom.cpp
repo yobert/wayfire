@@ -28,7 +28,7 @@ class wayfire_zoom_screen : public wf::plugin_interface_t
         {
             float target = progression.end;
             target -= target * delta * speed;
-            target = clamp(target, 1.0f, 50.0f);
+            target = wf::clamp(target, 1.0f, 50.0f);
 
             if (target != progression.end)
             {
@@ -43,7 +43,7 @@ class wayfire_zoom_screen : public wf::plugin_interface_t
             }
         }
 
-        axis_callback axis = [=] (wlr_event_pointer_axis* ev)
+        wf::axis_callback axis = [=] (wlr_event_pointer_axis* ev)
         {
             if (!output->can_activate_plugin(grab_interface))
                 return false;
@@ -54,8 +54,8 @@ class wayfire_zoom_screen : public wf::plugin_interface_t
             return true;
         };
 
-        wf::post_hook_t render_hook = [=] (const wf_framebuffer_base& source,
-            const wf_framebuffer_base& destination)
+        wf::post_hook_t render_hook = [=] (const wf::framebuffer_base_t& source,
+            const wf::framebuffer_base_t& destination)
         {
             auto w = destination.viewport_width;
             auto h = destination.viewport_height;

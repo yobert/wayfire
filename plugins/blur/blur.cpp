@@ -9,7 +9,7 @@
 #include "blur.hpp"
 
 using blur_algorithm_provider = std::function<nonstd::observer_ptr<wf_blur_base>()>;
-class wf_blur_transformer : public wf_view_transformer_t
+class wf_blur_transformer : public wf::view_transformer_t
 {
     blur_algorithm_provider provider;
     wf::output_t *output;
@@ -22,41 +22,41 @@ class wf_blur_transformer : public wf_view_transformer_t
             this->output = output;
         }
 
-        virtual wf_pointf local_to_transformed_point(wf_geometry view,
-            wf_pointf point)
+        virtual wf::pointf_t local_to_transformed_point(wf::geometry_t view,
+            wf::pointf_t point)
         {
             return point;
         }
 
-        virtual wf_pointf transformed_to_local_point(wf_geometry view,
-            wf_pointf point)
+        virtual wf::pointf_t transformed_to_local_point(wf::geometry_t view,
+            wf::pointf_t point)
         {
             return point;
         }
 
-        virtual wlr_box get_bounding_box(wf_geometry view, wlr_box region)
+        virtual wlr_box get_bounding_box(wf::geometry_t view, wlr_box region)
         {
             return region;
         }
 
-        uint32_t get_z_order() { return WF_TRANSFORMER_BLUR; }
+        uint32_t get_z_order() { return wf::TRANSFORMER_BLUR; }
 
-        virtual void render_with_damage(uint32_t src_tex, wlr_box src_box, const wf_region& damage,
-            const wf_framebuffer& target_fb)
+        virtual void render_with_damage(uint32_t src_tex, wlr_box src_box, const wf::region_t& damage,
+            const wf::framebuffer_t& target_fb)
         {
             wlr_box box = src_box;
             box.x -= target_fb.geometry.x;
             box.y -= target_fb.geometry.y;
 
             box = target_fb.damage_box_from_geometry_box(box);
-            wf_region clip_damage = damage & box;
+            wf::region_t clip_damage = damage & box;
 
             provider()->pre_render(src_tex, src_box, clip_damage, target_fb);
-            wf_view_transformer_t::render_with_damage(src_tex, src_box, clip_damage, target_fb);
+            wf::view_transformer_t::render_with_damage(src_tex, src_box, clip_damage, target_fb);
         }
 
         virtual void render_box(uint32_t src_tex, wlr_box src_box, wlr_box scissor_box,
-            const wf_framebuffer& target_fb)
+            const wf::framebuffer_t& target_fb)
         {
             provider()->render(src_tex, src_box, scissor_box, target_fb);
         }
@@ -64,7 +64,7 @@ class wf_blur_transformer : public wf_view_transformer_t
 
 class wayfire_blur : public wf::plugin_interface_t
 {
-    button_callback button_toggle;
+    wf::button_callback button_toggle;
 
     wf::effect_hook_t frame_pre_paint;
     wf::signal_callback_t workspace_stream_pre, workspace_stream_post,
@@ -83,8 +83,8 @@ class wayfire_blur : public wf::plugin_interface_t
     const uint32_t blur_layers = wf::MIDDLE_LAYERS | wf::ABOVE_LAYERS;
 
     /* the pixels from padded_region */
-    wf_framebuffer_base saved_pixels;
-    wf_region padded_region;
+    wf::framebuffer_base_t saved_pixels;
+    wf::region_t padded_region;
 
     void add_transformer(wayfire_view view)
     {
@@ -235,7 +235,7 @@ class wayfire_blur : public wf::plugin_interface_t
              * be no visual artifacts. */
             int padding = blur_algorithm->calculate_blur_radius();
 
-            wf_region expanded_damage;
+            wf::region_t expanded_damage;
             for (const auto& rect : damage)
             {
                 expanded_damage |= {

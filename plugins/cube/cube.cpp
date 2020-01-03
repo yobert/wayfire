@@ -27,12 +27,12 @@
 
 class wayfire_cube : public wf::plugin_interface_t
 {
-    button_callback activate_binding;
-    activator_callback rotate_left, rotate_right;
+    wf::button_callback activate_binding;
+    wf::activator_callback rotate_left, rotate_right;
     wf::render_hook_t renderer;
 
     /* Used to restore the pointer where the grab started */
-    wf_pointf saved_pointer_position;
+    wf::pointf_t saved_pointer_position;
 
     std::vector<wf::workspace_stream_t> streams;
 
@@ -107,11 +107,11 @@ class wayfire_cube : public wf::plugin_interface_t
             return input_grabbed();
         };
 
-        rotate_left = [=] (wf_activator_source, uint32_t) {
+        rotate_left = [=] (wf::activator_source_t, uint32_t) {
             return move_vp(-1);
         };
 
-        rotate_right = [=] (wf_activator_source, uint32_t) {
+        rotate_right = [=] (wf::activator_source_t, uint32_t) {
             return move_vp(1);
         };
 
@@ -147,7 +147,7 @@ class wayfire_cube : public wf::plugin_interface_t
         animation.cube_animation.offset_z.set(identity_z_offset + Z_OFFSET_NEAR,
             identity_z_offset + Z_OFFSET_NEAR);
 
-        renderer = [=] (const wf_framebuffer& dest) {render(dest);};
+        renderer = [=] (const wf::framebuffer_t& dest) {render(dest);};
 
         OpenGL::render_begin(output->render->get_target_framebuffer());
         load_program();
@@ -427,7 +427,7 @@ class wayfire_cube : public wf::plugin_interface_t
         }
     }
 
-    glm::mat4 calculate_vp_matrix(const wf_framebuffer& dest)
+    glm::mat4 calculate_vp_matrix(const wf::framebuffer_t& dest)
     {
         float zoom_factor = animation.cube_animation.zoom;
         auto scale_matrix = glm::scale(glm::mat4(1.0),
@@ -472,7 +472,7 @@ class wayfire_cube : public wf::plugin_interface_t
         }
     }
 
-    void render(const wf_framebuffer& dest)
+    void render(const wf::framebuffer_t& dest)
     {
         if (!animation.cube_animation.running() &&
             output->render->get_scheduled_damage().empty())
@@ -568,7 +568,7 @@ class wayfire_cube : public wf::plugin_interface_t
         double current_off_y = animation.cube_animation.offset_y;
         double off_y = current_off_y + ydiff * YVelocity;
 
-        off_y = clamp(off_y, -1.5, 1.5);
+        off_y = wf::clamp(off_y, -1.5, 1.5);
         animation.cube_animation.offset_y.set(current_off_y, off_y);
         animation.cube_animation.offset_z.restart_with_end(animation.cube_animation.offset_z.end);
 

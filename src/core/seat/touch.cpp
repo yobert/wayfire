@@ -50,7 +50,7 @@ void wf_gesture_recognizer::start_new_gesture()
         if (f.second.sent_to_client)
         {
             wf::get_core_impl().input->handle_touch_up(
-                get_current_time(), f.first);
+                wf::get_current_time(), f.first);
             f.second.sent_to_client = false;
         }
     }
@@ -177,7 +177,7 @@ void wf_gesture_recognizer::continue_gesture()
 }
 
 void wf_gesture_recognizer::update_touch(int32_t time, int id,
-    wf_pointf point, bool real_update)
+    wf::pointf_t point, bool real_update)
 {
     current[id].current = point;
     if (in_gesture)
@@ -190,7 +190,7 @@ void wf_gesture_recognizer::update_touch(int32_t time, int id,
     }
 }
 
-void wf_gesture_recognizer::register_touch(int time, int id, wf_pointf point)
+void wf_gesture_recognizer::register_touch(int time, int id, wf::pointf_t point)
 {
     current[id] = {id, point, point};
     if (in_gesture)
@@ -245,7 +245,7 @@ wf_touch::wf_touch(wlr_cursor *cursor)
             wf::get_core_impl().input->cursor->cursor, ev->device,
             ev->x, ev->y, &lx, &ly);
 
-        wf_pointf point;
+        wf::pointf_t point;
         wf::get_core().output_layout->get_output_coords_at({lx, ly}, point);
         gesture_recognizer.register_touch(ev->time_msec, ev->touch_id, point);
 
@@ -275,7 +275,7 @@ wf_touch::wf_touch(wlr_cursor *cursor)
             wf::get_core_impl().input->cursor->cursor, ev->device,
             ev->x, ev->y, &lx, &ly);
 
-        wf_pointf point;
+        wf::pointf_t point;
         wf::get_core().output_layout->get_output_coords_at({lx, ly}, point);
         touch->gesture_recognizer.update_touch(
             ev->time_msec, ev->touch_id, point, true);
@@ -308,17 +308,17 @@ void wf_touch::end_touch_down_grab()
         grabbed_surface = nullptr;
         for (auto& f : gesture_recognizer.current)
         {
-            wf::get_core_impl().input->handle_touch_motion(get_current_time(),
-                f.first, f.second.current, false);
+            wf::get_core_impl().input->handle_touch_motion(
+                wf::get_current_time(), f.first, f.second.current, false);
         }
     }
 }
 
 /* input_manager touch functions */
 void input_manager::set_touch_focus(wf::surface_interface_t *surface,
-    uint32_t time, int id, wf_pointf point)
+    uint32_t time, int id, wf::pointf_t point)
 {
-    bool focus_compositor_surface = wf_compositor_surface_from_surface(surface);
+    bool focus_compositor_surface = wf::compositor_surface_from_surface(surface);
     bool had_focus = wlr_seat_touch_get_point(seat, id);
 
     wlr_surface *next_focus = NULL;
@@ -337,11 +337,11 @@ void input_manager::set_touch_focus(wf::surface_interface_t *surface,
     /* Manage the touch_focus, we take only the first finger for that */
     if (id == 0)
     {
-        auto compositor_surface = wf_compositor_surface_from_surface(touch_focus);
+        auto compositor_surface = wf::compositor_surface_from_surface(touch_focus);
         if (compositor_surface)
             compositor_surface->on_touch_up();
 
-        compositor_surface = wf_compositor_surface_from_surface(surface);
+        compositor_surface = wf::compositor_surface_from_surface(surface);
         if (compositor_surface)
             compositor_surface->on_touch_down(point.x, point.y);
 
@@ -350,7 +350,7 @@ void input_manager::set_touch_focus(wf::surface_interface_t *surface,
 }
 
 void input_manager::handle_touch_down(uint32_t time, int32_t id,
-    wf_pointf point)
+    wf::pointf_t point)
 {
     mod_binding_key = 0;
     ++our_touch->count_touch_down;
@@ -377,7 +377,7 @@ void input_manager::handle_touch_down(uint32_t time, int32_t id,
         return;
     }
 
-    wf_pointf local;
+    wf::pointf_t local;
     auto focus = input_surface_at(point, local);
     if (our_touch->count_touch_down == 1)
     {
@@ -409,7 +409,7 @@ void input_manager::handle_touch_up(uint32_t time, int32_t id)
 }
 
 void input_manager::handle_touch_motion(uint32_t time, int32_t id,
-    wf_pointf point, bool real_update)
+    wf::pointf_t point, bool real_update)
 {
     if (active_grab)
     {
@@ -424,7 +424,7 @@ void input_manager::handle_touch_motion(uint32_t time, int32_t id,
         return;
     }
 
-    wf_pointf local;
+    wf::pointf_t local;
     wf::surface_interface_t *surface = nullptr;
     /* Same as cursor motion handling: make sure we send to the grabbed surface,
      * except if we need this for DnD */
@@ -441,7 +441,7 @@ void input_manager::handle_touch_motion(uint32_t time, int32_t id,
     wlr_seat_touch_notify_motion(seat, time, id, local.x, local.y);
     update_drag_icon();
 
-    auto compositor_surface = wf_compositor_surface_from_surface(surface);
+    auto compositor_surface = wf::compositor_surface_from_surface(surface);
     if (id == 0 && compositor_surface && real_update)
         compositor_surface->on_touch_motion(local.x, local.y);
 }
@@ -449,7 +449,7 @@ void input_manager::handle_touch_motion(uint32_t time, int32_t id,
 void input_manager::check_touch_bindings(int x, int y)
 {
     uint32_t mods = get_modifiers();
-    std::vector<touch_callback*> calls;
+    std::vector<wf::touch_callback*> calls;
     for (auto& binding : bindings[WF_BINDING_TOUCH])
     {
         auto as_key = std::dynamic_pointer_cast<
@@ -502,7 +502,7 @@ void input_manager::handle_gesture(wf::touchgesture_t g)
              * so force copy the callback into the lambda */
             auto call = binding->call.activator;
             callbacks.push_back([=] () {
-                (*call) (ACTIVATOR_SOURCE_GESTURE, 0);
+                (*call) (wf::ACTIVATOR_SOURCE_GESTURE, 0);
             });
         }
     }
@@ -515,7 +515,7 @@ void wf_touch::input_grabbed()
 {
     for (auto& f : gesture_recognizer.current)
     {
-        wf::get_core_impl().input->set_touch_focus(nullptr, get_current_time(),
-            f.first, {0, 0});
+        wf::get_core_impl().input->set_touch_focus(nullptr,
+            wf::get_current_time(), f.first, {0, 0});
     }
 }

@@ -19,14 +19,14 @@ class wayfire_resize : public wf::plugin_interface_t
 {
     wf::signal_callback_t resize_request, view_destroyed;
 
-    button_callback activate_binding;
-    touch_callback touch_activate_binding;
+    wf::button_callback activate_binding;
+    wf::touch_callback touch_activate_binding;
 
     wayfire_view view;
 
     bool was_client_request, is_using_touch;
-    wf_point grab_start;
-    wf_geometry grabbed_geometry;
+    wf::point_t grab_start;
+    wf::geometry_t grabbed_geometry;
 
     uint32_t edges;
     wf::option_wrapper_t<wf::buttonbinding_t> button{"resize/activate"};
@@ -138,9 +138,9 @@ class wayfire_resize : public wf::plugin_interface_t
     }
 
     /* Returns the currently used input coordinates in global compositor space */
-    wf_point get_global_input_coords()
+    wf::point_t get_global_input_coords()
     {
-        wf_pointf input;
+        wf::pointf_t input;
         if (is_using_touch) {
             input = wf::get_core().get_touch_position(0);
         } else {
@@ -151,14 +151,14 @@ class wayfire_resize : public wf::plugin_interface_t
     }
 
     /* Returns the currently used input coordinates in output-local space */
-    wf_point get_input_coords()
+    wf::point_t get_input_coords()
     {
         auto og = output->get_layout_geometry();
-        return get_global_input_coords() - wf_point{og.x, og.y};
+        return get_global_input_coords() - wf::point_t{og.x, og.y};
     }
 
     /* Calculate resize edges, grab starts at (sx, sy), view's geometry is vg */
-    uint32_t calculate_edges(wf_geometry vg, int sx, int sy)
+    uint32_t calculate_edges(wf::geometry_t vg, int sx, int sy)
     {
         int view_x = sx - vg.x;
         int view_y = sy - vg.y;

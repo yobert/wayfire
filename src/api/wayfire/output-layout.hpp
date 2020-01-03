@@ -45,8 +45,8 @@ namespace wf
         /** the position of the output in the compositor space.
          * if position is equal to the default_position defined below,
          * this means that it should be positioned automatically */
-        static constexpr wf_point default_position = {0x3f3f3f3f, 0x3f3f3f3f};
-        wf_point position = default_position;
+        static constexpr wf::point_t default_position = {0x3f3f3f3f, 0x3f3f3f3f};
+        wf::point_t position = default_position;
 
         /** Only width, height and refresh fields are used. */
         wlr_output_mode mode;
@@ -94,7 +94,7 @@ namespace wf
          * @param closest The closest point to origin inside the returned output
          * @return the output at the given coordinates
          */
-        wf::output_t *get_output_coords_at(wf_pointf origin, wf_pointf& closest);
+        wf::output_t *get_output_coords_at(wf::pointf_t origin, wf::pointf_t& closest);
 
         /**
          * @return the number of the active outputs in the output layout

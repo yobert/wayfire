@@ -55,18 +55,18 @@ class output_t : public wf::object_base_t
      * 3860x2160, scale 2 and transform 90, then get_screen_size will report
      * that it has logical resolution of 1080x1920
      */
-    wf_size_t get_screen_size() const;
+    wf::dimensions_t get_screen_size() const;
 
     /**
-     * Same as get_screen_size() but returns a wf_geometry with x,y = 0
+     * Same as get_screen_size() but returns a wf::geometry_t with x,y = 0
      */
-    wf_geometry get_relative_geometry() const;
+    wf::geometry_t get_relative_geometry() const;
 
     /**
      * Returns the output geometry as the output layout sees it. This is
      * typically the same as get_relative_geometry() but with meaningful x and y
      */
-    wf_geometry get_layout_geometry() const;
+    wf::geometry_t get_layout_geometry() const;
 
     /**
      * Moves the pointer so that it is inside the output
@@ -76,7 +76,7 @@ class output_t : public wf::object_base_t
     /**
      * Gets the cursor position relative to the output
      */
-    wf_pointf get_cursor_position() const;
+    wf::pointf_t get_cursor_position() const;
 
     /**
      * Checks if a plugin can activate. This may not succeed if a plugin
@@ -156,29 +156,31 @@ class output_t : public wf::object_base_t
 
     /**
      * the add_* functions are used by plugins to register bindings. They pass
-     * a wf_option, which means that core will always use the latest binding
+     * a wf::option_t, which means that core will always use the latest binding
      * which is in the option.
      *
      * Adding a binding happens on a per-output basis. If a plugin registers
      * bindings on each output, it will receive for ex. a keybinding only on
      * the currently focused one.
      *
-     * @return The wf_binding which can be used to unregister the binding.
+     * @return The wf::binding_t which can be used to unregister the binding.
      */
-    wf_binding *add_key(option_sptr_t<keybinding_t> key, key_callback *);
-    wf_binding *add_axis(option_sptr_t<keybinding_t> axis, axis_callback *);
-    wf_binding *add_touch(option_sptr_t<keybinding_t> mod, touch_callback *);
-    wf_binding *add_button(option_sptr_t<buttonbinding_t> button,
-        button_callback *);
-    wf_binding *add_gesture(option_sptr_t<touchgesture_t> gesture,
-        gesture_callback *);
-    wf_binding *add_activator(option_sptr_t<activatorbinding_t> activator,
-        activator_callback *);
+    wf::binding_t *add_key(option_sptr_t<keybinding_t> key, wf::key_callback *);
+    wf::binding_t *add_axis(option_sptr_t<keybinding_t> axis,
+        wf::axis_callback *);
+    wf::binding_t *add_touch(option_sptr_t<keybinding_t> mod,
+        wf::touch_callback *);
+    wf::binding_t *add_button(option_sptr_t<buttonbinding_t> button,
+        wf::button_callback *);
+    wf::binding_t *add_gesture(option_sptr_t<touchgesture_t> gesture,
+        wf::gesture_callback *);
+    wf::binding_t *add_activator(option_sptr_t<activatorbinding_t> activator,
+        wf::activator_callback *);
 
     /**
      * Remove the given binding, regardless of its type.
      */
-    void rem_binding(wf_binding *binding);
+    void rem_binding(wf::binding_t *binding);
 
     /**
      * Remove all bindings which have the given callback, regardless of the type.

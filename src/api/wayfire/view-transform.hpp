@@ -5,20 +5,22 @@
 #include "wayfire/opengl.hpp"
 #include "wayfire/debug.hpp"
 
-enum wf_transformer_z_order
+namespace wf
+{
+enum transformer_z_order_t
 {
     /* Simple 2D transforms */
-    WF_TRANSFORMER_2D = 1,
+    TRANSFORMER_2D = 1,
     /* 3D transforms */
-    WF_TRANSFORMER_3D = 2,
+    TRANSFORMER_3D = 2,
     /* Highlevels transforms and above do special effects, for ex. wobbly or fire */
-    WF_TRANSFORMER_HIGHLEVEL = 500,
+    TRANSFORMER_HIGHLEVEL = 500,
     /* Do not use Z oder blur or more,
      * except if you are willing to break it */
-    WF_TRANSFORMER_BLUR = 999,
+    TRANSFORMER_BLUR = 999,
 };
 
-class wf_view_transformer_t
+class view_transformer_t
 {
     public:
         /* return how this transform should be placed with respect to other transforms
@@ -27,11 +29,11 @@ class wf_view_transformer_t
 
         // TODO: rename
         // transformed_to_local_point -> untransform/reverse()
-        virtual wf_pointf local_to_transformed_point(wf_geometry view, wf_pointf point) = 0;
-        virtual wf_pointf transformed_to_local_point(wf_geometry view, wf_pointf point) = 0;
+        virtual wf::pointf_t local_to_transformed_point(wf::geometry_t view, wf::pointf_t point) = 0;
+        virtual wf::pointf_t transformed_to_local_point(wf::geometry_t view, wf::pointf_t point) = 0;
 
         /* return the boundingbox of region after applying all transformations */
-        virtual wlr_box get_bounding_box(wf_geometry view, wlr_box region);
+        virtual wlr_box get_bounding_box(wf::geometry_t view, wlr_box region);
 
         /* src_tex        the internal FBO texture,
          *
@@ -52,17 +54,17 @@ class wf_view_transformer_t
          * */
 
         virtual void render_with_damage(uint32_t src_tex, wlr_box src_box,
-            const wf_region& damage, const wf_framebuffer& target_fb);
+            const wf::region_t& damage, const wf::framebuffer_t& target_fb);
 
         virtual void render_box(uint32_t src_tex, wlr_box src_box,
-            wlr_box scissor_box, const wf_framebuffer& target_fb) {}
+            wlr_box scissor_box, const wf::framebuffer_t& target_fb) {}
 
-        virtual ~wf_view_transformer_t() {}
+        virtual ~view_transformer_t() {}
 };
 
 /* 2D transforms operate with a coordinate system centered at the
  * center of the main surface(the wayfire_view_t) */
-class wf_2D_view : public wf_view_transformer_t
+class view_2D : public view_transformer_t
 {
     protected:
         wayfire_view view;
@@ -73,19 +75,19 @@ class wf_2D_view : public wf_view_transformer_t
         float alpha = 1.0f;
 
     public:
-        wf_2D_view(wayfire_view view);
+        view_2D(wayfire_view view);
 
-        virtual uint32_t get_z_order() { return WF_TRANSFORMER_2D; }
+        virtual uint32_t get_z_order() { return TRANSFORMER_2D; }
 
-        virtual wf_pointf local_to_transformed_point(wf_geometry view, wf_pointf point);
-        virtual wf_pointf transformed_to_local_point(wf_geometry view, wf_pointf point);
+        virtual wf::pointf_t local_to_transformed_point(wf::geometry_t view, wf::pointf_t point);
+        virtual wf::pointf_t transformed_to_local_point(wf::geometry_t view, wf::pointf_t point);
 
         virtual void render_box(uint32_t src_tex, wlr_box src_box,
-            wlr_box scissor_box, const wf_framebuffer& target_fb);
+            wlr_box scissor_box, const wf::framebuffer_t& target_fb);
 };
 
 /* Those are centered relative to the view's bounding box */
-class wf_3D_view : public wf_view_transformer_t
+class view_3D : public view_transformer_t
 {
     protected:
         wayfire_view view;
@@ -97,15 +99,15 @@ class wf_3D_view : public wf_view_transformer_t
         glm::mat4 calculate_total_transform();
 
     public:
-        wf_3D_view(wayfire_view view);
+        view_3D(wayfire_view view);
 
-        virtual uint32_t get_z_order() { return WF_TRANSFORMER_3D; }
+        virtual uint32_t get_z_order() { return TRANSFORMER_3D; }
 
-        virtual wf_pointf local_to_transformed_point(wf_geometry view, wf_pointf point);
-        virtual wf_pointf transformed_to_local_point(wf_geometry view, wf_pointf point);
+        virtual wf::pointf_t local_to_transformed_point(wf::geometry_t view, wf::pointf_t point);
+        virtual wf::pointf_t transformed_to_local_point(wf::geometry_t view, wf::pointf_t point);
 
         virtual void render_box(uint32_t src_tex, wlr_box src_box,
-            wlr_box scissor_box, const wf_framebuffer& target_fb);
+            wlr_box scissor_box, const wf::framebuffer_t& target_fb);
 
         static const float fov; // PI / 8
         static glm::mat4 default_view_matrix();
@@ -115,7 +117,8 @@ class wf_3D_view : public wf_view_transformer_t
 /* create a matrix which corresponds to the inverse of the given transform */
 glm::mat4 get_output_matrix_from_transform(wl_output_transform transform);
 
-/* a matrix which can be used to render wf_geometry directly */
+/* a matrix which can be used to render wf::geometry_t directly */
 glm::mat4 output_get_projection(wf::output_t *output);
+}
 
 #endif /* end of include guard: VIEW_TRANSFORM_HPP */

@@ -99,7 +99,7 @@ wlr_box wf::wlr_view_t::get_minimize_hint()
     return this->minimize_hint;
 }
 
-void wf::wlr_view_t::subtract_opaque(wf_region& region, int x, int y)
+void wf::wlr_view_t::subtract_opaque(wf::region_t& region, int x, int y)
 {
     auto& maximal_shrink_constraint =
         wf::surface_interface_t::impl::active_shrink_constraint;
@@ -118,7 +118,7 @@ void wf::wlr_view_t::subtract_opaque(wf_region& region, int x, int y)
 }
 
 void wf::wlr_view_t::set_position(int x, int y,
-    wf_geometry old_geometry, bool send_signal)
+    wf::geometry_t old_geometry, bool send_signal)
 {
     auto obox = get_output_geometry();
     auto wm   = get_wm_geometry();
@@ -153,7 +153,7 @@ void wf::wlr_view_t::move(int x, int y)
     set_position(x, y, get_wm_geometry(), true);
 }
 
-void wf::wlr_view_t::adjust_anchored_edge(wf_size_t new_size)
+void wf::wlr_view_t::adjust_anchored_edge(wf::dimensions_t new_size)
 {
     if (view_impl->edges)
     {
@@ -200,12 +200,12 @@ void wf::wlr_view_t::update_size()
         view_impl->frame->notify_view_resized(get_wm_geometry());
 }
 
-wf_geometry wf::wlr_view_t::get_output_geometry()
+wf::geometry_t wf::wlr_view_t::get_output_geometry()
 {
     return geometry;
 }
 
-wf_geometry wf::wlr_view_t::get_wm_geometry()
+wf::geometry_t wf::wlr_view_t::get_wm_geometry()
 {
     if (view_impl->frame)
         return view_impl->frame->expand_wm_geometry(geometry);
@@ -509,7 +509,7 @@ wf::view_interface_t* wf::wf_view_from_void(void *handle)
     return static_cast<wf::view_interface_t*> (handle);
 }
 
-wf::compositor_surface_t *wf::wf_compositor_surface_from_surface(
+wf::compositor_surface_t *wf::compositor_surface_from_surface(
     wf::surface_interface_t *surface)
 {
     return dynamic_cast<wf::compositor_surface_t*> (surface);

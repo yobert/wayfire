@@ -37,7 +37,7 @@ void main()
 class wayfire_invert_screen : public wf::plugin_interface_t
 {
     wf::post_hook_t hook;
-    activator_callback toggle_cb;
+    wf::activator_callback toggle_cb;
 
     bool active = false;
     GLuint program, posID, uvID;
@@ -63,13 +63,13 @@ class wayfire_invert_screen : public wf::plugin_interface_t
         grab_interface->name = "invert";
         grab_interface->capabilities = 0;
 
-        hook = [=] (const wf_framebuffer_base& source,
-            const wf_framebuffer_base& destination) {
+        hook = [=] (const wf::framebuffer_base_t& source,
+            const wf::framebuffer_base_t& destination) {
             render(source, destination);
         };
 
 
-        toggle_cb = [=] (wf_activator_source, uint32_t) {
+        toggle_cb = [=] (wf::activator_source_t, uint32_t) {
             if (!output->can_activate_plugin(grab_interface))
                 return false;
 
@@ -90,8 +90,8 @@ class wayfire_invert_screen : public wf::plugin_interface_t
         output->add_activator(toggle_key, &toggle_cb);
     }
 
-    void render(const wf_framebuffer_base& source,
-        const wf_framebuffer_base& destination)
+    void render(const wf::framebuffer_base_t& source,
+        const wf::framebuffer_base_t& destination)
     {
         static const float vertexData[] = {
             -1.0f, -1.0f,

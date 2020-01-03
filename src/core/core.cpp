@@ -203,7 +203,7 @@ void wf::compositor_core_impl_t::warp_cursor(int x, int y)
     input->cursor->warp_cursor({1.0 * x, 1.0 * y});
 }
 
-wf_pointf wf::compositor_core_impl_t::get_cursor_position()
+wf::pointf_t wf::compositor_core_impl_t::get_cursor_position()
 {
     if (input->cursor) {
         return input->cursor->get_cursor_position();
@@ -212,7 +212,7 @@ wf_pointf wf::compositor_core_impl_t::get_cursor_position()
     }
 }
 
-wf_pointf wf::compositor_core_impl_t::get_touch_position(int id)
+wf::pointf_t wf::compositor_core_impl_t::get_touch_position(int id)
 {
     if (!input->our_touch)
         return {invalid_coordinate, invalid_coordinate};
