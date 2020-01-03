@@ -337,8 +337,6 @@ class wf::render_manager::impl
     std::unique_ptr<postprocessing_manager_t> postprocessing;
 
     wf::option_wrapper_t<wf::color_t> background_color_opt;
-    /* The default color which is user configurable */
-    wf::color_t default_color = {0.0f, 0.0f, 0.0f, 1.0f};
 
     impl(output_t *o)
         : output(o)
@@ -882,7 +880,7 @@ class wf::render_manager::impl
 
         if (stream.background.a < 0)
         {
-            clear_empty_areas(repaint, default_color);
+            clear_empty_areas(repaint, background_color_opt);
         } else {
             clear_empty_areas(repaint, stream.background);
         }
