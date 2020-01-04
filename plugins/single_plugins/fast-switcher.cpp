@@ -41,7 +41,7 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
     void handle_mod(uint32_t mod, uint32_t st)
     {
         bool mod_released =
-            (mod == activate_key.raw_option->get_value().get_modifiers() &&
+            (mod == ((wf::keybinding_t)activate_key).get_modifiers() &&
              st == WLR_KEY_RELEASED);
 
         if (mod_released)
