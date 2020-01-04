@@ -112,11 +112,11 @@ summary = [
 	'',
     'system wfconfig: @0@'.format(use_system_wfconfig),
     ' system wlroots: @0@'.format(use_system_wlroots),
-	'   debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED')),
-	'        imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
-	'         gles32: @0@'.format(conf_data.get('USE_GLES32')),
-	'   graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG')),
-	'----------------',
-	''
+    '   debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED')),
+    '        imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
+    '         gles32: @0@'.format(conf_data.get('USE_GLES32')),
+    '   graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG')),
+    '----------------',
+    ''
 ]
 message('\n'.join(summary))
