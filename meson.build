@@ -105,13 +105,26 @@ subdir('plugins')
 
 install_subdir('shaders', install_dir: 'share/wayfire')
 
-summary = [
+wlroots_x_info = []
+
+if use_system_wlroots
+  cpp = meson.get_compiler('cpp')
+  wlroots_has_xwayland = cpp.get_define('WLR_HAS_XWAYLAND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
+  wlroots_has_x11_backend = cpp.get_define('WLR_HAS_X11_BACKEND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
+  wlroots_x_info += [
+      '       xwayland: @0@'.format(wlroots_has_xwayland),
+      '    x11-backend: @0@'.format(wlroots_has_x11_backend)]
+endif
+
+summary_begin = [
 	'',
 	'----------------',
 	'wayfire @0@'.format(meson.project_version()),
 	'',
     'system wfconfig: @0@'.format(use_system_wfconfig),
-    ' system wlroots: @0@'.format(use_system_wlroots),
+    ' system wlroots: @0@'.format(use_system_wlroots)]
+
+summary_end = [
     '   debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED')),
     '        imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
     '         gles32: @0@'.format(conf_data.get('USE_GLES32')),
@@ -119,4 +132,4 @@ summary = [
     '----------------',
     ''
 ]
-message('\n'.join(summary))
+message('\n'.join(summary_begin + wlroots_x_info + summary_end))
