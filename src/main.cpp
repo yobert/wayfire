@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 
     LOGI("using config file: ", config_file.c_str());
     core.config = wf::config::build_configuration(
-        PLUGIN_XML_DIR, "", config_file);
+        PLUGIN_XML_DIR, SYSCONFDIR "/wayfire/defaults.ini", config_file);
 
     int inotify_fd = inotify_init1(IN_CLOEXEC);
     reload_config(inotify_fd);
