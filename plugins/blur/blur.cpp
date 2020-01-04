@@ -71,7 +71,6 @@ class wayfire_blur : public wf::plugin_interface_t
         view_attached, view_detached;
 
     const std::string normal_mode = "normal";
-    const std::string toggle_mode = "toggle";
     std::string last_mode;
 
     wf::option_wrapper_t<std::string> method_opt{"blur/method"}, mode_opt{"blur/mode"};

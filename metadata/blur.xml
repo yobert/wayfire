@@ -3,6 +3,18 @@
 	<plugin name="blur">
 	<_short>Blur Windows</_short>
 	<category>Effects</category>
+	<option name="mode" type="string">
+		<_short>Mode</_short>
+		<default>normal</default>
+		<desc>
+			<value>normal</value>
+			<_name>Normal</_name>
+		</desc>
+		<desc>
+			<value>toggle</value>
+			<_name>Toggle</_name>
+		</desc>
+	</option>
 	<option name="method" type="string">
 		<_short>Blur Method</_short>
 		<default>kawase</default>
