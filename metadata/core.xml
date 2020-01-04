@@ -3,6 +3,10 @@
 	<plugin name="core">
 	<_short>General Options</_short>
 	<category>General</category>
+	<option name="plugins" type="string" hidden="true">
+		<_short>Plugins</_short>
+		<default>resize command vswitch oswitch grid window-rules autostart wrot place invert animate move switcher fast-switcher fisheye zoom expo cube wobbly decoration alpha idle</default>
+	</option>
 	<option name="close_top_view" type="activator">
 		<_short>Close Window</_short>
 		<default>&lt;super&gt; KEY_Q | &lt;alt&gt; KEY_F4</default>
