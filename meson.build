@@ -30,7 +30,12 @@ pixman         = dependency('pixman-1')
 threads        = dependency('threads')
 xkbcommon      = dependency('xkbcommon')
 wlroots        = dependency('wlroots', version: ['>=0.9.0', '<0.10.0'], fallback: ['wlroots', 'wlroots'])
-wfconfig       = dependency('wf-config', version: '>=0.3', fallback: ['wf-config', 'wfconfig'])
+wfconfig       = dependency('wf-config', version: ['>=0.3', '<0.4'], required: get_option('use_system_wfconfig'))
+
+use_system_wfconfig = not get_option('use_system_wfconfig').disabled() and wfconfig.found()
+if not use_system_wfconfig
+  wfconfig = subproject('wf-config').get_variable('wfconfig')
+endif
 
 needs_libinotify = ['freebsd', 'dragonfly'].contains(host_machine.system())
 libinotify       = dependency('libinotify', required: needs_libinotify)
@@ -104,12 +109,11 @@ summary = [
 	'----------------',
 	'wayfire @0@'.format(meson.project_version()),
 	'',
-	'debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED')),
-	'     imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
-	'      gles32: @0@'.format(conf_data.get('USE_GLES32')),
-	'    xwayland: @0@'.format(wlroots_has_xwayland),
-	' x11-backend: @0@'.format(wlroots_has_x11_backend),
-	'graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG')),
+    'system wfconfig: @0@'.format(use_system_wfconfig),
+	'   debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED')),
+	'        imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
+	'         gles32: @0@'.format(conf_data.get('USE_GLES32')),
+	'   graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG')),
 	'----------------',
 	''
 ]
