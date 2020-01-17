@@ -16,6 +16,13 @@ meson build --prefix=/usr --buildtype=release
 ninja -C build && sudo ninja -C build install
 ```
 
+If you want to build `wf-config` as a submodule of Wayfire, add `-Duse_system_wfconfig=disabled` to the second line.
+
+If you want to build `wlroots` as a submodule of Wayfire, add `-Duse_system_wlroots=disabled` to the second line.
+
+Note that **any** of `wf-config` and `wlroots` will be built as submodules if they are not already available and if you don't explicitly turn these submodules off.
+
+
 # Packaging status
 
 - [Fedora](https://apps.fedoraproject.org/packages/wayfire) (31+): `sudo dnf install wayfire`
