@@ -284,7 +284,6 @@ void wf::compositor_core_impl_t::focus_output(wf::output_t *wo)
     }
 
     active_output = wo;
-    LOGD("focusing ", wo);
     if (wo)
     {
         LOGD("focus output: ", wo->handle->name);
@@ -401,7 +400,6 @@ void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
 
     /* Descend into frontmost child view */
     new_focus = new_focus ? new_focus->enumerate_views().front() : nullptr;
-
     bool refocus = (input->keyboard_focus == new_focus);
 
     /* don't deactivate view if the next focus is not a toplevel */
@@ -423,11 +421,8 @@ void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
     {
         input->set_keyboard_focus(new_focus, seat);
 
-        /* Don't resend activated if focusing the exact same view, some Xwayland
-         * programs have problems with this.
-         *
-         * And we need to check that the view was actually focused */
-        if (!refocus && input->keyboard_focus == new_focus)
+        /* Check that the view was actually focused */
+        if (input->keyboard_focus == new_focus)
             new_focus->set_activated(true);
     } else
     {
