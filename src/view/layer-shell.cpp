@@ -294,6 +294,8 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf)
     LOGD("Create a layer surface: namespace ", lsurf->namespace_t,
         " layer ", lsurf->current.layer);
 
+    role = wf::VIEW_ROLE_DESKTOP_ENVIRONMENT;
+
     /* If we already have an output set, then assign it before core assigns us
      * an output */
     if (lsurf->output)
@@ -314,7 +316,6 @@ void wayfire_layer_shell_view::initialize()
     }
 
     lsurface->output = get_output()->handle;
-    role = wf::VIEW_ROLE_DESKTOP_ENVIRONMENT;
     lsurface->data = dynamic_cast<wf::view_interface_t*> (this);
 
     on_map.set_callback([&] (void*) { map(lsurface->surface); });
