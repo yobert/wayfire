@@ -222,8 +222,13 @@ class compositor_core_t : public wf::object_base_t
 
     /** The wayland socket name of Wayfire */
     std::string wayland_display;
-    /** The xwayland display name */
-    std::string xwayland_display;
+
+    /**
+     * Return the xwayland display number.
+     *
+     * This returns -1 if xwayland is not available
+     */
+    virtual int get_xwayland_display() = 0;
 
     /**
      * Execute the given command in a bash shell.

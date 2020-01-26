@@ -499,6 +499,11 @@ void wf::compositor_core_impl_t::run(std::string command)
     }
 }
 
+int wf::compositor_core_impl_t::get_xwayland_display()
+{
+    return xwayland_get_display();
+}
+
 void wf::compositor_core_impl_t::move_view_to_output(wayfire_view v,
     wf::output_t *new_output)
 {
