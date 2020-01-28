@@ -570,6 +570,9 @@ bool wf::view_interface_t::should_be_decorated()
 
 void wf::view_interface_t::set_decoration(surface_interface_t *frame)
 {
+    if (this->view_impl->decoration == frame)
+        return;
+
     if (!frame)
     {
         damage();

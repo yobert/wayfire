@@ -22,6 +22,7 @@ extern "C"
     struct wlr_xdg_output_manager_v1;
     struct wlr_export_dmabuf_manager_v1;
     struct wlr_server_decoration_manager;
+    struct wlr_xdg_decoration_manager_v1;
     struct wlr_input_inhibit_manager;
     struct wlr_virtual_keyboard_manager_v1;
     struct wlr_virtual_pointer_manager_v1;
@@ -86,6 +87,7 @@ class compositor_core_t : public wf::object_base_t
         wlr_linux_dmabuf_v1 *linux_dmabuf;
         wlr_export_dmabuf_manager_v1 *export_dmabuf;
         wlr_server_decoration_manager *decorator_manager;
+        wlr_xdg_decoration_manager_v1 *xdg_decorator;
         wlr_xdg_output_manager_v1 *output_manager;
         wlr_virtual_keyboard_manager_v1 *vkbd_manager;
         wlr_virtual_pointer_manager_v1 *vptr_manager;

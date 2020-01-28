@@ -216,6 +216,21 @@ bool wf::wlr_view_t::should_be_decorated()
     return role == wf::VIEW_ROLE_TOPLEVEL && !has_client_decoration;
 }
 
+void wf::wlr_view_t::set_decoration_mode(bool use_csd)
+{
+    bool was_decorated = should_be_decorated();
+    this->has_client_decoration = use_csd;
+    if ((was_decorated != should_be_decorated()) && is_mapped())
+    {
+        wf::decoration_state_updated_signal data;
+        data.view = self();
+
+        this->emit_signal("decoration-state-updated", &data);
+        if (get_output())
+            get_output()->emit_signal("decoration-state-updated-view", &data);
+    }
+}
+
 void wf::wlr_view_t::set_output(wf::output_t *wo)
 {
     auto old_output = get_output();
