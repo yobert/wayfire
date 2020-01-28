@@ -10,12 +10,12 @@
 
   <option name="title_height" type="int">
     <_short>Title height</_short>
-    <default>100</default>
+    <default>30</default>
   </option>
 
   <option name="border_size" type="int">
     <_short>Border size</_short>
-    <default>5</default>
+    <default>4</default>
   </option>
 
   <option name="active_color" type="color">
