@@ -122,27 +122,22 @@ wf::geometry_t wf::output_t::get_layout_geometry() const
     }
 }
 
-/* TODO: is this still relevant? */
-void wf::output_t::ensure_pointer() const
+void wf::output_t::ensure_pointer(bool center) const
 {
-    /*
-    auto ptr = weston_seat_get_pointer(wf::get_core().get_current_seat());
-    if (!ptr) return;
+    auto ptr = wf::get_core().get_cursor_position();
+    if (!center &&
+        (get_layout_geometry() & wf::point_t{(int)ptr.x, (int)ptr.y}))
+    {
+        return;
+    }
 
-    int px = wl_fixed_to_int(ptr->x), py = wl_fixed_to_int(ptr->y);
-
-    auto g = get_layout_geometry();
-    if (!point_inside({px, py}, g)) {
-        wl_fixed_t cx = wl_fixed_from_int(g.x + g.width / 2);
-        wl_fixed_t cy = wl_fixed_from_int(g.y + g.height / 2);
-
-        weston_pointer_motion_event ev;
-        ev.mask |= WESTON_POINTER_MOTION_ABS;
-        ev.x = wl_fixed_to_double(cx);
-        ev.y = wl_fixed_to_double(cy);
-
-        weston_pointer_move(ptr, &ev);
-    } */
+    auto lg = get_layout_geometry();
+    wf::point_t target = {
+        lg.x + lg.width / 2,
+        lg.y + lg.height / 2,
+    };
+    wf::get_core().warp_cursor(target.x, target.y);
+    wf::get_core().set_cursor("default");
 }
 
 wf::pointf_t wf::output_t::get_cursor_position() const

@@ -282,7 +282,8 @@ void wf::compositor_core_impl_t::focus_output(wf::output_t *wo)
     if (active_output == wo)
         return;
 
-    wo->ensure_pointer();
+    /* Move to the middle of the output if this is the first output */
+    wo->ensure_pointer((active_output == nullptr));
 
     wf::plugin_grab_interface_t *old_grab = nullptr;
     if (active_output)
