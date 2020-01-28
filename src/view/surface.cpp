@@ -367,29 +367,6 @@ void wf::wlr_surface_base_t::update_output(wf::output_t *old_output,
         wlr_surface_send_enter(surface, new_output->handle);
 }
 
-wf::texture_t wf::get_texture_from_surface(wlr_surface *surface)
-{
-    assert(wlr_texture_is_gles2(surface->buffer->texture));
-
-    wlr_gles2_texture_attribs attribs;
-    wlr_gles2_texture_get_attribs(surface->buffer->texture, &attribs);
-
-    wf::texture_t tex;
-    /* Wayfire Y-inverts by default */
-    tex.invert_y = !attribs.inverted_y;
-    tex.target = attribs.target;
-    tex.tex_id = attribs.tex;
-
-    if (tex.target == GL_TEXTURE_2D) {
-        tex.type = attribs.has_alpha ?
-            wf::TEXTURE_TYPE_RGBA : wf::TEXTURE_TYPE_RGBX;
-    } else {
-        tex.type = wf::TEXTURE_TYPE_EXTERNAL;
-    }
-
-    return tex;
-}
-
 void wf::wlr_surface_base_t::_simple_render(const wf::framebuffer_t& fb,
     int x, int y, const wf::region_t& damage)
 {
@@ -402,7 +379,7 @@ void wf::wlr_surface_base_t::_simple_render(const wf::framebuffer_t& fb,
         rx, ry,
         rx + surface->current.width, ry + surface->current.height,
     };
-    auto texture = get_texture_from_surface(surface);
+    wf::texture_t texture{surface->buffer->texture};
     auto matrix = fb.get_orthographic_projection();
 
     OpenGL::render_begin(fb);

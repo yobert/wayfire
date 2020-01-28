@@ -847,7 +847,7 @@ bool wf::view_interface_t::render_transformed(const wf::framebuffer_t& framebuff
         /* Optimized case: there is a single mapped surface.
          * We can directly start with its texture */
         previous_texture =
-            wf::get_texture_from_surface(this->get_wlr_surface());
+            wf::texture_t{this->get_wlr_surface()->buffer->texture};
         texture_scale = this->get_wlr_surface()->current.scale;
     } else
     {

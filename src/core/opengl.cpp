@@ -10,6 +10,7 @@ extern "C"
 #define static
 #include <wlr/render/egl.h>
 #include <wlr/render/wlr_renderer.h>
+#include <wlr/render/gles2.h>
 #undef static
 #include <wlr/types/wlr_output.h>
 }
@@ -436,6 +437,25 @@ namespace wf
 wf::texture_t::texture_t() { }
 wf::texture_t::texture_t(GLuint tex)
 { this->tex_id = tex; }
+
+wf::texture_t::texture_t(wlr_texture *texture)
+{
+    assert(wlr_texture_is_gles2(texture));
+    wlr_gles2_texture_attribs attribs;
+    wlr_gles2_texture_get_attribs(texture, &attribs);
+
+    /* Wayfire Y-inverts by default */
+    this->invert_y = !attribs.inverted_y;
+    this->target = attribs.target;
+    this->tex_id = attribs.tex;
+
+    if (this->target == GL_TEXTURE_2D) {
+        this->type = attribs.has_alpha ?
+            wf::TEXTURE_TYPE_RGBA : wf::TEXTURE_TYPE_RGBX;
+    } else {
+        this->type = wf::TEXTURE_TYPE_EXTERNAL;
+    }
+}
 };
 
 namespace OpenGL

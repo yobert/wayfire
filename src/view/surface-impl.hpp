@@ -111,9 +111,6 @@ class wlr_child_surface_base_t :
         surface_interface_t::set_output(output);
     }
 };
-
-/** Get a texture from a mapped surface. */
-wf::texture_t get_texture_from_surface(wlr_surface *surface);
 }
 
 #endif /* end of include guard: SURFACE_IMPL_HPP */

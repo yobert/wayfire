@@ -32,6 +32,10 @@ struct gl_geometry
     float x1, y1, x2, y2;
 };
 
+extern "C" {
+    struct wlr_texture;
+}
+
 namespace wf
 {
 /* Simple framebuffer, used mostly to allocate framebuffers for workspace
@@ -148,7 +152,10 @@ struct texture_t
 
     /* tex_id will be initialized later */
     texture_t();
+    /** Initialize a non-inverted RGBA texture with the given texture id */
     texture_t(GLuint tex);
+    /** Initialize a texture with the attributes of the wlr texture */
+    explicit texture_t(wlr_texture*);
 };
 };
 
