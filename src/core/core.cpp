@@ -87,10 +87,17 @@ struct wf_xdg_decoration_t
 
     std::function<void(void*)> mode_request = [&] (void*)
     {
+        wf::option_wrapper_t<std::string>
+            deco_mode{"core/preferred_decoration_mode"};
+        wlr_xdg_toplevel_decoration_v1_mode default_mode =
+            WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
+        if ((std::string)deco_mode == "server")
+            default_mode = WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE;
+
         auto mode = decor->client_pending_mode;
-        LOGE("mode request ", mode);
         if (mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_NONE)
-            mode = WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
+            mode = default_mode;
+
         wlr_xdg_toplevel_decoration_v1_set_mode(decor, mode);
     };
 
@@ -98,7 +105,6 @@ struct wf_xdg_decoration_t
     {
         bool use_csd =
             decor->current_mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
-        LOGE(decor->surface->toplevel->title, ": set use CSD to ", use_csd);
         wf::get_core_impl().uses_csd[decor->surface->surface] = use_csd;
 
         auto wf_surface = dynamic_cast<wf::wlr_view_t*> (
@@ -110,7 +116,6 @@ struct wf_xdg_decoration_t
     wf_xdg_decoration_t(wlr_xdg_toplevel_decoration_v1 *_decor)
         : decor(_decor)
     {
-        LOGE("new xdg decoration");
         on_mode_request.set_callback(mode_request);
         on_commit.set_callback(commit);
         on_destroy.set_callback([&] (void *) {
@@ -192,8 +197,13 @@ void wf::compositor_core_impl_t::init()
 
     /* decoration_manager setup */
     protocols.decorator_manager = wlr_server_decoration_manager_create(display);
+    wf::option_wrapper_t<std::string>
+        deco_mode{"core/preferred_decoration_mode"};
+    uint32_t default_mode = WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT;
+    if ((std::string)deco_mode == "server")
+        default_mode = WLR_SERVER_DECORATION_MANAGER_MODE_SERVER;
     wlr_server_decoration_manager_set_default_mode(protocols.decorator_manager,
-        WLR_SERVER_DECORATION_MANAGER_MODE_SERVER);
+        default_mode);
 
     decoration_created.set_callback([&] (void* data) {
         /* will be freed by the destroy request */
