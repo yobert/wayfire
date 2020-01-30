@@ -508,16 +508,7 @@ void wayfire_unmanaged_xwayland_view::map(wlr_surface *surface)
     wf::wlr_view_t::map(surface);
 
     if (wlr_xwayland_or_surface_wants_focus(xw))
-    {
-        /* Clients that need to interact with the user, just make sure that
-         * they are not below a panel or similar */
-        auto wa = get_output()->workspace->get_workarea();
-        move(xw->x + wa.x - real_output_geometry.x,
-            xw->y + wa.y - real_output_geometry.y);
-
-        /* And focus them, since they are a new window */
         get_output()->focus_view(self());
-    }
 }
 
 static wlr_xwayland *xwayland_handle = nullptr;
