@@ -271,7 +271,8 @@ class simple_decoration_surface : public wf::surface_interface_t,
         height = view_geometry.height;
 
         layout.resize(width, height);
-        this->cached_region = layout.calculate_region();
+        if (!view->fullscreen)
+            this->cached_region = layout.calculate_region();
 
         view->damage();
     };
@@ -285,13 +286,14 @@ class simple_decoration_surface : public wf::surface_interface_t,
         {
             current_thickness = 0;
             current_titlebar = 0;
+            this->cached_region.clear();
         } else
         {
             current_thickness = theme.get_border_size();
             current_titlebar =
                 theme.get_title_height() + theme.get_border_size();
+            this->cached_region = layout.calculate_region();
         }
-        this->cached_region = layout.calculate_region();
     }
 
     virtual void notify_view_fullscreen() override
