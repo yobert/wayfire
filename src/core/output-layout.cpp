@@ -692,7 +692,7 @@ namespace wf
         {
             if (locked_cursors_on)
             {
-                wlr_output_lock_software_cursors(locked_cursors_on, true);
+                wlr_output_lock_software_cursors(locked_cursors_on, false);
                 locked_cursors_on = NULL;
             }
 
