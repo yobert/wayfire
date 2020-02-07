@@ -299,6 +299,9 @@ class simple_decoration_surface : public wf::surface_interface_t,
     virtual void notify_view_fullscreen() override
     {
         update_decoration_size();
+
+        if (!view->fullscreen)
+            notify_view_resized(view->get_wm_geometry());
     };
 };
 
