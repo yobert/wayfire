@@ -18,6 +18,9 @@ xwayland = 1
 # visible when nothing is drawing the background
 background_color = 0 0 0 1
 
+# Preferred decoration mode: server | client
+preferred_decoration_mode = client
+
 # apps that should run on startup. any backgrounds/panels belong here
 # by default, wayfire tries to run the clients from
 # https://github.com/WayfireWM/wf-shell

@@ -12,6 +12,7 @@ extern "C"
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_export_dmabuf_v1.h>
 #include <wlr/types/wlr_server_decoration.h>
+#include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_gamma_control_v1.h>
 #include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
@@ -76,6 +77,57 @@ struct wf_server_decoration_t
         on_destroy.connect(&decor->events.destroy);
         /* Read initial decoration settings */
         mode_set(NULL);
+    }
+};
+
+struct wf_xdg_decoration_t
+{
+    wlr_xdg_toplevel_decoration_v1 *decor;
+    wf::wl_listener_wrapper on_mode_request, on_commit, on_destroy;
+
+    std::function<void(void*)> mode_request = [&] (void*)
+    {
+        wf::option_wrapper_t<std::string>
+            deco_mode{"core/preferred_decoration_mode"};
+        wlr_xdg_toplevel_decoration_v1_mode default_mode =
+            WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
+        if ((std::string)deco_mode == "server")
+            default_mode = WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE;
+
+        auto mode = decor->client_pending_mode;
+        if (mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_NONE)
+            mode = default_mode;
+
+        wlr_xdg_toplevel_decoration_v1_set_mode(decor, mode);
+    };
+
+    std::function<void(void*)> commit = [&] (void*)
+    {
+        bool use_csd =
+            decor->current_mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
+        wf::get_core_impl().uses_csd[decor->surface->surface] = use_csd;
+
+        auto wf_surface = dynamic_cast<wf::wlr_view_t*> (
+            wf::wf_surface_from_void(decor->surface->data));
+        if (wf_surface)
+            wf_surface->set_decoration_mode(use_csd);
+    };
+
+    wf_xdg_decoration_t(wlr_xdg_toplevel_decoration_v1 *_decor)
+        : decor(_decor)
+    {
+        on_mode_request.set_callback(mode_request);
+        on_commit.set_callback(commit);
+        on_destroy.set_callback([&] (void *) {
+            wf::get_core_impl().uses_csd.erase(decor->surface->surface);
+            delete this;
+        });
+
+        on_mode_request.connect(&decor->events.request_mode);
+        on_commit.connect(&decor->surface->surface->events.commit);
+        on_destroy.connect(&decor->events.destroy);
+        /* Read initial decoration settings */
+        mode_request(NULL);
     }
 };
 
@@ -145,13 +197,25 @@ void wf::compositor_core_impl_t::init()
 
     /* decoration_manager setup */
     protocols.decorator_manager = wlr_server_decoration_manager_create(display);
+    wf::option_wrapper_t<std::string>
+        deco_mode{"core/preferred_decoration_mode"};
+    uint32_t default_mode = WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT;
+    if ((std::string)deco_mode == "server")
+        default_mode = WLR_SERVER_DECORATION_MANAGER_MODE_SERVER;
     wlr_server_decoration_manager_set_default_mode(protocols.decorator_manager,
-                                                   WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT);
+        default_mode);
 
     decoration_created.set_callback([&] (void* data) {
         /* will be freed by the destroy request */
         new wf_server_decoration_t((wlr_server_decoration*)(data));});
     decoration_created.connect(&protocols.decorator_manager->events.new_decoration);
+
+    protocols.xdg_decorator = wlr_xdg_decoration_manager_v1_create(display);
+
+    xdg_decoration_created.set_callback([&] (void* data) {
+        /* will be freed by the destroy request */
+        new wf_xdg_decoration_t((wlr_xdg_toplevel_decoration_v1*)(data));});
+    xdg_decoration_created.connect(&protocols.xdg_decorator->events.new_toplevel_decoration);
 
     protocols.vkbd_manager = wlr_virtual_keyboard_manager_v1_create(display);
     vkbd_created.set_callback([&] (void *data) {

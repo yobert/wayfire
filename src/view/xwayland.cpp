@@ -217,7 +217,8 @@ class wayfire_unmanaged_xwayland_view : public wayfire_xwayland_view_base
 class wayfire_xwayland_view : public wayfire_xwayland_view_base
 {
     wf::wl_listener_wrapper on_request_move, on_request_resize,
-        on_request_maximize, on_request_fullscreen, on_set_parent;
+        on_request_maximize, on_request_fullscreen, on_set_parent,
+        on_set_decorations;
 
   public:
     wayfire_xwayland_view(wlr_xwayland_surface *xww)
@@ -250,7 +251,13 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
                 set_toplevel_parent(parent);
         });
 
+        on_set_decorations.set_callback([&] (void*) {
+            update_decorated();
+        });
+
         on_set_parent.connect(&xw->events.set_parent);
+        on_set_decorations.connect(&xw->events.set_decorations);
+
         on_request_move.connect(&xw->events.request_move);
         on_request_resize.connect(&xw->events.request_resize);
         on_request_maximize.connect(&xw->events.request_maximize);
@@ -259,6 +266,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         xw->data = dynamic_cast<wf::view_interface_t*> (this);
         // set initial parent
         on_set_parent.emit(nullptr);
+        on_set_decorations.emit(nullptr);
     }
 
     virtual void destroy() override
@@ -342,11 +350,11 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         last_server_height = geometry.height;
     }
 
-    virtual bool should_be_decorated() override
+    void update_decorated()
     {
-        return !(xw->decorations &
-            (WLR_XWAYLAND_SURFACE_DECORATIONS_NO_TITLE |
-             WLR_XWAYLAND_SURFACE_DECORATIONS_NO_BORDER));
+        uint32_t csd_flags = WLR_XWAYLAND_SURFACE_DECORATIONS_NO_TITLE |
+                WLR_XWAYLAND_SURFACE_DECORATIONS_NO_BORDER;
+        this->set_decoration_mode(xw->decorations & csd_flags);
     }
 
     void set_activated(bool active) override

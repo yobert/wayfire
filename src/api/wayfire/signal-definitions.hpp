@@ -162,6 +162,14 @@ namespace wf
         /* The event as it has arrived from wlroots */
         wlr_event_t *event;
     };
+
+    /**
+     * decoration-state-updated signal is emitted when the value of
+     * view::should_be_decorated() changes.
+     *
+     * decoration-state-updated-view is emitted on the output of the view.
+     */
+    using decoration_state_updated_signal = _view_signal;
 }
 
 #endif
