@@ -409,7 +409,7 @@ void wf::view_interface_t::set_fullscreen(bool full)
     data.desired_size = get_output()->get_relative_geometry();
 
     get_output()->emit_signal("view-fullscreen", &data);
-    this->emit_signal("fullscreen", nullptr);
+    this->emit_signal("fullscreen", &data);
     desktop_state_updated();
 }
 
