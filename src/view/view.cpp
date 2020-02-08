@@ -403,6 +403,12 @@ void wf::view_interface_t::set_fullscreen(bool full)
     if (!fullscreen && get_output() && needs_lowering)
         get_output()->workspace->add_view(self(), wf::LAYER_WORKSPACE);
 
+    view_fullscreen_signal data;
+    data.view = self();
+    data.state = full;
+    data.desired_size = get_output()->get_relative_geometry();
+
+    get_output()->emit_signal("view-fullscreen", &data);
     this->emit_signal("fullscreen", nullptr);
     desktop_state_updated();
 }
