@@ -67,6 +67,13 @@ struct view_tiled_signal : public _view_signal
     wf::geometry_t desired_size;
 };
 
+/* sent when the view fullscreen state changes.
+ * state is true if the view is fullscreen and false otherwise.
+ * carried_out should be set by the listener if it handles the signal,
+ * by setting the view fullscreen.
+ * desired_size is the intended size for the fullscreen view
+ * but may be undefined (0,0 0x0).
+ */
 struct view_fullscreen_signal : public _view_signal
 {
     bool state;
