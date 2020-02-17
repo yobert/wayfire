@@ -67,7 +67,10 @@ struct view_tiled_signal : public _view_signal
     wf::geometry_t desired_size;
 };
 
-/* sent when the view fullscreen state changes.
+/**
+ * The view-fullscreen-request and view-fullscreen signals are emitted on the view's output when the view's fullscreen state changes.
+ * view-fullscreen-request is emitted when the view needs to be fullscreened, but has not been fullscreened yet.
+ * view-fullscreen is emitted whenever the view's fullscreen state actually changes.
  * state is true if the view is fullscreen and false otherwise.
  * carried_out should be set by the listener if it handles the signal,
  * by setting the view fullscreen.
@@ -180,4 +183,3 @@ namespace wf
 }
 
 #endif
-
