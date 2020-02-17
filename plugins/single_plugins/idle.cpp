@@ -9,10 +9,12 @@ extern "C"
 #include "wayfire/core.hpp"
 #include "wayfire/output-layout.hpp"
 #include "wayfire/workspace-manager.hpp"
+#include "wayfire/signal-definitions.hpp"
 #include "../cube/cube-control-signal.hpp"
 
 #include <cmath>
 #include <wayfire/util/duration.hpp>
+#include <wayfire/util/log.hpp>
 
 #define ZOOM_BASE 1.0
 
@@ -50,6 +52,7 @@ class wayfire_idle
     std::map<wf::output_t*, bool> screensaver_hook_set;
     bool outputs_inhibited = false;
     bool idle_enabled = true;
+    int idle_inhibit_ref = 0;
     uint32_t last_time;
 
     wlr_idle_timeout *timeout_screensaver = NULL;
@@ -343,6 +346,33 @@ class wayfire_idle
         wf::get_core().output_layout->apply_configuration(config);
     }
 
+    void idle_enable()
+    {
+        idle_inhibit_ref--;
+
+        if (idle_inhibit_ref < 0)
+        {
+            LOGE("idle_inhibit_ref < 0: ", idle_inhibit_ref);
+        }
+
+        if (idle_inhibit_ref == 0 &&
+            !idle_enabled)
+        {
+            toggle_idle();
+        }
+    }
+
+    void idle_inhibit()
+    {
+        idle_inhibit_ref++;
+
+        if (idle_inhibit_ref == 1 &&
+            idle_enabled)
+        {
+            toggle_idle();
+        }
+    }
+
     void toggle_idle()
     {
         idle_enabled ^= 1;
@@ -361,6 +391,13 @@ class wayfire_idle_singleton : public wf::singleton_plugin_t<wayfire_idle>
         return true;
     };
 
+    wf::signal_connection_t fullscreen_state_changed{[this] (wf::signal_data_t *data)
+    {
+        bool state = data ? true : false;
+
+        state ? get_instance().idle_inhibit() : get_instance().idle_enable();
+    }};
+
     void init() override
     {
         singleton_plugin_t::init();
@@ -370,6 +407,12 @@ class wayfire_idle_singleton : public wf::singleton_plugin_t<wayfire_idle>
         output->add_activator(
             wf::option_wrapper_t<wf::activatorbinding_t>{"idle/toggle"},
             &toggle);
+        output->connect_signal("fullscreen-layer-focused", &fullscreen_state_changed);
+
+        for (auto& view : output->workspace->get_views_in_layer(wf::LAYER_FULLSCREEN))
+        {
+            get_instance().idle_inhibit();
+        }
     }
 
     void fini() override
