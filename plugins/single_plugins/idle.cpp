@@ -353,8 +353,7 @@ class wayfire_idle
             LOGE("idle_inhibit_ref < 0: ", idle_inhibit_ref);
         }
 
-        if (idle_inhibit_ref == 0 &&
-            !idle_enabled)
+        if (idle_inhibit_ref == 0 && !idle_enabled)
         {
             toggle_idle();
         }
@@ -369,8 +368,7 @@ class wayfire_idle
             return;
         }
 
-        if (idle_inhibit_ref == 1 &&
-            idle_enabled)
+        if (idle_inhibit_ref == 1 && idle_enabled)
         {
             toggle_idle();
         }
