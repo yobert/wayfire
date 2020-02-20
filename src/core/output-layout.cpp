@@ -192,7 +192,6 @@ namespace wf
             if (view->is_mapped())
                 view->close();
 
-            from->workspace->remove_view(view);
             view->set_output(nullptr);
         }
         /* A note: at this point, some views might already have been deleted */

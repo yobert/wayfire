@@ -66,18 +66,6 @@ conf_data.set('SYSCONFDIR', sysconfdir)
 add_project_arguments(['-DWLR_USE_UNSTABLE'], language: ['cpp', 'c'])
 add_project_link_arguments(['-rdynamic', '-Wl,-E'], language: 'cpp')
 
-if get_option('buildtype') == 'debug' or get_option('enable_debug_output')
-  conf_data.set('WAYFIRE_DEBUG_ENABLED', true)
-else
-  conf_data.set('WAYFIRE_DEBUG_ENABLED', false)
-endif
-
-if get_option('enable_graphics_debug')
-  conf_data.set('WAYFIRE_GRAPHICS_DEBUG', true)
-else
-  conf_data.set('WAYFIRE_GRAPHICS_DEBUG', false)
-endif
-
 if get_option('enable_gles32') and meson.get_compiler('cpp').has_header(
     'GLES3/gl32.h', args: '-I' + glesv2.get_pkgconfig_variable('includedir'))
   conf_data.set('USE_GLES32', true)
@@ -124,10 +112,8 @@ summary_begin = [
     ' system wlroots: @0@'.format(use_system_wlroots)]
 
 summary_end = [
-    '   debug output: @0@'.format(conf_data.get('WAYFIRE_DEBUG_ENABLED')),
     '        imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
     '         gles32: @0@'.format(conf_data.get('USE_GLES32')),
-    '   graphics dbg: @0@'.format(conf_data.get('WAYFIRE_GRAPHICS_DEBUG')),
     '----------------',
     ''
 ]

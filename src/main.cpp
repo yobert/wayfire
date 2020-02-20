@@ -184,30 +184,22 @@ static void wlr_log_handler(wlr_log_importance level,
 
 int main(int argc, char *argv[])
 {
-#ifdef WAYFIRE_DEBUG_ENABLED
-    wlr_log_init(WLR_DEBUG, wlr_log_handler);
-    wf::log::initialize_logging(std::cout, wf::log::LOG_LEVEL_DEBUG,
-        detect_color_mode());
-#else
-    wlr_log_init(WLR_ERROR, wlr_log_handler);
-    wf::log::initialize_logging(std::cout, wf::log::LOG_LEVEL_WARN,
-        detect_color_mode());
-#endif
-
     std::string config_dir = nonull(getenv("XDG_CONFIG_DIR"));
     if (!config_dir.compare("nil"))
         config_dir = std::string(nonull(getenv("HOME"))) + "/.config/";
     config_file = config_dir + "wayfire.ini";
 
+    wf::log::log_level_t log_level = wf::log::LOG_LEVEL_INFO;
     struct option opts[] = {
         { "config",          required_argument, NULL, 'c' },
         { "damage-debug",    no_argument,       NULL, 'd' },
         { "damage-rerender", no_argument,       NULL, 'R' },
+        { "verbose",         no_argument,       NULL, 'v' },
         { 0,                 0,                 NULL,  0  }
     };
 
     int c, i;
-    while((c = getopt_long(argc, argv, "c:dR", opts, &i)) != -1)
+    while((c = getopt_long(argc, argv, "c:dRv", opts, &i)) != -1)
     {
         switch(c)
         {
@@ -220,13 +212,20 @@ int main(int argc, char *argv[])
             case 'R':
                 runtime_config.no_damage_track = true;
                 break;
+            case 'v':
+                log_level = wf::log::LOG_LEVEL_DEBUG;
+                break;
             default:
-                LOGE("unrecognized command line argument ", optarg);
+                std::cerr << "Unrecognized command line argument " << optarg << std::endl;
         }
     }
 
-    LOGI("Starting wayfire");
+    auto wlr_log_level =
+        (log_level == wf::log::LOG_LEVEL_DEBUG ? WLR_DEBUG : WLR_ERROR);
+    wlr_log_init(wlr_log_level, wlr_log_handler);
+    wf::log::initialize_logging(std::cout, log_level, detect_color_mode());
 
+    LOGI("Starting wayfire");
     /* First create display and initialize safe-list's event loop, so that
      * wf objects (which depend on safe-list) can work */
     auto display = wl_display_create();
