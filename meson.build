@@ -86,6 +86,12 @@ configure_file(input: 'config.h.in',
 wayfire_conf_inc = include_directories(['.'])
 
 add_project_arguments(['-Wno-unused-parameter'], language: 'cpp')
+addr2line = find_program('addr2line', required: false)
+if addr2line.found()
+  add_project_arguments('-DHAS_ADDR2LINE=1', language: 'cpp')
+else
+  add_project_arguments('-DHAS_ADDR2LINE=0', language: 'cpp')
+endif
 
 subdir('proto')
 subdir('src')

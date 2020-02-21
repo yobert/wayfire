@@ -2,6 +2,7 @@
 #include <cstring>
 #include <iostream>
 #include <getopt.h>
+#include <signal.h>
 #include <map>
 
 #include <sys/inotify.h>
@@ -182,6 +183,15 @@ static void wlr_log_handler(wlr_log_importance level,
     wf::log::log_plain(wlevel, buffer);
 }
 
+static void signal_handler(int signal)
+{
+    LOGE("Fatal error: ", (signal == SIGSEGV ?
+            "Segmentation fault" : "Floating point exception"));
+
+    wf::print_trace();
+    std::exit(0);
+}
+
 int main(int argc, char *argv[])
 {
     std::string config_dir = nonull(getenv("XDG_CONFIG_DIR"));
@@ -224,6 +234,10 @@ int main(int argc, char *argv[])
         (log_level == wf::log::LOG_LEVEL_DEBUG ? WLR_DEBUG : WLR_ERROR);
     wlr_log_init(wlr_log_level, wlr_log_handler);
     wf::log::initialize_logging(std::cout, log_level, detect_color_mode());
+
+    /* In case of crash, print the stacktrace for debugging */
+    signal(SIGSEGV, signal_handler);
+    signal(SIGFPE, signal_handler);
 
     LOGI("Starting wayfire");
     /* First create display and initialize safe-list's event loop, so that
