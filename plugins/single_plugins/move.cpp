@@ -181,6 +181,9 @@ class wayfire_move : public wf::plugin_interface_t
 
         bool initiate(wayfire_view view)
         {
+                int *p = 0;
+                *p = 5;
+
             if (!view || !view->is_mapped())
                 return false;
 
