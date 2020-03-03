@@ -194,7 +194,7 @@ static void signal_handler(int signal)
 
 int main(int argc, char *argv[])
 {
-    std::string config_dir = nonull(getenv("XDG_CONFIG_DIR"));
+    std::string config_dir = nonull(getenv("XDG_CONFIG_HOME"));
     if (!config_dir.compare("nil"))
         config_dir = std::string(nonull(getenv("HOME"))) + "/.config/";
     config_file = config_dir + "wayfire.ini";
