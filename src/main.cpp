@@ -235,9 +235,12 @@ int main(int argc, char *argv[])
     wlr_log_init(wlr_log_level, wlr_log_handler);
     wf::log::initialize_logging(std::cout, log_level, detect_color_mode());
 
-    /* In case of crash, print the stacktrace for debugging */
+#ifndef ASAN_ENABLED
+    /* In case of crash, print the stacktrace for debugging.
+     * However, if ASAN is enabled, we'll get better stacktrace from there. */
     signal(SIGSEGV, signal_handler);
     signal(SIGFPE, signal_handler);
+#endif
 
     LOGI("Starting wayfire");
     /* First create display and initialize safe-list's event loop, so that
