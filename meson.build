@@ -34,7 +34,7 @@ wfconfig       = dependency('wf-config', version: ['>=0.3', '<0.4'], required: g
 
 use_system_wlroots = not get_option('use_system_wlroots').disabled() and wlroots.found()
 if not use_system_wlroots
-  wlroots = subproject('wlroots').get_variable('wlroots')
+  wlroots = subproject('wlroots', default_options : ['examples=false']).get_variable('wlroots')
 endif
 
 use_system_wfconfig = not get_option('use_system_wfconfig').disabled() and wfconfig.found()
