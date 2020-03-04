@@ -185,9 +185,23 @@ static void wlr_log_handler(wlr_log_importance level,
 
 static void signal_handler(int signal)
 {
-    LOGE("Fatal error: ", (signal == SIGSEGV ?
-            "Segmentation fault" : "Floating point exception"));
+    std::string error;
+    switch (signal)
+    {
+        case SIGSEGV:
+            error = "Segmentation fault";
+            break;
+        case SIGFPE:
+            error = "Floating-point exception";
+            break;
+        case SIGABRT:
+            error = "Fatal error(SIGABRT)";
+            break;
+        default:
+            error = "Unknown";
+    }
 
+    LOGE("Fatal error: ", error);
     wf::print_trace();
     std::exit(0);
 }
@@ -240,6 +254,7 @@ int main(int argc, char *argv[])
      * However, if ASAN is enabled, we'll get better stacktrace from there. */
     signal(SIGSEGV, signal_handler);
     signal(SIGFPE, signal_handler);
+    signal(SIGABRT, signal_handler);
 #endif
 
     LOGI("Starting wayfire");
