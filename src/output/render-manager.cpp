@@ -874,7 +874,7 @@ class wf::render_manager::impl
             return;
 
         {
-            stream_signal_t data(repaint.ws_damage, repaint.fb);
+            stream_signal_t data(stream.ws, repaint.ws_damage, repaint.fb);
             output->render->emit_signal("workspace-stream-pre", &data);
         }
 
@@ -891,7 +891,7 @@ class wf::render_manager::impl
 
         unschedule_drag_icon();
         {
-            stream_signal_t data(repaint.ws_damage, repaint.fb);
+            stream_signal_t data(stream.ws, repaint.ws_damage, repaint.fb);
             output->render->emit_signal("workspace-stream-post", &data);
         }
     }
