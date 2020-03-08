@@ -272,6 +272,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
     virtual void destroy() override
     {
         on_set_parent.disconnect();
+        on_set_decorations.disconnect();
         on_request_move.disconnect();
         on_request_resize.disconnect();
         on_request_maximize.disconnect();
