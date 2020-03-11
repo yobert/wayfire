@@ -322,7 +322,7 @@ void wf::wlr_surface_base_t::unmap()
 wlr_buffer* wf::wlr_surface_base_t::get_buffer()
 {
     if (surface && wlr_surface_has_buffer(surface))
-        return surface->buffer;
+        return &surface->buffer->base;
 
     return nullptr;
 }
