@@ -139,7 +139,8 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
 
     virtual void close() override
     {
-        wlr_xwayland_surface_close(xw);
+        if (xw)
+            wlr_xwayland_surface_close(xw);
         wf::wlr_view_t::close();
     }
 
