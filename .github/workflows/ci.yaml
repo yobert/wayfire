@@ -12,7 +12,7 @@ on:
     - 'proto/**'
 
 jobs:
-  test_gnu:
+  test_musl_gcc:
     name: "Test with GCC/musl/libstdc++/BFD on Alpine Linux"
     runs-on: ubuntu-latest
     container: alpine:edge
@@ -22,7 +22,7 @@ jobs:
     - run: git submodule sync --recursive && git submodule update --init --force --recursive
     - run: meson build
     - run: ninja -v -Cbuild
-  test_musl_llvm:
+  test_glibc_llvm:
     name: "Test with clang/glibc/libc++/lld on Arch Linux"
     runs-on: ubuntu-latest
     container: archlinux:latest
