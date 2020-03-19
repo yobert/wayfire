@@ -9,7 +9,7 @@
 			<_long>When the specified button is held down, you can drag windows to move them.</_long>
 			<default>&lt;super&gt; BTN_LEFT</default>
 		</option>
-		<!-- “Aero Snap” -->
+		<!-- "Aero Snap" -->
 		<option name="enable_snap" type="bool">
 			<_short>Snap</_short>
 			<_long>Enables or disables snapping the window being moved to an edge of the screen.</_long>
