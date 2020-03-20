@@ -794,6 +794,9 @@ namespace wf
             on_config_reload = [=] (void*) { reconfigure_from_config(); };
             get_core().connect_signal("reload-config", &on_config_reload);
             on_shutdown = [=] (void*) {
+                /* Disconnect timer, since otherwise it will be destroyed
+                 * after the wayland display is. */
+                this->timer_remove_noop.disconnect();
                 shutdown_received = true;
             };
             get_core().connect_signal("shutdown", &on_shutdown);
