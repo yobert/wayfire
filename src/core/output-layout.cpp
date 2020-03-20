@@ -480,6 +480,8 @@ namespace wf
             {
                 get_core().focus_output(
                     get_core().output_layout->get_next_output(wo));
+            } else if (shutdown) {
+                get_core().focus_output(nullptr);
             }
 
             /* It doesn't make sense to transfer to another output if we're

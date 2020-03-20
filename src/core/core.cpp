@@ -342,12 +342,15 @@ wlr_cursor* wf::compositor_core_impl_t::get_wlr_cursor()
 
 void wf::compositor_core_impl_t::focus_output(wf::output_t *wo)
 {
-    assert(wo);
     if (active_output == wo)
         return;
 
-    /* Move to the middle of the output if this is the first output */
-    wo->ensure_pointer((active_output == nullptr));
+    if (wo)
+    {
+        LOGD("focus output: ", wo->handle->name);
+        /* Move to the middle of the output if this is the first output */
+        wo->ensure_pointer((active_output == nullptr));
+    }
 
     wf::plugin_grab_interface_t *old_grab = nullptr;
     if (active_output)
@@ -358,10 +361,6 @@ void wf::compositor_core_impl_t::focus_output(wf::output_t *wo)
     }
 
     active_output = wo;
-    if (wo)
-    {
-        LOGD("focus output: ", wo->handle->name);
-    }
 
     /* invariant: input is grabbed only if the current output
      * has an input grab */
@@ -371,6 +370,10 @@ void wf::compositor_core_impl_t::focus_output(wf::output_t *wo)
         input->ungrab_input();
     }
 
+    /* On shutdown */
+    if (!active_output)
+        return;
+
     auto output_impl = dynamic_cast<wf::output_impl_t*> (wo);
     wf::plugin_grab_interface_t *iface = output_impl->get_input_grab_interface();
     if (!iface) {
@@ -379,11 +382,8 @@ void wf::compositor_core_impl_t::focus_output(wf::output_t *wo)
         input->grab_input(iface);
     }
 
-    if (active_output)
-    {
-        wlr_output_schedule_frame(active_output->handle);
-        active_output->emit_signal("output-gain-focus", nullptr);
-    }
+    wlr_output_schedule_frame(active_output->handle);
+    active_output->emit_signal("output-gain-focus", nullptr);
 }
 
 wf::output_t* wf::compositor_core_impl_t::get_active_output()
@@ -416,7 +416,10 @@ int wf::compositor_core_impl_t::focus_layer(uint32_t layer, int32_t request_uid_
     layer_focus_requests.insert({layer, request_uid});
     LOGD("focusing layer ", get_focused_layer());
 
-    active_output->refocus();
+    if (active_output) {
+        active_output->refocus();
+    }
+
     return request_uid;
 }
 
