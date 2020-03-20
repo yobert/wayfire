@@ -218,7 +218,11 @@ class wayfire_grid : public wf::plugin_interface_t
     {
         if (!output->can_activate_plugin(grab_interface))
             return false;
+
         auto view = output->get_active_view();
+        if (!view || view->role != wf::VIEW_ROLE_TOPLEVEL)
+            return false;
+
         view->tile_request(0);
         return true;
     };
