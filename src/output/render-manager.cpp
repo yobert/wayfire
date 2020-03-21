@@ -332,6 +332,7 @@ class wf::render_manager::impl
     wf::wl_listener_wrapper on_frame;
 
     output_t *output;
+    wf::region_t swap_damage;
     std::unique_ptr<output_damage_t> output_damage;
     std::unique_ptr<effect_hook_manager_t> effects;
     std::unique_ptr<postprocessing_manager_t> postprocessing;
@@ -449,7 +450,7 @@ class wf::render_manager::impl
      * The default renderer, which just makes sure the correct workspace stream
      * is drawn to the framebuffer
      */
-    void default_renderer(wf::region_t& swap_damage)
+    void default_renderer()
     {
         if (runtime_config.damage_debug)
         {
@@ -478,10 +479,19 @@ class wf::render_manager::impl
     }
 
     /**
+     * Return the swap damage if called from overlay or postprocessing
+     * effect callbacks or empty region otherwise.
+     */
+    wf::region_t get_swap_damage()
+    {
+        return swap_damage;
+    }
+
+    /**
      * Render an output. Either calls the built-in renderer, or the render hook
      * of a plugin
      */
-    void render_output(wf::region_t& swap_damage)
+    void render_output()
     {
         if (renderer)
         {
@@ -492,7 +502,7 @@ class wf::render_manager::impl
         {
             swap_damage = output_damage->get_scheduled_damage();
             swap_damage &= output_damage->get_damage_box();
-            default_renderer(swap_damage);
+            default_renderer();
         }
     }
 
@@ -504,7 +514,6 @@ class wf::render_manager::impl
         /* Part 1: frame setup: query damage, etc. */
         timespec repaint_started;
         clock_gettime(CLOCK_MONOTONIC, &repaint_started);
-        wf::region_t swap_damage;
 
         effects->run_effects(OUTPUT_EFFECT_PRE);
 
@@ -527,8 +536,9 @@ class wf::render_manager::impl
 
         bind_output();
 
-        /* Part 2: call the renderer, which draws the scenegraph */
-        render_output(swap_damage);
+        /* Part 2: call the renderer, which sets swap_damage and
+         * draws the scenegraph */
+        render_output();
 
         /* Part 3: finalize the scene: overlay effects and sw cursors */
         effects->run_effects(OUTPUT_EFFECT_OVERLAY);
@@ -552,6 +562,7 @@ class wf::render_manager::impl
         /* Part 5: finalize frame: swap buffers, send frame_done, etc */
         OpenGL::unbind_output(output);
         output_damage->swap_buffers(swap_damage);
+        swap_damage.clear();
         post_paint();
     }
 
@@ -907,6 +918,7 @@ render_manager::render_manager(output_t *o)
 render_manager::~render_manager() = default;
 void render_manager::set_renderer(render_hook_t rh) { pimpl->set_renderer(rh); }
 void render_manager::set_redraw_always(bool always) { pimpl->set_redraw_always(always); }
+wf::region_t render_manager::get_swap_damage() { return pimpl->get_swap_damage(); }
 void render_manager::schedule_redraw() { pimpl->output_damage->schedule_repaint(); }
 void render_manager::add_inhibit(bool add) { pimpl->add_inhibit(add); }
 void render_manager::add_effect(effect_hook_t* hook, output_effect_type_t type) {pimpl->effects->add_effect(hook, type); }
