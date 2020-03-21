@@ -46,6 +46,10 @@ It aims to create a customizable, extendable and lightweight environment without
 
 ## Installation
 
+The easiest way to install Wayfire, wf-shell and WCM to get a functional desktop is to use the [install scripts](https://github.com/WayfireWM/wf-install).
+
+Alternatively, you can build from source:
+
 ``` sh
 meson build
 ninja -C build
