@@ -4,6 +4,7 @@
 #include "wayfire/object.hpp"
 #include <wayfire/geometry.hpp>
 
+#include <sys/types.h>
 #include <limits>
 #include <vector>
 #include <wayfire/nonstd/observer_ptr.h>
@@ -236,9 +237,11 @@ class compositor_core_t : public wf::object_base_t
      * Execute the given command in a bash shell.
      *
      * This also sets some environment variables for the new process, including
-     * correct WAYLAND_DISPLAY and DISPLAY
+     * correct WAYLAND_DISPLAY and DISPLAY.
+     *
+     * @return The PID of the started client, or -1 on failure.
      */
-    virtual void run(std::string command) = 0;
+    virtual pid_t run(std::string command) = 0;
 
     /**
      * Returns a reference to the only core instance.

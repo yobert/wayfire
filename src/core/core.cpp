@@ -27,6 +27,11 @@ extern "C"
 #undef static
 }
 
+/* Needed for pipe2 */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -537,14 +542,25 @@ void wf::compositor_core_impl_t::erase_view(wayfire_view v)
     views.erase(it);
 }
 
-void wf::compositor_core_impl_t::run(std::string command)
+pid_t wf::compositor_core_impl_t::run(std::string command)
 {
-    pid_t pid = fork();
+    static constexpr size_t READ_END = 0;
+    static constexpr size_t WRITE_END = 1;
+    pid_t pid;
+    int pipe_fd[2];
+    pipe2(pipe_fd, O_CLOEXEC);
 
     /* The following is a "hack" for disowning the child processes,
      * otherwise they will simply stay as zombie processes */
-    if (!pid) {
-        if (!fork()) {
+    pid = fork();
+    if (!pid)
+    {
+        pid = fork();
+        if (!pid)
+        {
+            close(pipe_fd[READ_END]);
+            close(pipe_fd[WRITE_END]);
+
             setenv("_JAVA_AWT_WM_NONREPARENTING", "1", 1);
             setenv("WAYLAND_DISPLAY", wayland_display.c_str(), 1);
 #if WLR_HAS_XWAYLAND
@@ -557,13 +573,26 @@ void wf::compositor_core_impl_t::run(std::string command)
             dup2(dev_null, 1);
             dup2(dev_null, 2);
 
-            _exit(execl("/bin/sh", "/bin/bash", "-c", command.c_str(), NULL));
-        } else {
+            _exit(execl("/bin/bash", "/bin/bash", "-c", command.c_str(), NULL));
+        } else
+        {
+            close(pipe_fd[READ_END]);
+            write(pipe_fd[WRITE_END], (void*) (&pid), sizeof(pid));
+            close(pipe_fd[WRITE_END]);
             _exit(0);
         }
-    } else {
+    } else
+    {
+        close(pipe_fd[WRITE_END]);
+
         int status;
         waitpid(pid, &status, 0);
+
+        pid_t child_pid;
+        read(pipe_fd[READ_END], &child_pid, sizeof(child_pid));
+
+        close(pipe_fd[READ_END]);
+        return child_pid;
     }
 }
 
