@@ -46,16 +46,13 @@ class simple_decoration_surface : public wf::surface_interface_t,
         int target_width = width * scale;
         int target_height = height * scale;
 
-        if (title_texture.width != target_width ||
-            title_texture.height != target_height ||
+        if (title_texture.tex.viewport_width != target_width ||
+            title_texture.tex.viewport_height != target_height ||
             title_texture.current_text != view->get_title())
         {
             auto surface = theme.render_text(view->get_title(),
                 target_width, target_height);
             cairo_surface_upload_to_texture(surface, title_texture.tex);
-
-            title_texture.width = target_width;
-            title_texture.height = target_height;
             title_texture.current_text = view->get_title();
         }
     }
@@ -63,10 +60,9 @@ class simple_decoration_surface : public wf::surface_interface_t,
     int width = 100, height = 100;
 
     bool active = true; // when views are mapped, they are usually activated
+
     struct {
-        GLuint tex = -1;
-        int width = 0;
-        int height = 0;
+        wf::framebuffer_base_t tex;
         std::string current_text = "";
     } title_texture;
 
@@ -114,8 +110,8 @@ class simple_decoration_surface : public wf::surface_interface_t,
         wf::geometry_t geometry)
     {
         update_title(geometry.width, geometry.height, fb.scale);
-        OpenGL::render_texture(title_texture.tex, fb, geometry, glm::vec4(1.0f),
-            OpenGL::TEXTURE_TRANSFORM_INVERT_Y);
+        OpenGL::render_texture(title_texture.tex.tex, fb, geometry,
+            glm::vec4(1.0f), OpenGL::TEXTURE_TRANSFORM_INVERT_Y);
     }
 
     void render_scissor_box(const wf::framebuffer_t& fb, wf::point_t origin,

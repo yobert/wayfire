@@ -63,11 +63,9 @@ void button_t::set_pressed(bool is_pressed)
 void button_t::render(const wf::framebuffer_t& fb, wf::geometry_t geometry,
     wf::geometry_t scissor)
 {
-    assert(this->button_texture != uint32_t(-1));
-
     OpenGL::render_begin(fb);
     fb.scissor(scissor);
-    OpenGL::render_texture(button_texture, fb, geometry, {1, 1, 1, 1},
+    OpenGL::render_texture(button_texture.tex, fb, geometry, {1, 1, 1, 1},
         OpenGL::TEXTURE_TRANSFORM_INVERT_Y);
     OpenGL::render_end();
 
