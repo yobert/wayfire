@@ -90,6 +90,10 @@ dnf install wayfire
 pkg install wayfire
 ```
 
+###### Gentoo
+Available from either of the two overlays [Guru](https://wiki.gentoo.org/wiki/Project:GURU) or [wayfire-desktop](https://github.com/epsilon-0/wayfire-desktop).  
+Look at [wayfire-desktop](https://github.com/epsilon-0/wayfire-desktop) to get full list of options and available wayfire packages.  
+
 ###### NixOS
 
 See [nixpkgs-wayland].
