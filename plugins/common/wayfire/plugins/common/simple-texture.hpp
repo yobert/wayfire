@@ -22,6 +22,7 @@ struct simple_texture_t : public noncopyable_t
         OpenGL::render_begin();
         GL_CALL(glDeleteTextures(1, &tex));
         OpenGL::render_end();
+        this->tex = -1;
     }
 
     /** Auto-release the texture when the object is destroyed */
