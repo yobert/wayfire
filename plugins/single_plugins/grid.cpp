@@ -9,7 +9,7 @@
 #include <cmath>
 #include <linux/input-event-codes.h>
 #include "wayfire/signal-definitions.hpp"
-#include "../common/geometry-animation.hpp"
+#include <wayfire/plugins/common/geometry-animation.hpp>
 
 #include "snap_signal.hpp"
 #include "../wobbly/wobbly-signal.hpp"

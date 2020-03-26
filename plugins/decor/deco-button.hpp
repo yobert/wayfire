@@ -7,6 +7,7 @@
 #include <wayfire/render-manager.hpp>
 #include <wayfire/nonstd/noncopyable.hpp>
 #include <wayfire/util/duration.hpp>
+#include <wayfire/plugins/common/simple-texture.hpp>
 
 #include <cairo.h>
 
@@ -72,7 +73,7 @@ class button_t : public noncopyable_t
 
     /* Whether the button needs repaint */
     button_type_t type;
-    wf::framebuffer_base_t button_texture;
+    wf::simple_texture_t button_texture;
 
     /* Whether the button is currently being hovered */
     bool is_hovered = false;

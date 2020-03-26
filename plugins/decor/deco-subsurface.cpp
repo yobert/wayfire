@@ -14,7 +14,8 @@
 #include "deco-subsurface.hpp"
 #include "deco-layout.hpp"
 #include "deco-theme.hpp"
-#include "../common/cairo-util.hpp"
+
+#include <wayfire/plugins/common/cairo-util.hpp>
 
 #include <cairo.h>
 
@@ -46,8 +47,8 @@ class simple_decoration_surface : public wf::surface_interface_t,
         int target_width = width * scale;
         int target_height = height * scale;
 
-        if (title_texture.tex.viewport_width != target_width ||
-            title_texture.tex.viewport_height != target_height ||
+        if (title_texture.tex.width != target_width ||
+            title_texture.tex.height != target_height ||
             title_texture.current_text != view->get_title())
         {
             auto surface = theme.render_text(view->get_title(),
@@ -62,7 +63,7 @@ class simple_decoration_surface : public wf::surface_interface_t,
     bool active = true; // when views are mapped, they are usually activated
 
     struct {
-        wf::framebuffer_base_t tex;
+        wf::simple_texture_t tex;
         std::string current_text = "";
     } title_texture;
 
