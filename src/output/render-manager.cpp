@@ -20,6 +20,7 @@ extern "C"
 #include <wlr/render/wlr_renderer.h>
 #undef static
 #include <wlr/types/wlr_output_damage.h>
+#include <wlr/types/wlr_presentation_time.h>
 #include <wlr/util/region.h>
 }
 
@@ -330,6 +331,9 @@ class wf::render_manager::impl
 {
   public:
     wf::wl_listener_wrapper on_frame;
+    wf::wl_listener_wrapper on_present;
+    wf::wl_timer repaint_timer;
+    int64_t refresh_nsec;
 
     output_t *output;
     wf::region_t swap_damage;
@@ -338,6 +342,7 @@ class wf::render_manager::impl
     std::unique_ptr<postprocessing_manager_t> postprocessing;
 
     wf::option_wrapper_t<wf::color_t> background_color_opt;
+    wf::option_wrapper_t<int> max_render_time_opt;
 
     impl(output_t *o)
         : output(o)
@@ -348,7 +353,36 @@ class wf::render_manager::impl
         effects = std::make_unique<effect_hook_manager_t> ();
         postprocessing = std::make_unique<postprocessing_manager_t>(o);
 
-        on_frame.set_callback([&] (void*) { paint(); });
+        on_present.set_callback([&] (void *data) {
+            auto ev = static_cast<wlr_output_event_present*> (data);
+            this->refresh_nsec = ev->refresh;
+        });
+        on_present.connect(&output->handle->events.present);
+
+        max_render_time_opt.load_option("core/max_render_time");
+        on_frame.set_callback([&] (void*) {
+            /*
+             * Leave a bit of time for clients to render, see
+             * https://github.com/swaywm/sway/pull/4588
+             */
+            int64_t total = this->refresh_nsec / 1000000 - max_render_time_opt;
+            if (total <= 0 || max_render_time_opt <= 0 || this->renderer)
+                total = 0;
+
+            // We cannot really wait less than 1ms, render right away in that case
+            if (total < 1)
+            {
+                paint();
+            }
+            else
+            {
+                output->handle->frame_pending = true;
+                repaint_timer.set_timeout(total, [=] () {
+                    output->handle->frame_pending = false;
+                    paint();
+                });
+            }
+        });
         on_frame.connect(&output_damage->damage_manager->events.frame);
 
         init_default_streams();
@@ -513,7 +547,9 @@ class wf::render_manager::impl
     {
         /* Part 1: frame setup: query damage, etc. */
         timespec repaint_started;
-        clock_gettime(CLOCK_MONOTONIC, &repaint_started);
+        clockid_t presentation_clock =
+            wlr_backend_get_presentation_clock(wf::get_core_impl().backend);
+        clock_gettime(presentation_clock, &repaint_started);
 
         effects->run_effects(OUTPUT_EFFECT_PRE);
 
@@ -576,6 +612,14 @@ class wf::render_manager::impl
         if (constant_redraw_counter)
             output_damage->schedule_repaint();
 
+        send_frame_done();
+    }
+
+    /**
+     * Send frame_done to clients.
+     */
+    void send_frame_done()
+    {
         /* TODO: do this only if the view isn't fully occluded by another */
         std::vector<wayfire_view> visible_views;
         if (renderer)
@@ -597,7 +641,9 @@ class wf::render_manager::impl
         }
 
         timespec repaint_ended;
-        clock_gettime(CLOCK_MONOTONIC, &repaint_ended);
+        clockid_t presentation_clock =
+            wlr_backend_get_presentation_clock(wf::get_core_impl().backend);
+        clock_gettime(presentation_clock, &repaint_ended);
         for (auto& v : visible_views)
         {
             for (auto& view : v->enumerate_views())
@@ -860,17 +906,39 @@ class wf::render_manager::impl
 
         for (auto& ds : wf::reverse(repaint.to_render))
         {
+            wlr_surface *sampled_surf = nullptr;
+
             if (ds->view)
             {
                 repaint.fb.geometry.x = ds->pos.x;
                 repaint.fb.geometry.y = ds->pos.y;
                 ds->view->render_transformed(repaint.fb, ds->damage);
+                sampled_surf = ds->view->get_wlr_surface();
+                for (auto& child : ds->view->enumerate_surfaces({0, 0}))
+                {
+                    if (child.surface->get_wlr_surface() != nullptr)
+                    {
+                        wlr_presentation_surface_sampled_on_output(
+                            wf::get_core_impl().protocols.presentation,
+                            child.surface->get_wlr_surface(),
+                            output->handle);
+                    }
+                }
             }
             else
             {
                 repaint.fb.geometry = fb_geometry;
                 ds->surface->simple_render(repaint.fb,
                     ds->pos.x, ds->pos.y, ds->damage);
+                sampled_surf = ds->surface->get_wlr_surface();
+            }
+
+            if (sampled_surf != nullptr)
+            {
+                wlr_presentation_surface_sampled_on_output(
+                    wf::get_core_impl().protocols.presentation,
+                    sampled_surf,
+                    output->handle);
             }
         }
     }
