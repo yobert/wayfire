@@ -34,6 +34,8 @@ extern "C"
     struct wlr_relative_pointer_manager_v1;
     struct wlr_pointer_constraints_v1;
     struct wlr_tablet_manager_v2;
+    struct wlr_input_method_manager_v2;
+    struct wlr_text_input_manager_v3;
     struct wlr_presentation;
     struct wlr_gtk_primary_selection_device_manager;
     struct wlr_primary_selection_v1_device_manager;
@@ -102,6 +104,8 @@ class compositor_core_t : public wf::object_base_t
         wlr_relative_pointer_manager_v1 *relative_pointer;
         wlr_pointer_constraints_v1 *pointer_constraints;
         wlr_tablet_manager_v2 *tablet_v2;
+        wlr_input_method_manager_v2 *input_method;
+        wlr_text_input_manager_v3 *text_input;
         wlr_presentation *presentation;
         wlr_gtk_primary_selection_device_manager *gtk_primary_selection;
         wlr_primary_selection_v1_device_manager *primary_selection_v1;

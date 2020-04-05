@@ -15,6 +15,7 @@ extern "C"
 }
 
 class input_manager;
+class input_method_relay;
 struct wayfire_shell;
 struct wf_gtk_shell;
 
@@ -34,6 +35,7 @@ class compositor_core_impl_t : public compositor_core_t
     wlr_compositor *compositor;
 
     std::unique_ptr<input_manager> input;
+    std::unique_ptr<input_method_relay> im_relay;
 
     /**
      * Initialize the compositor core. Called only by main()

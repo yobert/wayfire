@@ -112,6 +112,17 @@ struct surface_map_state_changed_signal : public wf::signal_data_t
  * argument: unused
  */
 
+/**
+ * name: keyboard-focus-changed
+ * on: core
+ * when: Keyboard focus is changed (may change to nullptr).
+ */
+struct keyboard_focus_changed_signal : public wf::signal_data_t
+{
+    wayfire_view view;
+    wlr_surface *surface;
+};
+
 /* ----------------------------------------------------------------------------/
  * Output signals
  * -------------------------------------------------------------------------- */

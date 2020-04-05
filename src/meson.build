@@ -13,6 +13,7 @@ wayfire_sources = ['main.cpp',
 
                    'core/seat/pointing-device.cpp',
                    'core/seat/input-manager.cpp',
+                   'core/seat/input-method-relay.cpp',
                    'core/seat/keyboard.cpp',
                    'core/seat/pointer.cpp',
                    'core/seat/cursor.cpp',
