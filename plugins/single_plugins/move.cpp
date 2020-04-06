@@ -198,7 +198,11 @@ class wayfire_move : public wf::plugin_interface_t
             uint32_t view_layer = output->workspace->get_view_layer(view);
             /* Allow moving an on-screen keyboard while screen is locked */
             bool ignore_inhibit = view_layer == wf::LAYER_DESKTOP_WIDGET;
-            if (!output->activate_plugin(grab_interface, ignore_inhibit))
+            uint32_t act_flags = 0;
+            if (ignore_inhibit)
+                act_flags |= wf::PLUGIN_ACTIVATION_IGNORE_INHIBIT;
+
+            if (!output->activate_plugin(grab_interface, act_flags))
                 return false;
 
             if (!grab_interface->grab()) {

@@ -47,7 +47,8 @@ class wayfire_grid_view_cdata : public wf::custom_data_t
         this->output = view->get_output();
         this->animation = wf::geometry_animation_t{animation_duration};
 
-        if (!view->get_output()->activate_plugin(iface))
+        if (!view->get_output()->activate_plugin(iface,
+                wf::PLUGIN_ACTIVATE_ALLOW_MULTIPLE))
         {
             is_active = false;
             return;
