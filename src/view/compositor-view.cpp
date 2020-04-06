@@ -129,6 +129,7 @@ bool wf::mirror_view_t::should_be_decorated() { return false; }
 
 wf::color_rect_view_t::color_rect_view_t() : wf::view_interface_t()
 {
+    this->geometry = {0, 0, 1, 1};
     this->_color = {0, 0, 0, 1};
     this->border = 0;
     this->_is_mapped = true;
