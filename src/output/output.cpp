@@ -275,16 +275,16 @@ wayfire_view wf::output_impl_t::get_active_view() const
 }
 
 bool wf::output_impl_t::can_activate_plugin(const plugin_grab_interface_uptr& owner,
-    bool ignore_inhibit)
+    uint32_t flags)
 {
     if (!owner)
         return false;
 
-    if (this->inhibited && !ignore_inhibit)
+    if (this->inhibited && !(flags & wf::PLUGIN_ACTIVATION_IGNORE_INHIBIT))
         return false;
 
     if (active_plugins.find(owner.get()) != active_plugins.end())
-        return true;
+        return flags & wf::PLUGIN_ACTIVATE_ALLOW_MULTIPLE;
 
     for(auto act_owner : active_plugins)
     {
@@ -298,9 +298,9 @@ bool wf::output_impl_t::can_activate_plugin(const plugin_grab_interface_uptr& ow
 }
 
 bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner,
-    bool ignore_inhibit)
+    uint32_t flags)
 {
-    if (!can_activate_plugin(owner, ignore_inhibit))
+    if (!can_activate_plugin(owner, flags))
         return false;
 
     if (active_plugins.find(owner.get()) != active_plugins.end()) {
