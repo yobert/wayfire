@@ -303,16 +303,15 @@ namespace wf
             if (config.count(handle) &&
                 config[handle].source == OUTPUT_IMAGE_SOURCE_SELF)
             {
-                int width = config[handle].mode.width;
-                int height = config[handle].mode.height;
-
-                if (width != handle->width || height != handle->height)
+                if (output && output->get_screen_size() != get_effective_size())
                 {
                     /* mode changed. Apply new configuration. */
-                    config[handle].mode.width = handle->width;
-                    config[handle].mode.height = handle->height;
-                    config[handle].mode.refresh = handle->refresh;
-                    lmanager->apply_configuration(config);
+                    current_state.mode.width = handle->width;
+                    current_state.mode.height = handle->height;
+                    current_state.mode.refresh = handle->refresh;
+                    this->output->set_effective_size(get_effective_size());
+                    this->output->render->damage_whole();
+                    emit_configuration_changed(wf::OUTPUT_MODE_CHANGE);
                 }
             }
         }
@@ -721,6 +720,28 @@ namespace wf
             on_frame.disconnect();
         }
 
+        wf::dimensions_t get_effective_size()
+        {
+            wf::dimensions_t effective_size;
+            wlr_output_effective_resolution(handle,
+                &effective_size.width, &effective_size.height);
+            return effective_size;
+        }
+
+        /**
+         * Send the output-configuration-changed signal.
+         */
+        void emit_configuration_changed(uint32_t changed_fields)
+        {
+            if (!wlr_output_is_noop(handle) && changed_fields)
+            {
+                wf::output_configuration_changed_signal data{current_state};
+                data.output = output.get();
+                data.changed_fields = changed_fields;
+                output->emit_signal("output-configuration-changed", &data);
+            }
+        }
+
         /** Apply the given state to the output, ignoring position.
          *
          * This won't have any effect if the output state can't be applied,
@@ -770,19 +791,9 @@ namespace wf
 
                 wlr_output_commit(handle);
 
-                wf::dimensions_t effective_size;
-                wlr_output_effective_resolution(handle,
-                    &effective_size.width, &effective_size.height);
-                ensure_wayfire_output(effective_size);
-
+                ensure_wayfire_output(get_effective_size());
                 output->render->damage_whole();
-                if (!wlr_output_is_noop(handle))
-                {
-                    wf::output_configuration_changed_signal data{state};
-                    data.output = output.get();
-                    data.changed_fields = changed_fields;
-                    output->emit_signal("output-configuration-changed", &data);
-                }
+                emit_configuration_changed(changed_fields);
             }
             else /* state.source == OUTPUT_IMAGE_SOURCE_MIRROR */
             {
