@@ -382,13 +382,7 @@ wlr_box wf::framebuffer_t::framebuffer_box_from_geometry_box(wlr_box box) const
     box.y -= this->geometry.y;
 
     /* Step 2: Apply scale to box */
-    wlr_box scaled;
-    scaled.x = std::floor(box.x * scale);
-    scaled.y = std::floor(box.y * scale);
-    /* Scale it the same way that regions are scaled, otherwise
-     * we get numerical issues. */
-    scaled.width = std::ceil((box.x + box.width) * scale) - scaled.x;
-    scaled.height = std::ceil((box.y + box.height) * scale) - scaled.y;
+    wlr_box scaled = box * scale;
 
     /* Step 3: rotate */
     if (has_nonstandard_transform)

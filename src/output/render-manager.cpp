@@ -54,13 +54,24 @@ struct output_damage_t
      */
     void damage(const wf::region_t& region)
     {
+        if (region.empty() || !damage_manager)
+            return;
+
         /* Wlroots expects damage after scaling */
         auto scaled_region = region * wo->handle->scale;
         frame_damage |= scaled_region;
-        if (damage_manager)
-            wlr_output_damage_add(damage_manager, scaled_region.to_pixman());
+        wlr_output_damage_add(damage_manager, scaled_region.to_pixman());
+    }
 
-        schedule_repaint();
+    void damage(const wf::geometry_t& box)
+    {
+        if (box.width <= 0 || box.height <= 0 || !damage_manager)
+            return;
+
+        /* Wlroots expects damage after scaling */
+        auto scaled_box = box * wo->handle->scale;
+        frame_damage |= scaled_box;
+        wlr_output_damage_add_box(damage_manager, &scaled_box);
     }
 
     /**
@@ -92,6 +103,9 @@ struct output_damage_t
      */
     wf::region_t get_scheduled_damage()
     {
+        if (!damage_manager)
+            return {};
+
         return frame_damage * (1.0 / wo->handle->scale);
     }
 

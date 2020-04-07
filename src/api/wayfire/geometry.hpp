@@ -48,6 +48,9 @@ wf::point_t    operator + (const wf::point_t& a, const wf::geometry_t& b);
 wf::geometry_t operator + (const wf::geometry_t &a, const wf::point_t& b);
 wf::point_t    operator - (const wf::point_t& a);
 
+/** Scale the box */
+wf::geometry_t operator * (const wf::geometry_t& box, double scale);
+
 /* @return The length of the given vector */
 double abs(const wf::point_t &p);
 

@@ -92,6 +92,18 @@ wf::point_t operator - (const wf::point_t& a)
     return {-a.x, -a.y};
 }
 
+wf::geometry_t operator * (const wf::geometry_t& box, double scale)
+{
+    wlr_box scaled;
+    scaled.x = std::floor(box.x * scale);
+    scaled.y = std::floor(box.y * scale);
+    /* Scale it the same way that regions are scaled, otherwise
+     * we get numerical issues. */
+    scaled.width = std::ceil((box.x + box.width) * scale) - scaled.x;
+    scaled.height = std::ceil((box.y + box.height) * scale) - scaled.y;
+    return scaled;
+}
+
 double abs(const wf::point_t& p)
 {
     return std::sqrt(p.x * p.x + p.y * p.y);
