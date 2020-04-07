@@ -33,6 +33,9 @@ geometry_t geometry_intersection(const geometry_t& r1,
     const geometry_t& r2);
 }
 
+bool operator == (const wf::dimensions_t& a, const wf::dimensions_t& b);
+bool operator != (const wf::dimensions_t& a, const wf::dimensions_t& b);
+
 bool operator == (const wf::point_t& a, const wf::point_t& b);
 bool operator != (const wf::point_t& a, const wf::point_t& b);
 

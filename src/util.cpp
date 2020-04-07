@@ -32,6 +32,16 @@ std::ostream& operator << (std::ostream& stream, const wf::pointf_t& pointf)
     return stream;
 }
 
+bool operator == (const wf::dimensions_t& a, const wf::dimensions_t& b)
+{
+    return a.width == b.width && a.height == b.height;
+}
+
+bool operator != (const wf::dimensions_t& a, const wf::dimensions_t& b)
+{
+    return !(a == b);
+}
+
 bool operator == (const wf::point_t& a, const wf::point_t& b)
 {
     return a.x == b.x && a.y == b.y;
