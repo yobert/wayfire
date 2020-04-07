@@ -18,7 +18,6 @@ extern "C"
     struct wlr_cursor;
     struct wlr_data_device_manager;
     struct wlr_data_control_manager_v1;
-    struct wlr_linux_dmabuf_v1;
     struct wlr_gamma_control_manager_v1;
     struct wlr_xdg_output_manager_v1;
     struct wlr_export_dmabuf_manager_v1;
@@ -36,6 +35,8 @@ extern "C"
     struct wlr_pointer_constraints_v1;
     struct wlr_tablet_manager_v2;
     struct wlr_presentation;
+    struct wlr_gtk_primary_selection_device_manager;
+    struct wlr_primary_selection_v1_device_manager;
 
 #include <wayland-server.h>
 }
@@ -86,7 +87,6 @@ class compositor_core_t : public wf::object_base_t
         wlr_data_control_manager_v1 *data_control;
         wlr_gamma_control_manager_v1 *gamma_v1;
         wlr_screencopy_manager_v1 *screencopy;
-        wlr_linux_dmabuf_v1 *linux_dmabuf;
         wlr_export_dmabuf_manager_v1 *export_dmabuf;
         wlr_server_decoration_manager *decorator_manager;
         wlr_xdg_decoration_manager_v1 *xdg_decorator;
@@ -102,6 +102,8 @@ class compositor_core_t : public wf::object_base_t
         wlr_pointer_constraints_v1 *pointer_constraints;
         wlr_tablet_manager_v2 *tablet_v2;
         wlr_presentation *presentation;
+        wlr_gtk_primary_selection_device_manager *gtk_primary_selection;
+        wlr_primary_selection_v1_device_manager *primary_selection_v1;
     } protocols;
 
     std::string to_string() const { return "wayfire-core"; }

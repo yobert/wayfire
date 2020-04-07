@@ -9,7 +9,6 @@ extern "C"
 #include <wlr/types/wlr_idle.h>
 #include <wlr/types/wlr_idle_inhibit_v1.h>
 #include <wlr/types/wlr_input_inhibitor.h>
-#include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_export_dmabuf_v1.h>
 #include <wlr/types/wlr_server_decoration.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
@@ -21,6 +20,8 @@ extern "C"
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 #include <wlr/types/wlr_tablet_v2.h>
 #include <wlr/types/wlr_presentation_time.h>
+#include <wlr/types/wlr_gtk_primary_selection.h>
+#include <wlr/types/wlr_primary_selection_v1.h>
 
 #define static
 #include <wlr/render/wlr_renderer.h>
@@ -167,8 +168,6 @@ struct wf_pointer_constraint
 
 void wf::compositor_core_impl_t::init()
 {
-    protocols.data_device = wlr_data_device_manager_create(display);
-    protocols.data_control = wlr_data_control_manager_v1_create(display);
     wlr_renderer_init_wl_display(renderer, display);
 
     /* Order here is important:
@@ -176,19 +175,26 @@ void wf::compositor_core_impl_t::init()
      *    since Xwayland initialization depends on the compositor
      * 2. input depends on output-layout
      * 3. weston toy clients expect xdg-shell before wl_seat, i.e
-     * init_desktop_apis() should come before input */
-    output_layout = std::make_unique<wf::output_layout_t> (backend);
+     * init_desktop_apis() should come before input.
+     * 4. GTK expects primary selection early. */
     compositor = wlr_compositor_create(display, renderer);
+
+    protocols.data_device = wlr_data_device_manager_create(display);
+    protocols.gtk_primary_selection =
+        wlr_gtk_primary_selection_device_manager_create(display);
+    protocols.primary_selection_v1 =
+        wlr_primary_selection_v1_device_manager_create(display);
+    protocols.data_control = wlr_data_control_manager_v1_create(display);
+
+    output_layout = std::make_unique<wf::output_layout_t> (backend);
     init_desktop_apis();
 
     /* Somehow GTK requires the tablet_v2 to be advertised pretty early */
     protocols.tablet_v2 = wlr_tablet_v2_create(display);
-
     input = std::make_unique<input_manager>();
 
     protocols.screencopy = wlr_screencopy_manager_v1_create(display);
     protocols.gamma_v1 = wlr_gamma_control_manager_v1_create(display);
-    protocols.linux_dmabuf = wlr_linux_dmabuf_v1_create(display, renderer);
     protocols.export_dmabuf = wlr_export_dmabuf_manager_v1_create(display);
     protocols.output_manager = wlr_xdg_output_manager_v1_create(display,
         output_layout->get_handle());
