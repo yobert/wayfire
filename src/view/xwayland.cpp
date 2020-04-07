@@ -382,6 +382,19 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
 
         last_server_width = w;
         last_server_height = h;
+
+        /*
+         * Do not send a configure if the client will retain its size.
+         * This is needed if a client starts with one size and immediately resizes
+         * again.
+         *
+         * If we do configure it with the given size, then it will think that we
+         * are requesting the given size, and won't resize itself again.
+         */
+        auto xwl_g = get_output_geometry();
+        if (xwl_g.width == w && xwl_g.height == h)
+            return;
+
         send_configure(w, h);
     }
 
