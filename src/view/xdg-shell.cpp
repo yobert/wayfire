@@ -402,6 +402,19 @@ void wayfire_xdg_view<wlr_xdg_toplevel>::resize(int w, int h)
 {
     if (view_impl->frame)
         view_impl->frame->calculate_resize_size(w, h);
+
+    /*
+     * Do not send a configure if the client will retain its size.
+     * This is needed if a client starts with one size and immediately resizes
+     * again.
+     *
+     * If we do configure it with the given size, then it will think that we
+     * are requesting the given size, and won't resize itself again.
+     */
+    auto xdg_g = get_xdg_geometry(xdg_toplevel);
+    if (xdg_g.width == w && xdg_g.height == h)
+        return;
+
     wlr_xdg_toplevel_set_size(xdg_toplevel->base, w, h);
 }
 
