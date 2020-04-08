@@ -584,7 +584,7 @@ pid_t wf::compositor_core_impl_t::run(std::string command)
             dup2(dev_null, 1);
             dup2(dev_null, 2);
 
-            _exit(execl("/bin/bash", "/bin/bash", "-c", command.c_str(), NULL));
+            _exit(execl("/bin/sh", "/bin/sh", "-c", command.c_str(), NULL));
         } else
         {
             close(pipe_fd[READ_END]);
