@@ -79,13 +79,13 @@ struct output_damage_t
      * whether there is any damage and makes sure frame_damage contains all the
      * damage needed for repainting the next frame.
      */
-    bool make_current(bool& need_swap)
+    bool make_current(bool& needs_swap)
     {
         if (!damage_manager)
             return false;
 
         wf::region_t tmp_region;
-        auto r = wlr_output_damage_attach_render(damage_manager, &need_swap,
+        auto r = wlr_output_damage_attach_render(damage_manager, &needs_swap,
             tmp_region.to_pixman());
 
         if (!r) return false;
@@ -93,6 +93,9 @@ struct output_damage_t
         frame_damage |= tmp_region;
         if (runtime_config.no_damage_track)
             frame_damage |= get_wlr_damage_box();
+
+        needs_swap |= force_next_frame;
+        force_next_frame = false;
 
         return true;
     }
@@ -132,19 +135,14 @@ struct output_damage_t
         frame_damage.clear();
     }
 
+    bool force_next_frame = false;
     /**
      * Schedule a frame for the output
      */
-    wf::wl_idle_call idle_redraw;
     void schedule_repaint()
     {
         wlr_output_schedule_frame(output);
-        if (!idle_redraw.is_connected())
-        {
-            idle_redraw.run_once([&] () {
-                wlr_output_schedule_frame(output);
-            });
-        }
+        force_next_frame = true;
     }
 
     /**
