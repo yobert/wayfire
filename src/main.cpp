@@ -32,13 +32,15 @@ extern "C"
 wf_runtime_config runtime_config;
 
 #define INOT_BUF_SIZE (1024 * sizeof(inotify_event))
-char buf[INOT_BUF_SIZE];
+static char buf[INOT_BUF_SIZE];
 
-static std::string config_file;
+static std::string config_dir, config_file;
+
 static void reload_config(int fd)
 {
     wf::config::load_configuration_options_from_file(
         wf::get_core().config, config_file);
+    inotify_add_watch(fd, config_dir.c_str(), IN_CREATE);
     inotify_add_watch(fd, config_file.c_str(), IN_MODIFY);
 }
 
@@ -51,7 +53,7 @@ static int handle_config_updated(int fd, uint32_t mask, void *data)
     reload_config(fd);
 
     wf::get_core().emit_signal("reload-config", nullptr);
-    return 1;
+    return 0;
 }
 
 std::map<EGLint, EGLint> default_attribs = {
@@ -208,7 +210,7 @@ static void signal_handler(int signal)
 
 int main(int argc, char *argv[])
 {
-    std::string config_dir = nonull(getenv("XDG_CONFIG_HOME"));
+    config_dir = nonull(getenv("XDG_CONFIG_HOME"));
     if (!config_dir.compare("nil"))
         config_dir = std::string(nonull(getenv("HOME"))) + "/.config";
     config_file = config_dir + "/wayfire.ini";
