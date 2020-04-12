@@ -8,6 +8,7 @@
 #include <wayfire/workspace-manager.hpp>
 #include <wayfire/util/log.hpp>
 
+#if WLR_HAS_XWAYLAND
 extern "C"
 {
 #define static
@@ -18,6 +19,7 @@ extern "C"
 #undef class
 #undef namespace
 }
+#endif
 
 namespace wf
 {
@@ -31,11 +33,11 @@ namespace wf
             if (view->role == VIEW_ROLE_UNMANAGED)
             {
                 auto surf = view->get_wlr_surface();
-                if (surf && wlr_surface_is_xwayland_surface(surf)) {
+#if WLR_HAS_XWAYLAND
+                if (surf && wlr_surface_is_xwayland_surface(surf))
                     return "x-or";
-                } else {
-                    return "unmanaged";
-                }
+#endif
+                return "unmanaged";
             }
 
             if (!view->get_output())
