@@ -115,15 +115,20 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
          * coordinates */
         if (get_output())
         {
+            auto current_workspace = get_output()->workspace->get_current_workspace();
+            auto wsize = get_output()->workspace->get_workspace_grid_size();
             auto og = get_output()->get_layout_geometry();
             configure_geometry.x -= og.x;
             configure_geometry.y -= og.y;
 
-            /* It is possible the client requests to position itself on another
-             * output. However, we want to make sure that the view stays on its
-             * output, since this is how Wayland works */
-            configure_geometry = wf::clamp(configure_geometry,
-                get_output()->get_relative_geometry());
+            /* Make sure views don't position themselves outside the desktop
+             * area, which is made up of all workspaces for an output */
+            wlr_box wsg{
+                -current_workspace.x * og.width,
+                -current_workspace.y * og.height,
+                wsize.width * og.width,
+                wsize.height * og.height};
+            configure_geometry = wf::clamp(configure_geometry, wsg);
         }
 
         send_configure(configure_geometry.width, configure_geometry.height);
