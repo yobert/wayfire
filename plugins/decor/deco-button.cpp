@@ -91,6 +91,7 @@ void button_t::update_texture()
     OpenGL::render_begin();
     cairo_surface_upload_to_texture(surface, this->button_texture);
     OpenGL::render_end();
+    cairo_surface_destroy(surface);
 }
 
 void button_t::add_idle_damage()
