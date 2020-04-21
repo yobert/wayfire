@@ -781,7 +781,15 @@ class WayfireSwitcher : public wf::plugin_interface_t
         views.push_back(std::move(sv));
     }
 
-    // TODO:!!! fini
+    void fini() override
+    {
+        if (output->is_plugin_active(grab_interface->name))
+            deinit_switcher();
+        output->rem_binding(&next_view_binding);
+        output->rem_binding(&prev_view_binding);
+        output->rem_binding(&touch_activate);
+        output->disconnect_signal("detach-view", &view_removed);
+    }
 };
 
 DECLARE_WAYFIRE_PLUGIN(WayfireSwitcher);
