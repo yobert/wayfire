@@ -605,12 +605,6 @@ void wf::view_interface_t::set_decoration(surface_interface_t *frame)
     view_impl->frame = dynamic_cast<wf::decorator_frame_t_t*> (frame);
     assert(frame);
 
-    /* Move the decoration as the last child surface */
-    auto container = this->priv->surface_children;
-    auto it = std::remove(container.begin(), container.end(), frame);
-    container.erase(it);
-    container.push_back(frame);
-
     /* Calculate the wm geometry of the view after adding the decoration.
      *
      * If the view is neither maximized nor fullscreen, then we want to expand
@@ -985,8 +979,16 @@ void wf::view_interface_t::take_snapshot()
     auto children = enumerate_surfaces({output_geometry.x, output_geometry.y});
     for (auto& child : wf::reverse(children))
     {
+        wlr_box child_box{
+            child.position.x,
+            child.position.y,
+            child.surface->get_size().width,
+            child.surface->get_size().height
+        };
+
         child.surface->simple_render(offscreen_buffer,
-            child.position.x, child.position.y, offscreen_buffer.cached_damage);
+            child.position.x, child.position.y,
+            offscreen_buffer.cached_damage & child_box);
     }
 
     offscreen_buffer.cached_damage.clear();

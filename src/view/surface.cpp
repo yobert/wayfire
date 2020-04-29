@@ -27,7 +27,8 @@ extern "C"
 /****************************
  * surface_interface_t functions
  ****************************/
-wf::surface_interface_t::surface_interface_t(surface_interface_t *parent)
+wf::surface_interface_t::surface_interface_t(surface_interface_t *parent,
+    bool is_below_parent)
 {
     this->priv = std::make_unique<impl>();
     take_ref();
@@ -36,8 +37,10 @@ wf::surface_interface_t::surface_interface_t(surface_interface_t *parent)
     if (parent)
     {
         set_output(parent->get_output());
-        parent->priv->surface_children.insert(
-            parent->priv->surface_children.begin(), this);
+        auto& container = is_below_parent ?
+            parent->priv->surface_children_below :
+            parent->priv->surface_children_above;
+        container.insert(container.begin(), this);
     }
 }
 
@@ -45,12 +48,18 @@ wf::surface_interface_t::~surface_interface_t()
 {
     if (priv->parent_surface)
     {
-        auto& container = priv->parent_surface->priv->surface_children;
-        auto it = std::remove(container.begin(), container.end(), this);
-        container.erase(it, container.end());
+        auto remove_from = [=] (auto& container) {
+            auto it = std::remove(container.begin(), container.end(), this);
+            container.erase(it, container.end());
+        };
+
+        remove_from(priv->parent_surface->priv->surface_children_above);
+        remove_from(priv->parent_surface->priv->surface_children_below);
     }
 
-    for (auto c : priv->surface_children)
+    for (auto c : priv->surface_children_above)
+        c->priv->parent_surface = nullptr;
+    for (auto c : priv->surface_children_below)
         c->priv->parent_surface = nullptr;
 }
 
@@ -78,20 +87,25 @@ std::vector<wf::surface_iterator_t> wf::surface_interface_t::enumerate_surfaces(
     wf::point_t surface_origin)
 {
     std::vector<wf::surface_iterator_t> result;
-    for (auto& child : priv->surface_children)
+    auto add_surfaces_recursive = [&] (surface_interface_t* child)
     {
-        if (child->is_mapped())
-        {
-            auto child_surfaces = child->enumerate_surfaces(
-                child->get_offset() + surface_origin);
+        if (!child->is_mapped())
+            return;
 
-            result.insert(result.end(),
-                child_surfaces.begin(), child_surfaces.end());
-        }
-    }
+        auto child_surfaces = child->enumerate_surfaces(
+            child->get_offset() + surface_origin);
+        result.insert(result.end(),
+            child_surfaces.begin(), child_surfaces.end());
+    };
+
+    for (auto& child : priv->surface_children_above)
+        add_surfaces_recursive(child);
 
     if (is_mapped())
         result.push_back({this, surface_origin});
+
+    for (auto& child : priv->surface_children_below)
+        add_surfaces_recursive(child);
 
     return result;
 }
@@ -104,7 +118,9 @@ wf::output_t *wf::surface_interface_t::get_output()
 void wf::surface_interface_t::set_output(wf::output_t* output)
 {
     priv->output = output;
-    for (auto& c : priv->surface_children)
+    for (auto& c : priv->surface_children_above)
+        c->set_output(output);
+    for (auto& c : priv->surface_children_below)
         c->set_output(output);
 }
 

@@ -17,7 +17,8 @@ class surface_interface_t::impl
 {
   public:
     surface_interface_t* parent_surface;
-    std::vector<surface_interface_t*> surface_children;
+    std::vector<surface_interface_t*> surface_children_above;
+    std::vector<surface_interface_t*> surface_children_below;
 
     wf::output_t *output = nullptr;
     int ref_cnt = 0;

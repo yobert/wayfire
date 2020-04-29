@@ -181,8 +181,11 @@ class surface_interface_t
      * Construct a new surface with the given parent surface.
      *
      * @param parent_surface The parent surface. May be null.
+     * @param is_below_parent If true, then the surface will be shown below the
+     *   parent surface.
      */
-    surface_interface_t(surface_interface_t* parent_surface);
+    surface_interface_t(surface_interface_t* parent_surface,
+        bool is_below_parent = false);
 
     /** @return the active shrink constraint */
     static int get_active_shrink_constraint();

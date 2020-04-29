@@ -73,7 +73,7 @@ class simple_decoration_surface : public wf::surface_interface_t,
 
   public:
     simple_decoration_surface(wayfire_view view) :
-        surface_interface_t(view.get()),
+        surface_interface_t(view.get(), true),
         theme{},
         layout{theme, [=] (wlr_box box) {this->damage_surface_box(box); }}
     {
