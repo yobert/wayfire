@@ -87,34 +87,40 @@ wayfire_conf_inc = include_directories(['.'])
 
 add_project_arguments(['-Wno-unused-parameter'], language: 'cpp')
 
+wlroots_has_xwayland = false
+wlroots_has_x11_backend = false
+if use_system_wlroots
+  cpp = meson.get_compiler('cpp')
+  wlroots_has_xwayland = cpp.get_define('WLR_HAS_XWAYLAND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
+  wlroots_has_x11_backend = cpp.get_define('WLR_HAS_X11_BACKEND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
+else
+  wlroots_has_xwayland = subproject('wlroots').get_variable('conf_data').get('WLR_HAS_XWAYLAND', false) == 1
+  wlroots_has_x11_backend = subproject('wlroots').get_variable('conf_data').get('WLR_HAS_X11_BACKEND', false) == 1
+endif
+
+if wlroots_has_xwayland
+  xcb = dependency('xcb')
+else
+  xcb = declare_dependency() # dummy dep
+endif
+
 subdir('proto')
 subdir('src')
 subdir('metadata')
 subdir('plugins')
 
-wlroots_x_info = []
-
-if use_system_wlroots
-  cpp = meson.get_compiler('cpp')
-  wlroots_has_xwayland = cpp.get_define('WLR_HAS_XWAYLAND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
-  wlroots_has_x11_backend = cpp.get_define('WLR_HAS_X11_BACKEND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
-  wlroots_x_info += [
-      '       xwayland: @0@'.format(wlroots_has_xwayland),
-      '    x11-backend: @0@'.format(wlroots_has_x11_backend)]
-endif
-
-summary_begin = [
+summary = [
 	'',
 	'----------------',
 	'wayfire @0@'.format(meson.project_version()),
 	'',
     'system wfconfig: @0@'.format(use_system_wfconfig),
-    ' system wlroots: @0@'.format(use_system_wlroots)]
-
-summary_end = [
+    ' system wlroots: @0@'.format(use_system_wlroots),
+    '       xwayland: @0@'.format(wlroots_has_xwayland),
+    '    x11-backend: @0@'.format(wlroots_has_x11_backend),
     '        imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
     '         gles32: @0@'.format(conf_data.get('USE_GLES32')),
     '----------------',
     ''
 ]
-message('\n'.join(summary_begin + wlroots_x_info + summary_end))
+message('\n'.join(summary))

@@ -25,7 +25,35 @@ extern "C"
 
 class wayfire_xwayland_view_base : public wf::wlr_view_t
 {
-    protected:
+  protected:
+    static xcb_atom_t _NET_WM_WINDOW_TYPE_NORMAL;
+
+  public:
+    static bool load_atoms()
+    {
+        auto connection = xcb_connect(NULL, NULL);
+        if (!connection || xcb_connection_has_error(connection))
+            return false;
+
+        const std::string name = "_NET_WM_WINDOW_TYPE_NORMAL";
+        auto cookie = xcb_intern_atom(connection, 0, name.length(), name.c_str());
+
+        xcb_generic_error_t *error = NULL;
+        xcb_intern_atom_reply_t *reply;
+        reply = xcb_intern_atom_reply(connection, cookie, &error);
+
+        bool success = !error && reply;
+        if (success)
+            _NET_WM_WINDOW_TYPE_NORMAL = reply->atom;
+
+        free(reply);
+        free(error);
+
+        xcb_disconnect(connection);
+        return true;
+    }
+
+  protected:
     wf::wl_listener_wrapper on_destroy, on_unmap, on_map, on_configure,
         on_set_title, on_set_app_id;
 
@@ -56,23 +84,58 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         on_destroy.set_callback([&] (void*) { destroy(); });
         on_configure.set_callback([&] (void* data) {
             auto ev = static_cast<wlr_xwayland_surface_configure_event*> (data);
-            if ((ev->mask & XCB_CONFIG_WINDOW_X) && (ev->mask & XCB_CONFIG_WINDOW_Y))
+            wf::point_t output_origin = {0, 0};
+            if (get_output())
             {
-                self_positioned = true;
-            } else
+                output_origin = {
+                    get_output()->get_relative_geometry().x,
+                    get_output()->get_relative_geometry().y
+                };
+            }
+
+            if (!is_mapped())
             {
-                /* Until the first configure we send to the client, the position
-                 * of the window in the X server and in Wayfire is out-of-sync,
-                 * so we can't rely on the position in the event. */
-                auto o = get_output();
-                if (o)
+                /* If the view is not mapped yet, let it be configured as it
+                 * wishes. We will position it properly in ::map() */
+                wlr_xwayland_surface_configure(xw,
+                    ev->x, ev->y, ev->width, ev->height);
+
+                if ((ev->mask & XCB_CONFIG_WINDOW_X) &&
+                    (ev->mask & XCB_CONFIG_WINDOW_Y))
                 {
-                    auto og = get_output()->get_layout_geometry();
-                    ev->x = geometry.x + og.x;
-                    ev->y = geometry.y + og.y;
+                    this->self_positioned = true;
+                    this->geometry.x = ev->x - output_origin.x;
+                    this->geometry.y = ev->y - output_origin.y;
                 }
-	    }
-            configure_request({ev->x, ev->y, ev->width, ev->height});
+
+                return;
+            }
+
+            /**
+             * Regular Xwayland windows are not allowed to change their position
+             * after mapping, in which respect they behave just like Wayland apps.
+             *
+             * However, OR views or special views which do not have NORMAL type
+             * should be allowed to move around the screen.
+             */
+            bool enable_custom_position = xw->override_redirect ||
+                (xw->window_type_len > 0 &&
+                 xw->window_type[0] != _NET_WM_WINDOW_TYPE_NORMAL);
+
+            if ((ev->mask & XCB_CONFIG_WINDOW_X) &&
+                (ev->mask & XCB_CONFIG_WINDOW_Y) &&
+                enable_custom_position)
+            {
+                /* override-redirect views generally have full freedom. */
+                self_positioned = true;
+                configure_request({ev->x, ev->y, ev->width, ev->height});
+                return;
+            }
+
+            /* Use old x/y values */
+            ev->x = geometry.x + output_origin.x;
+            ev->y = geometry.y + output_origin.y;
+            configure_request(wlr_box{ev->x, ev->y, ev->width, ev->height});
         });
         on_set_title.set_callback([&] (void*) {
             handle_title_changed(nonull(xw->title));
@@ -207,6 +270,8 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
     }
 };
 
+xcb_atom_t wayfire_xwayland_view_base::_NET_WM_WINDOW_TYPE_NORMAL;
+
 class wayfire_unmanaged_xwayland_view : public wayfire_xwayland_view_base
 {
     public:
@@ -335,6 +400,16 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
 
         if (xw->fullscreen)
             fullscreen_request(get_output(), true);
+
+        if (!this->tiled_edges && !xw->fullscreen)
+        {
+            /* Make sure the view is visible on the current workspace
+             * on the current output. */
+            auto output_geometry = get_output()->get_layout_geometry();
+            wlr_box current_geometry = { xw->x, xw->y, xw->width, xw->height };
+            current_geometry = wf::clamp(current_geometry, output_geometry);
+            configure_request(current_geometry);
+        }
 
         wf::wlr_view_t::map(surface);
         create_toplevel();
@@ -546,6 +621,8 @@ void wf::init_xwayland()
 {
 #if WLR_HAS_XWAYLAND
     static wf::wl_listener_wrapper on_created;
+    static wf::wl_listener_wrapper on_ready;
+
     static signal_connection_t on_shutdown{[&] (void*) {
         wlr_xwayland_destroy(xwayland_handle);
     }};
@@ -564,11 +641,21 @@ void wf::init_xwayland()
         }
     });
 
+    on_ready.set_callback([] (void *data) {
+        if (!wayfire_xwayland_view_base::load_atoms()) {
+            LOGE("Failed to load Xwayland atoms.");
+        } else {
+            LOGD("Successfully loaded Xwayland atoms.");
+        }
+    });
+
     xwayland_handle = wlr_xwayland_create(wf::get_core().display,
         wf::get_core_impl().compositor, false);
+
     if (xwayland_handle)
     {
         on_created.connect(&xwayland_handle->events.new_surface);
+        on_ready.connect(&xwayland_handle->events.ready);
         wf::get_core().connect_signal("shutdown", &on_shutdown);
     }
 #endif
