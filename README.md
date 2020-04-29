@@ -37,6 +37,7 @@ It aims to create a customizable, extendable and lightweight environment without
 - [libjpeg](https://libjpeg-turbo.org)
 - [libpng](http://libpng.org/pub/png/libpng.html)
 - [libxkbcommon](https://xkbcommon.org)
+- [libxml2](http://xmlsoft.org/)
 - [Pixman](https://pixman.org)
 - [pkg-config](https://freedesktop.org/wiki/Software/pkg-config/)
 - [Wayland](https://wayland.freedesktop.org)
