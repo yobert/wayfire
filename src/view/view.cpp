@@ -551,9 +551,9 @@ bool wf::view_interface_t::is_visible()
      * least 2 references, which would mean that the view is in unmap animation.
      */
     if (view_impl->is_alive) {
-        return priv->ref_cnt >= 2;
+        return view_impl->ref_cnt >= 2;
     } else {
-        return priv->ref_cnt >= 1;
+        return view_impl->ref_cnt >= 1;
     }
 }
 
@@ -583,7 +583,7 @@ void wf::view_interface_t::set_decoration(surface_interface_t *frame)
     {
         damage();
         if (view_impl->decoration)
-            view_impl->decoration->unref();
+            this->remove_subsurface(view_impl->decoration);
         view_impl->decoration = nullptr;
         view_impl->frame = nullptr;
         emit_signal("decoration-changed", nullptr);
@@ -599,7 +599,7 @@ void wf::view_interface_t::set_decoration(surface_interface_t *frame)
     /* First, delete old decoration if any */
     damage();
     if (view_impl->decoration)
-        view_impl->decoration->unref();
+        this->remove_subsurface(view_impl->decoration);
 
     view_impl->decoration = frame;
     view_impl->frame = dynamic_cast<wf::decorator_frame_t_t*> (frame);
@@ -994,9 +994,22 @@ void wf::view_interface_t::take_snapshot()
     offscreen_buffer.cached_damage.clear();
 }
 
-wf::view_interface_t::view_interface_t() : surface_interface_t(nullptr)
+wf::view_interface_t::view_interface_t()
 {
     this->view_impl = std::make_unique<wf::view_interface_t::view_priv_impl>();
+    take_ref();
+}
+
+void wf::view_interface_t::take_ref()
+{
+    ++view_impl->ref_cnt;
+}
+
+void wf::view_interface_t::unref()
+{
+    --view_impl->ref_cnt;
+    if (view_impl->ref_cnt <= 0)
+        destruct();
 }
 
 void wf::view_interface_t::initialize()
@@ -1063,6 +1076,8 @@ void wf::view_damage_raw(wayfire_view view, const wlr_box& box)
 void wf::view_interface_t::destruct()
 {
     view_impl->is_alive = false;
+    priv->surface_children_below.clear();
+    priv->surface_children_above.clear();
     view_impl->idle_destruct.run_once(
         [&] () {wf::get_core_impl().erase_view(self());});
 }

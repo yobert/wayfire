@@ -13,7 +13,7 @@ extern "C"
 }
 
 wf_drag_icon::wf_drag_icon(wlr_drag_icon *ic)
-    : wf::wlr_child_surface_base_t(nullptr, this), icon(ic)
+    : wf::wlr_child_surface_base_t(this), icon(ic)
 {
     on_map.set_callback([&] (void*) { this->map(icon->surface); });
     on_unmap.set_callback([&] (void*) { this->unmap(); });

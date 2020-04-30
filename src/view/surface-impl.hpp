@@ -17,12 +17,10 @@ class surface_interface_t::impl
 {
   public:
     surface_interface_t* parent_surface;
-    std::vector<surface_interface_t*> surface_children_above;
-    std::vector<surface_interface_t*> surface_children_below;
+    std::vector<std::unique_ptr<surface_interface_t>> surface_children_above;
+    std::vector<std::unique_ptr<surface_interface_t>> surface_children_below;
 
     wf::output_t *output = nullptr;
-    int ref_cnt = 0;
-
     static int active_shrink_constraint;
 
     /**
@@ -90,8 +88,7 @@ class wlr_child_surface_base_t :
     public surface_interface_t, public wlr_surface_base_t
 {
   public:
-    wlr_child_surface_base_t(surface_interface_t *parent,
-        surface_interface_t *self);
+    wlr_child_surface_base_t(surface_interface_t *self);
     virtual ~wlr_child_surface_base_t();
 
     /* Just pass to the default wlr surface implementation */

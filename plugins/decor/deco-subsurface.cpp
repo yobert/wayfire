@@ -73,7 +73,6 @@ class simple_decoration_surface : public wf::surface_interface_t,
 
   public:
     simple_decoration_surface(wayfire_view view) :
-        surface_interface_t(view.get(), true),
         theme{},
         layout{theme, [=] (wlr_box box) {this->damage_surface_box(box); }}
     {
@@ -300,7 +299,10 @@ class simple_decoration_surface : public wf::surface_interface_t,
 
 void init_view(wayfire_view view)
 {
-    auto surf = new simple_decoration_surface(view);
-    view->set_decoration(surf);
+    auto surf = std::make_unique<simple_decoration_surface>(view);
+    nonstd::observer_ptr<simple_decoration_surface> ptr{surf};
+
+    view->add_subsurface(std::move(surf), true);
+    view->set_decoration(ptr.get());
     view->damage();
 }

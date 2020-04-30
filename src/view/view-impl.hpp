@@ -40,6 +40,8 @@ class view_interface_t::view_priv_impl
      * destroyed and they still have the internal surface reference.
      */
     bool is_alive = true;
+    /** Reference count to the view */
+    int ref_cnt = 0;
 
     bool keyboard_focus_enabled = true;
 

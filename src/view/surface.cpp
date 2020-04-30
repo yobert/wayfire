@@ -27,53 +27,37 @@ extern "C"
 /****************************
  * surface_interface_t functions
  ****************************/
-wf::surface_interface_t::surface_interface_t(surface_interface_t *parent,
-    bool is_below_parent)
+wf::surface_interface_t::surface_interface_t()
 {
     this->priv = std::make_unique<impl>();
-    take_ref();
-    this->priv->parent_surface = parent;
+    this->priv->parent_surface = nullptr;
+}
 
-    if (parent)
-    {
-        set_output(parent->get_output());
-        auto& container = is_below_parent ?
-            parent->priv->surface_children_below :
-            parent->priv->surface_children_above;
-        container.insert(container.begin(), this);
-    }
+void wf::surface_interface_t::add_subsurface(
+    std::unique_ptr<surface_interface_t> subsurface, bool is_below_parent)
+{
+    subsurface->priv->parent_surface = this;
+    subsurface->set_output(get_output());
+    auto& container = is_below_parent ?
+        priv->surface_children_below : priv->surface_children_above;
+    container.insert(container.begin(), std::move(subsurface));
+}
+
+void wf::surface_interface_t::remove_subsurface(
+    nonstd::observer_ptr<surface_interface_t> subsurface)
+{
+    auto remove_from = [=] (auto& container) {
+        auto it = std::remove_if(container.begin(), container.end(),
+            [=] (const auto& ptr) { return ptr.get() == subsurface.get(); });
+        container.erase(it, container.end());
+    };
+
+    remove_from(priv->surface_children_above);
+    remove_from(priv->surface_children_below);
 }
 
 wf::surface_interface_t::~surface_interface_t()
-{
-    if (priv->parent_surface)
-    {
-        auto remove_from = [=] (auto& container) {
-            auto it = std::remove(container.begin(), container.end(), this);
-            container.erase(it, container.end());
-        };
-
-        remove_from(priv->parent_surface->priv->surface_children_above);
-        remove_from(priv->parent_surface->priv->surface_children_below);
-    }
-
-    for (auto c : priv->surface_children_above)
-        c->priv->parent_surface = nullptr;
-    for (auto c : priv->surface_children_below)
-        c->priv->parent_surface = nullptr;
-}
-
-void wf::surface_interface_t::take_ref()
-{
-    ++priv->ref_cnt;
-}
-
-void wf::surface_interface_t::unref()
-{
-    --priv->ref_cnt;
-    if (priv->ref_cnt <= 0)
-        destruct();
-}
+{ }
 
 wf::surface_interface_t *wf::surface_interface_t::get_main_surface()
 {
@@ -99,13 +83,13 @@ std::vector<wf::surface_iterator_t> wf::surface_interface_t::enumerate_surfaces(
     };
 
     for (auto& child : priv->surface_children_above)
-        add_surfaces_recursive(child);
+        add_surfaces_recursive(child.get());
 
     if (is_mapped())
         result.push_back({this, surface_origin});
 
     for (auto& child : priv->surface_children_below)
-        add_surfaces_recursive(child);
+        add_surfaces_recursive(child.get());
 
     return result;
 }
@@ -145,11 +129,6 @@ void wf::surface_interface_t::set_opaque_shrink_constraint(
 int wf::surface_interface_t::get_active_shrink_constraint()
 {
     return impl::active_shrink_constraint;
-}
-
-void wf::surface_interface_t::destruct()
-{
-    delete this;
 }
 
 /****************************
@@ -229,10 +208,11 @@ wf::wlr_surface_base_t::wlr_surface_base_t(surface_interface_t *self)
         if (!sub->parent->data)
             return;
 
-        // will be deleted by destruct()
-        auto subsurface = new subsurface_implementation_t(sub, _as_si);
+        auto subsurface = std::make_unique<subsurface_implementation_t>(sub);
+        nonstd::observer_ptr<subsurface_implementation_t> ptr{subsurface};
+        _as_si->add_subsurface(std::move(subsurface), false);
         if (sub->mapped)
-            subsurface->map(sub->surface);
+            ptr->map(sub->surface);
     };
 
     on_new_subsurface.set_callback(handle_new_subsurface);
@@ -381,10 +361,7 @@ void wf::wlr_surface_base_t::_simple_render(const wf::framebuffer_t& fb,
 }
 
 wf::wlr_child_surface_base_t::wlr_child_surface_base_t(
-    surface_interface_t *parent, surface_interface_t *self) :
-      wf::surface_interface_t(parent),
-      wlr_surface_base_t(self)
-{
-}
+    surface_interface_t *self) : wlr_surface_base_t(self)
+{ }
 
 wf::wlr_child_surface_base_t::~wlr_child_surface_base_t() { }

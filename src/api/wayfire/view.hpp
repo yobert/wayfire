@@ -393,6 +393,19 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      */
     virtual void take_snapshot();
 
+    /**
+     * View lifetime is managed by reference counting. To take a reference,
+     * use take_ref(). Note that one reference is automatically made when the
+     * view is created.
+     */
+    void take_ref();
+
+    /**
+     * Drop a reference to the surface. When the reference count reaches 0, the
+     * destruct() method is called.
+     */
+    void unref();
+
     virtual ~view_interface_t();
 
     class view_priv_impl;
@@ -426,7 +439,13 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      */
     virtual wf::geometry_t get_untransformed_bounding_box();
 
-    virtual void destruct() override;
+
+    /**
+     * Called when the reference count reaches 0.
+     * It destructs the object and deletes it, so "this" may not be
+     * accessed after destruct() is called.
+     */
+    virtual void destruct();
 
     /**
      * Called whenever the minimized, tiled, fullscreened
