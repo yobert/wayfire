@@ -164,12 +164,14 @@ uint32_t wf::object_base_t::get_id() const
 
 bool wf::object_base_t::has_data(std::string name)
 {
-    return obase_priv->data.count(name);
+    return obase_priv->data[name] != nullptr;
 }
 
 void wf::object_base_t::erase_data(std::string name)
 {
+    auto data = std::move(obase_priv->data[name]);
     obase_priv->data.erase(name);
+    data.reset();
 }
 
 wf::custom_data_t *wf::object_base_t::_fetch_data(std::string name)
@@ -189,4 +191,9 @@ void wf::object_base_t::_store_data(std::unique_ptr<wf::custom_data_t> data,
     std::string name)
 {
     obase_priv->data[name] = std::move(data);
+}
+
+void wf::object_base_t::_clear_data()
+{
+    obase_priv->data.clear();
 }

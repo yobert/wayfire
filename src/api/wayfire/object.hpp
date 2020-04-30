@@ -177,6 +177,8 @@ class object_base_t : public signal_provider_t
   protected:
     object_base_t();
 
+    /** Clear all stored data. */
+    void _clear_data();
   private:
     /** Just get the data under the given name */
     custom_data_t *_fetch_data(std::string name);

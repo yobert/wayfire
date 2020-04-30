@@ -550,6 +550,7 @@ void wf::compositor_core_impl_t::erase_view(wayfire_view v)
     auto it = std::find_if(views.begin(), views.end(),
         [&v] (const auto& view) { return view.get() == v.get(); });
 
+    v->deinitialize();
     views.erase(it);
 }
 

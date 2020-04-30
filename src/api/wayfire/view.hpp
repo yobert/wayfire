@@ -427,6 +427,16 @@ class view_interface_t : public surface_interface_t, public wf::object_base_t
      */
     virtual void initialize();
 
+    /**
+     * When a view is being destroyed, all associated objects like subsurfaces,
+     * transformers and custom data are destroyed.
+     *
+     * In general, we want to make sure that these associated objects are freed
+     * before the actual view object destruction starts. Thus, deinitialize()
+     * is called from core just before destroying the view.
+     */
+    virtual void deinitialize();
+
     /** get_offset() is not valid for views */
     virtual wf::point_t get_offset() override { return {0, 0}; }
 

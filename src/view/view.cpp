@@ -690,7 +690,8 @@ void wf::view_interface_t::pop_transformer(
      * won't help at this stage (damage is already calculated).
      *
      * Instead, we directly damage the whole output for the next frame */
-    get_output()->render->damage_whole_idle();
+    if (get_output())
+        get_output()->render->damage_whole_idle();
 }
 
 void wf::view_interface_t::pop_transformer(std::string name)
@@ -1022,6 +1023,21 @@ void wf::view_interface_t::initialize()
     }
 }
 
+void wf::view_interface_t::deinitialize()
+{
+    this->view_impl->decoration = nullptr;
+    this->view_impl->frame = nullptr;
+
+    this->priv->surface_children_below.clear();
+    this->priv->surface_children_above.clear();
+    this->view_impl->transforms.clear();
+    this->_clear_data();
+
+    OpenGL::render_begin();
+    this->view_impl->offscreen_buffer.release();
+    OpenGL::render_end();
+}
+
 wf::view_interface_t::~view_interface_t()
 {
     /* Note: at this point, it is invalid to call most functions */
@@ -1076,8 +1092,5 @@ void wf::view_damage_raw(wayfire_view view, const wlr_box& box)
 void wf::view_interface_t::destruct()
 {
     view_impl->is_alive = false;
-    priv->surface_children_below.clear();
-    priv->surface_children_above.clear();
-    view_impl->idle_destruct.run_once(
-        [&] () {wf::get_core_impl().erase_view(self());});
+    wf::get_core_impl().erase_view(self());
 }
