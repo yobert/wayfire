@@ -29,9 +29,9 @@ class wayfire_autostart
         }
 
         if (autostart_wf_shell && !panel_manually_started)
-            wf::get_core().run(INSTALL_PREFIX "/bin/wf-panel");
+            wf::get_core().run("wf-panel");
         if (autostart_wf_shell && !background_manually_started)
-            wf::get_core().run(INSTALL_PREFIX "/bin/wf-background");
+            wf::get_core().run("wf-background");
     }
 };
 
