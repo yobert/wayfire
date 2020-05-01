@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <set>
 #include <memory>
+#include <filesystem>
 #include <dlfcn.h>
 
 #include "plugin-loader.hpp"
@@ -147,6 +148,15 @@ void plugin_manager::reload_dynamic_plugins()
     std::vector<std::string> next_plugins;
 
     auto plugin_prefix = std::string(PLUGIN_PATH "/");
+    std::vector<std::string> plugin_prefixes;
+    if (char *plugin_path = getenv("WAYFIRE_PLUGIN_PATH"))
+    {
+        std::stringstream ss (plugin_path);
+        std::string entry;
+        while (std::getline(ss, entry, ':'))
+            plugin_prefixes.push_back(entry);
+    }
+    plugin_prefixes.push_back(PLUGIN_PATH);
 
     std::string plugin_name;
     while(stream >> plugin_name)
@@ -154,9 +164,20 @@ void plugin_manager::reload_dynamic_plugins()
         if (plugin_name.size())
         {
             if (plugin_name.at(0) == '/')
+            {
                 next_plugins.push_back(plugin_name);
-            else
-                next_plugins.push_back(plugin_prefix + "lib" + plugin_name + ".so");
+                continue;
+            }
+
+            for (std::filesystem::path plugin_prefix : plugin_prefixes)
+            {
+                auto plugin_path = plugin_prefix / ("lib" + plugin_name + ".so");
+                if (std::filesystem::exists(plugin_path))
+                {
+                    next_plugins.push_back(plugin_path);
+                    break;
+                }
+            }
         }
     }
 
