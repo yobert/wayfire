@@ -475,6 +475,15 @@ void wf::compositor_core_impl_t::add_view(
     v->initialize();
 }
 
+std::vector<wayfire_view> wf::compositor_core_impl_t::get_all_views()
+{
+    std::vector<wayfire_view> result;
+    for (auto& view : this->views)
+        result.push_back({view});
+
+    return result;
+}
+
 /* sets the "active" view and gives it keyboard focus
  *
  * It maintains two different classes of "active views"

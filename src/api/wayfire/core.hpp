@@ -176,6 +176,12 @@ class compositor_core_t : public wf::object_base_t
     virtual void add_view(std::unique_ptr<wf::view_interface_t> view) = 0;
 
     /**
+     * @return A list of all views core manages, regardless of their output,
+     *  properties, etc.
+     */
+    virtual std::vector<wayfire_view> get_all_views() = 0;
+
+    /**
      * Set the keyboard focus view. The stacking order on the view's output
      * won't be changed.
      */
