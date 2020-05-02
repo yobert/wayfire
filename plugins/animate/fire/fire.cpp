@@ -127,7 +127,7 @@ void FireAnimation::init(wayfire_view view, int dur, wf_animation_type type)
 
     int msec = dur * fire_duration_mod_for_height(
         view->get_bounding_box().height);
-    this->progression = wf::animation::simple_animation_t(wf::create_option<int>(msec));
+    this->progression = wf::animation::simple_animation_t(wf::create_option<int>(msec), wf::animation::smoothing::linear);
     this->progression.animate(0, 1);
 
     if (type & HIDING_ANIMATION)
