@@ -69,7 +69,7 @@ struct animation_hook : public animation_hook_base
     }
 
     wf::signal_connection_t on_set_output = {[this] (wf::signal_data_t *data)
-    { set_output(get_signaled_output(data)); }};
+    { set_output(view->get_output()); }};
 
     animation_hook(wayfire_view view, int duration, wf_animation_type type)
     {
