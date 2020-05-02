@@ -4,7 +4,7 @@ project(
 	'cpp',
 	version: '0.4.0',
 	license: 'MIT',
-	meson_version: '>=0.47.0',
+	meson_version: '>=0.50.0',
 	default_options: [
 		'cpp_std=c++17',
 		'c_std=c11',
@@ -66,8 +66,8 @@ conf_data.set('SYSCONFDIR', sysconfdir)
 add_project_arguments(['-DWLR_USE_UNSTABLE'], language: ['cpp', 'c'])
 add_project_link_arguments(['-rdynamic', '-Wl,-E'], language: 'cpp')
 
-if get_option('enable_gles32') and meson.get_compiler('cpp').has_header(
-    'GLES3/gl32.h', args: '-I' + glesv2.get_pkgconfig_variable('includedir'))
+if get_option('enable_gles32')
+  meson.get_compiler('cpp').check_header('GLES3/gl32.h', dependencies: glesv2, required: true)
   conf_data.set('USE_GLES32', true)
 else
   conf_data.set('USE_GLES32', false)
