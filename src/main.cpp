@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
     signal(SIGABRT, signal_handler);
 #endif
 
-    LOGI("Starting wayfire", WAYFIRE_VERSION);
+    LOGI("Starting wayfire version ", WAYFIRE_VERSION);
     /* First create display and initialize safe-list's event loop, so that
      * wf objects (which depend on safe-list) can work */
     auto display = wl_display_create();
