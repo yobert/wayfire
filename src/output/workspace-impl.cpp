@@ -841,7 +841,7 @@ class workspace_manager::impl
 
     void bring_to_front(wayfire_view view)
     {
-        if (!view->get_data<layer_view_data_t>())
+        if (!layer_manager.get_view_sublayer(view))
         {
             LOGE ("trying to bring_to_front a view without a layer!");
             return;
