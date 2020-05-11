@@ -56,6 +56,24 @@ static int handle_config_updated(int fd, uint32_t mask, void *data)
     return 0;
 }
 
+static void print_version()
+{
+     std::cout << WAYFIRE_VERSION << std::endl;
+     exit(0);
+}
+static void print_help()
+{
+     std::cout << "Wayfire " << WAYFIRE_VERSION                                           << std::endl;
+     std::cout << "Usage: wayfire [OPTION]...\n"                                          << std::endl;
+     std::cout << " -c,  --config            specify config file to use"                  << std::endl;
+     std::cout << " -h,  --help              print this help"                             << std::endl;
+     std::cout << " -d,  --debug             enable debug logging"                        << std::endl;
+     std::cout << " -D,  --damage-debug      enable additional debug for damaged regions" << std::endl;
+     std::cout << " -R,  --damage-rerender   rerender damaged regions"                    << std::endl;
+     std::cout << " -v,  --version           print version and exit"                      << std::endl;
+     exit(0);
+}
+
 std::map<EGLint, EGLint> default_attribs = {
     {EGL_RED_SIZE, 1},
     {EGL_GREEN_SIZE, 1},
@@ -219,31 +237,39 @@ int main(int argc, char *argv[])
     wf::log::log_level_t log_level = wf::log::LOG_LEVEL_INFO;
     struct option opts[] = {
         { "config",          required_argument, NULL, 'c' },
-        { "damage-debug",    no_argument,       NULL, 'd' },
+        { "debug",           no_argument,       NULL, 'd' },
+        { "damage-debug",    no_argument,       NULL, 'D' },
         { "damage-rerender", no_argument,       NULL, 'R' },
-        { "verbose",         no_argument,       NULL, 'v' },
+        { "help",            no_argument,       NULL, 'h' },
+        { "version",         no_argument,       NULL, 'v' },
         { 0,                 0,                 NULL,  0  }
     };
 
     int c, i;
-    while((c = getopt_long(argc, argv, "c:dRv", opts, &i)) != -1)
+    while((c = getopt_long(argc, argv, "c:dDhRv", opts, &i)) != -1)
     {
         switch(c)
         {
             case 'c':
                 config_file = optarg;
                 break;
-            case 'd':
+            case 'D':
                 runtime_config.damage_debug = true;
                 break;
             case 'R':
                 runtime_config.no_damage_track = true;
                 break;
-            case 'v':
+            case 'h':
+                print_help();
+                break;
+            case 'd':
                 log_level = wf::log::LOG_LEVEL_DEBUG;
                 break;
+            case 'v':
+                print_version();
+                break;
             default:
-                std::cerr << "Unrecognized command line argument " << optarg << std::endl;
+                std::cerr << "Unrecognized command line argument " << optarg << "\n" << std::endl;
         }
     }
 
@@ -260,7 +286,7 @@ int main(int argc, char *argv[])
     signal(SIGABRT, signal_handler);
 #endif
 
-    LOGI("Starting wayfire");
+    LOGI("Starting wayfire version ", WAYFIRE_VERSION);
     /* First create display and initialize safe-list's event loop, so that
      * wf objects (which depend on safe-list) can work */
     auto display = wl_display_create();

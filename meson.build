@@ -53,6 +53,22 @@ backtrace = meson.get_compiler('cpp').find_library('execinfo', required: false)
 
 conf_data = configuration_data()
 
+version = '"@0@"'.format(meson.project_version())
+git = find_program('git', native: true, required: false)
+if git.found()
+	git_commit = run_command([git, 'rev-parse', '--short', 'HEAD'])
+	git_branch = run_command([git, 'rev-parse', '--abbrev-ref', 'HEAD'])
+	if git_commit.returncode() == 0 and git_branch.returncode() == 0
+		version = '"@0@-@1@ (" __DATE__ ", branch \'@2@\')"'.format(
+			meson.project_version(),
+			git_commit.stdout().strip(),
+			git_branch.stdout().strip(),
+		)
+	endif
+endif
+add_project_arguments('-DWAYFIRE_VERSION=@0@'.format(version), language: 'cpp')
+conf_data.set('WAYFIRE_VERSION', '-DWAYFIRE_VERSION=@0@'.format(version))
+
 conf_data.set('WF_SRC_DIR', meson.source_root())
 conf_data.set('INSTALL_PREFIX', get_option('prefix'))
 conf_data.set('PLUGIN_PATH', join_paths(get_option('prefix'), get_option('libdir'), 'wayfire'))
