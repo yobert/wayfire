@@ -7,7 +7,7 @@
 		<option name="tile_by_default" type="string">
 			<_short>Tile enabled for specified window types</_short>
 			<_long>Enables tiling for windows matching the specified criteria.</_long>
-			<default>any</default>
+			<default>all</default>
 		</option>
 		<option name="keep_fullscreen_on_adjacent" type="bool">
 			<_short>Keep fullscreen on adjacent</_short>
