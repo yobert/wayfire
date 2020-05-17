@@ -92,9 +92,14 @@ pkg install wayfire
 ```
 
 ###### Gentoo
-Available from either of the two overlays [Guru](https://wiki.gentoo.org/wiki/Project:GURU) or [wayfire-desktop](https://github.com/epsilon-0/wayfire-desktop).  
-Look at [wayfire-desktop](https://github.com/epsilon-0/wayfire-desktop) to get full list of options and available wayfire packages.  
-
+Install the latest release with
+```sh
+emerge --ask --verbose wayfire
+```
+and to use the live version
+```sh
+emerge --ask --verbose "=gui-wm/wayfire-9999"
+```
 ###### NixOS
 
 See [nixpkgs-wayland].
