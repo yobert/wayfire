@@ -117,9 +117,9 @@ class wayfire_grid_view_cdata : public wf::custom_data_t
 
     void set_end_state(wf::geometry_t geometry, int32_t edges)
     {
-        view->set_geometry(geometry);
         if (edges >= 0)
             view->set_tiled(edges);
+        view->set_geometry(geometry);
     }
 
     void adjust_geometry()
