@@ -28,6 +28,7 @@ extern "C"
 #include <wlr/types/wlr_matrix.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_output_management_v1.h>
+#include <wlr/types/wlr_output_power_management_v1.h>
 #include <wlr/render/wlr_renderer.h>
 #undef static
 }
@@ -813,10 +814,13 @@ namespace wf
 
         wlr_output_layout *output_layout;
         wlr_output_manager_v1 *output_manager;
+        wlr_output_power_manager_v1 *output_pw_manager;
 
         wl_listener_wrapper on_new_output;
         wl_listener_wrapper on_output_manager_test;
         wl_listener_wrapper on_output_manager_apply;
+        wl_listener_wrapper on_output_power_mode_set;
+
         wl_idle_call idle_init_noop;
         wl_idle_call idle_update_configuration;
         wl_timer timer_remove_noop;
@@ -871,6 +875,12 @@ namespace wf
 
             on_output_manager_test.connect(&output_manager->events.test);
             on_output_manager_apply.connect(&output_manager->events.apply);
+
+            output_pw_manager = wlr_output_power_manager_v1_create(get_core().display);
+            on_output_power_mode_set.set_callback([=] (void *data) {
+                set_power_mode((wlr_output_power_v1_set_mode_event*)data);
+            });
+            on_output_power_mode_set.connect(&output_pw_manager->events.set_mode);
         }
 
         ~impl()
@@ -1177,6 +1187,19 @@ namespace wf
 
             wlr_output_manager_v1_set_configuration(output_manager,
                 wlr_configuration);
+        }
+
+        void set_power_mode(wlr_output_power_v1_set_mode_event *ev)
+        {
+            LOGD("output: ", ev->output->name, " power mode: ", ev->mode);
+            auto config = get_current_configuration();
+            if (!config.count(ev->output))
+                return;
+
+            config[ev->output].source =
+                (ev->mode == ZWLR_OUTPUT_POWER_V1_MODE_ON ?
+                 OUTPUT_IMAGE_SOURCE_SELF : OUTPUT_IMAGE_SOURCE_DPMS);
+            apply_configuration(config);
         }
 
         /* Public API functions */

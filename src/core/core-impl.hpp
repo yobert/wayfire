@@ -80,7 +80,6 @@ class compositor_core_impl_t : public compositor_core_t
     pid_t run(std::string command) override;
 
   private:
-    wf::wl_listener_wrapper output_layout_changed;
     wf::wl_listener_wrapper decoration_created;
     wf::wl_listener_wrapper xdg_decoration_created;
     wf::wl_listener_wrapper vkbd_created;
