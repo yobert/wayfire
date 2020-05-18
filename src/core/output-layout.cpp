@@ -5,7 +5,11 @@
 #include "wayfire/render-manager.hpp"
 #include "wayfire/signal-definitions.hpp"
 #include "wayfire/util.hpp"
+
 #include "../output/output-impl.hpp"
+#include "seat/input-manager.hpp"
+#include "core-impl.hpp"
+
 #include <xf86drmMode.h>
 #include <sstream>
 #include <cstring>
@@ -791,7 +795,11 @@ namespace wf
                     wlr_output_set_transform(handle, state.transform);
 
                 if (handle->scale != state.scale)
+                {
                     wlr_output_set_scale(handle, state.scale);
+                    wf::get_core_impl().input->cursor->load_xcursor_scale(
+                        state.scale);
+                }
 
                 wlr_output_commit(handle);
 

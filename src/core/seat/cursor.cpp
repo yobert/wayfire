@@ -102,9 +102,20 @@ void wf_cursor::init_xcursor()
         wlr_xcursor_manager_destroy(xcursor);
 
     xcursor = wlr_xcursor_manager_create(theme_ptr, size);
-    wlr_xcursor_manager_load(xcursor, 1);
+
+    load_xcursor_scale(1);
+    for (auto& wo : wf::get_core().output_layout->get_current_configuration())
+    {
+        if (wo.second.source & wf::OUTPUT_IMAGE_SOURCE_SELF)
+            load_xcursor_scale(wo.first->scale);
+    }
 
     set_cursor("default");
+}
+
+void wf_cursor::load_xcursor_scale(float scale)
+{
+    wlr_xcursor_manager_load(xcursor, scale);
 }
 
 void wf_cursor::attach_device(wlr_input_device *device)
