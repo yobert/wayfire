@@ -207,7 +207,7 @@ void init_xwayland();
 void init_layer_shell();
 
 void xwayland_set_seat(wlr_seat *seat);
-int xwayland_get_display();
+std::string xwayland_get_display();
 
 void init_desktop_apis();
 }

@@ -664,11 +664,11 @@ void wf::xwayland_set_seat(wlr_seat *seat)
 #endif
 }
 
-int wf::xwayland_get_display()
+std::string wf::xwayland_get_display()
 {
 #if WLR_HAS_XWAYLAND
-    return xwayland_handle ? xwayland_handle->display : -1;
+    return xwayland_handle ? nonull(xwayland_handle->display_name) : "";
 #else
-    return -1;
+    return "";
 #endif
 }

@@ -237,11 +237,12 @@ class compositor_core_t : public wf::object_base_t
     std::string wayland_display;
 
     /**
-     * Return the xwayland display number.
+     * Return the xwayland display name.
      *
-     * This returns -1 if xwayland is not available
+     * @return The xwayland display name, or empty string if xwayland is not
+     *   available.
      */
-    virtual int get_xwayland_display() = 0;
+    virtual std::string get_xwayland_display() = 0;
 
     /**
      * Execute the given command in a bash shell.

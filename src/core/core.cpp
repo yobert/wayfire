@@ -585,9 +585,8 @@ pid_t wf::compositor_core_impl_t::run(std::string command)
             setenv("_JAVA_AWT_WM_NONREPARENTING", "1", 1);
             setenv("WAYLAND_DISPLAY", wayland_display.c_str(), 1);
 #if WLR_HAS_XWAYLAND
-            if (xwayland_get_display() >= 0) {
-                auto xdisp = ":" + std::to_string(xwayland_get_display());
-                setenv("DISPLAY", xdisp.c_str(), 1);
+            if (!xwayland_get_display().empty()) {
+                setenv("DISPLAY", xwayland_get_display().c_str(), 1);
             }
 #endif
             int dev_null = open("/dev/null", O_WRONLY);
@@ -617,7 +616,7 @@ pid_t wf::compositor_core_impl_t::run(std::string command)
     }
 }
 
-int wf::compositor_core_impl_t::get_xwayland_display()
+std::string wf::compositor_core_impl_t::get_xwayland_display()
 {
     return xwayland_get_display();
 }
