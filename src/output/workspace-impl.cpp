@@ -547,7 +547,8 @@ class output_viewport_manager_t
             v->move(v->get_wm_geometry().x + dx,
                 v->get_wm_geometry().y + dy);
         }
-
+        
+        data.output = output;
         output->emit_signal("viewport-changed", &data);
 
         /* unfocus view from last workspace */
@@ -782,6 +783,7 @@ class workspace_manager::impl
         data.carried_out = false;
         data.old_viewport = viewport_manager.get_current_workspace();
         data.new_viewport = ws;
+        data.output = output;
         output->emit_signal("set-workspace-request", &data);
 
         if (!data.carried_out)
