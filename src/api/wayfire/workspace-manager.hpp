@@ -112,6 +112,15 @@ class workspace_manager
 {
   public:
     /**
+     * Calculate a list of workspaces the view is visible on.
+     * @param threshold How much of the view's area needs to overlap a workspace to be counted as visible on it.
+     *    1.0 for 100% visible, 0.1 for 10%.
+     *
+     * @return a vector of all the workspaces
+     */
+    std::vector<wf::point_t> get_view_workspaces(wayfire_view view, double threshold);
+
+    /**
      * Check if the given view is visible on the given workspace
      */
     bool view_visible_on(wayfire_view view, wf::point_t ws);
