@@ -1,5 +1,6 @@
 name: CI
 
+on: [push, pull_request]
 jobs:
   test_musl_gcc:
     name: "Test with GCC/musl/libstdc++/BFD on Alpine Linux"
