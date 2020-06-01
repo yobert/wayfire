@@ -68,6 +68,14 @@ struct view_tiled_signal : public _view_signal
 };
 
 /**
+ * view-self-request-focus signal is emitted on the view's output whenever the client indicates the
+ * view should become active.
+ */
+struct view_self_request_focus_signal : public _view_signal
+{
+};
+
+/**
  * The view-fullscreen-request and view-fullscreen signals are emitted on the view's output when the view's fullscreen state changes.
  * view-fullscreen-request is emitted when the view needs to be fullscreened, but has not been fullscreened yet.
  * view-fullscreen is emitted whenever the view's fullscreen state actually changes.
