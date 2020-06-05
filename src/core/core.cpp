@@ -287,9 +287,9 @@ void wf::compositor_core_impl_t::hide_cursor()
     input->cursor->hide_cursor();
 }
 
-void wf::compositor_core_impl_t::warp_cursor(int x, int y)
+void wf::compositor_core_impl_t::warp_cursor(wf::pointf_t pos)
 {
-    input->cursor->warp_cursor({1.0 * x, 1.0 * y});
+    input->cursor->warp_cursor(pos);
 }
 
 wf::pointf_t wf::compositor_core_impl_t::get_cursor_position()

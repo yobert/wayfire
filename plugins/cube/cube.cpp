@@ -350,8 +350,7 @@ class wayfire_cube : public wf::plugin_interface_t
     void input_ungrabbed()
     {
         wf::get_core().set_cursor("default");
-        wf::get_core().warp_cursor(
-            saved_pointer_position.x, saved_pointer_position.y);
+        wf::get_core().warp_cursor(saved_pointer_position);
 
         animation.in_exit = true;
 

@@ -123,8 +123,11 @@ class compositor_core_t : public wf::object_base_t
     virtual void set_cursor(std::string name) = 0;
     /** Hides the cursor, until something sets it up again, for ex. by set_cursor() */
     virtual void hide_cursor() = 0;
-    /** Sends an absolute motion event. x and y should be passed in global coordinates */
-    virtual void warp_cursor(int x, int y) = 0;
+    /**
+     * Move the cursor to a specific position.
+     * @param position the new position for the cursor, in global coordinates.
+     */
+    virtual void warp_cursor(wf::pointf_t position) = 0;
 
     /** no such coordinate will ever realistically be used for input */
     static constexpr double invalid_coordinate =

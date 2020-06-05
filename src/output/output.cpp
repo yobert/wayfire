@@ -136,11 +136,11 @@ void wf::output_t::ensure_pointer(bool center) const
     }
 
     auto lg = get_layout_geometry();
-    wf::point_t target = {
-        lg.x + lg.width / 2,
-        lg.y + lg.height / 2,
+    wf::pointf_t target = {
+        lg.x + lg.width / 2.0,
+        lg.y + lg.height / 2.0,
     };
-    wf::get_core().warp_cursor(target.x, target.y);
+    wf::get_core().warp_cursor(target);
     wf::get_core().set_cursor("default");
 }
 
