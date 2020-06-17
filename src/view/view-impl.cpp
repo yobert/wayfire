@@ -506,7 +506,7 @@ extern "C"
 #undef namespace
 #include <wlr/types/wlr_xdg_shell.h>
 
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
 #define class class_t
 #define static
 #include <wlr/xwayland.h>
@@ -552,7 +552,7 @@ wayfire_view wf::wl_surface_to_wayfire_view(wl_resource *resource)
     if (wlr_surface_is_layer_surface(surface))
         handle = wlr_layer_surface_v1_from_wlr_surface(surface)->data;
 
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
     if (wlr_surface_is_xwayland_surface(surface))
         handle = wlr_xwayland_surface_from_wlr_surface(surface)->data;
 #endif

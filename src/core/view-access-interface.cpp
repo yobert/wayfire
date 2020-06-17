@@ -9,7 +9,7 @@
 #include <wlr/config.h>
 #include <wlr/util/edges.h>
 
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
 extern "C"
 {
 #define static
@@ -110,7 +110,7 @@ variant_t view_access_interface_t::get(const std::string &identifier, bool &erro
             if (_view->role == VIEW_ROLE_UNMANAGED)
             {
                 auto surf = _view->get_wlr_surface();
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
                 if (surf && wlr_surface_is_xwayland_surface(surf)) {
                     out = std::string("x-or");
                     break;

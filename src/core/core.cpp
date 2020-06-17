@@ -602,7 +602,7 @@ pid_t wf::compositor_core_impl_t::run(std::string command)
 
             setenv("_JAVA_AWT_WM_NONREPARENTING", "1", 1);
             setenv("WAYLAND_DISPLAY", wayland_display.c_str(), 1);
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
             if (!xwayland_get_display().empty()) {
                 setenv("DISPLAY", xwayland_get_display().c_str(), 1);
             }
