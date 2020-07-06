@@ -46,6 +46,7 @@ namespace wf
 class surface_interface_t;
 class view_interface_t;
 }
+
 using wayfire_view = nonstd::observer_ptr<wf::view_interface_t>;
 
 namespace wf
@@ -106,7 +107,10 @@ class compositor_core_t : public wf::object_base_t
         wlr_primary_selection_v1_device_manager *primary_selection_v1;
     } protocols;
 
-    std::string to_string() const { return "wayfire-core"; }
+    std::string to_string() const
+    {
+        return "wayfire-core";
+    }
 
     /**
      * @return the current seat. For now, Wayfire supports only a single seat,
@@ -121,7 +125,8 @@ class compositor_core_t : public wf::object_base_t
 
     /** Set the cursor to the given name from the cursor theme, if available */
     virtual void set_cursor(std::string name) = 0;
-    /** Hides the cursor, until something sets it up again, for ex. by set_cursor() */
+    /** Hides the cursor, until something sets it up again, for ex. by set_cursor()
+     * */
     virtual void hide_cursor() = 0;
     /**
      * Move the cursor to a specific position.
@@ -172,13 +177,13 @@ class compositor_core_t : public wf::object_base_t
     /**
      * @return A list of all currently attached input devices.
      */
-    virtual std::vector<nonstd::observer_ptr<wf::input_device_t>>
-        get_input_devices() = 0;
+    virtual std::vector<nonstd::observer_ptr<wf::input_device_t>> get_input_devices()
+    = 0;
 
     /**
      * @return the wlr_cursor used for the input devices
      */
-    virtual wlr_cursor* get_wlr_cursor() = 0;
+    virtual wlr_cursor *get_wlr_cursor() = 0;
 
     /**
      * Add a view to the compositor's view list. The view will be freed when
