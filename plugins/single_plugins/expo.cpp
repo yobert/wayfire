@@ -343,18 +343,18 @@ class wayfire_expo : public wf::plugin_interface_t
         if (!moving_view)
             return;
 
+        MOVE_HELPER->handle_input_released();
+        moving_view->erase_data<wf::move_snap_helper_t>();
         if (!view_destroyed)
         {
+
             view_change_viewport_signal data;
             data.view = moving_view;
             data.from = move_started_ws;
             data.to   = {target_vx, target_vy};
             output->emit_signal("view-change-viewport", &data);
-
-            MOVE_HELPER->handle_input_released();
         }
 
-        moving_view->erase_data<wf::move_snap_helper_t>();
         moving_view = nullptr;
     }
 
@@ -402,10 +402,11 @@ class wayfire_expo : public wf::plugin_interface_t
     {
         auto local = input_coordinates_to_output_local_coordinates({gx, gy});
         /* TODO: adjust to delimiter offset */
+        wlr_box box = {local.x, local.y, 1, 1};
 
         for (auto& view : output->workspace->get_views_in_layer(wf::WM_LAYERS))
         {
-            if (view->get_wm_geometry() & local)
+            if (view->intersects_region(box))
                 return view;
         }
 
