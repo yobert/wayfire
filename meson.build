@@ -30,7 +30,7 @@ pixman         = dependency('pixman-1')
 threads        = dependency('threads')
 xkbcommon      = dependency('xkbcommon')
 wlroots        = dependency('wlroots', version: ['>=0.11.0', '<0.12.0'], required: get_option('use_system_wlroots'))
-wfconfig       = dependency('wf-config', version: ['>=0.4.0', '<0.5.0'], required: get_option('use_system_wfconfig'))
+wfconfig       = dependency('wf-config', version: ['>=0.5.0', '<0.6.0'], required: get_option('use_system_wfconfig'))
 
 use_system_wlroots = not get_option('use_system_wlroots').disabled() and wlroots.found()
 if not use_system_wlroots
