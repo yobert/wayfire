@@ -197,8 +197,18 @@ wf::pointf_t wf::view_3D::transform_point(
     glm::vec4 v(1.0f * p.x, 1.0f * p.y, 0, 1);
     v = calculate_total_transform() * v;
 
-    v.x /= v.w;
-    v.y /= v.w;
+    if (std::abs(v.w) < 1e-6)
+    {
+        /* This should never happen as long as we use well-behaving matrices.
+         * However if we set transform to the zero matrix we might get
+         * this case where v.w is zero. In this case we assume the view is
+         * just a single point at 0,0 */
+        v.x = v.y = 0;
+    } else
+    {
+        v.x /= v.w;
+        v.y /= v.w;
+    }
 
     return get_absolute_coords_from_relative(geometry, {v.x, v.y});
 }
