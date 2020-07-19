@@ -309,9 +309,19 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    std::vector<std::string> xmldirs;
+    if (char *plugin_xml_path = getenv("WAYFIRE_PLUGIN_XML_PATH"))
+    {
+        std::stringstream ss (plugin_xml_path);
+        std::string entry;
+        while (std::getline(ss, entry, ':'))
+            xmldirs.push_back(entry);
+    }
+    xmldirs.push_back(PLUGIN_XML_DIR);
+
     LOGI("using config file: ", config_file.c_str());
     core.config = wf::config::build_configuration(
-        PLUGIN_XML_DIR, SYSCONFDIR "/wayfire/defaults.ini", config_file);
+        xmldirs, SYSCONFDIR "/wayfire/defaults.ini", config_file);
 
     int inotify_fd = inotify_init1(IN_CLOEXEC);
     reload_config(inotify_fd);
