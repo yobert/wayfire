@@ -421,7 +421,7 @@ class WayfireSwitcher : public wf::plugin_interface_t
     {
         auto all_views = output->workspace->get_views_on_workspace(
             output->workspace->get_current_workspace(),
-            wf::WM_LAYERS | wf::LAYER_MINIMIZED, true);
+            wf::WM_LAYERS | wf::LAYER_MINIMIZED);
 
         decltype(all_views) mapped_views;
         for (auto view : all_views)
@@ -519,13 +519,13 @@ class WayfireSwitcher : public wf::plugin_interface_t
     std::vector<wayfire_view> get_background_views() const
     {
         return output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), wf::BELOW_LAYERS, false);
+            output->workspace->get_current_workspace(), wf::BELOW_LAYERS);
     }
 
     std::vector<wayfire_view> get_overlay_views() const
     {
         return output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), wf::ABOVE_LAYERS, false);
+            output->workspace->get_current_workspace(), wf::ABOVE_LAYERS);
     }
 
     void dim_background(float dim)
@@ -588,11 +588,6 @@ class WayfireSwitcher : public wf::plugin_interface_t
         transform->color[3] = sv.attribs.alpha;
         sv.view->render_transformed(output->render->get_target_framebuffer(),
             output->render->get_target_framebuffer().geometry);
-
-        transform->translation = glm::mat4();
-        transform->scaling = glm::mat4();
-        transform->rotation = glm::mat4();
-        transform->color[3] = 1.0;
     }
 
     wf::render_hook_t switcher_renderer = [=] (const wf::framebuffer_t& fb)
