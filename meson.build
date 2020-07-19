@@ -83,6 +83,8 @@ conf_data.set('SYSCONFDIR', sysconfdir)
 # -E is for RTTI/dynamic_cast across plugins
 add_project_arguments(['-DWLR_USE_UNSTABLE'], language: ['cpp', 'c'])
 add_project_link_arguments(['-rdynamic', '-Wl,-E'], language: 'cpp')
+# Needed on some older compilers
+add_project_link_arguments(['-lstdc++fs'], language: 'cpp')
 
 if get_option('enable_gles32')
   meson.get_compiler('cpp').check_header('GLES3/gl32.h', dependencies: glesv2, required: true)
