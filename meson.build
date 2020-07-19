@@ -97,30 +97,42 @@ else
   conf_data.set('BUILD_WITH_IMAGEIO', false)
 endif
 
-configure_file(input: 'config.h.in',
-               output: 'config.h',
-               configuration: conf_data)
-
 wayfire_conf_inc = include_directories(['.'])
 
 add_project_arguments(['-Wno-unused-parameter'], language: 'cpp')
 
-wlroots_has_xwayland = false
-wlroots_has_x11_backend = false
+have_xwayland = false
+have_x11_backend = false
 if use_system_wlroots
   cpp = meson.get_compiler('cpp')
-  wlroots_has_xwayland = cpp.get_define('WLR_HAS_XWAYLAND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
-  wlroots_has_x11_backend = cpp.get_define('WLR_HAS_X11_BACKEND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
+  have_xwayland = cpp.get_define('WLR_HAS_XWAYLAND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
+  have_x11_backend = cpp.get_define('WLR_HAS_X11_BACKEND', prefix: '#include <wlr/config.h>', dependencies: wlroots) == '1'
 else
-  wlroots_has_xwayland = subproject('wlroots').get_variable('conf_data').get('WLR_HAS_XWAYLAND', false) == 1
-  wlroots_has_x11_backend = subproject('wlroots').get_variable('conf_data').get('WLR_HAS_X11_BACKEND', false) == 1
+  have_xwayland = subproject('wlroots').get_variable('conf_data').get('WLR_HAS_XWAYLAND', false) == 1
+  have_x11_backend = subproject('wlroots').get_variable('conf_data').get('WLR_HAS_X11_BACKEND', false) == 1
 endif
 
-if wlroots_has_xwayland
+if get_option('xwayland').enabled() and not have_xwayland
+  error('Cannot enable Xwayland in wayfire: wlroots has been built without Xwayland support')
+endif
+
+if get_option('xwayland').enabled()
+  have_xwayland = true
+elif get_option('xwayland').disabled()
+  have_xwayland = false
+endif
+
+if have_xwayland
   xcb = dependency('xcb')
+  conf_data.set('WF_HAS_XWAYLAND', 1)
 else
   xcb = declare_dependency() # dummy dep
+  conf_data.set('WF_HAS_XWAYLAND', 0)
 endif
+
+configure_file(input: 'config.h.in',
+               output: 'config.h',
+               configuration: conf_data)
 
 subdir('proto')
 subdir('src')
@@ -134,8 +146,8 @@ summary = [
 	'',
     'system wfconfig: @0@'.format(use_system_wfconfig),
     ' system wlroots: @0@'.format(use_system_wlroots),
-    '       xwayland: @0@'.format(wlroots_has_xwayland),
-    '    x11-backend: @0@'.format(wlroots_has_x11_backend),
+    '       xwayland: @0@'.format(have_xwayland),
+    '    x11-backend: @0@'.format(have_x11_backend),
     '        imageio: @0@'.format(conf_data.get('BUILD_WITH_IMAGEIO')),
     '         gles32: @0@'.format(conf_data.get('USE_GLES32')),
     '----------------',

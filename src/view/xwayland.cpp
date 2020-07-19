@@ -12,7 +12,7 @@ extern "C"
 {
 #include <wlr/config.h>
 
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
 #define class class_t
 #define static
 #include <wlr/xwayland.h>
@@ -22,7 +22,7 @@ extern "C"
 #endif
 }
 
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
 
 class wayfire_xwayland_view_base : public wf::wlr_view_t
 {
@@ -615,7 +615,7 @@ static wlr_xwayland *xwayland_handle = nullptr;
 
 void wf::init_xwayland()
 {
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
     static wf::wl_listener_wrapper on_created;
     static wf::wl_listener_wrapper on_ready;
 
@@ -659,7 +659,7 @@ void wf::init_xwayland()
 
 void wf::xwayland_set_seat(wlr_seat *seat)
 {
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
     if (xwayland_handle)
     {
         wlr_xwayland_set_seat(xwayland_handle,
@@ -670,7 +670,7 @@ void wf::xwayland_set_seat(wlr_seat *seat)
 
 void wf::xwayland_set_cursor(wlr_xcursor_image *image)
 {
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
     if (!xwayland_handle)
         return;
     wlr_xwayland_set_cursor(xwayland_handle, image->buffer,
@@ -681,7 +681,7 @@ void wf::xwayland_set_cursor(wlr_xcursor_image *image)
 
 std::string wf::xwayland_get_display()
 {
-#if WLR_HAS_XWAYLAND
+#if WF_HAS_XWAYLAND
     return xwayland_handle ? nonull(xwayland_handle->display_name) : "";
 #else
     return "";
