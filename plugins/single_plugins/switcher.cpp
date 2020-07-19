@@ -588,11 +588,6 @@ class WayfireSwitcher : public wf::plugin_interface_t
         transform->color[3] = sv.attribs.alpha;
         sv.view->render_transformed(output->render->get_target_framebuffer(),
             output->render->get_target_framebuffer().geometry);
-
-        transform->translation = glm::mat4();
-        transform->scaling = glm::mat4();
-        transform->rotation = glm::mat4();
-        transform->color[3] = 1.0;
     }
 
     wf::render_hook_t switcher_renderer = [=] (const wf::framebuffer_t& fb)
