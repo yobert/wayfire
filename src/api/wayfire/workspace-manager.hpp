@@ -14,9 +14,10 @@ namespace wf
  */
 struct workspace_implementation_t
 {
-    virtual bool view_movable(wayfire_view view) = 0;
+    virtual bool view_movable(wayfire_view view)   = 0;
     virtual bool view_resizable(wayfire_view view) = 0;
-    virtual ~workspace_implementation_t() {}
+    virtual ~workspace_implementation_t()
+    {}
 };
 
 /**
@@ -39,28 +40,27 @@ enum layer_t
     /* The layer where "desktop widgets" are positioned, for example an OSK
      * or a sound control popup */
     LAYER_DESKTOP_WIDGET = (1 << 6),
-
     /* The minimized layer. It has no z order since it is not visible at all */
-    LAYER_MINIMIZED      = (1 << 7)
+    LAYER_MINIMIZED      = (1 << 7),
 };
 
 constexpr int TOTAL_LAYERS = 8;
 
 /* The layers where regular views are placed */
-constexpr int WM_LAYERS     = (wf::LAYER_WORKSPACE);
+constexpr int WM_LAYERS = (wf::LAYER_WORKSPACE);
 /* All layers which are used for regular clients */
-constexpr int MIDDLE_LAYERS = (wf::WM_LAYERS        | wf::LAYER_UNMANAGED);
+constexpr int MIDDLE_LAYERS = (wf::WM_LAYERS | wf::LAYER_UNMANAGED);
 /* All layers which typically sit on top of other layers */
-constexpr int ABOVE_LAYERS  = (wf::LAYER_TOP        | wf::LAYER_LOCK |
-                               wf::LAYER_DESKTOP_WIDGET);
+constexpr int ABOVE_LAYERS = (wf::LAYER_TOP | wf::LAYER_LOCK |
+    wf::LAYER_DESKTOP_WIDGET);
 /* All layers which typically sit below other layers */
-constexpr int BELOW_LAYERS  = (wf::LAYER_BACKGROUND | wf::LAYER_BOTTOM);
+constexpr int BELOW_LAYERS = (wf::LAYER_BACKGROUND | wf::LAYER_BOTTOM);
 
 /* All visible layers */
 constexpr int VISIBLE_LAYERS = (wf::MIDDLE_LAYERS | wf::ABOVE_LAYERS |
-                                wf::BELOW_LAYERS);
+    wf::BELOW_LAYERS);
 /* All layers */
-constexpr int ALL_LAYERS     = (wf::VISIBLE_LAYERS | wf::LAYER_MINIMIZED);
+constexpr int ALL_LAYERS = (wf::VISIBLE_LAYERS | wf::LAYER_MINIMIZED);
 
 /**
  * @return A bitmask consisting of all layers which are not below the given layer
@@ -95,7 +95,7 @@ enum sublayer_mode_t
      * Floating sublayers are positioned in the middle of the layer they are
      * part of. Floating sublayers can be re-arranged with respect to each other.
      */
-    SUBLAYER_FLOATING = 2,
+    SUBLAYER_FLOATING     = 2,
 };
 
 /**
@@ -113,12 +113,14 @@ class workspace_manager
   public:
     /**
      * Calculate a list of workspaces the view is visible on.
-     * @param threshold How much of the view's area needs to overlap a workspace to be counted as visible on it.
+     * @param threshold How much of the view's area needs to overlap a workspace to
+     * be counted as visible on it.
      *    1.0 for 100% visible, 0.1 for 10%.
      *
      * @return a vector of all the workspaces
      */
-    std::vector<wf::point_t> get_view_workspaces(wayfire_view view, double threshold);
+    std::vector<wf::point_t> get_view_workspaces(wayfire_view view,
+        double threshold);
 
     /**
      * Check if the given view is visible on the given workspace
@@ -270,7 +272,7 @@ class workspace_manager
     /**
      * @return The current workspace implementation
      */
-    workspace_implementation_t* get_workspace_implementation();
+    workspace_implementation_t *get_workspace_implementation();
 
     /**
      * Set the active workspace implementation
@@ -317,10 +319,10 @@ class workspace_manager
      */
     enum anchored_edge
     {
-        ANCHORED_EDGE_TOP = 0,
+        ANCHORED_EDGE_TOP    = 0,
         ANCHORED_EDGE_BOTTOM = 1,
-        ANCHORED_EDGE_LEFT = 2,
-        ANCHORED_EDGE_RIGHT = 3
+        ANCHORED_EDGE_LEFT   = 2,
+        ANCHORED_EDGE_RIGHT  = 3,
     };
 
     struct anchored_area
@@ -367,6 +369,7 @@ class workspace_manager
 
     workspace_manager(output_t *output);
     ~workspace_manager();
+
   protected:
     class impl;
     std::unique_ptr<impl> pimpl;
