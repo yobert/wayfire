@@ -767,6 +767,8 @@ nonstd::observer_ptr<wf::view_transformer_t> wf::view_interface_t::get_transform
 void wf::view_interface_t::pop_transformer(
     nonstd::observer_ptr<wf::view_transformer_t> transformer)
 {
+    this->view_impl->offscreen_buffer.cached_damage |=
+        this->view_impl->offscreen_buffer.geometry;
     view_impl->transforms.remove_if([&] (auto& tr)
     {
         return tr->transform.get() == transformer.get();
