@@ -10,6 +10,7 @@ extern "C"
 #include "wayfire/signal-definitions.hpp"
 #include "../core-impl.hpp"
 #include "../../output/output-impl.hpp"
+#include "../../view/xdg-shell.hpp"
 #include "touch.hpp"
 #include "keyboard.hpp"
 #include "cursor.hpp"
@@ -357,6 +358,40 @@ wf::surface_interface_t*input_manager::input_surface_at(wf::pointf_t global,
     }
 
     return nullptr;
+}
+
+template<class XdgPopupVersion>
+wf::surface_interface_t *get_popup_toplevel(wf::surface_interface_t *surface)
+{
+    wayfire_xdg_popup<XdgPopupVersion> *popup;
+    while ((popup = dynamic_cast<wayfire_xdg_popup<XdgPopupVersion>*>(surface)))
+        surface = popup->popup_parent;
+
+    return surface;
+}
+
+bool input_manager::should_switch_pointing_focus(
+    wf::surface_interface_t *new_focus, wf::surface_interface_t *old_focus)
+{
+    /* Wayland DnD */
+    if (this->drag_icon)
+        return true;
+
+    if (old_focus == nullptr)
+        return true;
+
+    /* Check whether new focus has same leader as old focus */
+    auto new_leader = get_popup_toplevel<wlr_xdg_popup>(new_focus);
+    auto old_leader = get_popup_toplevel<wlr_xdg_popup>(old_focus);
+    if (old_leader == new_leader)
+        return true;
+
+    new_leader = get_popup_toplevel<wlr_xdg_popup_v6>(new_focus);
+    old_leader = get_popup_toplevel<wlr_xdg_popup_v6>(old_focus);
+    if (old_leader == new_leader)
+        return true;
+
+    return false;
 }
 
 void input_manager::set_exclusive_focus(wl_client *client)

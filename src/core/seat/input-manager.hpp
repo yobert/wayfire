@@ -140,6 +140,18 @@ class input_manager
     wf::surface_interface_t *input_surface_at(wf::pointf_t global,
         wf::pointf_t& local);
 
+    /**
+     * Held buttons, touch down and tablet input all have implicit grabs.
+     *
+     * Even in those cases, we sometimes want to be able to switch focus,
+     * for example if we have a Wayland DnD in progress, or if we are
+     * hovering a popup.
+     *
+     * This method checks whether the focus should be changed in these cases.
+     */
+    bool should_switch_pointing_focus(wf::surface_interface_t *new_focus,
+        wf::surface_interface_t *old_focus);
+
     uint32_t get_modifiers();
 
     void free_output_bindings(wf::output_t *output);

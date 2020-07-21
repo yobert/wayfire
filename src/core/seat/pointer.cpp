@@ -69,23 +69,17 @@ void wf::LogicalPointer::update_cursor_position(uint32_t time_msec,
     wf::pointf_t gc = input->cursor->get_cursor_position();
 
     wf::pointf_t local = {0.0, 0.0};
-    wf::surface_interface_t *new_focus = nullptr;
-    /* If we have a grabbed surface, but no drag, we want to continue sending
-     * events to the grabbed surface, even if the pointer goes outside of it.
-     * This enables Xwayland DnD to work correctly, and also lets the user for
-     * ex. grab a scrollbar and move their mouse freely.
-     *
-     * Notice in case of active wayland DnD we need to send events to the
-     * surfaces which are actually under the mouse */
-    if (grabbed_surface && !input->drag_icon)
+    wf::surface_interface_t *new_focus = input->input_surface_at(gc, local);
+    if (!input->should_switch_pointing_focus(new_focus, grabbed_surface))
     {
         new_focus = grabbed_surface;
         local     = get_surface_relative_coords(new_focus, gc);
     } else if (this->focus_enabled())
     {
-        new_focus = input->input_surface_at(gc, local);
-        update_cursor_focus(new_focus, local);
+        if (this->grabbed_surface)
+            this->grab_surface(new_focus);
 
+        update_cursor_focus(new_focus, local);
         /* We switched focus, so send motion event in any case, so that the
          * new focus knows where the pointer is */
         real_update = true;
