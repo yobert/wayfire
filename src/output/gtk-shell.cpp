@@ -167,8 +167,17 @@ static void handle_gtk_shell_set_startup_id(wl_client *client, wl_resource *reso
  */
 static void handle_gtk_shell_system_bell(wl_client *client, wl_resource *resource,
     wl_resource *surface)
-{}
+{
+    view_system_bell_signal data;
+    if (surface)
+    {
+        auto wl_surface =
+            static_cast<wl_resource*>(wl_resource_get_user_data(surface));
+        data.view = wf::wl_surface_to_wayfire_view(wl_surface);
+    }
 
+    wf::get_core().emit_signal("view-system-bell", &data);
+}
 
 /**
  * Supported functions of the gtk_shell_interface implementation

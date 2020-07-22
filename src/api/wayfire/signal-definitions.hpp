@@ -78,6 +78,15 @@ struct view_self_request_focus_signal : public _view_signal
 {};
 
 /**
+ * view-system-bell signal is emitted whenever the client indicates
+ * the view wants to invoke the system bell if such is available.
+ *
+ * Note: system-bell may be invoked with a nullptr view.
+ */
+struct view_system_bell_signal : public _view_signal
+{};
+
+/**
  * The view-fullscreen-request and view-fullscreen signals are emitted on the view's
  * output when the view's fullscreen state changes.
  * view-fullscreen-request is emitted when the view needs to be fullscreened, but has
