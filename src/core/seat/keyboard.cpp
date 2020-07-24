@@ -90,7 +90,7 @@ void wf_keyboard::reload_input_options()
     if (!keymap)
     {
         LOGE("Could not create keymap with given configuration:",
-            " rules=\"", rules, "\" model=\"", model, "\" layout=\"",layout,
+            " rules=\"", rules, "\" model=\"", model, "\" layout=\"", layout,
             "\" variant=\"", variant, "\" options=\"", options, "\"");
 
         // reset to NULL
