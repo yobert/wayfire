@@ -50,7 +50,7 @@ libinotify       = dependency('libinotify', required: needs_libinotify)
 jpeg = dependency('libjpeg', required: false)
 png  = dependency('libpng',  required: false)
 
-# backtrace() is in a separate library on FreeBSD
+# backtrace() is in a separate library on FreeBSD and Linux with musl
 backtrace = meson.get_compiler('cpp').find_library('execinfo', required: false)
 
 conf_data = configuration_data()
