@@ -695,6 +695,7 @@ void wf::init_xwayland()
 #if WF_HAS_XWAYLAND
     static wf::wl_listener_wrapper on_created;
     static wf::wl_listener_wrapper on_ready;
+    static wf::option_wrapper_t<int> xwayland_scale{"core/xwayland_scale"};
 
     static signal_connection_t on_shutdown{[&] (void*)
         {
@@ -724,6 +725,16 @@ void wf::init_xwayland()
         } else
         {
             LOGD("Successfully loaded Xwayland atoms.");
+        }
+
+        wlr_xwayland_set_scale(xwayland_handle, xwayland_scale);
+    });
+
+    xwayland_scale.set_callback([&] ()
+    {
+        if (xwayland_handle)
+        {
+            wlr_xwayland_set_scale(xwayland_handle, xwayland_scale);
         }
     });
 
