@@ -55,7 +55,10 @@ else
   debug_arguments += ['-DHAS_ADDR2LINE=0']
 endif
 
-if get_option('b_sanitize').contains('address')
+
+cxx_flags_asan = run_command('/bin/sh', '-c', 'echo $CXXFLAGS $CPPFLAGS | grep fsanitize')
+if get_option('b_sanitize').contains('address') or cxx_flags_asan.returncode() == 0
+  message('Address sanitizer enabled, disabling internal backtrace')
   debug_arguments += ['-DASAN_ENABLED']
 endif
 
