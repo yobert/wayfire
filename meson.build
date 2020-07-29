@@ -13,7 +13,6 @@ project(
 	],
 )
 
-so_version = ['0', '4', '0']
 wayfire_api_inc  = include_directories('src/api')
 
 wayland_server = dependency('wayland-server')
