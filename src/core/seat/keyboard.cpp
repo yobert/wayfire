@@ -56,8 +56,8 @@ wf_keyboard::wf_keyboard(wlr_input_device *dev) :
     model.load_option("input/xkb_model");
     variant.load_option("input/xkb_variant");
     layout.load_option("input/xkb_layout");
-    options.load_option("input/xkb_option");
-    rules.load_option("input/xkb_rule");
+    options.load_option("input/xkb_options");
+    rules.load_option("input/xkb_rules");
 
     repeat_rate.load_option("input/kb_repeat_rate");
     repeat_delay.load_option("input/kb_repeat_delay");
