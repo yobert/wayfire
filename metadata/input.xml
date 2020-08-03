@@ -141,7 +141,7 @@
 				<_name>On-button down</_name>
 			</desc>
 		</option>
-		<option name="disable_while_typing" type="bool">
+		<option name="disable_touchpad_while_typing" type="bool">
 			<_short>Disable touchpad while typing</_short>
 			<_long>Disables the touchpad while typing.</_long>
 			<default>false</default>
