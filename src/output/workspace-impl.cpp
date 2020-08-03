@@ -622,6 +622,7 @@ class output_viewport_manager_t
         wf::workspace_changed_signal data;
         data.old_viewport = {current_vx, current_vy};
         data.new_viewport = {nws.x, nws.y};
+        data.output = output;
 
         /* The part below is tricky, because with the current architecture
          * we cannot make the viewport change look atomic, i.e the workspace
@@ -642,9 +643,6 @@ class output_viewport_manager_t
                 v->get_wm_geometry().y + dy);
         }
 
-        data.output = output;
-        output->emit_signal("workspace-changed", &data);
-
         /* unfocus view from last workspace */
         output->focus_view(nullptr);
         /* we iterate through views on current viewport from bottom to top
@@ -664,6 +662,8 @@ class output_viewport_manager_t
         {
             output->focus_view(*it);
         }
+
+        output->emit_signal("workspace-changed", &data);
     }
 };
 
