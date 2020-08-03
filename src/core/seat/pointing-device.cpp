@@ -15,7 +15,7 @@ void wf::pointing_device_t::config_t::load()
     touchpad_scroll_speed.load_option("input/touchpad_scroll_speed");
 
     touchpad_tap_enabled.load_option("input/tap_to_click");
-    touchpad_dwt_enabled.load_option("input/disable_while_typing");
+    touchpad_dwt_enabled.load_option("input/disable_touchpad_while_typing");
     touchpad_dwmouse_enabled.load_option("input/disable_touchpad_while_mouse");
     touchpad_natural_scroll_enabled.load_option("input/natural_scroll");
 
