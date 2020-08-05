@@ -1,12 +1,16 @@
+extern "C"
+{
+#include <wlr/types/wlr_surface.h>
+}
 #include "gtk-shell.hpp"
 #include "gtk-shell-protocol.h"
-
 #include <wayfire/util/log.hpp>
 #include <wayfire/view.hpp>
 #include "../core/core-impl.hpp"
 #include <wayfire/core.hpp>
 #include <map>
 #include <wayfire/signal-definitions.hpp>
+#include <wayfire/gtk-shell.hpp>
 #define GTK_SHELL_VERSION 3
 
 struct wf_gtk_shell
@@ -238,4 +242,22 @@ wf_gtk_shell *wf_gtk_shell_create(wl_display *display)
 std::string wf_gtk_shell_get_custom_app_id(wf_gtk_shell *shell, wl_resource *surface)
 {
     return shell->surface_app_id[surface];
+}
+
+std::string get_gtk_shell_app_id(wayfire_view view)
+{
+    if (!view)
+    {
+        return "";
+    }
+
+    auto surface = view->get_wlr_surface();
+
+    if (!surface)
+    {
+        return "";
+    }
+
+    return wf_gtk_shell_get_custom_app_id(
+        wf::get_core_impl().gtk_shell, surface->resource);
 }
