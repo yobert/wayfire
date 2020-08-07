@@ -132,6 +132,17 @@ void wf::input_method_relay::disable_text_input(wlr_text_input_v3 *input)
     send_im_state(input);
 }
 
+void wf::input_method_relay::remove_text_input(wlr_text_input_v3 *input)
+{
+    auto it = std::remove_if(text_inputs.begin(),
+        text_inputs.end(),
+        [&] (const auto & inp)
+    {
+        return inp->input == input;
+    });
+    text_inputs.erase(it, text_inputs.end());
+}
+
 wf::text_input*wf::input_method_relay::find_focusable_text_input()
 {
     auto it = std::find_if(text_inputs.begin(), text_inputs.end(),
@@ -260,7 +271,7 @@ wf::text_input::text_input(wf::input_method_relay *rel, wlr_text_input_v3 *in) :
 
         if (input->current_enabled)
         {
-            relay->disable_text_input(input);
+            relay->disable_text_input(wlr_text_input);
         }
 
         set_pending_focused_surface(nullptr);
@@ -269,13 +280,8 @@ wf::text_input::text_input(wf::input_method_relay *rel, wlr_text_input_v3 *in) :
         on_text_input_disable.disconnect();
         on_text_input_destroy.disconnect();
 
-        auto it = std::remove_if(relay->text_inputs.begin(),
-            relay->text_inputs.end(),
-            [&] (const auto & inp)
-        {
-            return inp->input == input;
-        });
-        relay->text_inputs.erase(it, relay->text_inputs.end());
+        // NOTE: the call destroys `this`
+        relay->remove_text_input(wlr_text_input);
     });
 
     on_pending_focused_surface_destroy.set_callback([&] (void *data)

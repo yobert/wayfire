@@ -44,6 +44,7 @@ class input_method_relay
     input_method_relay();
     void send_im_state(wlr_text_input_v3*);
     void disable_text_input(wlr_text_input_v3*);
+    void remove_text_input(wlr_text_input_v3*);
     ~input_method_relay();
 };
 
