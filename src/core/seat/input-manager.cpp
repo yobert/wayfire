@@ -180,6 +180,7 @@ input_manager::input_manager()
     input_device_created.connect(&wf::get_core().backend->events.new_input);
 
     create_seat();
+
     surface_map_state_changed = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<wf::surface_map_state_changed_signal*>(data);

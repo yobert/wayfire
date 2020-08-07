@@ -147,6 +147,11 @@ void input_manager::set_keyboard_focus(wayfire_view view, wlr_seat *seat)
         wlr_seat_keyboard_notify_clear_focus(seat);
         keyboard_focus = nullptr;
     }
+
+    wf::keyboard_focus_changed_signal data;
+    data.view    = view;
+    data.surface = surface;
+    wf::get_core().emit_signal("keyboard-focus-changed", &data);
 }
 
 static bool check_vt_switch(wlr_session *session, uint32_t key, uint32_t mods)

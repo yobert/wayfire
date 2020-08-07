@@ -19,9 +19,14 @@ extern "C"
 #include <wlr/types/wlr_relative_pointer_v1.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 #include <wlr/types/wlr_tablet_v2.h>
+#include <wlr/types/wlr_text_input_v3.h>
 #include <wlr/types/wlr_presentation_time.h>
 #include <wlr/types/wlr_gtk_primary_selection.h>
 #include <wlr/types/wlr_primary_selection_v1.h>
+
+#define delete delete_
+#include <wlr/types/wlr_input_method_v2.h>
+#undef delete
 
 #define static
 #include <wlr/render/wlr_renderer.h>
@@ -47,6 +52,7 @@ extern "C"
 
 #include "opengl-priv.hpp"
 #include "seat/input-manager.hpp"
+#include "seat/input-method-relay.hpp"
 #include "seat/touch.hpp"
 #include "../view/view-impl.hpp"
 #include "../output/wayfire-shell.hpp"
@@ -289,6 +295,10 @@ void wf::compositor_core_impl_t::init()
     });
     pointer_constraint_added.connect(
         &protocols.pointer_constraints->events.new_constraint);
+
+    protocols.input_method = wlr_input_method_manager_v2_create(display);
+    protocols.text_input   = wlr_text_input_manager_v3_create(display);
+    im_relay = std::make_unique<input_method_relay>();
 
     protocols.presentation = wlr_presentation_create(display, backend);
 
