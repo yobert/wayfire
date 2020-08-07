@@ -311,8 +311,8 @@ class wayfire_unmanaged_xwayland_view : public wayfire_xwayland_view_base
 class wayfire_xwayland_view : public wayfire_xwayland_view_base
 {
     wf::wl_listener_wrapper on_request_move, on_request_resize,
-        on_request_maximize, on_request_fullscreen, on_request_activate,
-        on_set_parent, on_set_decorations, on_set_hints;
+        on_request_maximize, on_request_minimize, on_request_activate,
+        on_request_fullscreen, on_set_parent, on_set_decorations, on_set_hints;
 
   public:
     wayfire_xwayland_view(wlr_xwayland_surface *xww) :
@@ -346,6 +346,11 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         on_request_fullscreen.set_callback([&] (void*)
         {
             fullscreen_request(get_output(), xw->fullscreen);
+        });
+        on_request_minimize.set_callback([&] (void *data)
+        {
+            auto ev = (wlr_xwayland_minimize_event*)data;
+            minimize_request(ev->minimize);
         });
 
         on_set_parent.set_callback([&] (void*)
@@ -386,6 +391,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         on_request_resize.connect(&xw->events.request_resize);
         on_request_activate.connect(&xw->events.request_activate);
         on_request_maximize.connect(&xw->events.request_maximize);
+        on_request_minimize.connect(&xw->events.request_minimize);
         on_request_fullscreen.connect(&xw->events.request_fullscreen);
 
         xw->data = dynamic_cast<wf::view_interface_t*>(this);
@@ -403,6 +409,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         on_request_resize.disconnect();
         on_request_activate.disconnect();
         on_request_maximize.disconnect();
+        on_request_minimize.disconnect();
         on_request_fullscreen.disconnect();
 
         wayfire_xwayland_view_base::destroy();
@@ -594,6 +601,12 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
     {
         wf::wlr_view_t::set_fullscreen(full);
         wlr_xwayland_surface_set_fullscreen(xw, full);
+    }
+
+    void set_minimized(bool minimized) override
+    {
+        wf::wlr_view_t::set_minimized(minimized);
+        wlr_xwayland_surface_set_minimized(xw, minimized);
     }
 };
 
