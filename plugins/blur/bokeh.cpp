@@ -54,17 +54,10 @@ void main()
 }
 )";
 
-static const wf_blur_default_option_values bokeh_defaults = {
-    .algorithm_name = "bokeh",
-    .offset     = "5",
-    .degrade    = "1",
-    .iterations = "15"
-};
-
 class wf_bokeh_blur : public wf_blur_base
 {
   public:
-    wf_bokeh_blur(wf::output_t *output) : wf_blur_base(output, bokeh_defaults)
+    wf_bokeh_blur(wf::output_t *output) : wf_blur_base(output, "bokeh")
     {
         OpenGL::render_begin();
         program[0].set_simple(OpenGL::compile_program(bokeh_vertex_shader,

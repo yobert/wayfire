@@ -67,17 +67,10 @@ void main()
     gl_FragColor = bp;
 })";
 
-static const wf_blur_default_option_values gaussian_defaults = {
-    .algorithm_name = "gaussian",
-    .offset     = "1",
-    .degrade    = "1",
-    .iterations = "2"
-};
-
 class wf_gaussian_blur : public wf_blur_base
 {
   public:
-    wf_gaussian_blur(wf::output_t *output) : wf_blur_base(output, gaussian_defaults)
+    wf_gaussian_blur(wf::output_t *output) : wf_blur_base(output, "gaussian")
     {
         OpenGL::render_begin();
         program[0].set_simple(OpenGL::compile_program(

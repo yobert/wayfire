@@ -68,20 +68,13 @@ void main()
 }
 )";
 
-static const wf_blur_default_option_values box_defaults = {
-    .algorithm_name = "box",
-    .offset     = "1",
-    .degrade    = "1",
-    .iterations = "2"
-};
-
 class wf_box_blur : public wf_blur_base
 {
   public:
     void get_id_locations(int i)
     {}
 
-    wf_box_blur(wf::output_t *output) : wf_blur_base(output, box_defaults)
+    wf_box_blur(wf::output_t *output) : wf_blur_base(output, "box")
     {
         OpenGL::render_begin();
         program[0].set_simple(OpenGL::compile_program(

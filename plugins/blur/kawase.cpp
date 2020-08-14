@@ -57,18 +57,11 @@ void main()
     gl_FragColor = sum / 12.0;
 })";
 
-static const wf_blur_default_option_values kawase_defaults = {
-    .algorithm_name = "kawase",
-    .offset     = "5",
-    .degrade    = "1",
-    .iterations = "2"
-};
-
 class wf_kawase_blur : public wf_blur_base
 {
   public:
     wf_kawase_blur(wf::output_t *output) :
-        wf_blur_base(output, kawase_defaults)
+        wf_blur_base(output, "kawase")
     {
         OpenGL::render_begin();
         program[0].set_simple(OpenGL::compile_program(kawase_vertex_shader,

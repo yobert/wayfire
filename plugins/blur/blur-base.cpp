@@ -38,11 +38,10 @@ void main()
     gl_FragColor = wp + (1.0 - wp.a) * c;
 })";
 
-wf_blur_base::wf_blur_base(wf::output_t *output,
-    const wf_blur_default_option_values& defaults)
+wf_blur_base::wf_blur_base(wf::output_t *output, std::string name)
 {
     this->output = output;
-    this->algorithm_name = defaults.algorithm_name;
+    this->algorithm_name = name;
 
     this->offset_opt.load_option("blur/" + algorithm_name + "_offset");
     this->degrade_opt.load_option("blur/" + algorithm_name + "_degrade");

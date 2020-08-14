@@ -84,11 +84,6 @@
  * |                                                               |
  * `````````````````````````````````````````````````````````````````
  */
-struct wf_blur_default_option_values
-{
-    std::string algorithm_name;
-    std::string offset, degrade, iterations;
-};
 
 class wf_blur_base
 {
@@ -129,8 +124,7 @@ class wf_blur_base
     virtual int blur_fb0(const wf::region_t& blur_region, int width, int height) = 0;
 
   public:
-    wf_blur_base(wf::output_t *output,
-        const wf_blur_default_option_values& values);
+    wf_blur_base(wf::output_t *output, std::string name);
     virtual ~wf_blur_base();
 
     virtual int calculate_blur_radius();
