@@ -8,7 +8,7 @@ attribute mediump vec2 position;
 uniform vec2 size;
 uniform float offset;
 
-varying highp vec2 blurcoord[9];
+varying highp vec2 blurcoord[5];
 
 void main() {
     gl_Position = vec4(position.xy, 0.0, 1.0);
@@ -16,14 +16,10 @@ void main() {
     vec2 texcoord = (position.xy + vec2(1.0, 1.0)) / 2.0;
 
     blurcoord[0] = texcoord;
-    blurcoord[1] = texcoord + vec2(1.0 * offset) / size;
-    blurcoord[2] = texcoord - vec2(1.0 * offset) / size;
-    blurcoord[3] = texcoord + vec2(2.0 * offset) / size;
-    blurcoord[4] = texcoord - vec2(2.0 * offset) / size;
-    blurcoord[5] = texcoord + vec2(3.0 * offset) / size;
-    blurcoord[6] = texcoord - vec2(3.0 * offset) / size;
-    blurcoord[7] = texcoord + vec2(4.0 * offset) / size;
-    blurcoord[8] = texcoord - vec2(4.0 * offset) / size;
+    blurcoord[1] = texcoord + vec2(1.5 * offset) / size;
+    blurcoord[2] = texcoord - vec2(1.5 * offset) / size;
+    blurcoord[3] = texcoord + vec2(3.5 * offset) / size;
+    blurcoord[4] = texcoord - vec2(3.5 * offset) / size;
 }
 )";
 
@@ -35,21 +31,17 @@ precision mediump float;
 uniform sampler2D bg_texture;
 uniform int mode;
 
-varying highp vec2 blurcoord[9];
+varying highp vec2 blurcoord[5];
 
 void main()
 {
     vec2 uv = blurcoord[0];
     vec4 bp = vec4(0.0);
-    bp += texture2D(bg_texture, vec2(blurcoord[0].x, uv.y)) * 0.2270270270;
-    bp += texture2D(bg_texture, vec2(blurcoord[1].x, uv.y)) * 0.1945945946;
-    bp += texture2D(bg_texture, vec2(blurcoord[2].x, uv.y)) * 0.1945945946;
-    bp += texture2D(bg_texture, vec2(blurcoord[3].x, uv.y)) * 0.1216216216;
-    bp += texture2D(bg_texture, vec2(blurcoord[4].x, uv.y)) * 0.1216216216;
-    bp += texture2D(bg_texture, vec2(blurcoord[5].x, uv.y)) * 0.0540540541;
-    bp += texture2D(bg_texture, vec2(blurcoord[6].x, uv.y)) * 0.0540540541;
-    bp += texture2D(bg_texture, vec2(blurcoord[7].x, uv.y)) * 0.0162162162;
-    bp += texture2D(bg_texture, vec2(blurcoord[8].x, uv.y)) * 0.0162162162;
+    bp += texture2D(bg_texture, vec2(blurcoord[0].x, uv.y)) * 0.204164;
+    bp += texture2D(bg_texture, vec2(blurcoord[1].x, uv.y)) * 0.304005;
+    bp += texture2D(bg_texture, vec2(blurcoord[2].x, uv.y)) * 0.304005;
+    bp += texture2D(bg_texture, vec2(blurcoord[3].x, uv.y)) * 0.093913;
+    bp += texture2D(bg_texture, vec2(blurcoord[4].x, uv.y)) * 0.093913;
     gl_FragColor = bp;
 })";
 
@@ -61,35 +53,24 @@ precision mediump float;
 uniform sampler2D bg_texture;
 uniform int mode;
 
-varying highp vec2 blurcoord[9];
+varying highp vec2 blurcoord[5];
 
 void main()
 {
     vec2 uv = blurcoord[0];
     vec4 bp = vec4(0.0);
-    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[0].y)) * 0.2270270270;
-    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[1].y)) * 0.1945945946;
-    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[2].y)) * 0.1945945946;
-    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[3].y)) * 0.1216216216;
-    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[4].y)) * 0.1216216216;
-    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[5].y)) * 0.0540540541;
-    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[6].y)) * 0.0540540541;
-    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[7].y)) * 0.0162162162;
-    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[8].y)) * 0.0162162162;
+    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[0].y)) * 0.204164;
+    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[1].y)) * 0.304005;
+    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[2].y)) * 0.304005;
+    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[3].y)) * 0.093913;
+    bp += texture2D(bg_texture, vec2(uv.x, blurcoord[4].y)) * 0.093913;
     gl_FragColor = bp;
 })";
-
-static const wf_blur_default_option_values gaussian_defaults = {
-    .algorithm_name = "gaussian",
-    .offset     = "2",
-    .degrade    = "1",
-    .iterations = "2"
-};
 
 class wf_gaussian_blur : public wf_blur_base
 {
   public:
-    wf_gaussian_blur(wf::output_t *output) : wf_blur_base(output, gaussian_defaults)
+    wf_gaussian_blur(wf::output_t *output) : wf_blur_base(output, "gaussian")
     {
         OpenGL::render_begin();
         program[0].set_simple(OpenGL::compile_program(

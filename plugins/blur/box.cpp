@@ -8,7 +8,7 @@ attribute mediump vec2 position;
 uniform vec2 size;
 uniform float offset;
 
-varying highp vec2 blurcoord[9];
+varying highp vec2 blurcoord[5];
 
 void main() {
     gl_Position = vec4(position.xy, 0.0, 1.0);
@@ -16,14 +16,10 @@ void main() {
     vec2 texcoord = (position.xy + vec2(1.0, 1.0)) / 2.0;
 
     blurcoord[0] = texcoord;
-    blurcoord[1] = texcoord + vec2(1.0 * offset) / size;
-    blurcoord[2] = texcoord - vec2(1.0 * offset) / size;
-    blurcoord[3] = texcoord + vec2(2.0 * offset) / size;
-    blurcoord[4] = texcoord - vec2(2.0 * offset) / size;
-    blurcoord[5] = texcoord + vec2(3.0 * offset) / size;
-    blurcoord[6] = texcoord - vec2(3.0 * offset) / size;
-    blurcoord[7] = texcoord + vec2(4.0 * offset) / size;
-    blurcoord[8] = texcoord - vec2(4.0 * offset) / size;
+    blurcoord[1] = texcoord + vec2(1.5 * offset) / size;
+    blurcoord[2] = texcoord - vec2(1.5 * offset) / size;
+    blurcoord[3] = texcoord + vec2(3.5 * offset) / size;
+    blurcoord[4] = texcoord - vec2(3.5 * offset) / size;
 }
 )";
 
@@ -35,18 +31,18 @@ precision mediump float;
 uniform sampler2D bg_texture;
 uniform int mode;
 
-varying highp vec2 blurcoord[9];
+varying highp vec2 blurcoord[5];
 
 void main()
 {
     vec2 uv = blurcoord[0];
     vec4 bp = vec4(0.0);
-    for(int i = 0; i < 9; i++) {
+    for(int i = 0; i < 5; i++) {
         vec2 uv = vec2(blurcoord[i].x, uv.y);
         bp += texture2D(bg_texture, uv);
     }
 
-    gl_FragColor = bp / 9.0;
+    gl_FragColor = bp / 5.0;
 }
 )";
 
@@ -58,26 +54,19 @@ precision mediump float;
 uniform sampler2D bg_texture;
 uniform int mode;
 
-varying highp vec2 blurcoord[9];
+varying highp vec2 blurcoord[5];
 
 void main()
 {
     vec2 uv = blurcoord[0];
     vec4 bp = vec4(0.0);
-    for(int i = 0; i < 9; i++) {
+    for(int i = 0; i < 5; i++) {
         vec2 uv = vec2(uv.x, blurcoord[i].y);
         bp += texture2D(bg_texture, uv);
     }
-    gl_FragColor = bp / 9.0;
+    gl_FragColor = bp / 5.0;
 }
 )";
-
-static const wf_blur_default_option_values box_defaults = {
-    .algorithm_name = "box",
-    .offset     = "2",
-    .degrade    = "1",
-    .iterations = "2"
-};
 
 class wf_box_blur : public wf_blur_base
 {
@@ -85,7 +74,7 @@ class wf_box_blur : public wf_blur_base
     void get_id_locations(int i)
     {}
 
-    wf_box_blur(wf::output_t *output) : wf_blur_base(output, box_defaults)
+    wf_box_blur(wf::output_t *output) : wf_blur_base(output, "box")
     {
         OpenGL::render_begin();
         program[0].set_simple(OpenGL::compile_program(
