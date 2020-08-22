@@ -57,7 +57,8 @@ void wf::output_impl_t::refocus(wayfire_view skip_view, uint32_t layers)
     for (auto v : views)
     {
         if ((v != skip_view) && v->is_mapped() &&
-            v->get_keyboard_focus_surface())
+            v->get_keyboard_focus_surface() &&
+            !v->minimized)
         {
             next_focus = v;
             break;
