@@ -659,7 +659,10 @@ class output_viewport_manager_t
 
         /* Focus last window */
         auto it = std::find_if(views.begin(), views.end(),
-            [] (wayfire_view view) { return view->is_mapped(); });
+            [] (wayfire_view view)
+        {
+            return view->is_mapped() && !view->minimized;
+        });
         if (it != views.end())
         {
             output->focus_view(*it);
