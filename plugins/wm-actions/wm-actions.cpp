@@ -105,7 +105,7 @@ class wayfire_wm_actions_t : public wf::plugin_interface_t
     wf::signal_connection_t on_view_minimized
     {[=] (wf::signal_data_t *data)
         {
-            auto signal = static_cast<wf::view_minimize_request_signal*>(data);
+            auto signal = static_cast<wf::view_minimized_signal*>(data);
             auto view   = signal->view;
 
             if (!view)
