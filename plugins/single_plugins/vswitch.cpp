@@ -135,11 +135,6 @@ class vswitch : public wf::plugin_interface_t
 
     bool add_direction(int x, int y, wayfire_view view = nullptr)
     {
-        if (!x && !y)
-        {
-            return false;
-        }
-
         if (!is_active() && !start_switch())
         {
             return false;
@@ -198,16 +193,24 @@ class vswitch : public wf::plugin_interface_t
     wf::signal_connection_t on_set_workspace_request = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<wf::workspace_change_request_signal*>(data);
+        int x, y;
         if (is_active())
         {
             auto cws = output->workspace->get_current_workspace();
-            ev->carried_out =
-                add_direction(ev->new_viewport.x - (cws.x + animation.dx.end),
-                    ev->new_viewport.y - (cws.y + animation.dy.end));
+            x = ev->new_viewport.x - (cws.x + animation.dx.end);
+            y = ev->new_viewport.y - (cws.y + animation.dy.end);
         } else
         {
-            ev->carried_out = add_direction(ev->new_viewport.x - ev->old_viewport.x,
-                ev->new_viewport.y - ev->old_viewport.y);
+            x = ev->new_viewport.x - ev->old_viewport.x;
+            y = ev->new_viewport.y - ev->old_viewport.y;
+        }
+
+        if (!x && !y)
+        {
+            ev->carried_out = true;
+        } else
+        {
+            ev->carried_out = add_direction(x, y);
         }
     };
 
