@@ -7,6 +7,7 @@
 #include <wayfire/render-manager.hpp>
 #include <wayfire/compositor-view.hpp>
 #include <wayfire/output-layout.hpp>
+#include <wayfire/touch/touch.hpp>
 
 #include <cmath>
 #include <linux/input.h>
@@ -133,17 +134,12 @@ class wayfire_move : public wf::plugin_interface_t
         grab_interface->callbacks.touch.motion =
             [=] (int32_t id, int32_t sx, int32_t sy)
         {
-            if (id > 0)
-            {
-                return;
-            }
-
             handle_input_motion();
         };
 
         grab_interface->callbacks.touch.up = [=] (int32_t id)
         {
-            if (id == 0)
+            if (wf::get_core().get_touch_state().fingers.empty())
             {
                 input_pressed(WLR_BUTTON_RELEASED, false);
             }
@@ -176,14 +172,8 @@ class wayfire_move : public wf::plugin_interface_t
             return;
         }
 
-        auto touch = wf::get_core().get_touch_position(0);
-        if (!std::isnan(touch.x) && !std::isnan(touch.y))
-        {
-            is_using_touch = true;
-        } else
-        {
-            is_using_touch = false;
-        }
+        auto touch = wf::get_core().get_touch_state();
+        is_using_touch = !touch.fingers.empty();
 
         was_client_request = true;
         initiate(view);
@@ -410,7 +400,8 @@ class wayfire_move : public wf::plugin_interface_t
         wf::pointf_t input;
         if (is_using_touch)
         {
-            input = wf::get_core().get_touch_position(0);
+            auto center = wf::get_core().get_touch_state().get_center().current;
+            input = {center.x, center.y};
         } else
         {
             input = wf::get_core().get_cursor_position();

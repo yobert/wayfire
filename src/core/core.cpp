@@ -357,6 +357,11 @@ wf::pointf_t wf::compositor_core_impl_t::get_touch_position(int id)
     return {invalid_coordinate, invalid_coordinate};
 }
 
+const wf::touch::gesture_state_t& wf::compositor_core_impl_t::get_touch_state()
+{
+    return input->touch->get_state();
+}
+
 wf::surface_interface_t*wf::compositor_core_impl_t::get_cursor_focus()
 {
     return input->lpointer->get_focus();

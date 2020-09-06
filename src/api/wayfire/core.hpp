@@ -51,6 +51,7 @@ class view_interface_t;
 namespace touch
 {
 class gesture_t;
+class gesture_state_t;
 }
 }
 
@@ -154,10 +155,17 @@ class compositor_core_t : public wf::object_base_t
     virtual wf::pointf_t get_cursor_position() = 0;
 
     /**
+     * @deprecated, use get_touch_state() instead
+     *
      * @return The current position of the given touch point, or
      * {invalid_coordinate,invalid_coordinate} if it is not found.
      */
     virtual wf::pointf_t get_touch_position(int id) = 0;
+
+    /**
+     * @return The current state of all touch points.
+     */
+    virtual const wf::touch::gesture_state_t& get_touch_state() = 0;
 
     /**
      * @return The surface which has the cursor focus, or null if none.

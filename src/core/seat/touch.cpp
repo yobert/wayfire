@@ -266,14 +266,23 @@ void wf::touch_interface_t::handle_touch_down(int32_t id, uint32_t time,
 void wf::touch_interface_t::handle_touch_motion(int32_t id, uint32_t time,
     wf::pointf_t point, bool is_real_event)
 {
-    const wf::touch::gesture_event_t gesture_event = {
-        .type   = wf::touch::EVENT_TYPE_MOTION,
-        .time   = time,
-        .finger = id,
-        .pos    = {point.x, point.y}
-    };
-    update_gestures(gesture_event);
-    finger_state.update(gesture_event);
+    // handle_touch_motion is called on both real motion events and when
+    // touch focus should be updated.
+    //
+    // In case this is not a real event, we don't want to update gestures,
+    // because focus change can happen even while some gestures are still
+    // updating.
+    if (is_real_event)
+    {
+        const wf::touch::gesture_event_t gesture_event = {
+            .type   = wf::touch::EVENT_TYPE_MOTION,
+            .time   = time,
+            .finger = id,
+            .pos    = {point.x, point.y}
+        };
+        update_gestures(gesture_event);
+        finger_state.update(gesture_event);
+    }
 
     if (this->grab)
     {

@@ -60,6 +60,7 @@ class compositor_core_impl_t : public compositor_core_t
 
     wf::pointf_t get_cursor_position() override;
     wf::pointf_t get_touch_position(int id) override;
+    const wf::touch::gesture_state_t& get_touch_state() override;
 
     wf::surface_interface_t *get_cursor_focus() override;
     wf::surface_interface_t *get_touch_focus() override;
