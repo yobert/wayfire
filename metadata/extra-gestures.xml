@@ -18,5 +18,12 @@
 			<min>1</min>
 			<max>10000</max>
 		</option>
+		<option name="close_fingers" type="int">
+			<_short>Tap to close</_short>
+			<_long>Number of fingers to tap with to close a window. Set to very high(20) to disable.</_long>
+			<default>20</default>
+			<min>1</min>
+			<max>20</max>
+		</option>
 	</plugin>
 </wayfire>
