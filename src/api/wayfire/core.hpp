@@ -47,6 +47,12 @@ namespace wf
 {
 class surface_interface_t;
 class view_interface_t;
+
+namespace touch
+{
+class gesture_t;
+class gesture_state_t;
+}
 }
 
 using wayfire_view = nonstd::observer_ptr<wf::view_interface_t>;
@@ -149,10 +155,17 @@ class compositor_core_t : public wf::object_base_t
     virtual wf::pointf_t get_cursor_position() = 0;
 
     /**
+     * @deprecated, use get_touch_state() instead
+     *
      * @return The current position of the given touch point, or
      * {invalid_coordinate,invalid_coordinate} if it is not found.
      */
     virtual wf::pointf_t get_touch_position(int id) = 0;
+
+    /**
+     * @return The current state of all touch points.
+     */
+    virtual const wf::touch::gesture_state_t& get_touch_state() = 0;
 
     /**
      * @return The surface which has the cursor focus, or null if none.
@@ -188,6 +201,18 @@ class compositor_core_t : public wf::object_base_t
      * @return the wlr_cursor used for the input devices
      */
     virtual wlr_cursor *get_wlr_cursor() = 0;
+
+    /**
+     * Register a new touchscreen gesture.
+     */
+    virtual void add_touch_gesture(
+        nonstd::observer_ptr<wf::touch::gesture_t> gesture) = 0;
+
+    /**
+     * Unregister a touchscreen gesture.
+     */
+    virtual void rem_touch_gesture(
+        nonstd::observer_ptr<wf::touch::gesture_t> gesture) = 0;
 
     /**
      * Add a view to the compositor's view list. The view will be freed when

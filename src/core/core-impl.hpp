@@ -60,10 +60,16 @@ class compositor_core_impl_t : public compositor_core_t
 
     wf::pointf_t get_cursor_position() override;
     wf::pointf_t get_touch_position(int id) override;
+    const wf::touch::gesture_state_t& get_touch_state() override;
 
     wf::surface_interface_t *get_cursor_focus() override;
     wf::surface_interface_t *get_touch_focus() override;
     wf::surface_interface_t *get_surface_at(wf::pointf_t point) override;
+
+    void add_touch_gesture(
+        nonstd::observer_ptr<wf::touch::gesture_t> gesture) override;
+    void rem_touch_gesture(
+        nonstd::observer_ptr<wf::touch::gesture_t> gesture) override;
 
     std::vector<nonstd::observer_ptr<wf::input_device_t>> get_input_devices()
     override;
