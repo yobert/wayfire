@@ -443,8 +443,8 @@ class depth_buffer_manager_t : public noncopyable_t
 
         GL_CALL(glGenTextures(1, &buffer.tex));
         GL_CALL(glBindTexture(GL_TEXTURE_2D, buffer.tex));
-        GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F,
-            width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));
+        GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+            width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL));
         buffer.width  = width;
         buffer.height = height;
 
