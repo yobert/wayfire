@@ -314,15 +314,30 @@ wayfire_view wf::output_impl_t::get_active_view() const
     return active_view;
 }
 
-bool wf::output_impl_t::can_activate_plugin(const plugin_grab_interface_uptr& owner,
+bool wf::output_impl_t::can_activate_plugin(uint32_t caps,
     uint32_t flags)
 {
-    if (!owner)
+    if (this->inhibited && !(flags & wf::PLUGIN_ACTIVATION_IGNORE_INHIBIT))
     {
         return false;
     }
 
-    if (this->inhibited && !(flags & wf::PLUGIN_ACTIVATION_IGNORE_INHIBIT))
+    for (auto act_owner : active_plugins)
+    {
+        bool compatible = ((act_owner->capabilities & caps) == 0);
+        if (!compatible)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool wf::output_impl_t::can_activate_plugin(const plugin_grab_interface_uptr& owner,
+    uint32_t flags)
+{
+    if (!owner)
     {
         return false;
     }
@@ -332,17 +347,7 @@ bool wf::output_impl_t::can_activate_plugin(const plugin_grab_interface_uptr& ow
         return flags & wf::PLUGIN_ACTIVATE_ALLOW_MULTIPLE;
     }
 
-    for (auto act_owner : active_plugins)
-    {
-        bool compatible =
-            ((act_owner->capabilities & owner->capabilities) == 0);
-        if (!compatible)
-        {
-            return false;
-        }
-    }
-
-    return true;
+    return can_activate_plugin(owner->capabilities, flags);
 }
 
 bool wf::output_impl_t::activate_plugin(const plugin_grab_interface_uptr& owner,
