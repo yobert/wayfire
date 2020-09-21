@@ -258,20 +258,14 @@ struct wf_layer_shell_manager
         v->configure(box);
     }
 
-    uint32_t arrange_layer(wf::output_t *output, int layer)
+    void arrange_layer(wf::output_t *output, int layer)
     {
-        uint32_t focus_mask = 0;
         auto views = filter_views(output, layer);
 
         /* First we need to put all views that have exclusive zone set.
          * The rest are then placed into the free area */
         for (auto v : views)
         {
-            if (v->lsurface->client_pending.keyboard_interactive && v->is_mapped())
-            {
-                focus_mask = v->get_layer();
-            }
-
             if (v->lsurface->client_pending.exclusive_zone > 0)
             {
                 set_exclusive_zone(v);
@@ -292,8 +286,6 @@ struct wf_layer_shell_manager
                 pin_view(v, usable_workarea);
             }
         }
-
-        return focus_mask;
     }
 
     void arrange_unmapped_view(wayfire_layer_shell_view *view)
@@ -307,18 +299,35 @@ struct wf_layer_shell_manager
         view->get_output()->workspace->reflow_reserved_areas();
     }
 
+    uint32_t determine_focused_layer()
+    {
+        uint32_t focus_mask = 0;
+        for (auto& layer : this->layers)
+        {
+            for (auto& v : layer)
+            {
+                if (v->is_mapped() &&
+                    v->lsurface->client_pending.keyboard_interactive)
+                {
+                    focus_mask = std::max(focus_mask, (uint32_t)v->get_layer());
+                }
+            }
+        }
+
+        return focus_mask;
+    }
+
     uint32_t focused_layer_request_uid = -1;
     void arrange_layers(wf::output_t *output)
     {
         auto views = filter_views(output);
 
-        uint32_t focus1 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY);
-        uint32_t focus2 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_TOP);
-        uint32_t focus3 = arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM);
-        uint32_t focus4 =
-            arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND);
+        arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY);
+        arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_TOP);
+        arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM);
+        arrange_layer(output, ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND);
 
-        auto focus_mask = std::max({focus1, focus2, focus3, focus4});
+        auto focus_mask = determine_focused_layer();
         focused_layer_request_uid = wf::get_core().focus_layer(focus_mask,
             focused_layer_request_uid);
         output->workspace->reflow_reserved_areas();
