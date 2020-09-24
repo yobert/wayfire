@@ -31,31 +31,33 @@ class wayfire_debug : public wf::plugin_interface_t
 
     void set_reorder()
     {
-        reorder.set_timeout(50, [=] () {
+        reorder.set_timeout(50, [=] ()
+        {
             auto views = output->workspace->get_views_on_workspace(
                 output->workspace->get_current_workspace(),
                 wf::LAYER_WORKSPACE);
 
-            if (!views.empty()) {
-            // we don't need truly random just next
-            int idx = std::rand() % views.size();
-            output->workspace->bring_to_front(views[idx]);
+            if (!views.empty())
+            {
+                // we don't need truly random just next
+                int idx = std::rand() % views.size();
+                output->workspace->bring_to_front(views[idx]);
             }
 
             idle_reorder.run_once([=] () { set_reorder(); });
         });
-
     }
 
     void set_motion()
     {
-        motion.set_timeout(5, [=] () {
+        motion.set_timeout(5, [=] ()
+        {
             wlr_event_pointer_motion ev;
-            ev.delta_x = 0;
-            ev.delta_x = 0;
+            ev.delta_x    = 0;
+            ev.delta_x    = 0;
             ev.unaccel_dx = 0;
             ev.unaccel_dy = 0;
-            ev.time_msec = wf::get_current_time();
+            ev.time_msec  = wf::get_current_time();
             wf::get_core_impl().input->lpointer->handle_pointer_motion(&ev);
 
             idle_motion.run_once([=] () { set_motion(); });
@@ -64,9 +66,12 @@ class wayfire_debug : public wf::plugin_interface_t
 
     void set_key()
     {
-        key.set_timeout(10, [=] () {
-            wf::get_core_impl().input->handle_keyboard_key(KEY_ENTER, WLR_KEY_PRESSED);
-            wf::get_core_impl().input->handle_keyboard_key(KEY_ENTER, WLR_KEY_RELEASED);
+        key.set_timeout(10, [=] ()
+        {
+            wf::get_core_impl().input->handle_keyboard_key(KEY_ENTER,
+                WLR_KEY_PRESSED);
+            wf::get_core_impl().input->handle_keyboard_key(KEY_ENTER,
+                WLR_KEY_RELEASED);
 
             idle_key.run_once([=] () { set_key(); });
         });
