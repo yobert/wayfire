@@ -85,7 +85,6 @@ class wayfire_move : public wf::plugin_interface_t
 
 
     wf::wl_timer workspace_switch_timer;
-    std::unique_ptr<wf::vswitch::workspace_switch_t> workspace_switch;
 
 #define MOVE_HELPER view->get_data<wf::move_snap_helper_t>()
 
@@ -162,22 +161,12 @@ class wayfire_move : public wf::plugin_interface_t
 
         view_destroyed = [=] (wf::signal_data_t *data)
         {
-            if (get_signaled_view(data) == workspace_switch->get_overlay_view())
-            {
-                /* We need to check separately here, because the overlay view
-                 * might be destroyed after the button has been released. */
-                workspace_switch->set_overlay_view(nullptr);
-            }
-
             if (get_signaled_view(data) == view)
             {
                 input_pressed(WLR_BUTTON_RELEASED, true);
             }
         };
         output->connect_signal("view-disappeared", &view_destroyed);
-
-        workspace_switch =
-            std::make_unique<wf::vswitch::workspace_switch_t>(output);
         output->connect_signal("view-move-check", &on_view_check_move);
     }
 
@@ -446,11 +435,6 @@ class wayfire_move : public wf::plugin_interface_t
         }
 
         wf::point_t cws = output->workspace->get_current_workspace();
-        if (workspace_switch->is_running())
-        {
-            cws = workspace_switch->get_target_workspace();
-        }
-
         wf::point_t tws = {cws.x + dx, cws.y + dy};
         wf::dimensions_t ws_dim = output->workspace->get_workspace_grid_size();
         wf::geometry_t possible = {
@@ -467,19 +451,8 @@ class wayfire_move : public wf::plugin_interface_t
 
         workspace_switch_timer.set_timeout(workspace_switch_after, [this, tws] ()
         {
-            start_workspace_switch(tws);
+            output->workspace->request_workspace(tws, {this->view});
         });
-    }
-
-    void start_workspace_switch(wf::point_t target)
-    {
-        if (!workspace_switch->is_running())
-        {
-            workspace_switch->start_switch();
-            workspace_switch->set_overlay_view(view);
-        }
-
-        workspace_switch->set_target_workspace(target);
     }
 
     void update_slot(int new_slot_id)
