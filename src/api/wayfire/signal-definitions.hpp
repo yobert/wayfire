@@ -247,7 +247,18 @@ struct workspace_changed_signal : public wf::signal_data_t
  *   This can be used by plugins who wish to handle workspace changing
  *   themselves, for ex. if animating the transition.
  */
-using workspace_change_request_signal = workspace_changed_signal;
+struct workspace_change_request_signal : public workspace_changed_signal
+{
+    /**
+     * A list of views whose geometry should remain stationary.
+     * The caller is responsible for ensuring that this doesn't move the views
+     * outside of the visible area.
+     *
+     * Note that the views might still be moved if a previous workspace change
+     * request is being serviced.
+     */
+    std::vector<wayfire_view> fixed_views;
+};
 
 /**
  * name: workarea-changed
