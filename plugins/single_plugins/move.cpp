@@ -8,6 +8,7 @@
 #include <wayfire/compositor-view.hpp>
 #include <wayfire/output-layout.hpp>
 #include <wayfire/touch/touch.hpp>
+#include <wayfire/plugins/vswitch.hpp>
 
 #include <cmath>
 #include <linux/input.h>
@@ -15,7 +16,7 @@
 #include <wayfire/plugins/common/preview-indication.hpp>
 
 #include "snap_signal.hpp"
-#include "move-snap-helper.hpp"
+#include <wayfire/plugins/common/move-snap-helper.hpp>
 #include <wayfire/plugins/common/view-change-viewport-signal.hpp>
 
 class wf_move_mirror_view : public wf::mirror_view_t
@@ -70,6 +71,7 @@ class wayfire_move : public wf::plugin_interface_t
     wf::option_wrapper_t<bool> enable_snap{"move/enable_snap"};
     wf::option_wrapper_t<bool> join_views{"move/join_views"};
     wf::option_wrapper_t<int> snap_threshold{"move/snap_threshold"};
+    wf::option_wrapper_t<int> workspace_switch_after{"move/workspace_switch_after"};
     wf::option_wrapper_t<wf::buttonbinding_t> activate_button{"move/activate"};
 
     bool is_using_touch;
@@ -80,6 +82,9 @@ class wayfire_move : public wf::plugin_interface_t
         nonstd::observer_ptr<wf::preview_indication_view_t> preview;
         int slot_id = 0;
     } slot;
+
+
+    wf::wl_timer workspace_switch_timer;
 
 #define MOVE_HELPER view->get_data<wf::move_snap_helper_t>()
 
@@ -162,6 +167,7 @@ class wayfire_move : public wf::plugin_interface_t
             }
         };
         output->connect_signal("view-disappeared", &view_destroyed);
+        output->connect_signal("view-move-check", &on_view_check_move);
     }
 
     void move_requested(wf::signal_data_t *data)
@@ -179,30 +185,23 @@ class wayfire_move : public wf::plugin_interface_t
         initiate(view);
     }
 
-    bool initiate(wayfire_view view)
+    wf::signal_connection_t on_view_check_move = [=] (wf::signal_data_t *data)
     {
-        if (!view || !view->is_mapped())
+        auto ev = static_cast<wf::view_move_check_signal*>(data);
+        if (!ev->can_continue && can_move_view(ev->view))
         {
-            return false;
+            ev->can_continue = true;
         }
+    };
 
-        while (view->parent && join_views)
-        {
-            view = view->parent;
-        }
-
-        auto current_ws_impl =
-            output->workspace->get_workspace_implementation();
-        if (!current_ws_impl->view_movable(view))
-        {
-            return false;
-        }
-
-        if (view->get_output() != output)
-        {
-            return false;
-        }
-
+    /**
+     * Calculate plugin activation flags for the view.
+     *
+     * Activation flags ignore input inhibitors if the view is in the desktop
+     * widget layer (i.e OSKs)
+     */
+    uint32_t get_act_flags(wayfire_view view)
+    {
         uint32_t view_layer = output->workspace->get_view_layer(view);
         /* Allow moving an on-screen keyboard while screen is locked */
         bool ignore_inhibit = view_layer == wf::LAYER_DESKTOP_WIDGET;
@@ -212,7 +211,53 @@ class wayfire_move : public wf::plugin_interface_t
             act_flags |= wf::PLUGIN_ACTIVATION_IGNORE_INHIBIT;
         }
 
-        if (!output->activate_plugin(grab_interface, act_flags))
+        return act_flags;
+    }
+
+    /**
+     * Calculate the view which is the actual target of this move operation.
+     *
+     * Usually, this is the view itself or its topmost parent if the join_views
+     * option is set.
+     */
+    wayfire_view get_target_view(wayfire_view view)
+    {
+        while (view && view->parent && join_views)
+        {
+            view = view->parent;
+        }
+
+        return view;
+    }
+
+    bool can_move_view(wayfire_view view)
+    {
+        if (!view || !view->is_mapped())
+        {
+            return false;
+        }
+
+        view = get_target_view(view);
+
+        auto current_ws_impl =
+            output->workspace->get_workspace_implementation();
+        if (!current_ws_impl->view_movable(view))
+        {
+            return false;
+        }
+
+        return output->can_activate_plugin(grab_interface, get_act_flags(view));
+    }
+
+    bool initiate(wayfire_view view)
+    {
+        view = get_target_view(view);
+        if (!can_move_view(view) || (view && (view->get_output() != output)))
+        {
+            return false;
+        }
+
+        if (!output->activate_plugin(grab_interface, get_act_flags(view)))
         {
             return false;
         }
@@ -224,8 +269,7 @@ class wayfire_move : public wf::plugin_interface_t
             return false;
         }
 
-        view->store_data(std::make_unique<wf::move_snap_helper_t>(
-            view, get_input_coords()));
+        ensure_move_helper_at(view, get_input_coords());
 
         output->focus_view(view, true);
         if (enable_snap)
@@ -240,6 +284,13 @@ class wayfire_move : public wf::plugin_interface_t
         return true;
     }
 
+    void deactivate()
+    {
+        grab_interface->ungrab();
+        output->deactivate_plugin(grab_interface);
+        output->render->set_redraw_always(false);
+    }
+
     void input_pressed(uint32_t state, bool view_destroyed)
     {
         if (state != WLR_BUTTON_RELEASED)
@@ -247,9 +298,7 @@ class wayfire_move : public wf::plugin_interface_t
             return;
         }
 
-        grab_interface->ungrab();
-        output->deactivate_plugin(grab_interface);
-        output->render->set_redraw_always(false);
+        deactivate();
 
         /* The view was moved to another output or was destroyed,
          * we don't have to do anything more */
@@ -348,6 +397,64 @@ class wayfire_move : public wf::plugin_interface_t
         return slot;
     }
 
+    void update_workspace_switch_timeout(int slot_id)
+    {
+        if ((workspace_switch_after == -1) || (slot_id == 0))
+        {
+            workspace_switch_timer.disconnect();
+
+            return;
+        }
+
+        int dx = 0, dy = 0;
+        if (slot_id >= 7)
+        {
+            dy = -1;
+        }
+
+        if (slot_id <= 3)
+        {
+            dy = 1;
+        }
+
+        if (slot_id % 3 == 1)
+        {
+            dx = -1;
+        }
+
+        if (slot_id % 3 == 0)
+        {
+            dx = 1;
+        }
+
+        if ((dx == 0) && (dy == 0))
+        {
+            workspace_switch_timer.disconnect();
+
+            return;
+        }
+
+        wf::point_t cws = output->workspace->get_current_workspace();
+        wf::point_t tws = {cws.x + dx, cws.y + dy};
+        wf::dimensions_t ws_dim = output->workspace->get_workspace_grid_size();
+        wf::geometry_t possible = {
+            0, 0, ws_dim.width, ws_dim.height
+        };
+
+        /* Outside of workspace grid */
+        if (!(possible & tws))
+        {
+            workspace_switch_timer.disconnect();
+
+            return;
+        }
+
+        workspace_switch_timer.set_timeout(workspace_switch_after, [this, tws] ()
+        {
+            output->workspace->request_workspace(tws, {this->view});
+        });
+    }
+
     void update_slot(int new_slot_id)
     {
         /* No changes in the slot, just return */
@@ -392,6 +499,8 @@ class wayfire_move : public wf::plugin_interface_t
             preview->set_target_geometry(query.out_geometry, 1);
             slot.preview = nonstd::make_observer(preview);
         }
+
+        update_workspace_switch_timeout(new_slot_id);
     }
 
     /* Returns the currently used input coordinates in global compositor space */
@@ -428,29 +537,6 @@ class wayfire_move : public wf::plugin_interface_t
         }
 
         return coords;
-    }
-
-    /* Moves the view to another output and sends a move request */
-    void move_to_output(wf::output_t *new_output)
-    {
-        wf::view_move_request_signal req;
-        req.view = view;
-
-        auto old_g = output->get_layout_geometry();
-        auto new_g = new_output->get_layout_geometry();
-        auto wm_g  = view->get_wm_geometry();
-
-        int dx = old_g.x - new_g.x;
-        int dy = old_g.y - new_g.y;
-
-        /* First erase the move snap helper, so that we can set the
-         * correct position on the other output. */
-        view->erase_data<wf::move_snap_helper_t>();
-        view->move(wm_g.x + dx, wm_g.y + dy);
-        wf::get_core().move_view_to_output(view, new_output, false);
-        wf::get_core().focus_output(new_output);
-
-        new_output->emit_signal("view-move-request", &req);
     }
 
     struct wf_move_output_state : public wf::custom_data_t
@@ -557,7 +643,19 @@ class wayfire_move : public wf::plugin_interface_t
         {
             /* The move plugin on the next output will create new mirror views */
             delete_mirror_views(false);
-            move_to_output(target_output);
+
+            if (wf::can_start_move_on_output(view, target_output))
+            {
+                /** First, reset moving view so that we don't remove its snap
+                 * helper when the output is changed. */
+                deactivate();
+                auto view_copy = this->view;
+                this->view = nullptr;
+                wf::start_move_on_output(view_copy, target_output);
+            } else
+            {
+                input_pressed(WLR_BUTTON_RELEASED, false);
+            }
 
             return;
         }

@@ -290,16 +290,25 @@ class workspace_manager
      * Directly change the active workspace.
      *
      * @param ws The new active workspace.
+     * @param fixed_views Views which do not change their workspace relative
+     *   to the current workspace (together with their child views). Note that it
+     *   may result in views getting offscreen if they are not visible on the
+     *   current workspace.
      */
-    void set_workspace(wf::point_t ws);
+    void set_workspace(wf::point_t ws,
+        const std::vector<wayfire_view>& fixed_views = {});
 
     /**
      * Switch to the given workspace.
      * If possible, use a plugin which provides animation.
      *
      * @param ws The new active workspace.
+     * @param fixed_views Views which do not change their workspace relative
+     *   to the current workspace (together with their child views). See also
+     *   workspace-change-request-signal.
      */
-    void request_workspace(wf::point_t ws);
+    void request_workspace(wf::point_t ws,
+        const std::vector<wayfire_view>& fixed_views = {});
 
     /**
      * @return The given workspace

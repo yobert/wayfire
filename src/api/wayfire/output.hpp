@@ -113,6 +113,15 @@ class output_t : public wf::object_base_t
         uint32_t flags = 0) = 0;
 
     /**
+     * Same as can_activate_plugin(plugin_grab_interface_uptr), but checks for
+     * any plugin with the given capabilities.
+     *
+     * @param caps The capabilities to check.
+     * @param flags A bitwise OR of plugin_activation_flags_t.
+     */
+    virtual bool can_activate_plugin(uint32_t caps, uint32_t flags = 0) = 0;
+
+    /**
      * Activates a plugin. Note that this may not succeed, if a plugin with the
      * same abilities is already active. However the same plugin might be
      * activated twice.

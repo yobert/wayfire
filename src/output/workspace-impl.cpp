@@ -604,7 +604,8 @@ class output_viewport_manager_t
         return {vwidth, vheight};
     }
 
-    void set_workspace(wf::point_t nws)
+    void set_workspace(wf::point_t nws,
+        const std::vector<wayfire_view>& fixed_views)
     {
         if ((nws.x >= vwidth) || (nws.y >= vheight) || (nws.x < 0) || (nws.y < 0))
         {
@@ -639,10 +640,17 @@ class output_viewport_manager_t
         auto dx     = (data.old_viewport.x - nws.x) * screen.width;
         auto dy     = (data.old_viewport.y - nws.y) * screen.height;
 
-        for (auto& v : output->workspace->get_views_in_layer(MIDDLE_LAYERS))
+        for (auto& view : output->workspace->get_views_in_layer(MIDDLE_LAYERS))
         {
-            v->move(v->get_wm_geometry().x + dx,
-                v->get_wm_geometry().y + dy);
+            auto it = std::find(fixed_views.cbegin(), fixed_views.cend(), view);
+            if (it == fixed_views.end())
+            {
+                for (auto v : view->enumerate_views())
+                {
+                    v->move(v->get_wm_geometry().x + dx,
+                        v->get_wm_geometry().y + dy);
+                }
+            }
         }
 
         /* unfocus view from last workspace */
@@ -890,29 +898,26 @@ class workspace_manager::impl
         }
     }
 
-    void set_workspace(wf::point_t ws)
+    void set_workspace(wf::point_t ws, const std::vector<wayfire_view>& fixed)
     {
-        viewport_manager.set_workspace(ws);
+        viewport_manager.set_workspace(ws, fixed);
         check_autohide_panels();
     }
 
-    void request_workspace(wf::point_t ws)
+    void request_workspace(wf::point_t ws,
+        const std::vector<wayfire_view>& fixed_views)
     {
-        if (ws == viewport_manager.get_current_workspace())
-        {
-            return;
-        }
-
         wf::workspace_change_request_signal data;
         data.carried_out  = false;
         data.old_viewport = viewport_manager.get_current_workspace();
         data.new_viewport = ws;
         data.output = output;
+        data.fixed_views = fixed_views;
         output->emit_signal("set-workspace-request", &data);
 
         if (!data.carried_out)
         {
-            set_workspace(ws);
+            set_workspace(ws, fixed_views);
         }
     }
 
@@ -1185,14 +1190,16 @@ bool workspace_manager::set_workspace_implementation(
     return pimpl->set_implementation(std::move(impl), overwrite);
 }
 
-void workspace_manager::set_workspace(wf::point_t ws)
+void workspace_manager::set_workspace(wf::point_t ws,
+    const std::vector<wayfire_view>& fixed_views)
 {
-    return pimpl->set_workspace(ws);
+    return pimpl->set_workspace(ws, fixed_views);
 }
 
-void workspace_manager::request_workspace(wf::point_t ws)
+void workspace_manager::request_workspace(wf::point_t ws,
+    const std::vector<wayfire_view>& views)
 {
-    return pimpl->request_workspace(ws);
+    return pimpl->request_workspace(ws, views);
 }
 
 wf::point_t workspace_manager::get_current_workspace()

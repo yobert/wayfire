@@ -56,6 +56,7 @@ class output_impl_t : public output_t
      */
     bool can_activate_plugin(const plugin_grab_interface_uptr& owner,
         uint32_t flags = 0) override;
+    bool can_activate_plugin(uint32_t caps, uint32_t flags = 0) override;
     bool activate_plugin(const plugin_grab_interface_uptr& owner,
         uint32_t flags = 0) override;
     bool deactivate_plugin(const plugin_grab_interface_uptr& owner) override;
