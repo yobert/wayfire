@@ -16,7 +16,6 @@
 #include <wayland-server.h>
 
 #include "core/core-impl.hpp"
-#include "view/view-impl.hpp"
 #include "wayfire/output.hpp"
 
 wf_runtime_config runtime_config;
@@ -391,8 +390,6 @@ int main(int argc, char *argv[])
     }
 
     setenv("WAYLAND_DISPLAY", core.wayland_display.c_str(), 1);
-
-    wf::xwayland_set_seat(core.get_current_seat());
     wl_display_run(core.display);
 
     /* Teardown */
