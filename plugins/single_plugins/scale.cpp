@@ -69,7 +69,7 @@ class wf_scale : public wf::view_2D
 struct view_scale_data
 {
     int row, col;
-    wf_scale *transformer = 0; /* avoid potential UB from uninitialized member */
+    wf_scale *transformer = nullptr; /* avoid UB from uninitialized member */
     wf::animation::simple_animation_t fade_animation;
     wf_scale_animation_attribs animation;
 };
@@ -156,11 +156,6 @@ class wayfire_scale : public wf::plugin_interface_t
     /* Add a transformer that will be used to scale the view */
     bool add_transformer(wayfire_view view)
     {
-        if (!view)
-        {
-            return false;
-        }
-
         if (view->get_transformer(transformer_name))
         {
             return false;
@@ -179,11 +174,6 @@ class wayfire_scale : public wf::plugin_interface_t
     /* Remove the scale transformer from the view */
     void pop_transformer(wayfire_view view)
     {
-        if (!view)
-        {
-            return;
-        }
-
         view->pop_transformer(transformer_name);
     }
 
@@ -288,17 +278,25 @@ class wayfire_scale : public wf::plugin_interface_t
         process_button(ev->event->button, ev->event->state);
     };
 
+    /** Return the topmost parent */
+    wayfire_view get_top_parent(wayfire_view view)
+    {
+        while (view && view->parent)
+        {
+            view = view->parent;
+        }
+
+        return view;
+    }
+
     /* Fade all views' alpha to inactive alpha except the
      * view argument */
     void fade_out_all_except(wayfire_view view)
     {
         for (auto& e : scale_data)
         {
-            auto v  = e.first;
-            auto tr = e.second.transformer;
-            if (!v || !tr || (v == view) ||
-                (view && (v == view->parent)) ||
-                (v->parent == view))
+            auto v = e.first;
+            if (get_top_parent(v) == get_top_parent(view))
             {
                 continue;
             }
@@ -310,7 +308,7 @@ class wayfire_scale : public wf::plugin_interface_t
     /* Fade in view alpha */
     void fade_in(wayfire_view view)
     {
-        if (!view || !scale_data[view].transformer)
+        if (!view || !scale_data.count(view))
         {
             return;
         }
@@ -327,17 +325,22 @@ class wayfire_scale : public wf::plugin_interface_t
     /* Fade out view alpha */
     void fade_out(wayfire_view view)
     {
-        if (!view || !scale_data[view].transformer)
+        if (!view)
         {
             return;
         }
 
         set_hook();
-        auto alpha = scale_data[view].transformer->alpha;
-        scale_data[view].fade_animation.animate(alpha, (double)inactive_alpha);
-        for (auto& child : view->children)
+        for (auto v : view->enumerate_views(false))
         {
-            fade_out(child);
+            // Could happen if we have a never-mapped child view
+            if (!scale_data.count(v))
+            {
+                continue;
+            }
+
+            auto alpha = scale_data[v].transformer->alpha;
+            scale_data[v].fade_animation.animate(alpha, (double)inactive_alpha);
         }
     }
 
@@ -386,14 +389,11 @@ class wayfire_scale : public wf::plugin_interface_t
             return;
         }
 
-        check_focus_view(view);
-        pop_transformer(view);
-        scale_data.erase(view);
-        for (auto& child : view->children)
+        for (auto v : view->enumerate_views(false))
         {
-            check_focus_view(child);
-            pop_transformer(child);
-            scale_data.erase(child);
+            check_focus_view(v);
+            pop_transformer(v);
+            scale_data.erase(v);
         }
     }
 
@@ -435,12 +435,7 @@ class wayfire_scale : public wf::plugin_interface_t
         }
 
         auto view = wf::get_core().get_view_at(wf::get_core().get_cursor_position());
-        if (!view)
-        {
-            return;
-        }
-
-        if (!scale_view(view) && (view->role != wf::VIEW_ROLE_TOPLEVEL))
+        if (!view || !should_scale_view(view))
         {
             return;
         }
@@ -455,7 +450,7 @@ class wayfire_scale : public wf::plugin_interface_t
         current_focus_view = view;
         output->focus_view(view, true);
         fade_out_all_except(view);
-        fade_in(view);
+        fade_in(get_top_parent(view));
 
         if (interact)
         {
@@ -477,9 +472,11 @@ class wayfire_scale : public wf::plugin_interface_t
             view = view->parent;
         }
 
-        auto ws     = output->workspace->get_current_workspace();
-        auto og     = output->get_layout_geometry();
-        auto vg     = view->get_output_geometry();
+        auto ws = output->workspace->get_current_workspace();
+        auto og = output->get_layout_geometry();
+        auto vg = scale_data.count(view) > 0 ?
+            view->get_bounding_box(scale_data[view].transformer) :
+            view->get_bounding_box();
         auto center = wf::point_t{vg.x + vg.width / 2, vg.y + vg.height / 2};
 
         return wf::point_t{
@@ -491,11 +488,13 @@ class wayfire_scale : public wf::plugin_interface_t
      * or the first scaled view if none is found */
     wayfire_view find_view_in_grid(int row, int col)
     {
-        for (auto& view : get_views())
+        for (auto& view : scale_data)
         {
-            if ((scale_data[view].row == row) && (scale_data[view].col == col))
+            if ((view.first->parent == nullptr) &&
+                ((view.second.row == row) &&
+                 (view.second.col == col)))
             {
-                return view;
+                return view.first;
             }
         }
 
@@ -523,7 +522,7 @@ class wayfire_scale : public wf::plugin_interface_t
             return;
         }
 
-        if (!scale_view(view) && (view->role != wf::VIEW_ROLE_TOPLEVEL))
+        if (!scale_data.count(view))
         {
             return;
         }
@@ -542,8 +541,6 @@ class wayfire_scale : public wf::plugin_interface_t
         {
             return;
         }
-
-        auto v = initial_focus_view;
 
         switch (key)
         {
@@ -572,9 +569,9 @@ class wayfire_scale : public wf::plugin_interface_t
 
           case KEY_ESC:
             input_release_impending = true;
-            initial_focus_view = nullptr;
             deactivate();
-            output->focus_view(v, true);
+            output->focus_view(initial_focus_view, true);
+            initial_focus_view = nullptr;
             output->workspace->request_workspace(initial_workspace);
 
             return;
@@ -629,17 +626,9 @@ class wayfire_scale : public wf::plugin_interface_t
         view = find_view_in_grid(row, col);
         if (view && (current_focus_view != view))
         {
-            fade_out_all_except(view);
+            // view_focused handler will update the view state
+            output->focus_view(view, true);
         }
-
-        if (!view)
-        {
-            return;
-        }
-
-        current_focus_view = view;
-        output->focus_view(view, true);
-        fade_in(view);
     }
 
     /* Assign the transformer values to the view transformers */
@@ -649,13 +638,12 @@ class wayfire_scale : public wf::plugin_interface_t
         {
             auto view = e.first;
             auto& view_data = e.second;
-            if (!view || !view_data.transformer ||
-                ((output->workspace->get_view_layer(view) != wf::LAYER_WORKSPACE) &&
-                 (view->role != wf::VIEW_ROLE_TOPLEVEL)))
+            if (!view || !view_data.transformer)
             {
                 continue;
             }
 
+            view->damage();
             view_data.transformer->scale_x =
                 view_data.animation.scale_animation.scale_x;
             view_data.transformer->scale_y =
@@ -665,39 +653,7 @@ class wayfire_scale : public wf::plugin_interface_t
             view_data.transformer->translation_y =
                 view_data.animation.scale_animation.translation_y;
             view_data.transformer->alpha = view_data.fade_animation;
-
             view->damage();
-
-            for (auto& child : view->children)
-            {
-                if (!child)
-                {
-                    continue;
-                }
-
-                auto it = scale_data.find(child);
-                if ((it == scale_data.end()) || !it->second.transformer)
-                {
-                    /* note: child views can show up here before they
-                     * should be visible (between they are attached and
-                     * mapped), these should be skipped */
-                    continue;
-                }
-
-                auto& view_data = it->second;
-
-                view_data.transformer->scale_x =
-                    view_data.animation.scale_animation.scale_x;
-                view_data.transformer->scale_y =
-                    view_data.animation.scale_animation.scale_y;
-                view_data.transformer->translation_x =
-                    view_data.animation.scale_animation.translation_x;
-                view_data.transformer->translation_y =
-                    view_data.animation.scale_animation.translation_y;
-                view_data.transformer->alpha = view_data.fade_animation;
-
-                child->damage();
-            }
         }
 
         output->render->damage_whole();
@@ -765,26 +721,15 @@ class wayfire_scale : public wf::plugin_interface_t
         return views;
     }
 
-    /* Returns true if the view is in the view list */
-    bool scale_view(wayfire_view view)
+    /**
+     * @return true if the view is to be scaled.
+     */
+    bool should_scale_view(wayfire_view view)
     {
-        if (!view)
-        {
-            return false;
-        }
-
-        bool found = false;
         auto views = get_views();
-        for (auto& v : views)
-        {
-            if (v == view)
-            {
-                found = true;
-                break;
-            }
-        }
 
-        return found;
+        return std::find(
+            views.begin(), views.end(), get_top_parent(view)) != views.end();
     }
 
     /* Convenience assignment function */
@@ -825,33 +770,8 @@ class wayfire_scale : public wf::plugin_interface_t
             return;
         }
 
-        auto workarea    = output->workspace->get_workarea();
-        auto active_view = output->get_active_view();
-        if (active_view && !scale_view(active_view))
-        {
-            active_view = nullptr;
-        }
+        auto workarea = output->workspace->get_workarea();
 
-        if (active_view)
-        {
-            current_focus_view = active_view;
-        } else
-        {
-            active_view = current_focus_view = views.front();
-        }
-
-        if (!initial_focus_view)
-        {
-            initial_focus_view = active_view;
-        }
-
-        if (all_workspaces)
-        {
-            output->focus_view(active_view, true);
-        }
-
-        fade_in(active_view);
-        fade_out_all_except(active_view);
         int lines = sqrt(views.size() + 1);
         grid_rows = lines;
         grid_cols = (int)std::ceil((double)views.size() / lines);
@@ -897,7 +817,7 @@ class wayfire_scale : public wf::plugin_interface_t
                 double target_alpha;
                 if (active)
                 {
-                    target_alpha = (view == active_view) ? 1 :
+                    target_alpha = (view == current_focus_view) ? 1 :
                         (double)inactive_alpha;
                     setup_view_transform(view_data, scale_x, scale_y,
                         translation_x, translation_y, target_alpha);
@@ -910,8 +830,14 @@ class wayfire_scale : public wf::plugin_interface_t
                 view_data.row = i;
                 view_data.col = j;
 
-                for (auto& child : view->children)
+                for (auto& child : view->enumerate_views(false))
                 {
+                    // skip the view itself
+                    if (child == view)
+                    {
+                        continue;
+                    }
+
                     vg = child->get_wm_geometry();
 
                     double child_scale_x = width / vg.width;
@@ -1010,24 +936,11 @@ class wayfire_scale : public wf::plugin_interface_t
         }
 
         bool rearrange = false;
-        auto views     = get_views();
         for (auto& e : scale_data)
         {
-            auto view  = e.first;
-            bool found = false;
-            for (auto& v : views)
+            if (!should_scale_view(e.first))
             {
-                if (v == view)
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found)
-            {
-                auto& view_data = scale_data[view];
-                setup_view_transform(view_data, 1, 1, 0, 0, 1);
+                setup_view_transform(e.second, 1, 1, 0, 0, 1);
                 rearrange = true;
             }
         }
@@ -1053,84 +966,37 @@ class wayfire_scale : public wf::plugin_interface_t
     };
 
     /* New view or view moved to output with scale active */
-    wf::signal_connection_t view_attached{[this] (wf::signal_data_t *data)
+    wf::signal_connection_t view_attached = [this] (wf::signal_data_t *data)
+    {
+        if (!should_scale_view(get_signaled_view(data)))
         {
-            auto view = get_signaled_view(data);
-
-            auto it = scale_data.find(view->parent);
-            if (it != scale_data.end())
-            {
-                layout_slots(get_views());
-
-                return;
-            }
-
-            if (!scale_view(view) && (view->role != wf::VIEW_ROLE_TOPLEVEL))
-            {
-                return;
-            }
-
-            auto v = view;
-            while (v->parent)
-            {
-                v = v->parent;
-            }
-
-            current_focus_view = v;
-            output->focus_view(v, true);
-
-            it = scale_data.find(view);
-            if (it != scale_data.end())
-            {
-                if (!view->get_transformer(transformer_name))
-                {
-                    layout_slots(get_views());
-                }
-
-                return;
-            }
-
-            add_transformer(view);
-            layout_slots(get_views());
+            return;
         }
+
+        layout_slots(get_views());
     };
 
-    /* Destroyed view or view moved to another output */
-    wf::signal_connection_t view_detached{[this] (wf::signal_data_t *data)
+    void handle_view_disappeared(wayfire_view view)
+    {
+        if (scale_data.count(get_top_parent(view)) != 0)
         {
-            auto view = get_signaled_view(data);
-
-            auto it = scale_data.find(view->parent);
-            if (it != scale_data.end())
-            {
-                remove_view(view);
-                auto views = get_views();
-                if (!views.size())
-                {
-                    finalize();
-                }
-
-                return;
-            }
-
-            it = scale_data.find(view);
-            if (it == scale_data.end())
-            {
-                return;
-            }
-
             remove_view(view);
-
-            auto views = get_views();
-            if (!views.size())
+            if (scale_data.empty())
             {
                 finalize();
-
-                return;
             }
 
-            layout_slots(std::move(views));
+            if (!view->parent)
+            {
+                layout_slots(get_views());
+            }
         }
+    }
+
+    /* Destroyed view or view moved to another output */
+    wf::signal_connection_t view_detached = [this] (wf::signal_data_t *data)
+    {
+        handle_view_disappeared(get_signaled_view(data));
     };
 
     /* Workspace changed */
@@ -1159,24 +1025,15 @@ class wayfire_scale : public wf::plugin_interface_t
     };
 
     /* View minimized */
-    wf::signal_connection_t view_minimized{[this] (wf::signal_data_t *data)
+    wf::signal_connection_t view_minimized = [this] (wf::signal_data_t *data)
+    {
+        auto ev = static_cast<wf::view_minimized_signal*>(data);
+
+        if (ev->state)
         {
-            auto ev = static_cast<wf::view_minimized_signal*>(data);
-
-            if (ev->state)
-            {
-                remove_view(ev->view);
-                if (scale_data.empty())
-                {
-                    deactivate();
-
-                    return;
-                }
-            } else if (!scale_view(ev->view))
-            {
-                return;
-            }
-
+            handle_view_disappeared(ev->view);
+        } else if (should_scale_view(ev->view))
+        {
             layout_slots(get_views());
         }
     };
@@ -1191,60 +1048,17 @@ class wayfire_scale : public wf::plugin_interface_t
     };
 
     /* View focused. This handler makes sure our view remains focused */
-    wf::signal_connection_t view_focused{[this] (wf::signal_data_t *data)
-        {
-            auto view = get_signaled_view(data);
-
-            fade_out_all_except(view);
-            fade_in(view);
-
-            if ((view == current_focus_view) ||
-                (view && (view == output->get_active_view())))
-            {
-                if (view && current_focus_view && (view != current_focus_view))
-                {
-                    auto v = current_focus_view;
-                    while (v->parent)
-                    {
-                        v = v->parent;
-                    }
-
-                    if (!v || (v == view) || v->minimized || !v->is_mapped())
-                    {
-                        return;
-                    }
-
-                    current_focus_view = v;
-                    output->focus_view(v, true);
-                }
-
-                return;
-            }
-
-            view = current_focus_view;
-
-            if (!view || view->minimized || !view->is_mapped())
-            {
-                return;
-            }
-
-            if (all_workspaces)
-            {
-                output->focus_view(view, true);
-            }
-
-            layout_slots(get_views());
-        }
+    wf::signal_connection_t view_focused = [this] (wf::signal_data_t *data)
+    {
+        auto view = get_signaled_view(data);
+        fade_out_all_except(view);
+        fade_in(view);
+        current_focus_view = view;
     };
 
     /* Our own refocus that uses untransformed coordinates */
     void refocus()
     {
-        if (!initial_focus_view)
-        {
-            return;
-        }
-
         if (current_focus_view)
         {
             output->focus_view(current_focus_view, true);
@@ -1278,15 +1092,6 @@ class wayfire_scale : public wf::plugin_interface_t
                 e.second.animation.scale_animation.running())
             {
                 return true;
-            }
-
-            for (auto& child : e.first->children)
-            {
-                if (scale_data[child].fade_animation.running() ||
-                    scale_data[child].animation.scale_animation.running())
-                {
-                    return true;
-                }
             }
         }
 
@@ -1336,7 +1141,7 @@ class wayfire_scale : public wf::plugin_interface_t
         }
 
         auto views = get_views();
-        if (!views.size())
+        if (views.empty())
         {
             output->deactivate_plugin(grab_interface);
 
@@ -1345,6 +1150,7 @@ class wayfire_scale : public wf::plugin_interface_t
 
         initial_workspace  = output->workspace->get_current_workspace();
         initial_focus_view = output->get_active_view();
+        current_focus_view = initial_focus_view ?: views.front();
         if (!interact)
         {
             if (!grab_interface->grab())
@@ -1353,11 +1159,11 @@ class wayfire_scale : public wf::plugin_interface_t
 
                 return false;
             }
+        }
 
-            if (initial_focus_view)
-            {
-                output->focus_view(initial_focus_view, true);
-            }
+        if (current_focus_view != output->get_active_view())
+        {
+            output->focus_view(current_focus_view, true);
         }
 
         active = true;
@@ -1370,26 +1176,15 @@ class wayfire_scale : public wf::plugin_interface_t
         }
 
         output->connect_signal("view-layer-attached", &view_attached);
-        output->connect_signal("view-attached", &view_attached);
-        view_detached.disconnect();
+        output->connect_signal("view-mapped", &view_attached);
         output->connect_signal("workspace-changed", &workspace_changed);
         output->connect_signal("view-layer-detached", &view_detached);
         output->connect_signal("view-minimized", &view_minimized);
         output->connect_signal("view-unmapped", &view_unmapped);
         output->connect_signal("view-focused", &view_focused);
 
-        view_geometry_changed.disconnect();
-        for (auto& e : scale_data)
-        {
-            auto view = e.first;
-            view->connect_signal("geometry-changed", &view_geometry_changed);
-            if ((view == initial_focus_view) || (view->parent == initial_focus_view))
-            {
-                continue;
-            }
-
-            fade_out(view);
-        }
+        fade_out_all_except(current_focus_view);
+        fade_in(current_focus_view);
 
         return true;
     }
