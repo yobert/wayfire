@@ -1,6 +1,6 @@
 plugins = [
   'move', 'resize', 'command', 'autostart', 'vswipe', 'grid', 'wrot', 'expo',
-  'switcher', 'fast-switcher', 'oswitch', 'window-rules', 'place', 'invert',
+  'switcher', 'fast-switcher', 'oswitch', 'place', 'invert',
   'fisheye', 'zoom', 'alpha', 'idle', 'extra-gestures',
 ]
 
