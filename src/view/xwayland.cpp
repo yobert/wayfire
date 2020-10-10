@@ -19,6 +19,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
   protected:
     static xcb_atom_t _NET_WM_WINDOW_TYPE_NORMAL;
     static xcb_atom_t _NET_WM_WINDOW_TYPE_DIALOG;
+    static xcb_atom_t WM_TAKE_FOCUS;
 
     static void load_atom(xcb_connection_t *connection,
         xcb_atom_t& atom, const std::string& name)
@@ -32,6 +33,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         bool success = !error && reply;
         if (success)
         {
+            LOGD("Successfully interned atom ", name);
             atom = reply->atom;
         }
 
@@ -52,6 +54,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
             "_NET_WM_WINDOW_TYPE_NORMAL");
         load_atom(connection, _NET_WM_WINDOW_TYPE_DIALOG,
             "_NET_WM_WINDOW_TYPE_DIALOG");
+        load_atom(connection, WM_TAKE_FOCUS, "WM_TAKE_FOCUS");
 
         xcb_disconnect(connection);
 
@@ -429,6 +432,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
 
 xcb_atom_t wayfire_xwayland_view_base::_NET_WM_WINDOW_TYPE_NORMAL;
 xcb_atom_t wayfire_xwayland_view_base::_NET_WM_WINDOW_TYPE_DIALOG;
+xcb_atom_t wayfire_xwayland_view_base::WM_TAKE_FOCUS;
 
 class wayfire_unmanaged_xwayland_view : public wayfire_xwayland_view_base
 {
@@ -565,6 +569,27 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
 
     void map(wlr_surface *surface) override
     {
+        /**
+         * Detect views which should never receive keyboard focus.
+         * Examples are Android Studio dialogs.
+         *
+         * According to ICCCM, views that never take kb focus have their
+         * hints->input set to false, and do not have WM_TAKE_FOCUS.
+         */
+        if (xw->hints && (xw->hints->input == 0))
+        {
+            bool has_wm_take_focus = false;
+            for (size_t i = 0; i < xw->protocols_len; i++)
+            {
+                has_wm_take_focus |= (xw->protocols[i] == WM_TAKE_FOCUS);
+            }
+
+            if (!has_wm_take_focus)
+            {
+                view_impl->keyboard_focus_enabled = false;
+            }
+        }
+
         if (xw->maximized_horz && xw->maximized_vert)
         {
             if ((xw->width > 0) && (xw->height > 0))

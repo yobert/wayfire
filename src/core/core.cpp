@@ -555,6 +555,25 @@ std::vector<wayfire_view> wf::compositor_core_impl_t::get_all_views()
     return result;
 }
 
+static wayfire_view find_frontmost_focusable(wayfire_view view)
+{
+    if (!view || !view->is_mapped())
+    {
+        return nullptr;
+    }
+
+    auto views = view->enumerate_views();
+    for (auto& v : views)
+    {
+        if (v->get_keyboard_focus_surface())
+        {
+            return v;
+        }
+    }
+
+    return nullptr;
+}
+
 /* sets the "active" view and gives it keyboard focus
  *
  * It maintains two different classes of "active views"
@@ -573,8 +592,7 @@ void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
         new_focus = nullptr;
     }
 
-    /* Descend into frontmost child view */
-    new_focus = new_focus ? new_focus->enumerate_views().front() : nullptr;
+    new_focus = find_frontmost_focusable(new_focus);
     bool refocus = (last_active_view == new_focus);
 
     /* don't deactivate view if the next focus is not a toplevel */
