@@ -1,5 +1,6 @@
 #pragma once
 
+#include <wayfire/workspace-manager.hpp>
 #include <wayfire/view.hpp>
 #include <wayfire/core.hpp>
 #include <wayfire/option-wrapper.hpp>
@@ -140,6 +141,27 @@ class move_snap_helper_t : public wf::custom_data_t
         }
 
         view->disconnect_signal("geometry-changed", &view_geometry_changed);
+        /**
+         * Restore the fullscreen state so the window is
+         * not in a weird position afterwards, fullscreen
+         * are by spec the geometry of the output (or span outputs)
+         */
+        if (view->fullscreen)
+        {
+            wf::output_t *output = view->get_output();
+            wf::geometry_t output_geometry = output->get_relative_geometry();
+            wf::point_t current_ws = output->workspace->get_current_workspace();
+            wf::point_t target_ws;
+            target_ws.x =
+                floor(
+                    (last_grabbing_position.x / output_geometry.width) +
+                    current_ws.x);
+            target_ws.y =
+                floor(
+                    (last_grabbing_position.y / output_geometry.height) +
+                    current_ws.y);
+            view->fullscreen_request(output, true, target_ws);
+        }
     }
 
     /** @return Whether the view is freely moving or stays at the same place */
@@ -158,13 +180,8 @@ class move_snap_helper_t : public wf::custom_data_t
     /** Move the view out of its slot */
     virtual void snap_off()
     {
-        view_in_slot = false;
-        if (view->fullscreen)
-        {
-            view->fullscreen_request(view->get_output(), false);
-        }
-
-        if (view->tiled_edges)
+        this->view_in_slot = false;
+        if (view->tiled_edges && !view->fullscreen)
         {
             view->tile_request(0);
         }

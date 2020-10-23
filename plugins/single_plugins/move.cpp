@@ -324,7 +324,6 @@ class wayfire_move : public wf::plugin_interface_t
             return;
         }
 
-        /* Snap the view */
         if (enable_snap && (slot.slot_id != 0))
         {
             snap_signal data;
@@ -696,7 +695,13 @@ class wayfire_move : public wf::plugin_interface_t
         /* View might get destroyed when updating multi-output */
         if (view)
         {
-            if (enable_snap && !MOVE_HELPER->is_view_fixed())
+            // Make sure that fullscreen views are not tiled.
+            // We allow movement of fullscreen views but they should always
+            // retain their fullscreen state (but they can be moved to other
+            // workspaces). Unsetting the fullscreen state can break some
+            // Xwayland games.
+            if (enable_snap && !MOVE_HELPER->is_view_fixed() &&
+                !this->view->fullscreen)
             {
                 update_slot(calc_slot(input.x, input.y));
             }
