@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <wayfire>
 	<plugin name="simple-tile">
-		<_short>Simple tile</_short>
+		<_short>Simple Tile</_short>
 		<_long>A plugin which provides some tiling features, inspired by Sway.  The plugin is meant to contain only the basics.</_long>
 		<category>Window Management</category>
 		<option name="tile_by_default" type="string">
