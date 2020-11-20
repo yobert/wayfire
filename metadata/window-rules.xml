@@ -3,6 +3,6 @@
 	<plugin name="window-rules">
 		<_short>Window rules</_short>
 		<_long>A plugin to apply specific commands to windows by using various criteria.</_long>
-		<category>Desktop</category>
+		<category>Window Management</category>
 	</plugin>
 </wayfire>
