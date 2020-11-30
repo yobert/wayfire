@@ -7,6 +7,7 @@
 #include "xdg-shell.hpp"
 #include "wayfire/output-layout.hpp"
 #include <wayfire/workspace-manager.hpp>
+#include <wayfire/signal-definitions.hpp>
 
 wayfire_xdg_popup::wayfire_xdg_popup(wlr_xdg_popup *popup) :
     wf::wlr_view_t()
@@ -218,6 +219,23 @@ void wayfire_xdg_view::initialize()
     {
         handle_app_id_changed(nonull(xdg_toplevel->app_id));
     });
+    on_show_window_menu.set_callback([&] (void *data)
+    {
+        wlr_xdg_toplevel_show_window_menu_event *event =
+            (wlr_xdg_toplevel_show_window_menu_event*)data;
+        auto view   = self();
+        auto output = view->get_output();
+        if (!output)
+        {
+            return;
+        }
+
+        wf::view_show_window_menu_signal d;
+        d.view = view;
+        d.relative_position.x = event->x;
+        d.relative_position.y = event->y;
+        output->emit_signal("view-show-window-menu", &d);
+    });
     on_set_parent.set_callback([&] (void*)
     {
         auto parent = xdg_toplevel->parent ?
@@ -257,6 +275,7 @@ void wayfire_xdg_view::initialize()
     on_request_resize.connect(&xdg_toplevel->events.request_resize);
     on_request_maximize.connect(&xdg_toplevel->events.request_maximize);
     on_request_minimize.connect(&xdg_toplevel->events.request_minimize);
+    on_show_window_menu.connect(&xdg_toplevel->events.request_show_window_menu);
     on_request_fullscreen.connect(&xdg_toplevel->events.request_fullscreen);
 
     xdg_toplevel->base->data = dynamic_cast<view_interface_t*>(this);
@@ -422,6 +441,7 @@ void wayfire_xdg_view::destroy()
     on_request_resize.disconnect();
     on_request_maximize.disconnect();
     on_request_minimize.disconnect();
+    on_show_window_menu.disconnect();
     on_request_fullscreen.disconnect();
 
     xdg_toplevel = nullptr;
