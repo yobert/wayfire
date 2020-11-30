@@ -25,11 +25,18 @@ static const char *fragment_shader =
 
 varying highp vec2 uvpos;
 uniform sampler2D smp;
+uniform bool preserve_hue;
 
 void main()
 {
-    mediump vec4 tex_color = texture2D(smp, uvpos);
-    gl_FragColor = vec4(1.0 - tex_color.r, 1.0 - tex_color.g, 1.0 - tex_color.b, 1.0);
+    if (preserve_hue)
+    {
+        mediump float hue = tex.a - min(tex.r, min(tex.g, tex.b)) - max(tex.r, max(tex.g, tex.b));
+        gl_FragColor = hue + tex;
+    } else
+    {
+        gl_FragColor = vec4(1.0 - tex.r, 1.0 - tex.g, 1.0 - tex.b, 1.0);
+    }
 }
 )";
 
@@ -37,6 +44,7 @@ class wayfire_invert_screen : public wf::plugin_interface_t
 {
     wf::post_hook_t hook;
     wf::activator_callback toggle_cb;
+    wf::option_wrapper_t<bool> preserve_hue{"invert/preserve_hue"};
 
     bool active = false;
     OpenGL::program_t program;
@@ -108,6 +116,7 @@ class wayfire_invert_screen : public wf::plugin_interface_t
 
         program.attrib_pointer("position", 2, 0, vertexData);
         program.attrib_pointer("uvPosition", 2, 0, coordData);
+        program.uniform1i("preserve_hue", preserve_hue);
 
         GL_CALL(glDisable(GL_BLEND));
         GL_CALL(glDrawArrays(GL_TRIANGLE_FAN, 0, 4));
