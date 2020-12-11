@@ -5,6 +5,7 @@
 #include "cursor.hpp"
 #include "input-manager.hpp"
 #include <wayfire/signal-definitions.hpp>
+#include <wayfire/output-layout.hpp>
 #include <linux/input-event-codes.h>
 
 /* --------------------- Tablet tool implementation ------------------------- */
@@ -224,7 +225,6 @@ void wf::tablet_tool_t::handle_tip(wlr_event_tablet_tool_tip *ev)
             this->proximity_surface->get_main_surface());
         if (view)
         {
-            wf::get_core().focus_output(view->get_output());
             wm_focus_request data;
             data.surface = this->proximity_surface;
             view->get_output()->emit_signal("wm-focus-request", &data);
@@ -287,6 +287,21 @@ wf::tablet_tool_t*wf::tablet_t::ensure_tool(wlr_tablet_tool *tool)
 void wf::tablet_t::handle_tip(wlr_event_tablet_tool_tip *ev)
 {
     auto& input = wf::get_core_impl().input;
+    auto& seat  = wf::get_core_impl().seat;
+    seat->break_mod_bindings();
+
+    bool handled_in_binding = false;
+    if (ev->state == WLR_TABLET_TOOL_TIP_DOWN)
+    {
+        auto gc     = seat->cursor->get_cursor_position();
+        auto output =
+            wf::get_core().output_layout->get_output_at(gc.x, gc.y);
+        wf::get_core().focus_output(output);
+
+        handled_in_binding |= input->get_active_bindings().handle_button(
+            wf::buttonbinding_t{seat->get_modifiers(), BTN_LEFT});
+    }
+
     if (input->input_grabbed())
     {
         /* Simulate buttons, in case some application started moving */
@@ -301,7 +316,10 @@ void wf::tablet_t::handle_tip(wlr_event_tablet_tool_tip *ev)
     }
 
     auto tool = ensure_tool(ev->tool);
-    tool->handle_tip(ev);
+    if (!handled_in_binding)
+    {
+        tool->handle_tip(ev);
+    }
 }
 
 void wf::tablet_t::handle_axis(wlr_event_tablet_tool_axis *ev)
