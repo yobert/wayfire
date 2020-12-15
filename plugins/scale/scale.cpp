@@ -885,8 +885,6 @@ class wayfire_scale : public wf::plugin_interface_t
         auto sorted_rows = view_sort(views);
         size_t cnt_rows  = sorted_rows.size();
 
-        view_sort(views);
-
         const double scaled_height = (double)
             (workarea.height - (cnt_rows + 1) * spacing) / cnt_rows;
         current_row_sizes.clear();
@@ -905,110 +903,87 @@ class wayfire_scale : public wf::plugin_interface_t
 
                 auto view = sorted_rows[i][j];
 
-                add_transformer(view);
-                auto& view_data = scale_data[view];
-
-                if (view_data.visibility ==
-                    view_scale_data::view_visibility_t::HIDDEN)
+                // Calculate current transformation of the view, in order to
+                // ensure that new views in the view tree start directly at the
+                // correct position
+                double main_view_dx    = 0;
+                double main_view_dy    = 0;
+                double main_view_scale = 1.0;
+                if (scale_data.count(view))
                 {
-                    view->set_visible(true);
+                    main_view_dx    = scale_data[view].transformer->translation_x;
+                    main_view_dy    = scale_data[view].transformer->translation_y;
+                    main_view_scale = scale_data[view].transformer->scale_x;
                 }
 
-                view_data.visibility = view_scale_data::view_visibility_t::VISIBLE;
+                // Calculate target alpha for this view and its children
+                double target_alpha =
+                    (view == current_focus_view) ? 1 : (double)inactive_alpha;
 
-                auto vg = view->get_wm_geometry();
-                double scale_x    = scaled_width / vg.width;
-                double scale_y    = scaled_height / vg.height;
-                int translation_x = x - vg.x + ((scaled_width - vg.width) / 2.0);
-                int translation_y = y - vg.y + ((scaled_height - vg.height) / 2.0);
-
-                scale_x = scale_y = std::min(scale_x, scale_y);
-                if (!allow_scale_zoom)
+                // Helper function to calculate the desired scale for a view
+                const auto& calculate_scale = [&] (wf::geometry_t vg)
                 {
-                    scale_x = scale_y = std::min(scale_x, max_scale_factor);
-                }
-
-                double target_alpha;
-                if (active)
-                {
-                    target_alpha = (view == current_focus_view) ? 1 :
-                        (double)inactive_alpha;
-                    setup_view_transform(view_data, scale_x, scale_y,
-                        translation_x, translation_y, target_alpha);
-                } else
-                {
-                    target_alpha = 1;
-                    setup_view_transform(view_data, 1, 1, 0, 0, 1);
-                }
-
-                view_data.row = i;
-                view_data.col = j;
-
-                for (auto& child : view->enumerate_views(false))
-                {
-                    // skip the view itself
-                    if (child == view)
-                    {
-                        continue;
-                    }
-
-                    vg = child->get_wm_geometry();
-
-                    double child_scale_x = scaled_width / vg.width;
-                    double child_scale_y = scaled_height / vg.height;
-                    child_scale_x = child_scale_y = std::min(child_scale_x,
-                        child_scale_y);
-
+                    const double scale = std::min(
+                        scaled_width / vg.width, scaled_height / vg.height);
                     if (!allow_scale_zoom)
                     {
-                        child_scale_x = child_scale_y = std::min(child_scale_x,
-                            max_scale_factor);
-                        if ((max_scale_child > 0.0) &&
-                            (child_scale_x > max_scale_child * scale_x))
-                        {
-                            child_scale_x = max_scale_child * scale_x;
-                            child_scale_y = child_scale_x;
-                        }
+                        return std::min(scale, max_scale_factor);
                     }
 
-                    translation_x = view_data.transformer->translation_x;
-                    translation_y = view_data.transformer->translation_y;
+                    return scale;
+                };
 
+                double view_scale = calculate_scale(view->get_wm_geometry());
+                for (auto& child : view->enumerate_views(false))
+                {
+                    // Ensure a transformer for the view, and make sure that
+                    // new views in the view tree start off with the correct
+                    // attributes set.
                     auto new_child   = add_transformer(child);
                     auto& child_data = scale_data[child];
-
                     if (new_child)
                     {
-                        child_data.transformer->translation_x =
-                            view_data.transformer->translation_x;
-                        child_data.transformer->translation_y =
-                            view_data.transformer->translation_y;
-                    } else
-                    {
-                        if (child_data.visibility ==
-                            view_scale_data::view_visibility_t::HIDDEN)
-                        {
-                            child->set_visible(true);
-                        }
-
-                        child_data.visibility =
-                            view_scale_data::view_visibility_t::VISIBLE;
+                        child_data.transformer->translation_x = main_view_dx;
+                        child_data.transformer->translation_y = main_view_dy;
+                        child_data.transformer->scale_x = main_view_scale;
+                        child_data.transformer->scale_y = main_view_scale;
                     }
 
-                    translation_x = x - vg.x + ((scaled_width - vg.width) / 2.0);
-                    translation_y = y - vg.y + ((scaled_height - vg.height) / 2.0);
-
-                    if (active)
+                    if (child_data.visibility ==
+                        view_scale_data::view_visibility_t::HIDDEN)
                     {
-                        setup_view_transform(child_data, scale_x, scale_y,
-                            translation_x, translation_y, target_alpha);
-                    } else
-                    {
-                        setup_view_transform(child_data, 1, 1, 0, 0, 1);
+                        child->set_visible(true);
                     }
+
+                    child_data.visibility =
+                        view_scale_data::view_visibility_t::VISIBLE;
 
                     child_data.row = i;
                     child_data.col = j;
+
+                    if (!active)
+                    {
+                        // On exit, we just animate towards normal state
+                        setup_view_transform(child_data, 1, 1, 0, 0, 1);
+                        continue;
+                    }
+
+                    auto vg = child->get_wm_geometry();
+
+                    // Ensure child is not scaled more than parent
+                    double scale = calculate_scale(vg);
+                    if (!allow_scale_zoom &&
+                        (child != view) &&
+                        (max_scale_child > 0.0))
+                    {
+                        scale = std::min(max_scale_child * view_scale, scale);
+                    }
+
+                    // Target geometry is centered around the center slot
+                    const double dx = x - vg.x + ((scaled_width - vg.width) / 2.0);
+                    const double dy = y - vg.y + ((scaled_height - vg.height) / 2.0);
+                    setup_view_transform(child_data, scale, scale,
+                        dx, dy, target_alpha);
                 }
             }
         }
