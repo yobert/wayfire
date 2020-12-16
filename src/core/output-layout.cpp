@@ -1468,6 +1468,7 @@ class output_layout_t::impl
             timer_remove_noop.set_timeout(1000, [=] ()
             {
                 remove_noop_output();
+                return false; // disconnect
             });
         }
 

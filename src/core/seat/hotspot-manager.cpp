@@ -10,7 +10,11 @@ void wf::hotspot_instance_t::process_input_motion(wf::point_t gc)
 
     if (!timer.is_connected())
     {
-        timer.set_timeout(timeout_ms, [=] () { callback(this->edges); });
+        timer.set_timeout(timeout_ms, [=] ()
+        {
+            callback(this->edges);
+            return false;
+        });
     }
 }
 

@@ -184,7 +184,8 @@ class wl_idle_call : public noncopyable_t
 class wl_timer
 {
   public:
-    using callback_t = std::function<void ()>;
+    // Return true if the timer should be fired again after the same amount of time
+    using callback_t = std::function<bool ()>;
 
     /** Disconnects the timer if connected */
     ~wl_timer();
@@ -205,6 +206,7 @@ class wl_timer
   private:
     callback_t call;
     wl_event_source *source = NULL;
+    uint32_t timeout = -1;
 };
 }
 

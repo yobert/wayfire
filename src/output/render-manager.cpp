@@ -705,6 +705,7 @@ class wf::render_manager::impl
                 {
                     output->handle->frame_pending = false;
                     paint();
+                    return false;
                 });
             }
 
