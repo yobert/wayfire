@@ -597,11 +597,11 @@ void wl_timer::set_timeout(uint32_t timeout_ms, callback_t call)
     {
         disconnect();
         call();
-
         return;
     }
 
-    this->call = call;
+    this->call    = call;
+    this->timeout = timeout_ms;
     if (!source)
     {
         source = wl_event_loop_add_timer(get_core().ev_loop, handle_timeout, this);
@@ -629,7 +629,11 @@ void wl_timer::execute()
 {
     if (call)
     {
-        call();
+        bool repeat = call();
+        if (repeat)
+        {
+            wl_event_source_timer_update(source, this->timeout);
+        }
     }
 }
 } // namespace wf
