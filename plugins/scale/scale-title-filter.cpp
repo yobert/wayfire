@@ -50,6 +50,25 @@ class scale_title_filter : public wf::plugin_interface_t
     std::vector<int> char_len;
     bool scale_running = false;
 
+    inline void fix_case(std::string& string)
+    {
+        if (case_sensitive)
+        {
+            return;
+        }
+
+        auto transform = [] (unsigned char c) -> unsigned char
+        {
+            if (std::isspace(c))
+            {
+                return ' ';
+            }
+
+            return (c <= 127) ? (unsigned char)std::tolower(c) : c;
+        };
+        std::transform(string.begin(), string.end(), string.begin(), transform);
+    }
+
     bool should_show_view(wayfire_view view)
     {
         if (title_filter.empty())
@@ -57,25 +76,16 @@ class scale_title_filter : public wf::plugin_interface_t
             return true;
         }
 
-        if (!case_sensitive)
-        {
-            std::string title = view->get_title();
-            std::string filter = title_filter;
-            auto transform = [] (unsigned char c) -> unsigned char
-            {
-                if (std::isspace(c))
-                {
-                    return ' ';
-                }
+        auto title  = view->get_title();
+        auto app_id = view->get_app_id();
+        auto filter = title_filter;
 
-                return (c <= 127) ? (unsigned char)std::tolower(c) : c;
-            };
-            std::transform(title.begin(), title.end(), title.begin(), transform);
-            std::transform(filter.begin(), filter.end(), filter.begin(), transform);
-            return title.find(filter) != std::string::npos;
-        }
+        fix_case(title);
+        fix_case(app_id);
+        fix_case(filter);
 
-        return view->get_title().find(title_filter) != std::string::npos;
+        return (title.find(filter) != std::string::npos) ||
+               (app_id.find(filter) != std::string::npos);
     }
 
   public:
