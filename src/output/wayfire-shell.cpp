@@ -81,6 +81,7 @@ class wfs_hotspot : public noncopyable_t
             {
                 hotspot_triggered = true;
                 zwf_hotspot_v2_send_enter(hotspot_resource);
+                return false;
             });
         }
     }

@@ -458,6 +458,7 @@ class wayfire_move : public wf::plugin_interface_t
         workspace_switch_timer.set_timeout(workspace_switch_after, [this, tws] ()
         {
             output->workspace->request_workspace(tws, {this->view});
+            return false;
         });
     }
 

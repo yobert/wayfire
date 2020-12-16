@@ -12,9 +12,8 @@
 class wayfire_fast_switcher : public wf::plugin_interface_t
 {
     wf::option_wrapper_t<wf::keybinding_t> activate_key{"fast-switcher/activate"};
-    size_t current_view_index;
     std::vector<wayfire_view> views; // all views on current viewport
-
+    size_t current_view_index = 0;
     bool active = false;
 
   public:
@@ -22,6 +21,7 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
     {
         grab_interface->name = "fast-switcher";
         grab_interface->capabilities = wf::CAPABILITY_MANAGE_COMPOSITOR;
+
         output->add_key(activate_key, &fast_switch);
 
         using namespace std::placeholders;
@@ -29,10 +29,7 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
             std::bind(std::mem_fn(&wayfire_fast_switcher::handle_mod),
                 this, _1, _2);
 
-        grab_interface->callbacks.cancel = [=] ()
-        {
-            switch_terminate();
-        };
+        grab_interface->callbacks.cancel = [=] () { switch_terminate(); };
     }
 
     void handle_mod(uint32_t mod, uint32_t st)
@@ -45,13 +42,6 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         {
             switch_terminate();
         }
-    }
-
-    void update_views()
-    {
-        current_view_index = 0;
-        views = output->workspace->get_views_on_workspace(
-            output->workspace->get_current_workspace(), wf::WM_LAYERS);
     }
 
     void view_chosen(int i, bool reorder_only)
@@ -123,6 +113,17 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         view->damage();
     }
 
+    void update_views()
+    {
+        views = output->workspace->get_views_on_workspace(
+            output->workspace->get_current_workspace(), wf::WM_LAYERS);
+
+        std::sort(views.begin(), views.end(), [] (wayfire_view& a, wayfire_view& b)
+        {
+            return a->last_focus_timestamp > b->last_focus_timestamp;
+        });
+    }
+
     wf::key_callback fast_switch = [=] (auto)
     {
         if (active)
@@ -173,7 +174,6 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
         view_chosen(current_view_index, false);
-
         active = false;
 
         output->disconnect_signal("view-disappeared", &cleanup_view);
