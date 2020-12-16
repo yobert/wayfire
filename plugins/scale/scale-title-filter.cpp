@@ -1,5 +1,6 @@
 #include <cctype>
 #include <string>
+#include <map>
 #include <wayfire/plugin.hpp>
 #include <wayfire/output.hpp>
 #include <wayfire/signal-definitions.hpp>
@@ -15,7 +16,32 @@
 #include <wayfire/plugins/common/simple-texture.hpp>
 #include <cairo.h>
 
-struct scale_title_filter : public wf::plugin_interface_t
+struct scale_key_repeat_t
+{
+    wf::option_wrapper_t<int> delay{"input/kb_repeat_delay"};
+    wf::option_wrapper_t<int> rate{"input/kb_repeat_rate"};
+
+    wf::wl_timer timer_delay;
+    wf::wl_timer timer_rate;
+
+    using callback_t = std::function<void (uint32_t)>;
+
+    scale_key_repeat_t(uint32_t key, callback_t handler)
+    {
+        timer_delay.set_timeout(delay, [=] ()
+        {
+            timer_rate.set_timeout(1000 / rate, [=] ()
+            {
+                handler(key);
+                return true; // repeat
+            });
+
+            return false; // no more repeat
+        });
+    }
+};
+
+class scale_title_filter : public wf::plugin_interface_t
 {
     wf::option_wrapper_t<bool> case_sensitive{"scale-title-filter/case_sensitive"};
     std::string title_filter;
@@ -86,56 +112,70 @@ struct scale_title_filter : public wf::plugin_interface_t
         }
     };
 
-    wf::signal_connection_t scale_key{[this] (wf::signal_data_t *data)
+    std::map<uint32_t, std::unique_ptr<scale_key_repeat_t>> keys;
+    scale_key_repeat_t::callback_t handle_key_repeat = [=] (uint32_t raw_keycode)
+    {
+        auto seat     = wf::get_core().get_current_seat();
+        auto keyboard = wlr_seat_get_keyboard(seat);
+        if (!keyboard)
         {
-            auto k =
-                static_cast<wf::input_event_signal<wlr_event_keyboard_key>*>(data);
-            if ((k->event->state != WL_KEYBOARD_KEY_STATE_PRESSED) ||
-                (k->event->keycode == KEY_ESC) || (k->event->keycode == KEY_ENTER))
+            return; /* should not happen */
+        }
+
+        auto xkb_state = keyboard->xkb_state;
+        xkb_keycode_t keycode = raw_keycode + 8;
+        xkb_keysym_t keysym   = xkb_state_key_get_one_sym(xkb_state, keycode);
+        if (keysym == XKB_KEY_BackSpace)
+        {
+            if (!title_filter.empty())
+            {
+                int len = char_len.back();
+                char_len.pop_back();
+                title_filter.resize(title_filter.length() - len);
+            } else
+            {
+                return;
+            }
+        } else
+        {
+            /* taken from libxkbcommon guide */
+            int size = xkb_state_key_get_utf8(xkb_state, keycode, nullptr, 0);
+            if (size <= 0)
             {
                 return;
             }
 
-            auto seat     = wf::get_core().get_current_seat();
-            auto keyboard = wlr_seat_get_keyboard(seat);
-            if (!keyboard)
-            {
-                return; /* should not happen */
-            }
-
-            auto xkb_state = keyboard->xkb_state;
-            xkb_keycode_t keycode = k->event->keycode + 8;
-            xkb_keysym_t keysym   = xkb_state_key_get_one_sym(xkb_state, keycode);
-            if (keysym == XKB_KEY_BackSpace)
-            {
-                if (!title_filter.empty())
-                {
-                    int len = char_len.back();
-                    char_len.pop_back();
-                    title_filter.resize(title_filter.length() - len);
-                } else
-                {
-                    return;
-                }
-            } else
-            {
-                /* taken from libxkbcommon guide */
-                int size = xkb_state_key_get_utf8(xkb_state, keycode, nullptr, 0);
-                if (size <= 0)
-                {
-                    return;
-                }
-
-                std::string tmp(size, 0);
-                xkb_state_key_get_utf8(xkb_state, keycode, tmp.data(), size + 1);
-                char_len.push_back(size);
-                title_filter += tmp;
-            }
-
-            output->emit_signal("scale-update", nullptr);
-            update_overlay();
+            std::string tmp(size, 0);
+            xkb_state_key_get_utf8(xkb_state, keycode, tmp.data(), size + 1);
+            char_len.push_back(size);
+            title_filter += tmp;
         }
+
+        output->emit_signal("scale-update", nullptr);
+        update_overlay();
     };
+
+    wf::signal_connection_t scale_key = [this] (wf::signal_data_t *data)
+    {
+        auto k =
+            static_cast<wf::input_event_signal<wlr_event_keyboard_key>*>(data);
+        if (k->event->state == WL_KEYBOARD_KEY_STATE_RELEASED)
+        {
+            keys.erase(k->event->keycode);
+            return;
+        }
+
+        if ((k->event->keycode == KEY_ESC) || (k->event->keycode == KEY_ENTER))
+        {
+            return;
+        }
+
+        keys[k->event->keycode] =
+            std::make_unique<scale_key_repeat_t>(k->event->keycode,
+                handle_key_repeat);
+        handle_key_repeat(k->event->keycode);
+    };
+
 
     wf::signal_connection_t scale_end = [this] (wf::signal_data_t*)
     {
@@ -155,7 +195,7 @@ struct scale_title_filter : public wf::plugin_interface_t
     cairo_t *cr = nullptr;
     cairo_surface_t *surface = nullptr;
     /* current width and height of the above surface */
-    unsigned int surface_width  = 400;
+    unsigned int surface_width = 400;
     unsigned int surface_height = 300;
     float output_scale = 1.0f;
     /* render function */
