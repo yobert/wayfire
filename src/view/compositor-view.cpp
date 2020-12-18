@@ -38,8 +38,6 @@ void wf::mirror_view_t::close()
         return;
     }
 
-    emit_view_pre_unmap();
-
     base_view->disconnect_signal("unmapped", &base_view_unmapped);
     base_view->disconnect_signal("region-damaged", &base_view_damaged);
     base_view = nullptr;
