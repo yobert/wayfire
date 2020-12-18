@@ -154,8 +154,8 @@ class overview_t : public wf::plugin_interface_t
 
     wf::signal_connection_t on_scale_filter = [=] (auto data)
     {
-//        LOGI("scale filter!");
- //       return;
+// LOGI("scale filter!");
+// return;
 
         auto ev = static_cast<scale_filter_signal*>(data);
         auto remove_and_hide = [=] (auto& container)
@@ -209,7 +209,8 @@ class overview_t : public wf::plugin_interface_t
             wall->set_viewport(wall->get_wall_rectangle());
             output->render->add_effect(&workspace_overlay_hook,
                 wf::OUTPUT_EFFECT_OVERLAY);
-            output->render->add_effect(&workspace_overlay_damage, wf::OUTPUT_EFFECT_PRE);
+            output->render->add_effect(&workspace_overlay_damage,
+                wf::OUTPUT_EFFECT_PRE);
         } else
         {
             wall->set_viewport({0, 0, 0, 0});
