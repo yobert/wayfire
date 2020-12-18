@@ -738,8 +738,6 @@ void wf::view_interface_t::set_visible(bool visible)
     {
         LOGE("set_visible(true) called more often than set_visible(false)!");
     }
-
-    this->damage();
 }
 
 void wf::view_interface_t::damage()
