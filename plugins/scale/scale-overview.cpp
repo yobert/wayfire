@@ -5,7 +5,8 @@
 
 #include <wayfire/util/log.hpp>
 
-class overview_mirror_view_t : public wf::mirror_view_t
+class overview_mirror_view_t : public wf::mirror_view_t,
+    public wf::compositor_interactive_view_t
 {
   public:
     overview_mirror_view_t(wayfire_view view) : wf::mirror_view_t(view)
@@ -14,8 +15,21 @@ class overview_mirror_view_t : public wf::mirror_view_t
         set_output(view->get_output());
         get_output()->workspace->add_view(self(), wf::LAYER_WORKSPACE);
         // get_output()->workspace->restack_above(self(), view);
-        this->move(view->get_wm_geometry().x, view->get_wm_geometry().y);
+        auto bbox = view->get_bounding_box();
+        this->move(bbox.x, bbox.y);
         emit_map_state_change(this);
+    }
+
+    bool accepts_input(int sx, int sy) override
+    {
+        if (!base_view)
+        {
+            return false;
+        }
+
+        auto og = get_output_geometry();
+        wf::pointf_t cursor = {1.0 * og.x + sx, 1.0 * og.y + sy};
+        return base_view->map_input_coordinates(cursor, cursor) != nullptr;
     }
 
     void set_activated(bool v) override
@@ -25,11 +39,27 @@ class overview_mirror_view_t : public wf::mirror_view_t
             base_view->set_activated(true);
         }
     }
+
+    std::string get_title() override
+    {
+        if (base_view)
+        {
+            return base_view->get_title() + "(mirror)";
+        }
+
+        return "mirror(unmapped)";
+    }
+
+    wayfire_view get_base_view()
+    {
+        return this->base_view;
+    }
 };
 
 class overview_t : public wf::plugin_interface_t
 {
     std::unique_ptr<wf::workspace_wall_t> wall;
+    bool mirrors_active = false;
 
   public:
     void init() override
@@ -54,21 +84,24 @@ class overview_t : public wf::plugin_interface_t
             data.source = wf::activator_source_t::PLUGIN;
             output->call_plugin("scale/toggle", data);
 
-            // Practically deactivate wall
-            wall->set_viewport({0, 0, 0, 0});
-            output->render->rem_effect(&workspace_overlay_hook);
-            output->render->rem_effect(&workspace_overlay_damage);
-            workspace_overlay_damage();
-
             return true;
         }
 
         // create mirror views but filter them out
-
-        for (auto& view : output->workspace->get_views_in_layer(wf::WM_LAYERS))
+        if (mirrors_active == false)
         {
-            auto uptr = std::make_unique<overview_mirror_view_t>(view);
-            wf::get_core().add_view(std::move(uptr));
+            mirrors_active = true;
+            for (auto& view : output->workspace->get_views_in_layer(wf::WM_LAYERS))
+            {
+                auto uptr = std::make_unique<overview_mirror_view_t>(view);
+                auto copy = uptr.get();
+                wf::get_core().add_view(std::move(uptr));
+
+                if (view == output->get_active_view())
+                {
+                    output->focus_view(copy->self());
+                }
+            }
         }
 
         // TODO: handle activation and conflicts with other plugins
@@ -76,10 +109,7 @@ class overview_t : public wf::plugin_interface_t
         data.source = wf::activator_source_t::PLUGIN;
         output->call_plugin("scale/toggle", data);
 
-        wall->set_viewport(wall->get_wall_rectangle());
-        output->render->add_effect(&workspace_overlay_hook,
-            wf::OUTPUT_EFFECT_OVERLAY);
-        output->render->add_effect(&workspace_overlay_damage, wf::OUTPUT_EFFECT_PRE);
+        set_overlay(true);
         return true;
     };
 
@@ -97,14 +127,24 @@ class overview_t : public wf::plugin_interface_t
             if (view->has_data("scale-hidden"))
             {
                 view->set_visible(true);
+                view->erase_data("scale-hidden");
             }
         }
 
         for (auto view : tagged)
         {
+            if (view == output->get_active_view())
+            {
+                auto as_mirror = dynamic_cast<overview_mirror_view_t*>(view.get());
+                output->focus_view(as_mirror->get_base_view(), true);
+            }
+
             LOGI("closing a mirror view");
             view->close();
         }
+
+        mirrors_active = false;
+        set_overlay(false);
     };
 
     static inline bool is_normal_view(wayfire_view view)
@@ -114,15 +154,15 @@ class overview_t : public wf::plugin_interface_t
 
     wf::signal_connection_t on_scale_filter = [=] (auto data)
     {
-        LOGI("scale filter!");
-        return;
+//        LOGI("scale filter!");
+ //       return;
 
         auto ev = static_cast<scale_filter_signal*>(data);
         auto remove_and_hide = [=] (auto& container)
         {
             for (auto& view : container)
             {
-                if (is_normal_view(view))
+                if (is_normal_view(view) && !view->has_data("scale-hidden"))
                 {
                     view->store_data(
                         std::make_unique<wf::custom_data_t>(), "scale-hidden");
@@ -155,12 +195,35 @@ class overview_t : public wf::plugin_interface_t
         }
     }
 
+    bool overlay_state = false;
+    void set_overlay(bool enabled)
+    {
+        if (enabled == overlay_state)
+        {
+            return;
+        }
+
+        overlay_state = enabled;
+        if (enabled)
+        {
+            wall->set_viewport(wall->get_wall_rectangle());
+            output->render->add_effect(&workspace_overlay_hook,
+                wf::OUTPUT_EFFECT_OVERLAY);
+            output->render->add_effect(&workspace_overlay_damage, wf::OUTPUT_EFFECT_PRE);
+        } else
+        {
+            wall->set_viewport({0, 0, 0, 0});
+            output->render->rem_effect(&workspace_overlay_hook);
+            output->render->rem_effect(&workspace_overlay_damage);
+            workspace_overlay_damage();
+        }
+    }
+
     wf::effect_hook_t workspace_overlay_hook = [=] ()
     {
-        // Trick: scale will hide the mirrored views, without ever touching them.
-        // Now, to get the proper workspace textures without the scale transform,
-        // we can just unhide them and hide the real ones while updating the
-        // workspace streams.
+        // We have hidden the base views, but we can unhide them for a bit
+        // and hide the copies, so that the correct views show up in the
+        // workspace textures
         toggle_visibility(false);
         wall->render_wall(output->render->get_target_framebuffer(),
             {0, 0, 300, 600});
@@ -169,7 +232,10 @@ class overview_t : public wf::plugin_interface_t
 
     wf::effect_hook_t workspace_overlay_damage = [=] ()
     {
-        output->render->damage({0, 0, 300, 600});
+        if (true || !output->render->get_scheduled_damage().empty())
+        {
+            output->render->damage({0, 0, 300, 600});
+        }
     };
 
 
