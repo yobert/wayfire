@@ -14,10 +14,12 @@
  * when: This signal is sent from the scale plugin whenever it is updating the
  *   list of views to display, with the list of views to be displayed in
  *   views_shown. Plugins can move views to views_hidden to request them not to
- *   be displayed by scale.
+ *   be displayed by scale, in which case scale will hide these windows and show
+ *   them on exit.
  *
- * Note: it is an error to remove a view from views_shown without adding it to
- *   views_hidden; this will result in views rendered in wrong locations.
+ * Note: if a plugin removes a view from views_shown without adding it to
+ *   views_hidden, it needs to ensure that the view is not visible, otherwise,
+ *   weird artifacts can happen.
  *
  * If multiple plugins are connected to this signal, they are called in the
  * order defined by the logic in signal_provider_t; plugins should not depend
