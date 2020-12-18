@@ -13,4 +13,10 @@ shared_module('scale-title-filter', 'scale-title-filter.cpp',
         install: true,
         install_dir: conf_data.get('PLUGIN_PATH'))
 
+shared_module('scale-overview', 'scale-overview.cpp',
+        include_directories: all_include_dirs,
+        dependencies: [wlroots, pixman, wfconfig, wftouch, cairo],
+        install: true,
+        install_dir: conf_data.get('PLUGIN_PATH'))
+
 install_headers(['wayfire/plugins/scale-signal.hpp'], subdir: 'wayfire/plugins')
