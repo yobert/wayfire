@@ -13,7 +13,7 @@ class overview_mirror_view_t : public wf::mirror_view_t
         LOGI("creating a mirror view");
         set_output(view->get_output());
         get_output()->workspace->add_view(self(), wf::LAYER_WORKSPACE);
-        //get_output()->workspace->restack_above(self(), view);
+        // get_output()->workspace->restack_above(self(), view);
         this->move(view->get_wm_geometry().x, view->get_wm_geometry().y);
         emit_map_state_change(this);
     }
@@ -71,14 +71,14 @@ class overview_t : public wf::plugin_interface_t
             wf::get_core().add_view(std::move(uptr));
         }
 
-
         // TODO: handle activation and conflicts with other plugins
         wf::activator_data_t data;
         data.source = wf::activator_source_t::PLUGIN;
         output->call_plugin("scale/toggle", data);
 
         wall->set_viewport(wall->get_wall_rectangle());
-        output->render->add_effect(&workspace_overlay_hook, wf::OUTPUT_EFFECT_OVERLAY);
+        output->render->add_effect(&workspace_overlay_hook,
+            wf::OUTPUT_EFFECT_OVERLAY);
         output->render->add_effect(&workspace_overlay_damage, wf::OUTPUT_EFFECT_PRE);
         return true;
     };
@@ -124,18 +124,20 @@ class overview_t : public wf::plugin_interface_t
             {
                 if (is_normal_view(view))
                 {
-                    view->store_data(std::make_unique<wf::custom_data_t>(), "scale-hidden");
+                    view->store_data(
+                        std::make_unique<wf::custom_data_t>(), "scale-hidden");
                     view->set_visible(false);
                 }
             }
 
-            auto it = std::remove_if(container.begin(), container.end(), is_normal_view);
+            auto it = std::remove_if(container.begin(),
+                container.end(), is_normal_view);
             container.erase(it, container.end());
         };
 
         remove_and_hide(ev->views_shown);
         remove_and_hide(ev->views_hidden);
-  };
+    };
 
     void toggle_visibility(bool mirrored_visible)
     {
@@ -143,15 +145,14 @@ class overview_t : public wf::plugin_interface_t
         {
             if (dynamic_cast<overview_mirror_view_t*>(view.get()))
             {
- //               LOGI("hiding mirror ", mirrored_visible);
+                // LOGI("hiding mirror ", mirrored_visible);
                 view->set_visible(mirrored_visible);
             } else if (view->has_data("scale-hidden"))
             {
-//                LOGI("showing other");
+// LOGI("showing other");
                 view->set_visible(!mirrored_visible);
             }
         }
-
     }
 
     wf::effect_hook_t workspace_overlay_hook = [=] ()
