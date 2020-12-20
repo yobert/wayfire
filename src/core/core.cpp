@@ -27,6 +27,7 @@
 #include "../output/wayfire-shell.hpp"
 #include "../output/output-impl.hpp"
 #include "../output/gtk-shell.hpp"
+#include "../ipc.hpp"
 
 #include "core-impl.hpp"
 
@@ -348,6 +349,9 @@ void wf::compositor_core_impl_t::post_init()
 
     // Start processing cursor events
     seat->cursor->setup_listeners();
+
+    // Start debugging IPC
+    this->ipc = std::make_unique<wf::ipc_t>(display, wayland_display);
 
     this->emit_signal("startup-finished", nullptr);
 }

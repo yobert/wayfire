@@ -14,6 +14,7 @@ struct wf_gtk_shell;
 
 namespace wf
 {
+class ipc_t;
 class seat_t;
 class input_manager_t;
 class compositor_core_impl_t : public compositor_core_t
@@ -30,6 +31,7 @@ class compositor_core_impl_t : public compositor_core_t
     wlr_compositor *compositor;
 
     std::unique_ptr<seat_t> seat;
+    std::unique_ptr<wf::ipc_t> ipc;
     std::unique_ptr<wf::input_manager_t> input;
     std::unique_ptr<input_method_relay> im_relay;
 

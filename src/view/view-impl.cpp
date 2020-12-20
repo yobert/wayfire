@@ -2,6 +2,7 @@
 #include "../core/core-impl.hpp"
 #include "../output/gtk-shell.hpp"
 #include "view-impl.hpp"
+#include "wayfire/debug.hpp"
 #include "wayfire/decorator.hpp"
 #include "wayfire/signal-definitions.hpp"
 #include "wayfire/workspace-manager.hpp"
@@ -291,6 +292,12 @@ void wf::wlr_view_t::set_output(wf::output_t *wo)
 
 void wf::wlr_view_t::commit()
 {
+    if (get_output())
+    {
+        LOG_IPC_EV("repaint-loop", "surface-commit", this->get_id(),
+            {{"output", this->get_output()->to_string()}});
+    }
+
     wlr_surface_base_t::commit();
     update_size();
 

@@ -20,6 +20,39 @@ namespace wf
 void print_trace(bool fast_mode);
 }
 
+#if __has_include(<nlohmann/json.hpp>)
+    #include <nlohmann/json.hpp>
+namespace wf
+{
+/**
+ * Publish a message to the JSON IPC, if it is enabled.
+ */
+void publish_message(const std::string& category, nlohmann::json json);
+}
+
+inline void LOG_IPC(const std::string& category, nlohmann::json&& j)
+{
+    if constexpr (1)
+    {
+        wf::publish_message(category, j);
+    }
+}
+
+template<class ObjectType>
+inline void LOG_IPC_EV(const std::string& category,
+    const std::string& event, const ObjectType& object,
+    nlohmann::json&& j = {})
+{
+    if constexpr (1)
+    {
+        j["event"]  = event;
+        j["object"] = object;
+        wf::publish_message(category, std::move(j));
+    }
+}
+
+#endif
+
 /* ------------------- Miscallaneous helpers for debugging ------------------ */
 #include <ostream>
 #include <glm/glm.hpp>

@@ -13,6 +13,7 @@
 #include <wayfire/nonstd/safe-list.hpp>
 #include <wayfire/util/log.hpp>
 #include <wayfire/nonstd/wlroots-full.hpp>
+#include <wayfire/debug.hpp>
 
 namespace wf
 {
@@ -693,6 +694,8 @@ class wf::render_manager::impl
             delay_manager->start_frame();
 
             auto repaint_delay = delay_manager->get_delay();
+            LOG_IPC_EV("repaint-loop", "start-frame", output->to_string(),
+                {{"delay", repaint_delay}});
             // Leave a bit of time for clients to render, see
             // https://github.com/swaywm/sway/pull/4588
             if (repaint_delay < 1)
@@ -967,6 +970,7 @@ class wf::render_manager::impl
      */
     void paint()
     {
+        LOG_IPC_EV("repaint-loop", "start-paint", output->to_string());
         /* Part 1: frame setup: query damage, etc. */
         effects->run_effects(OUTPUT_EFFECT_PRE);
         effects->run_effects(OUTPUT_EFFECT_DAMAGE);
@@ -1037,6 +1041,8 @@ class wf::render_manager::impl
         output_damage->swap_buffers(swap_damage);
         swap_damage.clear();
         post_paint();
+
+        LOG_IPC_EV("repaint-loop", "end-paint", output->to_string());
     }
 
     /**
