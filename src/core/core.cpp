@@ -27,7 +27,7 @@
 #include "../output/wayfire-shell.hpp"
 #include "../output/output-impl.hpp"
 #include "../output/gtk-shell.hpp"
-#include "../ipc.hpp"
+#include "../ipc/ipc.hpp"
 
 #include "core-impl.hpp"
 

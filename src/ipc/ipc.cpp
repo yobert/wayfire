@@ -1,4 +1,5 @@
 #include "ipc.hpp"
+#include "ipc-view.hpp"
 #include "core/core-impl.hpp"
 #include "wayfire/core.hpp"
 #include "wayfire/debug.hpp"
@@ -123,12 +124,16 @@ void wf::ipc_t::handle_new_client()
     this->clients.push_back(std::make_unique<ipc_client_t>(this, cfd));
 }
 
-void wf::ipc_t::send_message(nlohmann::json j)
+static inline void set_timestamp(nlohmann::json& j)
 {
     timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     j["timestamp"] = ts.tv_sec * 1'000'000'000ll + ts.tv_nsec;
+}
 
+void wf::ipc_t::send_message(nlohmann::json j)
+{
+    set_timestamp(j);
     std::string as_str = j.dump();
     for (auto& cl : this->clients)
     {
@@ -164,8 +169,69 @@ wf::ipc_client_t::~ipc_client_t()
     close(this->fd);
 }
 
+/**
+ * Read exactly nbytes bytes from fd.
+ */
+static bool read_exact(int fd, char *buffer, int32_t nbytes)
+{
+    while (nbytes > 0)
+    {
+        int n = read(fd, buffer, nbytes);
+        if (n <= 0)
+        {
+            return false;
+        }
+
+        nbytes -= n;
+        buffer += n;
+    }
+
+    return true;
+}
+
 void wf::ipc_client_t::handle_data()
-{}
+{
+    uint32_t len = 0;
+    if (!read_exact(fd, (char*)&len, 4))
+    {
+        LOGD("Error in communication with client on fd ", fd);
+        this->ipc->handle_error(this);
+        return;
+    }
+
+    std::string buffer(len, '\0');
+    if (!read_exact(fd, buffer.data(), len))
+    {
+        LOGD("Error in communication with client on fd ", fd);
+        this->ipc->handle_error(this);
+        return;
+    }
+
+    try {
+        auto j = nlohmann::json::parse(buffer);
+
+        nlohmann::json response;
+        response["status"] = "error";
+        response["detail"] = "Unknown query type: " + std::string(j["query"]);
+        if (j["query"] == "view-list")
+        {
+            response = wf::ipc::handle_view_list();
+        } else if (j["query"] == "view-info")
+        {
+            response = wf::ipc::handle_view_info(j["view"]);
+        }
+
+        set_timestamp(response);
+        response["category"] = "query-response";
+        response["to"] = j["query"];
+        send_message(response.dump());
+    } catch (std::exception& e)
+    {
+        LOGD("Error in communication with client on fd ", fd);
+        this->ipc->handle_error(this);
+        return;
+    }
+}
 
 void wf::ipc_client_t::send_message(const std::string& message)
 {

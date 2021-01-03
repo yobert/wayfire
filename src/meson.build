@@ -1,6 +1,8 @@
 wayfire_sources = ['main.cpp',
                    'util.cpp',
-                   'ipc.cpp',
+
+                   'ipc/ipc.cpp',
+                   'ipc/ipc-view.cpp',
 
                    'core/output-layout.cpp',
                    'core/matcher.cpp',
