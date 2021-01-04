@@ -155,6 +155,12 @@ class wayfire_cube : public wf::plugin_interface_t
         auto wsize = output->workspace->get_workspace_grid_size();
         animation.side_angle = 2 * M_PI / float(wsize.width);
         identity_z_offset    = 0.5 / std::tan(animation.side_angle / 2);
+        if (wsize.width == 1)
+        {
+            // tan(M_PI) is 0, so identity_z_offset is invalid
+            identity_z_offset = 0.0f;
+        }
+
         animation.cube_animation.offset_z.set(identity_z_offset + Z_OFFSET_NEAR,
             identity_z_offset + Z_OFFSET_NEAR);
 
@@ -444,13 +450,22 @@ class wayfire_cube : public wf::plugin_interface_t
     /* Calculate the base model matrix for the i-th side of the cube */
     glm::mat4 calculate_model_matrix(int i, glm::mat4 fb_transform)
     {
-        auto rotation = glm::rotate(glm::mat4(
-            1.0),
-            float(i) * animation.side_angle + float(animation.cube_animation.rotation),
-            glm::vec3(0, 1, 0));
+        const float angle =
+            i * animation.side_angle + animation.cube_animation.rotation;
+        auto rotation = glm::rotate(glm::mat4(1.0), angle, glm::vec3(0, 1, 0));
 
-        auto translation =
-            glm::translate(glm::mat4(1.0), glm::vec3(0, 0, identity_z_offset));
+        double additional_z = 0.0;
+        // Special case: 2 faces
+        // In this case, we need to make sure that the two faces are just
+        // slightly moved away from each other, to avoid artifacts which can
+        // happen if both sides are touching.
+        if (get_num_faces() == 2)
+        {
+            additional_z = 1e-3;
+        }
+
+        auto translation = glm::translate(glm::mat4(1.0),
+            glm::vec3(0, 0, identity_z_offset + additional_z));
 
         return rotation * translation * glm::inverse(fb_transform);
     }
