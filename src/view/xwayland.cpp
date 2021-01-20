@@ -1134,13 +1134,50 @@ void wf::xwayland_update_default_cursor()
 #endif
 }
 
+#if WF_HAS_XWAYLAND
+// Private wlroots interface!
+// This only works because we have fixed wlroots version 0.12
+static constexpr uint32_t ATOM_LAST = 65; // wlroots 0.12 has 65 atoms
+struct _wlr_xwm
+{
+    struct wlr_xwayland *xwayland;
+    struct wl_event_source *event_source;
+    struct wlr_seat *seat;
+    uint32_t ping_timeout;
+
+    xcb_atom_t atoms[ATOM_LAST];
+    xcb_connection_t *xcb_conn;
+};
+
+void surface_restack(struct wlr_xwayland_surface *surface,
+    struct wlr_xwayland_surface *sibling, enum xcb_stack_mode_t mode)
+{
+    _wlr_xwm *xwm = (_wlr_xwm*)surface->xwm;
+    uint32_t values[2];
+    size_t idx     = 0;
+    uint32_t flags = XCB_CONFIG_WINDOW_STACK_MODE;
+
+    if (sibling != NULL)
+    {
+        values[idx++] = sibling->window_id;
+        flags |= XCB_CONFIG_WINDOW_SIBLING;
+    }
+
+    values[idx++] = mode;
+
+    xcb_configure_window(xwm->xcb_conn, surface->window_id, flags, values);
+    xcb_flush(xwm->xcb_conn);
+}
+
+#endif
+
 void wf::xwayland_bring_to_front(wlr_surface *surface)
 {
 #if WF_HAS_XWAYLAND
     if (wlr_surface_is_xwayland_surface(surface))
     {
         auto xw = wlr_xwayland_surface_from_wlr_surface(surface);
-        wlr_xwayland_surface_restack(xw, NULL, XCB_STACK_MODE_ABOVE);
+        surface_restack(xw, NULL, XCB_STACK_MODE_ABOVE);
     }
 
 #endif
