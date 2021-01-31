@@ -30,11 +30,9 @@ Some of the issues have milestones.
 These are used to check which features are planned by @ammen99 for the given release.
 However, milestones are not firmly set, PRs by anyone for any issue can be merged at any time.
 
-If you want to work on a feature or a bug fix which does not have an open issue,
-it would be best to open a new one or at least contact the maintainer(s) to make sure your changes will be accepted.
+If you want to work on a feature or a bug fix which does not have an open issue, it would be best to open a new one or at least contact the maintainer(s) to make sure your changes will be accepted. The base repository is meant only for common functionality like Autostart, Expo, Vswitch, Scale or plugins which demonstrate particular core features like Cube, Fisheye, Extra-gestures, etc.
 
-In any case, feel free to ask questions if you do not understand a part of the code,
-or if you are unsure how a particular feature should be implemented.
+In any case, feel free to ask questions if you do not understand a part of the code, or if you are unsure how a particular feature should be implemented.
 
 ## Contacting the maintainer(s)
 
