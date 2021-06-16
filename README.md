@@ -3,7 +3,8 @@
 [Wayfire]: https://wayfire.org
 
 ![Version](https://img.shields.io/github/v/release/WayfireWM/wayfire)
-[![IRC: #wayfire on freenode](https://img.shields.io/badge/irc-%23wayfire-informational)](https://webchat.freenode.net/#wayfire)
+[![Matrix: #wayfire:matrix.org](https://img.shields.io/badge/matrix-%23wayfire%3Amatrix.org-blue)](https://matrix.to/#/#wayfire:matrix.org)
+[![IRC: #wayfire on Libera.chat](https://img.shields.io/badge/IRC-%23wayfire%20at%20libera.chat-green)](https://web.libera.chat/#wayfire)
 [![CI](https://github.com/WayfireWM/wayfire/workflows/CI/badge.svg)](https://github.com/WayfireWM/wayfire/actions)
 [![Packaging status](https://repology.org/badge/tiny-repos/wayfire.svg)](https://repology.org/project/wayfire/versions)
 [![License](https://img.shields.io/github/license/WayfireWM/wayfire)](LICENSE)
