@@ -46,5 +46,6 @@ You can setup a [githook](https://git-scm.com/docs/githooks) to run this automat
 
 ## Contacting the maintainer(s)
 
-The primary communication channel is via IRC (#wayfire at freenode.net).
-Use GitHub to ask questions only if you are unable to access IRC.
+The primary communication channels are Matrix (#wayfire:matrix.org) and IRC (#wayfire at Libera.chat).
+The two channels are bridged together.
+Use GitHub to ask questions only if you are unable to access IRC and Matrix.
