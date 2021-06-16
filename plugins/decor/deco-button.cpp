@@ -80,16 +80,16 @@ void button_t::render(const wf::framebuffer_t& fb, wf::geometry_t geometry,
 
 void button_t::update_texture()
 {
-    /* We render a big predefined resolution here */
-    const int WIDTH  = 25;
-    const int HEIGHT = 16;
-    const int BORDER = 1;
-    const int SCALE  = 4;
-
+    /**
+     * We render at 100% resolution
+     * When uploading the texture, this gets scaled
+     * to 70% of the titlebar height. Thus we will have
+     * a very crisp image
+     */
     decoration_theme_t::button_state_t state = {
-        .width  = WIDTH * SCALE,
-        .height = HEIGHT * SCALE,
-        .border = BORDER * SCALE,
+        .width  = 1.0 * theme.get_title_height(),
+        .height = 1.0 * theme.get_title_height(),
+        .border = 1.0,
         .hover_progress = hover,
     };
 
