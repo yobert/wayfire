@@ -2,6 +2,7 @@
 #define XDG_SHELL_HPP
 
 #include "view-impl.hpp"
+#include "surface-lock.hpp"
 
 /**
  * A class for xdg-shell popups
@@ -53,6 +54,8 @@ class wayfire_xdg_view : public wf::wlr_view_t
     void initialize() override final;
 
   public:
+    std::unique_ptr<wf::wlr_surface_manager_t> lockmgr;
+
     wayfire_xdg_view(wlr_xdg_toplevel *toplevel);
     virtual ~wayfire_xdg_view();
 
