@@ -188,6 +188,11 @@ const wf::view_state_t& wf::view_interface_t::state() const
     return this->view_impl->state;
 }
 
+const wf::view_state_t& wf::view_interface_t::pending() const
+{
+    return this->view_impl->pending;
+}
+
 /** Set the view's output. */
 void wf::view_interface_t::set_output(wf::output_t *new_output)
 {

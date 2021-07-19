@@ -193,6 +193,52 @@ void create_xdg_popup(wlr_xdg_popup *popup)
     wf::get_core().add_view(std::make_unique<wayfire_xdg_popup>(popup));
 }
 
+class xdg_view_unmap_t : public wf::txn::instruction_t
+{
+    wayfire_xdg_view *view;
+    uint32_t req_id;
+
+  public:
+    xdg_view_unmap_t(wayfire_xdg_view *view)
+    {
+        this->view = view;
+        view->take_ref();
+    }
+
+    ~xdg_view_unmap_t()
+    {
+        view->lockmgr->unlock_all(req_id);
+        view->unref();
+    }
+
+    std::string get_object() override
+    {
+        return view->to_string();
+    }
+
+    void set_pending() override
+    {
+        LOGC(TXNV, "Pending: unmap ", wayfire_view{view});
+        req_id = view->lockmgr->lock_until([] () { return true; });
+        view->view_impl->pending.mapped = false;
+    }
+
+    void commit() override
+    {
+        wf::txn::instruction_ready_signal data;
+        data.instruction = {this};
+        this->emit_signal("ready", &data);
+    }
+
+    void apply() override
+    {
+        view->view_impl->state.mapped = false;
+        view->lockmgr->unlock(req_id);
+        view->unmap();
+    }
+};
+
+
 wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_toplevel *top) :
     wf::wlr_view_t(), xdg_toplevel(top)
 {}
@@ -207,7 +253,12 @@ void wayfire_xdg_view::initialize()
     handle_app_id_changed(nonull(xdg_toplevel->app_id));
 
     on_map.set_callback([&] (void*) { map(xdg_toplevel->base->surface); });
-    on_unmap.set_callback([&] (void*) { unmap(); });
+    on_unmap.set_callback([&] (void*)
+    {
+        auto tx = wf::txn::transaction_t::create();
+        tx->add_instruction(std::make_unique<xdg_view_unmap_t>(this));
+        wf::txn::transaction_manager_t::get().submit(std::move(tx));
+    });
     on_destroy.set_callback([&] (void*) { destroy(); });
     on_new_popup.set_callback([&] (void *data)
     {
@@ -314,9 +365,16 @@ wf::geometry_t get_xdg_geometry(wlr_xdg_toplevel *toplevel)
 
 void wayfire_xdg_view::map(wlr_surface *surface)
 {
+    view_impl->state.mapped   = true;
+    view_impl->pending.mapped = true;
     lockmgr = std::make_unique<wf::wlr_surface_manager_t>(surface);
     wlr_view_t::map(surface);
     create_toplevel();
+}
+
+bool wayfire_xdg_view::is_mapped() const
+{
+    return pending().mapped;
 }
 
 void wayfire_xdg_view::commit()

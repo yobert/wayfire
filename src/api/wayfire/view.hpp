@@ -94,9 +94,15 @@ class view_interface_t : public surface_interface_t
     wayfire_view self();
 
     /**
-     * Get the view's state.
+     * Get the view's current state.
      */
     virtual const view_state_t& state() const;
+
+    /**
+     * Get the view's pending state.
+     * The pending state also contains changes from unfinished transactions.
+     */
+    virtual const view_state_t& pending() const;
 
     /**
      * Set the view's output.

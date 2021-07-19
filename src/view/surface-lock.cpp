@@ -2,11 +2,7 @@
 #include <wayfire/nonstd/wlroots-full.hpp>
 #include <assert.h>
 
-#include <iostream>
-#define _ << " " <<
-#define debug(x) #x << " = " << x
-
-wf::wlr_surface_manager_t::wlr_surface_manager_t(wlr_surface* surface)
+wf::wlr_surface_manager_t::wlr_surface_manager_t(wlr_surface *surface)
 {
     this->surface = surface;
 }
@@ -15,6 +11,7 @@ uint64_t wf::wlr_surface_manager_t::lock()
 {
     if (current_checkpoint.has_value())
     {
+        assert(current_checkpoint.has_value());
         // Already had a lock, check whether to release next checkpoint
         // In any case, we just keep the current checkpoint
         if (this->next_checkpoint)
@@ -65,7 +62,7 @@ void wf::wlr_surface_manager_t::unlock_all(uint64_t id)
     }
 
     current_checkpoint = {};
-    next_checkpoint = {};
+    next_checkpoint    = {};
 
     for (auto& pts : to_release)
     {
