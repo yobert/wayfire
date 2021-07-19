@@ -8,6 +8,8 @@
 #include "wayfire/output-layout.hpp"
 #include <wayfire/workspace-manager.hpp>
 #include <wayfire/signal-definitions.hpp>
+#include <wayfire/transaction/instruction.hpp>
+#include <wayfire/transaction/transaction.hpp>
 
 wayfire_xdg_popup::wayfire_xdg_popup(wlr_xdg_popup *popup) :
     wf::wlr_view_t()
@@ -312,6 +314,7 @@ wf::geometry_t get_xdg_geometry(wlr_xdg_toplevel *toplevel)
 
 void wayfire_xdg_view::map(wlr_surface *surface)
 {
+    lockmgr = std::make_unique<wf::wlr_surface_manager_t>(surface);
     wlr_view_t::map(surface);
     create_toplevel();
 }

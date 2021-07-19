@@ -144,7 +144,7 @@ class wlr_view_t :
     virtual void set_output(wf::output_t*) override;
     bool has_client_decoration = true;
 
-  protected:
+  public:
     std::string title, app_id;
     /** Used by view implementations when the app id changes */
     void handle_app_id_changed(std::string new_app_id);
