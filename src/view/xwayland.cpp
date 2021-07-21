@@ -12,6 +12,8 @@
 #include "../core/seat/cursor.hpp"
 #include "../core/seat/input-manager.hpp"
 #include "view-impl.hpp"
+#include "instruction-impl.hpp"
+#include "xwayland.hpp"
 
 #if WF_HAS_XWAYLAND
 
@@ -419,6 +421,15 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         wf::wlr_view_t::set_activated(active);
     }
 
+    std::unique_ptr<wf::txn::view_transaction_t> next_state() override
+    {
+        using type = wf::view_impl_transaction_t<
+            wayfire_xwayland_view_base,
+            wf::xwayland_geometry_t>;
+
+        return std::make_unique<type>(this);
+    }
+
     void set_geometry(wf::geometry_t geometry) override
     {
         wlr_view_t::move(geometry.x, geometry.y);
@@ -489,6 +500,38 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         }
     }
 };
+
+wf::xwayland_geometry_t::xwayland_geometry_t(wayfire_xwayland_view_base *view,
+    const wf::geometry_t& g)
+{
+    this->view = view;
+    view->take_ref();
+}
+
+wf::xwayland_geometry_t::~xwayland_geometry_t()
+{
+    view->unref();
+}
+
+std::string wf::xwayland_geometry_t::get_object()
+{
+    return view->to_string();
+}
+
+void wf::xwayland_geometry_t::set_pending()
+{
+    LOGE("Not implemented yet!");
+}
+
+void wf::xwayland_geometry_t::commit()
+{
+    LOGE("Not implemented yet!");
+}
+
+void wf::xwayland_geometry_t::apply()
+{
+    LOGE("Not implemented yet!");
+}
 
 xcb_atom_t wayfire_xwayland_view_base::_NET_WM_WINDOW_TYPE_NORMAL;
 xcb_atom_t wayfire_xwayland_view_base::_NET_WM_WINDOW_TYPE_DIALOG;

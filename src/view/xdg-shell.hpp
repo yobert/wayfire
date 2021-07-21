@@ -3,6 +3,7 @@
 
 #include "view-impl.hpp"
 #include "surface-lock.hpp"
+#include "instruction-impl.hpp"
 
 /**
  * A class for xdg-shell popups
@@ -23,6 +24,11 @@ class wayfire_xdg_popup : public wf::wlr_view_t
   public:
     wayfire_xdg_popup(wlr_xdg_popup *popup);
     void initialize() override;
+
+    std::unique_ptr<wf::txn::view_transaction_t> next_state() override
+    {
+        assert(false);
+    }
 
     wlr_view_t *popup_parent;
     virtual void map(wlr_surface *surface) override;
@@ -47,7 +53,6 @@ class wayfire_xdg_view : public wf::wlr_view_t
         on_ping_timeout;
 
     wf::point_t xdg_surface_offset = {0, 0};
-    wlr_xdg_toplevel *xdg_toplevel;
     uint32_t last_configure_serial = 0;
 
   protected:
@@ -55,6 +60,7 @@ class wayfire_xdg_view : public wf::wlr_view_t
 
   public:
     std::unique_ptr<wf::wlr_surface_manager_t> lockmgr;
+    wlr_xdg_toplevel *xdg_toplevel;
 
     wayfire_xdg_view(wlr_xdg_toplevel *toplevel);
     virtual ~wayfire_xdg_view();
@@ -70,7 +76,12 @@ class wayfire_xdg_view : public wf::wlr_view_t
     void set_activated(bool act) final;
     void set_fullscreen(bool full) final;
 
+    void move(int x, int y) final;
     void resize(int w, int h) final;
+    void set_geometry(wf::geometry_t) final;
+
+    std::unique_ptr<wf::txn::view_transaction_t> next_state() override;
+
     void request_native_size() override final;
 
     void destroy() final;

@@ -192,5 +192,12 @@ void transaction_impl_t::clear_dirty()
 {
     this->dirty = false;
 }
+
+uint64_t view_transaction_t::submit()
+{
+    auto tx = transaction_t::create();
+    this->schedule_in({tx});
+    return transaction_manager_t::get().submit(std::move(tx));
+}
 } // namespace txn
 }

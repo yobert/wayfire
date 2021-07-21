@@ -193,6 +193,95 @@ void create_xdg_popup(wlr_xdg_popup *popup)
     wf::get_core().add_view(std::make_unique<wayfire_xdg_popup>(popup));
 }
 
+class xdg_view_geometry_t : public wf::txn::instruction_t
+{
+    wayfire_xdg_view *view;
+    wf::geometry_t target;
+    uint32_t lock_id;
+
+  public:
+    xdg_view_geometry_t(wayfire_xdg_view *view, const wf::geometry_t& g)
+    {
+        this->target = g;
+        this->view   = view;
+        view->take_ref();
+    }
+
+    ~xdg_view_geometry_t()
+    {
+        view->lockmgr->unlock_all(lock_id);
+        view->unref();
+    }
+
+    std::string get_object() override
+    {
+        return view->to_string();
+    }
+
+    void set_pending() override
+    {
+        LOGC(TXNV, "Pending: set geometry of ", wayfire_view{view}, " to ", target);
+        view->view_impl->pending.geometry = target;
+    }
+
+    void commit() override
+    {
+        if (!view->xdg_toplevel)
+        {
+            wf::emit_instruction_signal(this, "ready");
+            return;
+        }
+
+        if (view->view_impl->frame)
+        {
+            view->view_impl->frame->calculate_resize_size(
+                target.width, target.height);
+        }
+
+        auto& sp = view->xdg_toplevel->server_pending;
+        if (((int)sp.width == target.width) && ((int)sp.height == target.height))
+        {
+            wf::emit_instruction_signal(this, "ready");
+            return;
+        }
+
+        auto serial = wlr_xdg_toplevel_set_size(view->xdg_toplevel->base,
+            target.width, target.height);
+
+        LOGI("Waiting for serial ", serial);
+        lock_id = view->lockmgr->lock_until([this, serial] ()
+        {
+            wlr_xdg_surface_state *state;
+            wl_list_for_each(state, &view->xdg_toplevel->base->cached,
+                cached_state_link)
+            {
+                LOGI("Cached serial ", state->configure_serial);
+                if (state->configure_serial == serial)
+                {
+                    wf::emit_instruction_signal(this, "ready");
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    }
+
+    void apply() override
+    {
+        view->view_impl->state.geometry = target;
+
+        wlr_box box;
+        wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
+
+        view->geometry    = target;
+        view->geometry.x -= box.x;
+        view->geometry.y -= box.y;
+
+        view->lockmgr->unlock(lock_id);
+    }
+};
+
 class xdg_view_unmap_t : public wf::txn::instruction_t
 {
     wayfire_xdg_view *view;
@@ -243,8 +332,20 @@ wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_toplevel *top) :
     wf::wlr_view_t(), xdg_toplevel(top)
 {}
 
+std::unique_ptr<wf::txn::view_transaction_t> wayfire_xdg_view::next_state()
+{
+    using type = wf::view_impl_transaction_t<
+        wayfire_xdg_view,
+        xdg_view_geometry_t>;
+
+    return std::make_unique<type>(this);
+}
+
 void wayfire_xdg_view::initialize()
 {
+    lockmgr = std::make_unique<wf::wlr_surface_manager_t>(
+        xdg_toplevel->base->surface);
+
     wlr_view_t::initialize();
     LOGI("new xdg_shell_stable surface: ", xdg_toplevel->title,
         " app-id: ", xdg_toplevel->app_id);
@@ -367,7 +468,6 @@ void wayfire_xdg_view::map(wlr_surface *surface)
 {
     view_impl->state.mapped   = true;
     view_impl->pending.mapped = true;
-    lockmgr = std::make_unique<wf::wlr_surface_manager_t>(surface);
     wlr_view_t::map(surface);
     create_toplevel();
 }
@@ -409,27 +509,24 @@ wf::point_t wayfire_xdg_view::get_window_offset()
 
 wf::geometry_t wayfire_xdg_view::get_wm_geometry()
 {
-    if (!is_mapped())
-    {
-        return get_output_geometry();
-    }
+    return pending().geometry;
 
-    auto output_g     = get_output_geometry();
-    auto xdg_geometry = get_xdg_geometry(xdg_toplevel);
-
-    wf::geometry_t wm = {
-        .x     = output_g.x + xdg_surface_offset.x,
-        .y     = output_g.y + xdg_surface_offset.y,
-        .width = xdg_geometry.width,
-        .height = xdg_geometry.height
-    };
-
-    if (view_impl->frame)
-    {
-        wm = view_impl->frame->expand_wm_geometry(wm);
-    }
-
-    return wm;
+// auto output_g     = get_output_geometry();
+// auto xdg_geometry = get_xdg_geometry(xdg_toplevel);
+//
+// wf::geometry_t wm = {
+// .x     = output_g.x + xdg_surface_offset.x,
+// .y     = output_g.y + xdg_surface_offset.y,
+// .width = xdg_geometry.width,
+// .height = xdg_geometry.height
+// };
+//
+// if (view_impl->frame)
+// {
+// wm = view_impl->frame->expand_wm_geometry(wm);
+// }
+//
+// return wm;
 }
 
 void wayfire_xdg_view::set_activated(bool act)
@@ -461,21 +558,26 @@ void wayfire_xdg_view::set_fullscreen(bool full)
         wlr_xdg_toplevel_set_fullscreen(xdg_toplevel->base, full);
 }
 
-void wayfire_xdg_view::resize(int w, int h)
+void wayfire_xdg_view::move(int x, int y)
 {
-    if (view_impl->frame)
+    set_geometry({x, y, pending().geometry.width, pending().geometry.height});
+}
+
+void wayfire_xdg_view::set_geometry(wf::geometry_t g)
+{
+    if (g == pending().geometry)
     {
-        view_impl->frame->calculate_resize_size(w, h);
+        return;
     }
 
-    auto current_geometry = get_xdg_geometry(xdg_toplevel);
-    wf::dimensions_t current_size{current_geometry.width, current_geometry.height};
-    if (should_resize_client({w, h}, current_size))
-    {
-        this->last_size_request = {w, h};
-        last_configure_serial   =
-            wlr_xdg_toplevel_set_size(xdg_toplevel->base, w, h);
-    }
+    auto ns = next_state();
+    ns->set_geometry(g);
+    ns->submit();
+}
+
+void wayfire_xdg_view::resize(int w, int h)
+{
+    set_geometry({get_wm_geometry().x, get_wm_geometry().y, w, h});
 }
 
 void wayfire_xdg_view::request_native_size()
