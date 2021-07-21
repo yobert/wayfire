@@ -105,6 +105,19 @@ class view_interface_t : public surface_interface_t
     virtual const view_state_t& pending() const;
 
     /**
+     * Start a new change in the view's state.
+     *
+     * The returned object can be used to create changes to the view's state.
+     * These changes do not automatically have any effect. They need to be
+     * scheduled in a transaction using view_transaction_t::schedule_in()
+     * or view_transaction_t::submit().
+     *
+     * Note: the returned object should be used immediately, because it may
+     * become invalid if control returns to the main loop.
+     */
+    virtual std::unique_ptr<txn::view_transaction_t> next_state() = 0;
+
+    /**
      * Set the view's output.
      *
      * If the new output is different from the previous, the view will be

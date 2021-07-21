@@ -39,6 +39,11 @@ class wayfire_layer_shell_view : public wf::wlr_view_t
     wayfire_layer_shell_view& operator =(const wayfire_layer_shell_view&) = delete;
     wayfire_layer_shell_view& operator =(wayfire_layer_shell_view&&) = delete;
 
+    std::unique_ptr<wf::txn::view_transaction_t> next_state() override
+    {
+        assert(false);
+    }
+
     void map(wlr_surface *surface) override;
     void unmap() override;
     void commit() override;
