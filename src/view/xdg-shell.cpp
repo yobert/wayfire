@@ -199,6 +199,8 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
     wf::geometry_t target;
     uint32_t lock_id;
 
+    wf::wl_listener_wrapper on_cache;
+
   public:
     xdg_view_geometry_t(wayfire_xdg_view *view, const wf::geometry_t& g)
     {
@@ -245,17 +247,16 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
             return;
         }
 
+        lock_id = view->lockmgr->lock();
         auto serial = wlr_xdg_toplevel_set_size(view->xdg_toplevel->base,
             target.width, target.height);
 
-        LOGI("Waiting for serial ", serial);
-        lock_id = view->lockmgr->lock_until([this, serial] ()
+        on_cache.set_callback([this, serial] (void*)
         {
             wlr_xdg_surface_state *state;
             wl_list_for_each(state, &view->xdg_toplevel->base->cached,
                 cached_state_link)
             {
-                LOGI("Cached serial ", state->configure_serial);
                 if (state->configure_serial == serial)
                 {
                     wf::emit_instruction_signal(this, "ready");
@@ -265,11 +266,15 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
 
             return false;
         });
+        on_cache.connect(&view->xdg_toplevel->base->surface->events.cache);
     }
 
     void apply() override
     {
         view->view_impl->state.geometry = target;
+        view->damage();
+
+        view->lockmgr->unlock(lock_id);
 
         wlr_box box;
         wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
@@ -278,7 +283,7 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
         view->geometry.x -= box.x;
         view->geometry.y -= box.y;
 
-        view->lockmgr->unlock(lock_id);
+        view->damage();
     }
 };
 
@@ -308,7 +313,7 @@ class xdg_view_unmap_t : public wf::txn::instruction_t
     void set_pending() override
     {
         LOGC(TXNV, "Pending: unmap ", wayfire_view{view});
-        req_id = view->lockmgr->lock_until([] () { return true; });
+        req_id = view->lockmgr->lock();
         view->view_impl->pending.mapped = false;
     }
 
