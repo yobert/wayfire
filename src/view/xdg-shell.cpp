@@ -198,6 +198,7 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
     wayfire_xdg_view *view;
     wf::geometry_t target;
     uint32_t lock_id;
+    wf::gravity_t current_gravity;
 
     wf::wl_listener_wrapper on_cache;
 
@@ -223,6 +224,7 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
     void set_pending() override
     {
         LOGC(TXNV, "Pending: set geometry of ", wayfire_view{view}, " to ", target);
+        current_gravity = view->view_impl->pending.gravity;
         view->view_impl->pending.geometry = target;
     }
 
@@ -271,7 +273,6 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
 
     void apply() override
     {
-        view->view_impl->state.geometry = target;
         view->damage();
 
         view->lockmgr->unlock(lock_id);
@@ -279,9 +280,33 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
         wlr_box box;
         wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
 
-        view->geometry    = target;
-        view->geometry.x -= box.x;
-        view->geometry.y -= box.y;
+        // Adjust for gravity
+        if ((current_gravity == wf::gravity_t::TOP_RIGHT) ||
+            (current_gravity == wf::gravity_t::BOTTOM_RIGHT))
+        {
+            target.x = (target.x + target.width) - box.width;
+        }
+
+        if ((current_gravity == wf::gravity_t::BOTTOM_LEFT) ||
+            (current_gravity == wf::gravity_t::BOTTOM_RIGHT))
+        {
+            target.y = (target.y + target.height) - box.height;
+        }
+
+        target.width  = box.width;
+        target.height = box.height;
+        view->view_impl->state.geometry = target;
+
+        LOGI("setting geometry ", target);
+
+        // Adjust output geometry for shadows and other parts of the surface
+        target.x    -= box.x;
+        target.y    -= box.y;
+        target.width = view->surface->current.width;
+        target.width = view->surface->current.height;
+        view->geometry = target;
+
+        LOGI("Setting output g", target);
 
         view->damage();
     }
@@ -526,26 +551,6 @@ bool wayfire_xdg_view::is_mapped() const
 void wayfire_xdg_view::commit()
 {
     wlr_view_t::commit();
-
-    /* On each commit, check whether the window geometry of the xdg_surface
-     * changed. In those cases, we need to adjust the view's output geometry,
-     * so that the apparent wm geometry doesn't change */
-    auto wm    = get_wm_geometry();
-    auto xdg_g = get_xdg_geometry(xdg_toplevel);
-    if ((xdg_g.x != xdg_surface_offset.x) || (xdg_g.y != xdg_surface_offset.y))
-    {
-        xdg_surface_offset = {xdg_g.x, xdg_g.y};
-        /* Note that we just changed the xdg_surface offset, which means we
-         * also changed the wm geometry. Plugins which depend on the
-         * geometry-changed signal however need to receive the appropriate
-         * old geometry */
-        set_position(wm.x, wm.y, wm, true);
-    }
-
-    if (xdg_toplevel->base->current.configure_serial == this->last_configure_serial)
-    {
-        this->last_size_request = wf::dimensions(xdg_g);
-    }
 }
 
 wf::point_t wayfire_xdg_view::get_window_offset()
@@ -628,6 +633,7 @@ void wayfire_xdg_view::resize(int w, int h)
 
 void wayfire_xdg_view::request_native_size()
 {
+    LOGI("request native size!");
     last_configure_serial =
         wlr_xdg_toplevel_set_size(xdg_toplevel->base, 0, 0);
 }
