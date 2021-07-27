@@ -5,7 +5,7 @@
 
 namespace wf
 {
-template<class View, class Geometry>
+template<class View, class Geometry, class Gravity>
 class view_impl_transaction_t : public txn::view_transaction_t
 {
   public:
@@ -17,6 +17,11 @@ class view_impl_transaction_t : public txn::view_transaction_t
     void set_geometry(const wf::geometry_t& new_g) final
     {
         pending.push_back(std::make_unique<Geometry>(view, new_g));
+    }
+
+    void set_gravity(wf::gravity_t gravity) final
+    {
+        pending.push_back(std::make_unique<Gravity>(view, gravity));
     }
 
     void schedule_in(

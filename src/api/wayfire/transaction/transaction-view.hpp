@@ -7,6 +7,23 @@
 namespace wf
 {
 /**
+ * The gravity of the view indicates which corner of the view stays immobile
+ * during unexpected resize operations.
+ *
+ * Here, unexpected resize operations happen when the client commits a buffer
+ * with size different from the one requested by the compositor. In these cases,
+ * the geometry of the view is recomputed so that the gravity corner remains
+ * where the last transaction indicated it should be.
+ */
+enum class gravity_t : int
+{
+    TOP_LEFT     = 0,
+    TOP_RIGHT    = 1,
+    BOTTOM_LEFT  = 2,
+    BOTTOM_RIGHT = 3,
+};
+
+/**
  * view_state_t describes a state of a view.
  *
  * All state changes are done via transactions.
@@ -27,6 +44,11 @@ struct view_state_t
      * and transformers.
      */
     wf::geometry_t geometry;
+
+    /**
+     * The gravity corner of the view.
+     */
+    gravity_t gravity = gravity_t::TOP_LEFT;
 };
 
 namespace txn
@@ -43,6 +65,10 @@ class transaction_t;
  * implementation is required to provide a factory which implements the
  * view_transaction_t interface. It can be used to generate and batch together
  * instructions for the particular view implementation.
+ *
+ * Important: Some view properties (like gravity) may affect other
+ * instructions, even from the same transaction. In these cases, they affect
+ * ONLY instructions coming after them, be they in the same tx or not.
  */
 class view_transaction_t
 {
@@ -57,6 +83,11 @@ class view_transaction_t
      * @param new_g The new view geometry.
      */
     virtual void set_geometry(const wf::geometry_t& new_g) = 0;
+
+    /**
+     * Set a new gravity for the view.
+     */
+    virtual void set_gravity(gravity_t gr) = 0;
 
     /**
      * Schedule all batched instructions in the given transaction.
