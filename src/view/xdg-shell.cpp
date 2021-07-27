@@ -287,6 +287,46 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
     }
 };
 
+class xdg_view_gravity_t : public wf::txn::instruction_t
+{
+    wayfire_xdg_view *view;
+    wf::gravity_t g;
+
+  public:
+    xdg_view_gravity_t(wayfire_xdg_view *view, wf::gravity_t g)
+    {
+        this->g    = g;
+        this->view = view;
+        view->take_ref();
+    }
+
+    ~xdg_view_gravity_t()
+    {
+        view->unref();
+    }
+
+    std::string get_object() override
+    {
+        return view->to_string();
+    }
+
+    void set_pending() override
+    {
+        LOGC(TXNV, "Pending: set gravity of ", wayfire_view{view}, " to ", (int)g);
+        view->view_impl->pending.gravity = g;
+    }
+
+    void commit() override
+    {
+        wf::emit_instruction_signal(this, "ready");
+    }
+
+    void apply() override
+    {
+        view->view_impl->state.gravity = g;
+    }
+};
+
 class xdg_view_unmap_t : public wf::txn::instruction_t
 {
     wayfire_xdg_view *view;
@@ -341,7 +381,8 @@ std::unique_ptr<wf::txn::view_transaction_t> wayfire_xdg_view::next_state()
 {
     using type = wf::view_impl_transaction_t<
         wayfire_xdg_view,
-        xdg_view_geometry_t>;
+        xdg_view_geometry_t,
+        xdg_view_gravity_t>;
 
     return std::make_unique<type>(this);
 }

@@ -423,11 +423,12 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
 
     std::unique_ptr<wf::txn::view_transaction_t> next_state() override
     {
-        using type = wf::view_impl_transaction_t<
-            wayfire_xwayland_view_base,
-            wf::xwayland_geometry_t>;
+        // using type = wf::view_impl_transaction_t<
+        // wayfire_xwayland_view_base,
+        // wf::xwayland_geometry_t>;
 
-        return std::make_unique<type>(this);
+        // return std::make_unique<type>(this);
+        assert(false);
     }
 
     void set_geometry(wf::geometry_t geometry) override
