@@ -291,6 +291,7 @@ void wf::wlr_view_t::set_output(wf::output_t *wo)
 
 void wf::wlr_view_t::commit()
 {
+    LOGI("Commit");
     wlr_surface_base_t::commit();
     update_size();
 

@@ -283,28 +283,54 @@ class wayfire_resize : public wf::plugin_interface_t
         auto input = get_input_coords();
         int dx     = input.x - grab_start.x;
         int dy     = input.y - grab_start.y;
-        int width  = grabbed_geometry.width;
-        int height = grabbed_geometry.height;
 
+        auto target = grabbed_geometry;
         if (edges & WLR_EDGE_LEFT)
         {
-            width -= dx;
+            target.x     += dx;
+            target.width -= dx;
         } else if (edges & WLR_EDGE_RIGHT)
         {
-            width += dx;
+            target.width += dx;
         }
 
         if (edges & WLR_EDGE_TOP)
         {
-            height -= dy;
+            target.y += dy;
+            target.height -= dy;
         } else if (edges & WLR_EDGE_BOTTOM)
         {
-            height += dy;
+            target.height += dy;
         }
 
-        height = std::max(height, 1);
-        width  = std::max(width, 1);
-        view->resize(width, height);
+        target.height = std::max(target.height, 1);
+        target.width  = std::max(target.width, 1);
+
+        wf::gravity_t gravity;
+        if (edges & WLR_EDGE_LEFT)
+        {
+            if (edges & WLR_EDGE_BOTTOM)
+            {
+                gravity = wf::gravity_t::TOP_RIGHT;
+            } else
+            {
+                gravity = wf::gravity_t::BOTTOM_RIGHT;
+            }
+        } else
+        {
+            if (edges & WLR_EDGE_BOTTOM)
+            {
+                gravity = wf::gravity_t::TOP_LEFT;
+            } else
+            {
+                gravity = wf::gravity_t::BOTTOM_LEFT;
+            }
+        }
+
+        auto ns = view->next_state();
+        ns->set_gravity(gravity);
+        ns->set_geometry(target);
+        ns->submit();
     }
 
     void fini() override
