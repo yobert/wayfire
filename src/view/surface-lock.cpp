@@ -1,4 +1,4 @@
-#include "surface-lock.hpp"
+#include <wayfire/transaction/surface-lock.hpp>
 #include <wayfire/nonstd/wlroots-full.hpp>
 #include <assert.h>
 

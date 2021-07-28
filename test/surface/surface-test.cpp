@@ -4,7 +4,7 @@
 
 #include "../stub.h"
 #include <wayfire/nonstd/wlroots-full.hpp>
-#include "../../src/view/surface-lock.hpp"
+#include <wayfire/transaction/surface-lock.hpp>
 
 
 std::map<wlr_surface*, int> nr_locks;

@@ -2,7 +2,7 @@
 #define XDG_SHELL_HPP
 
 #include "view-impl.hpp"
-#include "surface-lock.hpp"
+#include <wayfire/transaction/surface-lock.hpp>
 #include "instruction-impl.hpp"
 
 /**
