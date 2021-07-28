@@ -264,11 +264,9 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
                 if (state->configure_serial == serial)
                 {
                     wf::txn::emit_instruction_signal(this, "ready");
-                    return true;
+                    return;
                 }
             }
-
-            return false;
         });
         on_cache.connect(&view->xdg_toplevel->base->surface->events.cache);
     }
