@@ -90,5 +90,17 @@ class instruction_t : public wf::signal_provider_t
 };
 
 using instruction_uptr_t = std::unique_ptr<instruction_t>;
+
+/**
+ * Helper function for instruction implementations, emits a signal on the
+ * instruction.
+ */
+inline void emit_instruction_signal(txn::instruction_t *self,
+    std::string_view name)
+{
+    txn::_instruction_signal data;
+    data.instruction = {self};
+    self->emit_signal(std::string(name), &data);
+}
 }
 }

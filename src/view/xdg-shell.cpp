@@ -232,7 +232,7 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
     {
         if (!view->xdg_toplevel)
         {
-            wf::emit_instruction_signal(this, "ready");
+            wf::txn::emit_instruction_signal(this, "ready");
             return;
         }
 
@@ -245,7 +245,7 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
         auto& sp = view->xdg_toplevel->server_pending;
         if (((int)sp.width == target.width) && ((int)sp.height == target.height))
         {
-            wf::emit_instruction_signal(this, "ready");
+            wf::txn::emit_instruction_signal(this, "ready");
             return;
         }
 
@@ -261,7 +261,7 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
             {
                 if (state->configure_serial == serial)
                 {
-                    wf::emit_instruction_signal(this, "ready");
+                    wf::txn::emit_instruction_signal(this, "ready");
                     return true;
                 }
             }
@@ -343,7 +343,7 @@ class xdg_view_gravity_t : public wf::txn::instruction_t
 
     void commit() override
     {
-        wf::emit_instruction_signal(this, "ready");
+        wf::txn::emit_instruction_signal(this, "ready");
     }
 
     void apply() override

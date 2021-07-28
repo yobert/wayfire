@@ -39,12 +39,4 @@ class view_impl_transaction_t : public txn::view_transaction_t
     View *view;
     std::vector<txn::instruction_uptr_t> pending;
 };
-
-inline void emit_instruction_signal(txn::instruction_t *self,
-    std::string_view name)
-{
-    txn::_instruction_signal data;
-    data.instruction = {self};
-    self->emit_signal(std::string(name), &data);
-}
 }
