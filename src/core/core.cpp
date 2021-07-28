@@ -643,6 +643,10 @@ void wf::compositor_core_impl_t::add_view(
     }
 
     v->initialize();
+
+    view_created_signal data;
+    data.view = v;
+    emit_signal("view-added", &data);
 }
 
 std::vector<wayfire_view> wf::compositor_core_impl_t::get_all_views()
