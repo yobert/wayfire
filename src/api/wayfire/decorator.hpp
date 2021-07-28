@@ -5,14 +5,27 @@
 
 namespace wf
 {
-class decorator_frame_t_t
+struct decoration_margin_t
+{
+    int top;
+    int bottom;
+    int left;
+    int right;
+};
+
+/**
+ * A view decorator is used to create decorations around views.
+ * It is used to tell the view about the size of the decorations, and also
+ * provides callbacks for the decoration, so that it can be the first to react
+ * to changes in the view state.
+ */
+class view_decorator_t
 {
   public:
-    virtual wf::geometry_t expand_wm_geometry(
-        wf::geometry_t contained_wm_geometry) = 0;
-
-    virtual void calculate_resize_size(
-        int& target_width, int& target_height) = 0;
+    /**
+     * Get the size of the decoration.
+     */
+    virtual decoration_margin_t get_margins() = 0;
 
     virtual void notify_view_activated(bool active)
     {}
@@ -23,12 +36,12 @@ class decorator_frame_t_t
     virtual void notify_view_fullscreen()
     {}
 
-    decorator_frame_t_t() = default;
-    virtual ~decorator_frame_t_t() = default;
-    decorator_frame_t_t(const decorator_frame_t_t &) = default;
-    decorator_frame_t_t(decorator_frame_t_t &&) = default;
-    decorator_frame_t_t& operator =(const decorator_frame_t_t&) = default;
-    decorator_frame_t_t& operator =(decorator_frame_t_t&&) = default;
+    view_decorator_t() = default;
+    virtual ~view_decorator_t() = default;
+    view_decorator_t(const view_decorator_t &) = default;
+    view_decorator_t(view_decorator_t &&) = default;
+    view_decorator_t& operator =(const view_decorator_t&) = default;
+    view_decorator_t& operator =(view_decorator_t&&) = default;
 };
 }
 

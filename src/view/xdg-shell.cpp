@@ -236,14 +236,16 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
             return;
         }
 
+        auto cfg_geometry = target;
         if (view->view_impl->frame)
         {
-            view->view_impl->frame->calculate_resize_size(
-                target.width, target.height);
+            cfg_geometry = wf::shrink_by_margins(cfg_geometry,
+                view->view_impl->frame->get_margins());
         }
 
         auto& sp = view->xdg_toplevel->server_pending;
-        if (((int)sp.width == target.width) && ((int)sp.height == target.height))
+        if (((int)sp.width == cfg_geometry.width) &&
+            ((int)sp.height == cfg_geometry.height))
         {
             wf::txn::emit_instruction_signal(this, "ready");
             return;
@@ -251,7 +253,7 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
 
         lock_id = view->lockmgr->lock();
         auto serial = wlr_xdg_toplevel_set_size(view->xdg_toplevel->base,
-            target.width, target.height);
+            cfg_geometry.width, cfg_geometry.height);
 
         on_cache.set_callback([this, serial] (void*)
         {
@@ -280,6 +282,12 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
         wlr_box box;
         wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
 
+        if (view->view_impl->frame)
+        {
+            box = wf::expand_with_margins(box,
+                view->view_impl->frame->get_margins());
+        }
+
         // Adjust for gravity
         if ((current_gravity == wf::gravity_t::TOP_RIGHT) ||
             (current_gravity == wf::gravity_t::BOTTOM_RIGHT))
@@ -303,7 +311,7 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
         target.x    -= box.x;
         target.y    -= box.y;
         target.width = view->surface->current.width;
-        target.width = view->surface->current.height;
+        target.height  = view->surface->current.height;
         view->geometry = target;
 
         LOGI("Setting output g", target);

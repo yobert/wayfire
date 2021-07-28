@@ -234,13 +234,14 @@ wf::geometry_t wf::wlr_view_t::get_output_geometry()
 
 wf::geometry_t wf::wlr_view_t::get_wm_geometry()
 {
-    if (view_impl->frame)
-    {
-        return view_impl->frame->expand_wm_geometry(geometry);
-    } else
-    {
-        return geometry;
-    }
+    return geometry;
+    // if (view_impl->frame)
+    // {
+    // return view_impl->frame->expand_wm_geometry(geometry);
+    // } else
+    // {
+    // return geometry;
+    // }
 }
 
 wlr_surface*wf::wlr_view_t::get_keyboard_focus_surface()
@@ -616,4 +617,24 @@ wayfire_view wf::wl_surface_to_wayfire_view(wl_resource *resource)
     wf::view_interface_t *view = wf::wf_view_from_void(handle);
 
     return view ? view->self() : nullptr;
+}
+
+wf::geometry_t wf::shrink_by_margins(
+    wf::geometry_t g, wf::decoration_margin_t margin)
+{
+    g.x     += margin.left;
+    g.y     += margin.top;
+    g.width -= margin.left + margin.right;
+    g.height -= margin.top + margin.bottom;
+    return g;
+}
+
+wf::geometry_t wf::expand_with_margins(
+    wf::geometry_t g, wf::decoration_margin_t margin)
+{
+    g.x     -= margin.left;
+    g.y     -= margin.top;
+    g.width += margin.left + margin.right;
+    g.height += margin.top + margin.bottom;
+    return g;
 }

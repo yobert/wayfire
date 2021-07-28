@@ -387,8 +387,8 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
 
         if (view_impl->frame)
         {
-            configure_geometry =
-                view_impl->frame->expand_wm_geometry(configure_geometry);
+            configure_geometry = wf::expand_with_margins(configure_geometry,
+                view_impl->frame->get_margins());
         }
 
         set_geometry(configure_geometry);
@@ -756,7 +756,9 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
     {
         if (view_impl->frame)
         {
-            view_impl->frame->calculate_resize_size(w, h);
+            auto margins = view_impl->frame->get_margins();
+            w -= margins.left + margins.right;
+            h -= margins.top + margins.bottom;
         }
 
         wf::dimensions_t current_size = {

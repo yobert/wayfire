@@ -59,7 +59,7 @@ class view_interface_t::view_priv_impl
      */
     void update_windowed_geometry(wayfire_view self, wf::geometry_t geometry);
 
-    std::unique_ptr<wf::decorator_frame_t_t> frame = nullptr;
+    std::unique_ptr<wf::view_decorator_t> frame = nullptr;
 
     uint32_t edges = 0;
     int in_continuous_move   = 0;
@@ -260,6 +260,12 @@ void xwayland_bring_to_front(wlr_surface *surface);
 wayfire_view get_xwayland_drag_icon();
 
 void init_desktop_apis();
+
+wf::geometry_t shrink_by_margins(
+    wf::geometry_t g, wf::decoration_margin_t margin);
+
+wf::geometry_t expand_with_margins(
+    wf::geometry_t g, wf::decoration_margin_t margin);
 }
 
 #endif /* end of include guard: VIEW_IMPL_HPP */

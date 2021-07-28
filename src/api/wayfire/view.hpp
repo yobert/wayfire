@@ -14,7 +14,7 @@
 namespace wf
 {
 class view_interface_t;
-class decorator_frame_t_t;
+class view_decorator_t;
 class view_transformer_t;
 }
 
@@ -350,12 +350,12 @@ class view_interface_t : public surface_interface_t
      * calling this function you probably want to drop any references that you
      * hold (excluding the default one)
      */
-    virtual void set_decoration(std::unique_ptr<decorator_frame_t_t> frame);
+    virtual void set_decoration(std::unique_ptr<view_decorator_t> frame);
 
     /**
      * Get the decoration frame for a view. May be nullptr.
      */
-    virtual nonstd::observer_ptr<decorator_frame_t_t> get_decoration();
+    virtual nonstd::observer_ptr<view_decorator_t> get_decoration();
 
     /*
      *                        View transforms
