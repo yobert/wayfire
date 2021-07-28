@@ -789,13 +789,13 @@ bool wf::view_interface_t::should_be_decorated()
     return false;
 }
 
-nonstd::observer_ptr<wf::decorator_frame_t_t> wf::view_interface_t::get_decoration()
+nonstd::observer_ptr<wf::view_decorator_t> wf::view_interface_t::get_decoration()
 {
     return this->view_impl->frame.get();
 }
 
 void wf::view_interface_t::set_decoration(
-    std::unique_ptr<wf::decorator_frame_t_t> frame)
+    std::unique_ptr<wf::view_decorator_t> frame)
 {
     if (!frame)
     {
@@ -835,7 +835,9 @@ void wf::view_interface_t::set_decoration(
     wf::geometry_t target_wm_geometry;
     if (!fullscreen && !this->tiled_edges)
     {
-        target_wm_geometry = view_impl->frame->expand_wm_geometry(wm);
+        target_wm_geometry =
+            expand_with_margins(wm, view_impl->frame->get_margins());
+
         // make sure that the view doesn't go outside of the screen or such
         auto wa = get_output()->workspace->get_workarea();
         auto visible = wf::geometry_intersection(target_wm_geometry, wa);

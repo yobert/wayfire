@@ -256,7 +256,7 @@ class simple_decoration_surface : public wf::surface_interface_t,
     }
 };
 
-class simple_decorator_t : public wf::decorator_frame_t_t
+class simple_decorator_t : public wf::view_decorator_t
 {
     wayfire_view view;
     nonstd::observer_ptr<simple_decoration_surface> deco;
