@@ -16,12 +16,18 @@ class view_impl_transaction_t : public txn::view_transaction_t
 
     void set_geometry(const wf::geometry_t& new_g) final
     {
-        pending.push_back(std::make_unique<Geometry>(view, new_g));
+        if (view->pending().geometry != new_g)
+        {
+            pending.push_back(std::make_unique<Geometry>(view, new_g));
+        }
     }
 
     void set_gravity(wf::gravity_t gravity) final
     {
-        pending.push_back(std::make_unique<Gravity>(view, gravity));
+        if (view->pending().gravity != gravity)
+        {
+            pending.push_back(std::make_unique<Gravity>(view, gravity));
+        }
     }
 
     void schedule_in(
