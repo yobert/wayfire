@@ -655,6 +655,16 @@ void wayfire_xdg_view::ping()
     }
 }
 
+wlr_surface*wayfire_xdg_view::get_wlr_surface()
+{
+    if (xdg_toplevel)
+    {
+        return xdg_toplevel->base->surface;
+    }
+
+    return nullptr;
+}
+
 void wayfire_xdg_view::destroy()
 {
     on_map.disconnect();
