@@ -139,13 +139,17 @@ class grid_animation_t : public wf::custom_data_t
         // Apply the desired attributes to the view
         const auto& set_state = [=] ()
         {
+            auto ns = view->next_state();
+
             if (target_edges >= 0)
             {
+                // use a transaction when available
                 view->set_fullscreen(false);
-                view->set_tiled(target_edges);
+                ns->set_tiled(target_edges);
             }
 
-            view->set_geometry(geometry);
+            ns->set_geometry(geometry);
+            ns->submit();
         };
 
         if (type != CROSSFADE)

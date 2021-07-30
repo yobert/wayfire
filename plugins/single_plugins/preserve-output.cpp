@@ -50,7 +50,7 @@ void view_store_data(wayfire_view view, wf::output_t *output, int z_order)
     view_data->geometry    = view->get_wm_geometry();
     view_data->fullscreen  = view->fullscreen;
     view_data->minimized   = view->minimized;
-    view_data->tiled_edges = view->tiled_edges;
+    view_data->tiled_edges = view->pending().tiled_edges;
     view_data->z_order     = z_order;
     if (view == output->get_active_view())
     {

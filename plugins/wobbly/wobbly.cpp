@@ -758,7 +758,7 @@ class wf_wobbly : public wf::view_transformer_t
             tiled = force_tile;
         } else
         {
-            tiled = (force_tile || view->tiled_edges) || view->fullscreen;
+            tiled = (force_tile || view->pending().tiled_edges) || view->fullscreen;
         }
 
         uint32_t next_state_mask = 0;

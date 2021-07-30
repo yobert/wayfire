@@ -426,7 +426,7 @@ class wayfire_expo : public wf::plugin_interface_t
                 wf::move_drag::drag_options_t opts;
                 opts.initial_scale   = std::max(vw, vh);
                 opts.enable_snap_off = move_enable_snap_off &&
-                    (view->fullscreen || view->tiled_edges);
+                    (view->fullscreen || view->pending().tiled_edges);
                 opts.snap_off_threshold = move_snap_off_threshold;
                 opts.join_views = move_join_views;
 

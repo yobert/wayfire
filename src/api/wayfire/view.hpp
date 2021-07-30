@@ -40,13 +40,6 @@ enum view_role_t
 };
 
 /**
- * A bitmask consisting of all tiled edges.
- * This corresponds to a maximized state.
- */
-constexpr uint32_t TILED_EDGES_ALL =
-    WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT | WLR_EDGE_RIGHT;
-
-/**
  * view_interface_t is the base class for all "toplevel windows", i.e surfaces
  * which have no parent.
  */
@@ -250,14 +243,9 @@ class view_interface_t : public surface_interface_t
     /** Whether the view is sticky. If a view is sticky it will not be affected
      * by changes of the current workspace. */
     bool sticky = false;
-    /** The tiled edges of the view, usually you want to use set_tiled().
-     * If the view is tiled to all edges, it is considered maximized. */
-    uint32_t tiled_edges = 0;
 
     /** Set the minimized state of the view. */
     virtual void set_minimized(bool minimized);
-    /** Set the tiled edges of the view */
-    virtual void set_tiled(uint32_t edges);
     /** Set the fullscreen state of the view */
     virtual void set_fullscreen(bool fullscreen);
     /** Set the view's activated state.  */

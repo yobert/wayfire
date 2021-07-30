@@ -193,6 +193,106 @@ void create_xdg_popup(wlr_xdg_popup *popup)
     wf::get_core().add_view(std::make_unique<wayfire_xdg_popup>(popup));
 }
 
+/**
+ * Go through the cached state of the toplevel and decide whether the desired
+ * serial has been reached.
+ *
+ * If it has been, return true, emit the ready signal on @self and disconnect
+ * @listener.
+ *
+ * Otherwise, return false.
+ */
+static bool check_ready(wlr_xdg_toplevel *toplevel, uint32_t serial,
+    wf::txn::instruction_t *self, wf::wl_listener_wrapper *listener)
+{
+    wlr_xdg_surface_state *state;
+    wl_list_for_each(state, &toplevel->base->cached, cached_state_link)
+    {
+        // TODO: we may have skipped the serial as a whole
+        if (state->configure_serial == serial)
+        {
+            listener->disconnect();
+            wf::txn::emit_instruction_signal(self, "ready");
+            return true;
+        }
+    }
+
+    return false;
+}
+
+class xdg_view_state_t : public wf::txn::instruction_t
+{
+    wayfire_xdg_view *view;
+    uint32_t lock_id;
+    wf::wl_listener_wrapper on_cache;
+
+    uint32_t desired_edges;
+
+  public:
+    xdg_view_state_t(wayfire_xdg_view *view, uint32_t tiled_edges)
+    {
+        this->view = view;
+        this->desired_edges = tiled_edges;
+        view->take_ref();
+    }
+
+    ~xdg_view_state_t()
+    {
+        view->lockmgr->unlock_all(lock_id);
+        view->unref();
+    }
+
+    std::string get_object() override
+    {
+        return view->to_string();
+    }
+
+    void set_pending() override
+    {
+        LOGC(TXNV, "Pending: set state of ", wayfire_view{view},
+            " to tiled=", desired_edges);
+
+        view->view_impl->pending.tiled_edges = desired_edges;
+    }
+
+    void commit() override
+    {
+        if (!view->xdg_toplevel)
+        {
+            wf::txn::emit_instruction_signal(this, "ready");
+            return;
+        }
+
+        auto& sp = view->xdg_toplevel->server_pending;
+        if (sp.tiled == desired_edges)
+        {
+            wf::txn::emit_instruction_signal(this, "ready");
+            return;
+        }
+
+        lock_id = view->lockmgr->lock();
+        wlr_xdg_toplevel_set_maximized(view->xdg_toplevel->base,
+            desired_edges == wf::TILED_EDGES_ALL);
+        auto serial = wlr_xdg_toplevel_set_tiled(view->xdg_toplevel->base,
+            desired_edges);
+
+        on_cache.set_callback([this, serial] (void*)
+        {
+            wf::surface_send_frame(view->xdg_toplevel->base->surface);
+            check_ready(view->xdg_toplevel, serial, this, &this->on_cache);
+        });
+        on_cache.connect(&view->xdg_toplevel->base->surface->events.cache);
+    }
+
+    void apply() override
+    {
+        view->lockmgr->unlock(lock_id);
+        auto old_edges = view->view_impl->state.tiled_edges;
+        view->view_impl->state.tiled_edges = desired_edges;
+        view->update_tiled_edges(old_edges);
+    }
+};
+
 class xdg_view_geometry_t : public wf::txn::instruction_t
 {
     wayfire_xdg_view *view;
@@ -464,7 +564,8 @@ std::unique_ptr<wf::txn::view_transaction_t> wayfire_xdg_view::next_state()
     using type = wf::view_impl_transaction_t<
         wayfire_xdg_view,
         xdg_view_geometry_t,
-        xdg_view_gravity_t>;
+        xdg_view_gravity_t,
+        xdg_view_state_t>;
 
     return std::make_unique<type>(this);
 }
@@ -594,7 +695,10 @@ void wayfire_xdg_view::initialize()
 
     if (xdg_toplevel->client_pending.maximized)
     {
-        tile_request(wf::TILED_EDGES_ALL);
+        auto ns = next_state();
+        ns->set_tiled(wf::TILED_EDGES_ALL);
+        ns->set_geometry(get_output()->workspace->get_workarea());
+        ns->submit();
     }
 }
 
@@ -665,14 +769,6 @@ void wayfire_xdg_view::set_activated(bool act)
     last_configure_serial =
         wlr_xdg_toplevel_set_activated(xdg_toplevel->base, act);
     wf::wlr_view_t::set_activated(act);
-}
-
-void wayfire_xdg_view::set_tiled(uint32_t edges)
-{
-    wlr_xdg_toplevel_set_tiled(xdg_toplevel->base, edges);
-    last_configure_serial = wlr_xdg_toplevel_set_maximized(xdg_toplevel->base,
-        (edges == wf::TILED_EDGES_ALL));
-    wlr_view_t::set_tiled(edges);
 }
 
 void wayfire_xdg_view::set_fullscreen(bool full)

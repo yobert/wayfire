@@ -173,6 +173,8 @@ class wlr_view_t :
     /** The output geometry of the view */
     wf::geometry_t geometry{100, 100, 0, 0};
 
+    void update_tiled_edges(uint32_t old_edges);
+
     /** Set the view position and optionally send the geometry changed signal
      * @param old_geometry The geometry to report as previous, in case the
      * signal is sent. */

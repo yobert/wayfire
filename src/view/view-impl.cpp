@@ -524,7 +524,7 @@ void wf::wlr_view_t::toplevel_send_state()
     }
 
     wlr_foreign_toplevel_handle_v1_set_maximized(toplevel_handle,
-        tiled_edges == TILED_EDGES_ALL);
+        state().tiled_edges == TILED_EDGES_ALL);
     wlr_foreign_toplevel_handle_v1_set_activated(toplevel_handle, activated);
     wlr_foreign_toplevel_handle_v1_set_minimized(toplevel_handle, minimized);
 
@@ -671,4 +671,27 @@ void wf::surface_send_frame(wlr_surface *surface)
             wl_resource_destroy(resource);
         }
     }
+}
+
+void wf::wlr_view_t::update_tiled_edges(uint32_t old_edges)
+{
+    view_impl->update_windowed_geometry(self(), get_wm_geometry());
+
+    wf::view_tiled_signal data;
+    data.view = self();
+    data.old_edges = old_edges;
+    data.new_edges = state().tiled_edges;
+
+    if (view_impl->frame)
+    {
+        view_impl->frame->notify_view_tiled();
+    }
+
+    this->emit_signal("tiled", &data);
+    if (this->get_output())
+    {
+        get_output()->emit_signal("view-tiled", &data);
+    }
+
+    desktop_state_updated();
 }

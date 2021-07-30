@@ -141,31 +141,31 @@ static void send_gtk_surface_configure(wf_gtk_surface *surface, wayfire_view vie
     wl_array states;
     wl_array_init(&states);
 
-    if (view->tiled_edges)
+    if (view->pending().tiled_edges)
     {
         append_to_array(&states, GTK_SURFACE1_STATE_TILED);
     }
 
     if ((version >= GTK_SURFACE1_STATE_TILED_TOP_SINCE_VERSION) &&
-        (view->tiled_edges & WLR_EDGE_TOP))
+        (view->pending().tiled_edges & WLR_EDGE_TOP))
     {
         append_to_array(&states, GTK_SURFACE1_STATE_TILED_TOP);
     }
 
     if ((version >= GTK_SURFACE1_STATE_TILED_RIGHT_SINCE_VERSION) &&
-        (view->tiled_edges & WLR_EDGE_RIGHT))
+        (view->pending().tiled_edges & WLR_EDGE_RIGHT))
     {
         append_to_array(&states, GTK_SURFACE1_STATE_TILED_RIGHT);
     }
 
     if ((version >= GTK_SURFACE1_STATE_TILED_BOTTOM_SINCE_VERSION) &&
-        (view->tiled_edges & WLR_EDGE_BOTTOM))
+        (view->pending().tiled_edges & WLR_EDGE_BOTTOM))
     {
         append_to_array(&states, GTK_SURFACE1_STATE_TILED_BOTTOM);
     }
 
     if ((version >= GTK_SURFACE1_STATE_TILED_LEFT_SINCE_VERSION) &&
-        (view->tiled_edges & WLR_EDGE_LEFT))
+        (view->pending().tiled_edges & WLR_EDGE_LEFT))
     {
         append_to_array(&states, GTK_SURFACE1_STATE_TILED_LEFT);
     }
@@ -183,7 +183,7 @@ static void send_gtk_surface_configure_edges(wf_gtk_surface *surface,
     wl_array edges;
     wl_array_init(&edges);
 
-    if (!view->tiled_edges)
+    if (!view->pending().tiled_edges)
     {
         append_to_array(&edges, GTK_SURFACE1_EDGE_CONSTRAINT_RESIZABLE_TOP);
         append_to_array(&edges, GTK_SURFACE1_EDGE_CONSTRAINT_RESIZABLE_RIGHT);

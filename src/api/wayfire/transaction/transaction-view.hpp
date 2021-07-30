@@ -24,6 +24,13 @@ enum class gravity_t : int
 };
 
 /**
+ * A bitmask consisting of all tiled edges.
+ * This corresponds to a maximized state.
+ */
+constexpr uint32_t TILED_EDGES_ALL =
+    WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT | WLR_EDGE_RIGHT;
+
+/**
  * view_state_t describes a state of a view.
  *
  * All state changes are done via transactions.
@@ -49,6 +56,20 @@ struct view_state_t
      * The gravity corner of the view.
      */
     gravity_t gravity = gravity_t::TOP_LEFT;
+
+    /**
+     * Tiled edges of the view. The value is a bitmask of
+     * WLR_EDGE_{LEFT,RIGHT,TOP,BOTTOM}.
+     *
+     * A tiled edge indicates that another surface / screen edge / etc. is
+     * immediately next to the view on that side. Clients typically do not
+     * draw shadows on these edges and may change the visual appearance in
+     * other ways.
+     *
+     * The traditional maximized state is equivalent to the view being tiled
+     * on all edges.
+     */
+    uint32_t tiled_edges = 0;
 };
 
 namespace txn
@@ -88,6 +109,11 @@ class view_transaction_t
      * Set a new gravity for the view.
      */
     virtual void set_gravity(gravity_t gr) = 0;
+
+    /**
+     * Set the desired tiled edges of the view.
+     */
+    virtual void set_tiled(uint32_t edges) = 0;
 
     /**
      * Schedule all batched instructions in the given transaction.

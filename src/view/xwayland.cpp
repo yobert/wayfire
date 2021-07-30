@@ -715,7 +715,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
             fullscreen_request(get_output(), true);
         }
 
-        if (!this->tiled_edges && !xw->fullscreen)
+        if (!this->state().tiled_edges && !xw->fullscreen)
         {
             configure_request({xw->x, xw->y, xw->width, xw->height});
         }
@@ -791,14 +791,14 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         }
     }
 
-    void set_tiled(uint32_t edges) override
-    {
-        wf::wlr_view_t::set_tiled(edges);
-        if (xw)
-        {
-            wlr_xwayland_surface_set_maximized(xw, !!edges);
-        }
-    }
+    // void set_tiled(uint32_t edges) override
+    // {
+    // wf::wlr_view_t::set_tiled(edges);
+    // if (xw)
+    // {
+    // wlr_xwayland_surface_set_maximized(xw, !!edges);
+    // }
+    // }
 
     virtual void toplevel_send_app_id() override
     {

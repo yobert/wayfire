@@ -443,7 +443,9 @@ void view_node_t::set_geometry(wf::geometry_t geometry)
         return;
     }
 
-    view->set_tiled(TILED_EDGES_ALL);
+    auto ns = view->next_state();
+    ns->set_tiled(TILED_EDGES_ALL);
+    ns->submit();
 
     auto target = calculate_target_geometry();
     if (this->needs_crossfade() && (target != view->get_wm_geometry()))
