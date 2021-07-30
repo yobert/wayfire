@@ -102,18 +102,21 @@ class view_transaction_t
      * requests.
      *
      * @param new_g The new view geometry.
+     * @return Non-owning pointer to self.
      */
-    virtual void set_geometry(const wf::geometry_t& new_g) = 0;
+    virtual view_transaction_t *set_geometry(const wf::geometry_t& new_g) = 0;
 
     /**
      * Set a new gravity for the view.
+     * @return Non-owning pointer to self.
      */
-    virtual void set_gravity(gravity_t gr) = 0;
+    virtual view_transaction_t *set_gravity(gravity_t gr) = 0;
 
     /**
      * Set the desired tiled edges of the view.
+     * @return Non-owning pointer to self.
      */
-    virtual void set_tiled(uint32_t edges) = 0;
+    virtual view_transaction_t *set_tiled(uint32_t edges) = 0;
 
     /**
      * Schedule all batched instructions in the given transaction.

@@ -456,7 +456,7 @@ void view_node_t::set_geometry(wf::geometry_t geometry)
         }
 
         ensure_animation(view, animation_duration)
-        ->adjust_target_geometry(target, -1);
+            ->adjust_target_geometry(target, -1);
         if (view->get_transformer(scale_transformer_name))
         {
             view->pop_transformer(scale_transformer_name);

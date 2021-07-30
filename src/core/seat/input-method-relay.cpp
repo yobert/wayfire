@@ -91,7 +91,7 @@ wf::input_method_relay::input_method_relay()
             /* keyboard focus is still there, keep the surface at hand in case the IM
              * returns */
             text_input->set_pending_focused_surface(text_input->input->
-                focused_surface);
+                    focused_surface);
             wlr_text_input_v3_send_leave(text_input->input);
         }
     });
