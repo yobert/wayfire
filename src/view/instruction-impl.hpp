@@ -45,4 +45,6 @@ class view_impl_transaction_t : public txn::view_transaction_t
     View *view;
     std::vector<txn::instruction_uptr_t> pending;
 };
+
+void surface_send_frame(wlr_surface *surface);
 }
