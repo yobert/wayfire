@@ -634,7 +634,7 @@ void wf::compositor_core_impl_t::add_view(
 {
     auto v = view->self(); /* non-owning copy */
     views.push_back(std::move(view));
-    id_to_view[std::to_string(v->get_id())] = v;
+    id_to_view[v->to_string()] = v;
 
     assert(active_output);
     if (!v->get_output())
