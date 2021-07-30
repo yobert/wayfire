@@ -308,8 +308,8 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
         // Adjust output geometry for shadows and other parts of the surface
         target.x    -= box.x;
         target.y    -= box.y;
-        target.width = view->surface->current.width;
-        target.height  = view->surface->current.height;
+        target.width = view->get_wlr_surface()->current.width;
+        target.height  = view->get_wlr_surface()->current.height;
         view->geometry = target;
 
         LOGI("Setting output g", target);
@@ -355,6 +355,49 @@ class xdg_view_gravity_t : public wf::txn::instruction_t
     void apply() override
     {
         view->view_impl->state.gravity = g;
+    }
+};
+
+class xdg_view_map_t : public wf::txn::instruction_t
+{
+    wayfire_xdg_view *view;
+    uint32_t req_id;
+
+  public:
+    xdg_view_map_t(wayfire_xdg_view *view)
+    {
+        this->view = view;
+        view->take_ref();
+    }
+
+    ~xdg_view_map_t()
+    {
+        view->unref();
+    }
+
+    std::string get_object() override
+    {
+        return view->to_string();
+    }
+
+    void set_pending() override
+    {
+        LOGC(TXNV, "Pending: map ", wayfire_view{view});
+        view->view_impl->pending.mapped = true;
+    }
+
+    void commit() override
+    {
+        wf::txn::instruction_ready_signal data;
+        data.instruction = {this};
+        this->emit_signal("ready", &data);
+    }
+
+    void apply() override
+    {
+        view->view_impl->state.mapped = true;
+        view->lockmgr->unlock(req_id);
+        view->map(view->get_wlr_surface());
     }
 };
 
@@ -430,7 +473,24 @@ void wayfire_xdg_view::initialize()
     handle_title_changed(nonull(xdg_toplevel->title));
     handle_app_id_changed(nonull(xdg_toplevel->app_id));
 
-    on_map.set_callback([&] (void*) { map(xdg_toplevel->base->surface); });
+    on_map.set_callback([&] (void*)
+    {
+        auto tx = wf::txn::transaction_t::create();
+        tx->add_instruction(std::make_unique<xdg_view_map_t>(this));
+
+        if ((pending().geometry.width == 0) ||
+            (pending().geometry.height == 0))
+        {
+            // Add initial size
+            wlr_box box;
+            wlr_xdg_surface_get_geometry(xdg_toplevel->base, &box);
+            auto ns = next_state();
+            ns->set_geometry({100, 100, box.width, box.height});
+            ns->schedule_in(tx);
+        }
+
+        wf::txn::transaction_manager_t::get().submit(std::move(tx));
+    });
     on_unmap.set_callback([&] (void*)
     {
         auto tx = wf::txn::transaction_t::create();
@@ -543,8 +603,6 @@ wf::geometry_t get_xdg_geometry(wlr_xdg_toplevel *toplevel)
 
 void wayfire_xdg_view::map(wlr_surface *surface)
 {
-    view_impl->state.mapped   = true;
-    view_impl->pending.mapped = true;
     wlr_view_t::map(surface);
     create_toplevel();
 }
