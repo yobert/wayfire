@@ -80,22 +80,22 @@ variant_t view_access_interface_t::get(const std::string & identifier, bool & er
         out = _view->is_mapped();
     } else if (identifier == "tiled-left")
     {
-        out = (_view->tiled_edges & WLR_EDGE_LEFT) > 0;
+        out = (_view->pending().tiled_edges & WLR_EDGE_LEFT) > 0;
     } else if (identifier == "tiled-right")
     {
-        out = (_view->tiled_edges & WLR_EDGE_RIGHT) > 0;
+        out = (_view->pending().tiled_edges & WLR_EDGE_RIGHT) > 0;
     } else if (identifier == "tiled-top")
     {
-        out = (_view->tiled_edges & WLR_EDGE_TOP) > 0;
+        out = (_view->pending().tiled_edges & WLR_EDGE_TOP) > 0;
     } else if (identifier == "tiled-bottom")
     {
-        out = (_view->tiled_edges & WLR_EDGE_BOTTOM) > 0;
+        out = (_view->pending().tiled_edges & WLR_EDGE_BOTTOM) > 0;
     } else if (identifier == "maximized")
     {
-        out = _view->tiled_edges == TILED_EDGES_ALL;
+        out = _view->pending().tiled_edges == TILED_EDGES_ALL;
     } else if (identifier == "floating")
     {
-        out = _view->tiled_edges == 0;
+        out = _view->pending().tiled_edges == 0;
     } else if (identifier == "type")
     {
         do {

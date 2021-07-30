@@ -853,7 +853,7 @@ void wf::compositor_core_impl_t::move_view_to_output(wayfire_view v,
 
     if (reconfigure)
     {
-        edges = v->tiled_edges;
+        edges = v->pending().tiled_edges;
         fullscreen = v->fullscreen;
         view_g     = v->get_wm_geometry();
         old_output_g = old_output->get_relative_geometry();

@@ -215,7 +215,7 @@ class wayfire_wm_actions_t : public wf::plugin_interface_t
     {
         return execute_for_selected_view(ev.source, [] (wayfire_view view)
         {
-            view->tile_request(view->tiled_edges ==
+            view->tile_request(view->pending().tiled_edges ==
                 wf::TILED_EDGES_ALL ? 0 : wf::TILED_EDGES_ALL);
             return true;
         });

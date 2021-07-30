@@ -74,7 +74,6 @@ class wayfire_xdg_view : public wf::wlr_view_t
     wf::point_t get_window_offset() final;
     wf::geometry_t get_wm_geometry() final;
 
-    void set_tiled(uint32_t edges) final;
     void set_activated(bool act) final;
     void set_fullscreen(bool full) final;
 

@@ -5,7 +5,7 @@
 
 namespace wf
 {
-template<class View, class Geometry, class Gravity>
+template<class View, class Geometry, class Gravity, class State>
 class view_impl_transaction_t : public txn::view_transaction_t
 {
   public:
@@ -27,6 +27,14 @@ class view_impl_transaction_t : public txn::view_transaction_t
         if (view->pending().gravity != gravity)
         {
             pending.push_back(std::make_unique<Gravity>(view, gravity));
+        }
+    }
+
+    void set_tiled(uint32_t edges) final
+    {
+        if (view->pending().tiled_edges != edges)
+        {
+            pending.push_back(std::make_unique<State>(view, edges));
         }
     }
 

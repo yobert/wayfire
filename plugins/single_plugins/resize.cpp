@@ -221,9 +221,11 @@ class wayfire_resize : public wf::plugin_interface_t
 
         view->set_resizing(true, edges);
 
-        if (view->tiled_edges)
+        if (view->pending().tiled_edges)
         {
-            view->set_tiled(0);
+            auto ns = view->next_state();
+            ns->set_tiled(0);
+            ns->submit();
         }
 
         this->view = view;
