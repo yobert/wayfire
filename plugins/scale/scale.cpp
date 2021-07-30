@@ -979,7 +979,7 @@ class wayfire_scale : public wf::plugin_interface_t
                 // Helper function to calculate the desired scale for a view
                 const auto& calculate_scale = [=] (wf::dimensions_t vg,
                                                    const wf::scale_transformer_t::
-                                                   padding_t& pad)
+                                                       padding_t& pad)
                 {
                     double w = std::max(1.0, scaled_width - pad.left - pad.right);
                     double h = std::max(1.0, scaled_height - pad.top - pad.bottom);

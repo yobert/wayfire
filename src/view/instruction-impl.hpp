@@ -14,28 +14,34 @@ class view_impl_transaction_t : public txn::view_transaction_t
         this->view = view;
     }
 
-    void set_geometry(const wf::geometry_t& new_g) final
+    view_transaction_t *set_geometry(const wf::geometry_t& new_g) final
     {
         if (view->pending().geometry != new_g)
         {
             pending.push_back(std::make_unique<Geometry>(view, new_g));
         }
+
+        return this;
     }
 
-    void set_gravity(wf::gravity_t gravity) final
+    view_transaction_t *set_gravity(wf::gravity_t gravity) final
     {
         if (view->pending().gravity != gravity)
         {
             pending.push_back(std::make_unique<Gravity>(view, gravity));
         }
+
+        return this;
     }
 
-    void set_tiled(uint32_t edges) final
+    view_transaction_t *set_tiled(uint32_t edges) final
     {
         if (view->pending().tiled_edges != edges)
         {
             pending.push_back(std::make_unique<State>(view, edges));
         }
+
+        return this;
     }
 
     void schedule_in(

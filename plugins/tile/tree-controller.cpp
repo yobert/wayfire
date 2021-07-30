@@ -423,7 +423,7 @@ uint32_t resize_view_controller_t::calculate_resizing_edges(wf::point_t grab)
 }
 
 resize_view_controller_t::resizing_pair_t resize_view_controller_t::
-find_resizing_pair(bool horiz)
+    find_resizing_pair(bool horiz)
 {
     split_insertion_t direction;
 

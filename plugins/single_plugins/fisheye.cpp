@@ -166,7 +166,7 @@ class wayfire_fisheye : public wf::plugin_interface_t
         auto oc     = output->get_cursor_position();
         wlr_box box = {(int)oc.x, (int)oc.y, 1, 1};
         box = output->render->get_target_framebuffer().
-            framebuffer_box_from_geometry_box(box);
+                framebuffer_box_from_geometry_box(box);
         oc.x = box.x;
         oc.y = box.y;
 

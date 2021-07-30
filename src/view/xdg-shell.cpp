@@ -695,10 +695,10 @@ void wayfire_xdg_view::initialize()
 
     if (xdg_toplevel->requested.maximized)
     {
-        auto ns = next_state();
-        ns->set_tiled(wf::TILED_EDGES_ALL);
-        ns->set_geometry(get_output()->workspace->get_workarea());
-        ns->submit();
+        next_state()
+            ->set_tiled(wf::TILED_EDGES_ALL)
+            ->set_geometry(get_output()->workspace->get_workarea())
+            ->submit();
     }
 }
 
