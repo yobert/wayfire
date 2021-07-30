@@ -65,6 +65,8 @@ class wayfire_xdg_view : public wf::wlr_view_t
     wayfire_xdg_view(wlr_xdg_toplevel *toplevel);
     virtual ~wayfire_xdg_view();
 
+    wlr_surface *get_wlr_surface() final;
+
     bool is_mapped() const final;
     void map(wlr_surface *surface) final;
     void commit() final;
