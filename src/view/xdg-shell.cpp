@@ -251,16 +251,24 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
             return;
         }
 
+        LOGI("Wanting ", cfg_geometry.width, cfg_geometry.height, " from ",
+            view->xdg_toplevel->base->surface);
+
         lock_id = view->lockmgr->lock();
         auto serial = wlr_xdg_toplevel_set_size(view->xdg_toplevel->base,
             cfg_geometry.width, cfg_geometry.height);
+        wf::surface_send_frame(view->xdg_toplevel->base->surface);
+
+        LOGI("Serial is ", serial);
 
         on_cache.set_callback([this, serial] (void*)
         {
+            wf::surface_send_frame(view->xdg_toplevel->base->surface);
             wlr_xdg_surface_state *state;
             wl_list_for_each(state, &view->xdg_toplevel->base->cached,
                 cached_state_link)
             {
+                LOGI("Cached is ", state->configure_serial);
                 if (state->configure_serial == serial)
                 {
                     wf::txn::emit_instruction_signal(this, "ready");
@@ -614,6 +622,7 @@ bool wayfire_xdg_view::is_mapped() const
 
 void wayfire_xdg_view::commit()
 {
+    LOGI("Commit serial ", xdg_toplevel->base->configure_serial);
     wlr_view_t::commit();
 }
 

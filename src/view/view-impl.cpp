@@ -638,3 +638,37 @@ wf::geometry_t wf::expand_with_margins(
     g.height += margin.top + margin.bottom;
     return g;
 }
+
+void wf::surface_send_frame(wlr_surface *surface)
+{
+    timespec time_now;
+    clockid_t presentation_clock =
+        wlr_backend_get_presentation_clock(wf::get_core().backend);
+
+    wl_resource *resource, *tmp;
+    clock_gettime(presentation_clock, &time_now);
+
+    wl_resource_for_each_safe(resource, tmp,
+        &surface->pending.frame_callback_list)
+    {
+        wl_callback_send_done(resource, timespec_to_msec(time_now));
+        wl_resource_destroy(resource);
+    }
+
+    wl_resource_for_each_safe(resource, tmp,
+        &surface->current.frame_callback_list)
+    {
+        wl_callback_send_done(resource, timespec_to_msec(time_now));
+        wl_resource_destroy(resource);
+    }
+
+    wlr_surface_state *state;
+    wl_list_for_each(state, &surface->cached, cached_state_link)
+    {
+        wl_resource_for_each_safe(resource, tmp, &state->frame_callback_list)
+        {
+            wl_callback_send_done(resource, timespec_to_msec(time_now));
+            wl_resource_destroy(resource);
+        }
+    }
+}
