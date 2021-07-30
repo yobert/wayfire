@@ -7,8 +7,8 @@
 #include <wayfire/opengl.hpp>
 #include <list>
 #include <algorithm>
+#include <wayfire/debug.hpp>
 #include <wayfire/nonstd/reverse.hpp>
-#include <wayfire/util/log.hpp>
 
 #include "../view/view-impl.hpp"
 #include "output-impl.hpp"

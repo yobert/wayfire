@@ -291,9 +291,8 @@ void wf::wlr_view_t::set_output(wf::output_t *wo)
 
 void wf::wlr_view_t::commit()
 {
-    LOGI("Commit");
     wlr_surface_base_t::commit();
-    update_size();
+    // update_size();
 
     /* Clear the resize edges.
      * This is must be done here because if the user(or plugin) resizes too fast,

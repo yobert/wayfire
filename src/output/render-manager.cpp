@@ -14,6 +14,7 @@
 #include <wayfire/nonstd/safe-list.hpp>
 #include <wayfire/util/log.hpp>
 #include <wayfire/nonstd/wlroots-full.hpp>
+#include <wayfire/debug.hpp>
 
 namespace wf
 {
