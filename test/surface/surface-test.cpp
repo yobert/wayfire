@@ -34,14 +34,14 @@ TEST_CASE("wlr_surface_manager_t")
     SUBCASE("No locks - commit passes through")
     {
         REQUIRE(nr_locks[&surface] == 0);
-        REQUIRE(lockmgr.is_locked() == false);
+        REQUIRE(lockmgr.current_lock() == 0);
     }
 
     SUBCASE("Create a checkpoint")
     {
         int lock_id = lockmgr.lock();
         REQUIRE(nr_locks[&surface] == 1);
-        REQUIRE(lockmgr.is_locked() == true);
+        REQUIRE(lockmgr.current_lock() == lock_id);
 
         SUBCASE("Hop checkpoints")
         {
@@ -56,7 +56,7 @@ TEST_CASE("wlr_surface_manager_t")
             lockmgr.checkpoint(lock_id);
             REQUIRE(nr_locks[&surface] == 4);
             REQUIRE(unlocked[&surface] == std::set<uint32_t>{2, 3});
-            REQUIRE(lockmgr.is_locked() == true);
+            REQUIRE(lockmgr.current_lock() == lock_id);
         }
 
         SUBCASE("Reach checkpoint")
@@ -86,7 +86,8 @@ TEST_CASE("wlr_surface_manager_t")
 
             SUBCASE("Stay at first checkpoint")
             {
-                lockmgr.lock(); // First lock not released -> remove checkpoint
+                auto lock2 = lockmgr.lock(); // First lock not released -> remove
+                                             // checkpoint
                 REQUIRE(unlocked[&surface] == std::set<uint32_t>{2});
 
                 // Unlock the first lock.
@@ -94,22 +95,22 @@ TEST_CASE("wlr_surface_manager_t")
                 lockmgr.unlock(lock_id);
                 lockmgr.unlock_all(lock_id);
                 REQUIRE(unlocked[&surface] == std::set<uint32_t>{2});
-                REQUIRE(lockmgr.is_locked() == true);
+                REQUIRE(lockmgr.current_lock() == lock2);
             }
         }
 
         SUBCASE("Stay at first checkpoint")
         {
-            lockmgr.lock();
+            auto lock2 = lockmgr.lock();
             REQUIRE(unlocked[&surface].empty());
-            REQUIRE(lockmgr.is_locked() == true);
+            REQUIRE(lockmgr.current_lock() == lock2);
 
             // Unlock the first lock.
             // Only the second checkpoint should be removed!
             lockmgr.unlock(lock_id);
             lockmgr.unlock_all(lock_id);
             REQUIRE(unlocked[&surface].empty());
-            REQUIRE(lockmgr.is_locked() == true);
+            REQUIRE(lockmgr.current_lock() == lock2);
         }
     }
 }
