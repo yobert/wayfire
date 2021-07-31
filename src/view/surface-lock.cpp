@@ -1,6 +1,7 @@
 #include <wayfire/transaction/surface-lock.hpp>
 #include <wayfire/nonstd/wlroots-full.hpp>
 #include <assert.h>
+#include <wayfire/util/log.hpp>
 
 wf::wlr_surface_manager_t::wlr_surface_manager_t(wlr_surface *surface)
 {
@@ -30,6 +31,7 @@ uint64_t wf::wlr_surface_manager_t::lock()
 
 void wf::wlr_surface_manager_t::unlock(uint64_t id)
 {
+    LOGI("unlock ", id, " ", last_id);
     if (id != last_id)
     {
         return;
@@ -44,6 +46,7 @@ void wf::wlr_surface_manager_t::unlock(uint64_t id)
 
 void wf::wlr_surface_manager_t::unlock_all(uint64_t id)
 {
+    LOGI("unlock all ", id, " ", last_id);
     if (id != last_id)
     {
         return;
