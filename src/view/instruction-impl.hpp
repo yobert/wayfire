@@ -61,4 +61,18 @@ class view_impl_transaction_t : public txn::view_transaction_t
 };
 
 void surface_send_frame(wlr_surface *surface);
+
+/**
+ * When a surface is resized, the client may not obey the resize request.
+ * In these cases, we consider the surface gravity to figure out where to place
+ * the view.
+ *
+ * @param desired How the compositor would like to configure the view.
+ * @param actual The window geometry of the view, as reported by the client.
+ * @param gravity The window gravity.
+ *
+ * @return The correct new geometry for the view.
+ */
+wf::geometry_t align_with_gravity(
+    wf::geometry_t desired, wf::geometry_t actual, wf::gravity_t gravity);
 }

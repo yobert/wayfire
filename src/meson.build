@@ -34,11 +34,12 @@ wayfire_sources = ['geometry.cpp',
                    'view/subsurface.cpp',
                    'view/view.cpp',
                    'view/view-impl.cpp',
-                   'view/xdg-shell.cpp',
                    'view/xwayland.cpp',
                    'view/layer-shell.cpp',
                    'view/view-3d.cpp',
                    'view/compositor-view.cpp',
+
+                   'view/xdg-shell/xdg-shell.cpp',
 
                    'output/plugin-loader.cpp',
                    'output/output.cpp',

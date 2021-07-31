@@ -7,7 +7,6 @@
 #include "wayfire/view-transform.hpp"
 #include "wayfire/workspace-manager.hpp"
 #include "wayfire/render-manager.hpp"
-#include "xdg-shell.hpp"
 #include "../output/gtk-shell.hpp"
 
 #include <algorithm>

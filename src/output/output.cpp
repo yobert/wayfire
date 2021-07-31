@@ -8,7 +8,7 @@
 #include "wayfire/compositor-view.hpp"
 #include "wayfire-shell.hpp"
 #include "../core/seat/input-manager.hpp"
-#include "../view/xdg-shell.hpp"
+#include "../view/xdg-shell/xdg-shell.hpp"
 #include <wayfire/util/log.hpp>
 #include <wayfire/nonstd/wlroots-full.hpp>
 

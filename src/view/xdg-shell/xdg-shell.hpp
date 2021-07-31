@@ -1,9 +1,10 @@
-#ifndef XDG_SHELL_HPP
-#define XDG_SHELL_HPP
+#pragma once
 
-#include "view-impl.hpp"
+#include "../view-impl.hpp"
 #include <wayfire/transaction/surface-lock.hpp>
-#include "instruction-impl.hpp"
+#include "../instruction-impl.hpp"
+
+#define KILL_TX "__kill-tx"
 
 /**
  * A class for xdg-shell popups
@@ -55,8 +56,19 @@ class wayfire_xdg_view : public wf::wlr_view_t
     wf::point_t xdg_surface_offset = {0, 0};
     uint32_t last_configure_serial = 0;
 
+    wf::wl_listener_wrapper on_precommit;
+
   protected:
     void initialize() override final;
+
+    /**
+     * Check the current pending state of the view.
+     * If the surface window geometry or size changed, start a new transaction
+     * in order to update.
+     *
+     * Otherwise, let the commit through so that content of the view is updated.
+     */
+    void handle_precommit();
 
   public:
     std::unique_ptr<wf::wlr_surface_manager_t> lockmgr;
@@ -89,5 +101,3 @@ class wayfire_xdg_view : public wf::wlr_view_t
     void close() final;
     void ping() final;
 };
-
-#endif /* end of include guard: XDG_SHELL_HPP */

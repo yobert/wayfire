@@ -7,7 +7,7 @@
 #include "wayfire/workspace-manager.hpp"
 #include <wayfire/util/log.hpp>
 
-#include "xdg-shell.hpp"
+#include "xdg-shell/xdg-shell.hpp"
 
 wf::wlr_view_t::wlr_view_t() :
     wf::wlr_surface_base_t(this), wf::view_interface_t()
@@ -644,33 +644,8 @@ void wf::surface_send_frame(wlr_surface *surface)
     timespec time_now;
     clockid_t presentation_clock =
         wlr_backend_get_presentation_clock(wf::get_core().backend);
-
-    wl_resource *resource, *tmp;
     clock_gettime(presentation_clock, &time_now);
-
-    wl_resource_for_each_safe(resource, tmp,
-        &surface->pending.frame_callback_list)
-    {
-        wl_callback_send_done(resource, timespec_to_msec(time_now));
-        wl_resource_destroy(resource);
-    }
-
-    wl_resource_for_each_safe(resource, tmp,
-        &surface->current.frame_callback_list)
-    {
-        wl_callback_send_done(resource, timespec_to_msec(time_now));
-        wl_resource_destroy(resource);
-    }
-
-    wlr_surface_state *state;
-    wl_list_for_each(state, &surface->cached, cached_state_link)
-    {
-        wl_resource_for_each_safe(resource, tmp, &state->frame_callback_list)
-        {
-            wl_callback_send_done(resource, timespec_to_msec(time_now));
-            wl_resource_destroy(resource);
-        }
-    }
+    wlr_surface_send_frame_done(surface, &time_now);
 }
 
 void wf::wlr_view_t::update_tiled_edges(uint32_t old_edges)
@@ -694,4 +669,25 @@ void wf::wlr_view_t::update_tiled_edges(uint32_t old_edges)
     }
 
     desktop_state_updated();
+}
+
+wf::geometry_t wf::align_with_gravity(
+    wf::geometry_t desired, wf::geometry_t actual, wf::gravity_t gravity)
+{
+    // Adjust for gravity
+    if ((gravity == wf::gravity_t::TOP_RIGHT) ||
+        (gravity == wf::gravity_t::BOTTOM_RIGHT))
+    {
+        desired.x = (desired.x + desired.width) - desired.width;
+    }
+
+    if ((gravity == wf::gravity_t::BOTTOM_LEFT) ||
+        (gravity == wf::gravity_t::BOTTOM_RIGHT))
+    {
+        desired.y = (desired.y + desired.height) - desired.height;
+    }
+
+    desired.width  = actual.width;
+    desired.height = actual.height;
+    return desired;
 }

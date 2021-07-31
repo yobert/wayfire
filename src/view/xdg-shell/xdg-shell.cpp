@@ -1,17 +1,15 @@
 #include <wayfire/util/log.hpp>
 #include <wayfire/debug.hpp>
 #include "wayfire/core.hpp"
-#include "surface-impl.hpp"
+#include "../surface-impl.hpp"
 #include "wayfire/output.hpp"
 #include "wayfire/decorator.hpp"
+#include "wayfire/render-manager.hpp"
 #include "xdg-shell.hpp"
 #include "wayfire/output-layout.hpp"
 #include <wayfire/workspace-manager.hpp>
 #include <wayfire/signal-definitions.hpp>
-#include <wayfire/transaction/instruction.hpp>
 #include <wayfire/transaction/transaction.hpp>
-
-#define KILL_TX "__kill-tx"
 
 wayfire_xdg_popup::wayfire_xdg_popup(wlr_xdg_popup *popup) :
     wf::wlr_view_t()
@@ -195,336 +193,7 @@ void create_xdg_popup(wlr_xdg_popup *popup)
     wf::get_core().add_view(std::make_unique<wayfire_xdg_popup>(popup));
 }
 
-/**
- * Go through the cached state of the toplevel and decide whether the desired
- * serial has been reached.
- *
- * If it has been, return true, emit the ready signal on @self and disconnect
- * @listener.
- *
- * Otherwise, return false.
- */
-static bool check_ready(wlr_xdg_toplevel *toplevel, uint32_t serial,
-    wf::txn::instruction_t *self, wf::wl_listener_wrapper *listener)
-{
-    wlr_xdg_surface_state *state;
-    wl_list_for_each(state, &toplevel->base->cached, cached_state_link)
-    {
-        // TODO: we may have skipped the serial as a whole
-        if (state->configure_serial == serial)
-        {
-            listener->disconnect();
-            wf::txn::emit_instruction_signal(self, "ready");
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
- * A common class for all xdg-shell instructions.
- */
-class xdg_instruction_t : public wf::txn::instruction_t
-{
-  protected:
-    wayfire_xdg_view *view;
-    uint32_t lock_id = 0;
-    wf::wl_listener_wrapper on_cache;
-
-    wf::signal_connection_t on_kill = [=] (wf::signal_data_t*)
-    {
-        on_cache.disconnect();
-        wf::txn::emit_instruction_signal(this, "cancel");
-    };
-
-    virtual ~xdg_instruction_t()
-    {
-        if (lock_id > 0)
-        {
-            view->lockmgr->unlock_all(lock_id);
-        }
-
-        view->unref();
-    }
-
-    std::string get_object() override
-    {
-        return view->to_string();
-    }
-
-  public:
-    xdg_instruction_t(wayfire_xdg_view *view)
-    {
-        this->view = view;
-        view->take_ref();
-        view->connect_signal(KILL_TX, &on_kill);
-    }
-};
-
-
-
-class xdg_view_state_t : public xdg_instruction_t
-{
-    uint32_t desired_edges;
-
-  public:
-    xdg_view_state_t(wayfire_xdg_view *view, uint32_t tiled_edges) :
-        xdg_instruction_t(view)
-    {
-        this->desired_edges = tiled_edges;
-    }
-
-    void set_pending() override
-    {
-        LOGC(TXNV, "Pending: set state of ", wayfire_view{view},
-            " to tiled=", desired_edges);
-
-        view->view_impl->pending.tiled_edges = desired_edges;
-    }
-
-    void commit() override
-    {
-        if (!view->xdg_toplevel)
-        {
-            wf::txn::emit_instruction_signal(this, "ready");
-            return;
-        }
-
-        auto& sp = view->xdg_toplevel->server_pending;
-        if (sp.tiled == desired_edges)
-        {
-            wf::txn::emit_instruction_signal(this, "ready");
-            return;
-        }
-
-        lock_id = view->lockmgr->lock();
-        wlr_xdg_toplevel_set_maximized(view->xdg_toplevel->base,
-            desired_edges == wf::TILED_EDGES_ALL);
-        auto serial = wlr_xdg_toplevel_set_tiled(view->xdg_toplevel->base,
-            desired_edges);
-
-        on_cache.set_callback([this, serial] (void*)
-        {
-            wf::surface_send_frame(view->xdg_toplevel->base->surface);
-            check_ready(view->xdg_toplevel, serial, this, &this->on_cache);
-        });
-        on_cache.connect(&view->xdg_toplevel->base->surface->events.cache);
-    }
-
-    void apply() override
-    {
-        view->lockmgr->unlock(lock_id);
-        auto old_edges = view->view_impl->state.tiled_edges;
-        view->view_impl->state.tiled_edges = desired_edges;
-        view->update_tiled_edges(old_edges);
-    }
-};
-
-class xdg_view_geometry_t : public xdg_instruction_t
-{
-    wf::geometry_t target;
-    wf::gravity_t current_gravity;
-
-  public:
-    xdg_view_geometry_t(wayfire_xdg_view *view, const wf::geometry_t& g) :
-        xdg_instruction_t(view)
-    {
-        this->target = g;
-    }
-
-    void set_pending() override
-    {
-        LOGC(TXNV, "Pending: set geometry of ", wayfire_view{view}, " to ", target);
-        current_gravity = view->view_impl->pending.gravity;
-        view->view_impl->pending.geometry = target;
-    }
-
-    void commit() override
-    {
-        if (!view->xdg_toplevel)
-        {
-            wf::txn::emit_instruction_signal(this, "ready");
-            return;
-        }
-
-        auto cfg_geometry = target;
-        if (view->view_impl->frame)
-        {
-            cfg_geometry = wf::shrink_by_margins(cfg_geometry,
-                view->view_impl->frame->get_margins());
-        }
-
-        auto& sp = view->xdg_toplevel->server_pending;
-        if (((int)sp.width == cfg_geometry.width) &&
-            ((int)sp.height == cfg_geometry.height))
-        {
-            wf::txn::emit_instruction_signal(this, "ready");
-            return;
-        }
-
-        LOGI("Wanting ", cfg_geometry.width, cfg_geometry.height, " from ",
-            view->xdg_toplevel->base->surface);
-
-        lock_id = view->lockmgr->lock();
-        auto serial = wlr_xdg_toplevel_set_size(view->xdg_toplevel->base,
-            cfg_geometry.width, cfg_geometry.height);
-        wf::surface_send_frame(view->xdg_toplevel->base->surface);
-
-        LOGI("Serial is ", serial);
-
-        on_cache.set_callback([this, serial] (void*)
-        {
-            wf::surface_send_frame(view->xdg_toplevel->base->surface);
-            wlr_xdg_surface_state *state;
-            wl_list_for_each(state, &view->xdg_toplevel->base->cached,
-                cached_state_link)
-            {
-                LOGI("Cached is ", state->configure_serial);
-                if (state->configure_serial == serial)
-                {
-                    wf::txn::emit_instruction_signal(this, "ready");
-                    return;
-                }
-            }
-        });
-        on_cache.connect(&view->xdg_toplevel->base->surface->events.cache);
-    }
-
-    void apply() override
-    {
-        view->damage();
-
-        view->lockmgr->unlock(lock_id);
-
-        wlr_box box;
-        wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
-
-        if (view->view_impl->frame)
-        {
-            box = wf::expand_with_margins(box,
-                view->view_impl->frame->get_margins());
-        }
-
-        // Adjust for gravity
-        if ((current_gravity == wf::gravity_t::TOP_RIGHT) ||
-            (current_gravity == wf::gravity_t::BOTTOM_RIGHT))
-        {
-            target.x = (target.x + target.width) - box.width;
-        }
-
-        if ((current_gravity == wf::gravity_t::BOTTOM_LEFT) ||
-            (current_gravity == wf::gravity_t::BOTTOM_RIGHT))
-        {
-            target.y = (target.y + target.height) - box.height;
-        }
-
-        target.width  = box.width;
-        target.height = box.height;
-        view->view_impl->state.geometry = target;
-
-        LOGI("setting geometry ", target);
-
-        // Adjust output geometry for shadows and other parts of the surface
-        target.x    -= box.x;
-        target.y    -= box.y;
-        target.width = view->get_wlr_surface()->current.width;
-        target.height  = view->get_wlr_surface()->current.height;
-        view->geometry = target;
-
-        LOGI("Setting output g", target);
-
-        view->damage();
-    }
-};
-
-class xdg_view_gravity_t : public xdg_instruction_t
-{
-    wf::gravity_t g;
-
-  public:
-    xdg_view_gravity_t(wayfire_xdg_view *view, wf::gravity_t g) :
-        xdg_instruction_t(view)
-    {
-        this->g = g;
-    }
-
-    void set_pending() override
-    {
-        LOGC(TXNV, "Pending: set gravity of ", wayfire_view{view}, " to ", (int)g);
-        view->view_impl->pending.gravity = g;
-    }
-
-    void commit() override
-    {
-        wf::txn::emit_instruction_signal(this, "ready");
-    }
-
-    void apply() override
-    {
-        view->view_impl->state.gravity = g;
-    }
-};
-
-class xdg_view_map_t : public xdg_instruction_t
-{
-  public:
-    using xdg_instruction_t::xdg_instruction_t;
-
-    void set_pending() override
-    {
-        LOGC(TXNV, "Pending: map ", wayfire_view{view});
-        view->view_impl->pending.mapped = true;
-    }
-
-    void commit() override
-    {
-        lock_id = view->lockmgr->lock();
-
-        wf::txn::instruction_ready_signal data;
-        data.instruction = {this};
-        this->emit_signal("ready", &data);
-    }
-
-    void apply() override
-    {
-        view->view_impl->state.mapped = true;
-        view->lockmgr->unlock(lock_id);
-        view->map(view->get_wlr_surface());
-    }
-};
-
-class xdg_view_unmap_t : public xdg_instruction_t
-{
-  public:
-    using xdg_instruction_t::xdg_instruction_t;
-
-    void set_pending() override
-    {
-        LOGC(TXNV, "Pending: unmap ", wayfire_view{view});
-        view->view_impl->pending.mapped = false;
-
-        // Typically locking happens in the commit() handler. We cannot afford
-        // to wait, though. The surface is about to be unmapped so we need to
-        // take a lock immediately.
-        lock_id = view->lockmgr->lock();
-    }
-
-    void commit() override
-    {
-        wf::txn::instruction_ready_signal data;
-        data.instruction = {this};
-        this->emit_signal("ready", &data);
-    }
-
-    void apply() override
-    {
-        view->view_impl->state.mapped = false;
-        view->lockmgr->unlock(lock_id);
-        view->unmap();
-    }
-};
-
+#include "xdg-toplevel.hpp"
 
 wayfire_xdg_view::wayfire_xdg_view(wlr_xdg_toplevel *top) :
     wf::wlr_view_t(), xdg_toplevel(top)
@@ -541,11 +210,32 @@ std::unique_ptr<wf::txn::view_transaction_t> wayfire_xdg_view::next_state()
     return std::make_unique<type>(this);
 }
 
+wf::geometry_t get_cached_xdg_geometry(wlr_xdg_toplevel *toplevel)
+{
+    if (toplevel->base->pending.has_geometry)
+    {
+        return toplevel->base->pending.geometry;
+    }
+
+    auto st = &toplevel->base->surface->pending;
+
+    // FIXME: this is incorrect in case the view has subsurfaces, however,
+    // these are rare occasions
+    return {0, 0, st->width, st->height};
+}
+
+wf::geometry_t get_xdg_geometry(wlr_xdg_toplevel *toplevel)
+{
+    wlr_box xdg_geometry;
+    wlr_xdg_surface_get_geometry(toplevel->base, &xdg_geometry);
+
+    return xdg_geometry;
+}
+
 void wayfire_xdg_view::initialize()
 {
     lockmgr = std::make_unique<wf::wlr_surface_manager_t>(
         xdg_toplevel->base->surface);
-
     wlr_view_t::initialize();
     LOGI("new xdg_shell_stable surface: ", xdg_toplevel->title,
         " app-id: ", xdg_toplevel->app_id);
@@ -662,6 +352,10 @@ void wayfire_xdg_view::initialize()
     on_show_window_menu.connect(&xdg_toplevel->events.request_show_window_menu);
     on_request_fullscreen.connect(&xdg_toplevel->events.request_fullscreen);
 
+    // Lock the initial surface state
+    on_precommit.set_callback([&] (void*) { handle_precommit(); });
+    on_precommit.connect(&xdg_toplevel->base->surface->events.precommit);
+
     xdg_toplevel->base->data = dynamic_cast<view_interface_t*>(this);
     // set initial parent
     on_set_parent.emit(nullptr);
@@ -683,12 +377,77 @@ void wayfire_xdg_view::initialize()
 wayfire_xdg_view::~wayfire_xdg_view()
 {}
 
-wf::geometry_t get_xdg_geometry(wlr_xdg_toplevel *toplevel)
+void wayfire_xdg_view::handle_precommit()
 {
-    wlr_box xdg_geometry;
-    wlr_xdg_surface_get_geometry(toplevel->base, &xdg_geometry);
+    if (!is_mapped())
+    {
+        // Size will be set on map
+        return;
+    }
 
-    return xdg_geometry;
+    if (lockmgr->current_lock() != 0)
+    {
+        // A transaction is holding a lock on the view, so it is responsible
+        // for managing the view.
+        return;
+    }
+
+    auto surface = get_wlr_surface();
+
+    auto cached_geometry  = get_cached_xdg_geometry(xdg_toplevel);
+    auto current_geometry = get_xdg_geometry(xdg_toplevel);
+    bool surface_changed  = (cached_geometry != current_geometry);
+
+    auto current = &surface->current;
+    auto pending = &surface->pending;
+    surface_changed |= pending->width != current->width;
+    surface_changed |= pending->height != current->height;
+
+    bool position_changed = false;
+    position_changed |= pending->dx != 0;
+    position_changed |= pending->dy != 0;
+
+    if (!surface_changed && !position_changed)
+    {
+        // Allow next commit
+        return;
+    }
+
+    wf::geometry_t target = state().geometry;
+    if (position_changed)
+    {
+        target.x    += pending->dx;
+        target.y    += pending->dy;
+        target.width = cached_geometry.width;
+        target.height = cached_geometry.height;
+
+        if (view_impl->frame)
+        {
+            auto margins =
+                view_impl->frame->get_margins();
+
+            target.width  += margins.left + margins.right;
+            target.height += margins.top + margins.bottom;
+        }
+    } else
+    {
+        if (view_impl->frame)
+        {
+            cached_geometry = wf::expand_with_margins(cached_geometry,
+                view_impl->frame->get_margins());
+        }
+
+        target = wf::align_with_gravity(
+            target, cached_geometry, state().gravity);
+    }
+
+    // Grab a lock now, otherwise, wlroots will do the commit
+    lockmgr->lock();
+
+    auto tx = wf::txn::transaction_t::create();
+    tx->add_instruction(
+        std::make_unique<xdg_view_geometry_t>(this, target, true));
+    wf::txn::transaction_manager_t::get().submit(std::move(tx));
 }
 
 void wayfire_xdg_view::map(wlr_surface *surface)
@@ -816,6 +575,7 @@ void wayfire_xdg_view::destroy()
     on_map.disconnect();
     on_unmap.disconnect();
     on_destroy.disconnect();
+    on_precommit.disconnect();
     on_new_popup.disconnect();
     on_set_title.disconnect();
     on_set_app_id.disconnect();

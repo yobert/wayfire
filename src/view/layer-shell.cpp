@@ -2,7 +2,7 @@
 #include <cstring>
 #include <cstdlib>
 
-#include "xdg-shell.hpp"
+#include "xdg-shell/xdg-shell.hpp"
 #include "wayfire/core.hpp"
 #include "wayfire/debug.hpp"
 #include <wayfire/util/log.hpp>
