@@ -70,9 +70,14 @@ void wf::wlr_surface_manager_t::unlock_all(uint64_t id)
     }
 }
 
-bool wf::wlr_surface_manager_t::is_locked() const
+uint64_t wf::wlr_surface_manager_t::current_lock() const
 {
-    return current_checkpoint.has_value();
+    if (current_checkpoint.has_value())
+    {
+        return last_id;
+    }
+
+    return 0;
 }
 
 void wf::wlr_surface_manager_t::checkpoint(uint64_t id)

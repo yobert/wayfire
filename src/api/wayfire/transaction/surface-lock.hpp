@@ -49,9 +49,9 @@ class wlr_surface_manager_t
     void unlock_all(uint64_t id);
 
     /**
-     * @return True if there is a lock currently active.
+     * @return The current lock, if there is a currently active lock, or 0.
      */
-    bool is_locked() const;
+    uint64_t current_lock() const;
 
   private:
     wlr_surface *surface;
