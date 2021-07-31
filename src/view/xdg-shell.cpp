@@ -11,6 +11,8 @@
 #include <wayfire/transaction/instruction.hpp>
 #include <wayfire/transaction/transaction.hpp>
 
+#define KILL_TX "__kill-tx"
+
 wayfire_xdg_popup::wayfire_xdg_popup(wlr_xdg_popup *popup) :
     wf::wlr_view_t()
 {
@@ -220,31 +222,57 @@ static bool check_ready(wlr_xdg_toplevel *toplevel, uint32_t serial,
     return false;
 }
 
-class xdg_view_state_t : public wf::txn::instruction_t
+/**
+ * A common class for all xdg-shell instructions.
+ */
+class xdg_instruction_t : public wf::txn::instruction_t
 {
+  protected:
     wayfire_xdg_view *view;
-    uint32_t lock_id;
+    uint32_t lock_id = 0;
     wf::wl_listener_wrapper on_cache;
 
-    uint32_t desired_edges;
-
-  public:
-    xdg_view_state_t(wayfire_xdg_view *view, uint32_t tiled_edges)
+    wf::signal_connection_t on_kill = [=] (wf::signal_data_t*)
     {
-        this->view = view;
-        this->desired_edges = tiled_edges;
-        view->take_ref();
-    }
+        on_cache.disconnect();
+        wf::txn::emit_instruction_signal(this, "cancel");
+    };
 
-    ~xdg_view_state_t()
+    virtual ~xdg_instruction_t()
     {
-        view->lockmgr->unlock_all(lock_id);
+        if (lock_id > 0)
+        {
+            view->lockmgr->unlock_all(lock_id);
+        }
+
         view->unref();
     }
 
     std::string get_object() override
     {
         return view->to_string();
+    }
+
+  public:
+    xdg_instruction_t(wayfire_xdg_view *view)
+    {
+        this->view = view;
+        view->take_ref();
+        view->connect_signal(KILL_TX, &on_kill);
+    }
+};
+
+
+
+class xdg_view_state_t : public xdg_instruction_t
+{
+    uint32_t desired_edges;
+
+  public:
+    xdg_view_state_t(wayfire_xdg_view *view, uint32_t tiled_edges) :
+        xdg_instruction_t(view)
+    {
+        this->desired_edges = tiled_edges;
     }
 
     void set_pending() override
@@ -293,32 +321,16 @@ class xdg_view_state_t : public wf::txn::instruction_t
     }
 };
 
-class xdg_view_geometry_t : public wf::txn::instruction_t
+class xdg_view_geometry_t : public xdg_instruction_t
 {
-    wayfire_xdg_view *view;
     wf::geometry_t target;
-    uint32_t lock_id;
     wf::gravity_t current_gravity;
 
-    wf::wl_listener_wrapper on_cache;
-
   public:
-    xdg_view_geometry_t(wayfire_xdg_view *view, const wf::geometry_t& g)
+    xdg_view_geometry_t(wayfire_xdg_view *view, const wf::geometry_t& g) :
+        xdg_instruction_t(view)
     {
         this->target = g;
-        this->view   = view;
-        view->take_ref();
-    }
-
-    ~xdg_view_geometry_t()
-    {
-        view->lockmgr->unlock_all(lock_id);
-        view->unref();
-    }
-
-    std::string get_object() override
-    {
-        return view->to_string();
     }
 
     void set_pending() override
@@ -426,27 +438,15 @@ class xdg_view_geometry_t : public wf::txn::instruction_t
     }
 };
 
-class xdg_view_gravity_t : public wf::txn::instruction_t
+class xdg_view_gravity_t : public xdg_instruction_t
 {
-    wayfire_xdg_view *view;
     wf::gravity_t g;
 
   public:
-    xdg_view_gravity_t(wayfire_xdg_view *view, wf::gravity_t g)
+    xdg_view_gravity_t(wayfire_xdg_view *view, wf::gravity_t g) :
+        xdg_instruction_t(view)
     {
-        this->g    = g;
-        this->view = view;
-        view->take_ref();
-    }
-
-    ~xdg_view_gravity_t()
-    {
-        view->unref();
-    }
-
-    std::string get_object() override
-    {
-        return view->to_string();
+        this->g = g;
     }
 
     void set_pending() override
@@ -466,27 +466,10 @@ class xdg_view_gravity_t : public wf::txn::instruction_t
     }
 };
 
-class xdg_view_map_t : public wf::txn::instruction_t
+class xdg_view_map_t : public xdg_instruction_t
 {
-    wayfire_xdg_view *view;
-    uint32_t req_id;
-
   public:
-    xdg_view_map_t(wayfire_xdg_view *view)
-    {
-        this->view = view;
-        view->take_ref();
-    }
-
-    ~xdg_view_map_t()
-    {
-        view->unref();
-    }
-
-    std::string get_object() override
-    {
-        return view->to_string();
-    }
+    using xdg_instruction_t::xdg_instruction_t;
 
     void set_pending() override
     {
@@ -496,6 +479,8 @@ class xdg_view_map_t : public wf::txn::instruction_t
 
     void commit() override
     {
+        lock_id = view->lockmgr->lock();
+
         wf::txn::instruction_ready_signal data;
         data.instruction = {this};
         this->emit_signal("ready", &data);
@@ -504,39 +489,25 @@ class xdg_view_map_t : public wf::txn::instruction_t
     void apply() override
     {
         view->view_impl->state.mapped = true;
-        view->lockmgr->unlock(req_id);
+        view->lockmgr->unlock(lock_id);
         view->map(view->get_wlr_surface());
     }
 };
 
-class xdg_view_unmap_t : public wf::txn::instruction_t
+class xdg_view_unmap_t : public xdg_instruction_t
 {
-    wayfire_xdg_view *view;
-    uint32_t req_id;
-
   public:
-    xdg_view_unmap_t(wayfire_xdg_view *view)
-    {
-        this->view = view;
-        view->take_ref();
-    }
-
-    ~xdg_view_unmap_t()
-    {
-        view->lockmgr->unlock_all(req_id);
-        view->unref();
-    }
-
-    std::string get_object() override
-    {
-        return view->to_string();
-    }
+    using xdg_instruction_t::xdg_instruction_t;
 
     void set_pending() override
     {
         LOGC(TXNV, "Pending: unmap ", wayfire_view{view});
-        req_id = view->lockmgr->lock();
         view->view_impl->pending.mapped = false;
+
+        // Typically locking happens in the commit() handler. We cannot afford
+        // to wait, though. The surface is about to be unmapped so we need to
+        // take a lock immediately.
+        lock_id = view->lockmgr->lock();
     }
 
     void commit() override
@@ -549,7 +520,7 @@ class xdg_view_unmap_t : public wf::txn::instruction_t
     void apply() override
     {
         view->view_impl->state.mapped = false;
-        view->lockmgr->unlock(req_id);
+        view->lockmgr->unlock(lock_id);
         view->unmap();
     }
 };
@@ -602,9 +573,16 @@ void wayfire_xdg_view::initialize()
     });
     on_unmap.set_callback([&] (void*)
     {
-        auto tx = wf::txn::transaction_t::create();
-        tx->add_instruction(std::make_unique<xdg_view_unmap_t>(this));
-        wf::txn::transaction_manager_t::get().submit(std::move(tx));
+        this->emit_signal("__kill-tx", nullptr);
+
+        if (state().mapped)
+        {
+            // If the map transaction did not succeed, we do not need to map
+            // at all.
+            auto tx = wf::txn::transaction_t::create();
+            tx->add_instruction(std::make_unique<xdg_view_unmap_t>(this));
+            wf::txn::transaction_manager_t::get().submit(std::move(tx));
+        }
     });
     on_destroy.set_callback([&] (void*) { destroy(); });
     on_new_popup.set_callback([&] (void *data)
@@ -726,7 +704,6 @@ bool wayfire_xdg_view::is_mapped() const
 
 void wayfire_xdg_view::commit()
 {
-    LOGI("Commit serial ", xdg_toplevel->base->configure_serial);
     wlr_view_t::commit();
 }
 
