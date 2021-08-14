@@ -509,7 +509,7 @@ void wayfire_layer_shell_view::close()
     if (lsurface)
     {
         wf::wlr_view_t::close();
-        wlr_layer_surface_v1_close(lsurface);
+        wlr_layer_surface_v1_destroy(lsurface);
     }
 }
 
