@@ -505,6 +505,7 @@ void wayfire_xdg_view::set_activated(bool act)
     last_configure_serial =
         wlr_xdg_toplevel_set_activated(xdg_toplevel->base, act);
     wf::wlr_view_t::set_activated(act);
+    wlr_surface_from_resource
 }
 
 void wayfire_xdg_view::set_fullscreen(bool full)

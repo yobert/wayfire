@@ -70,6 +70,11 @@ struct view_state_t
      * on all edges.
      */
     uint32_t tiled_edges = 0;
+
+    /**
+     * The fullscreen state of the view.
+     */
+    bool fullscreen = false;
 };
 
 namespace txn
@@ -117,6 +122,12 @@ class view_transaction_t
      * @return Non-owning pointer to self.
      */
     virtual view_transaction_t *set_tiled(uint32_t edges) = 0;
+
+    /**
+     * Set the desired fullscreen state of the view.
+     * @return Non-owning pointer to self.
+     */
+    virtual view_transaction_t *set_fullscreen(bool fullscreen) = 0;
 
     /**
      * Schedule all batched instructions in the given transaction.

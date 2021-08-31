@@ -231,9 +231,6 @@ class view_interface_t : public surface_interface_t
      */
     virtual bool is_focuseable() const;
 
-    /** Whether the view is in fullscreen state, usually you want to use either
-     * set_fullscreen() or fullscreen_request() */
-    bool fullscreen = false;
     /** Whether the view is in activated state, usually you want to use either
      * set_activated() or focus_request() */
     bool activated = false;
@@ -246,8 +243,6 @@ class view_interface_t : public surface_interface_t
 
     /** Set the minimized state of the view. */
     virtual void set_minimized(bool minimized);
-    /** Set the fullscreen state of the view */
-    virtual void set_fullscreen(bool fullscreen);
     /** Set the view's activated state.  */
     virtual void set_activated(bool active);
     /** Set the view's sticky state. */

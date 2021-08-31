@@ -38,7 +38,19 @@ class view_impl_transaction_t : public txn::view_transaction_t
     {
         if (view->pending().tiled_edges != edges)
         {
-            pending.push_back(std::make_unique<State>(view, edges));
+            pending.push_back(std::make_unique<State>(
+                view, edges, view->pending().fullscreen));
+        }
+
+        return this;
+    }
+
+    view_transaction_t *set_fullscreen(bool fs) final
+    {
+        if (view->pending().fullscreen != fs)
+        {
+            pending.push_back(std::make_unique<State>(
+                view, view->pending().tiled_edges, fs));
         }
 
         return this;

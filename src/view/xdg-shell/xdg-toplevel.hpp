@@ -87,18 +87,20 @@ class xdg_instruction_t : public wf::txn::instruction_t
 class xdg_view_state_t : public xdg_instruction_t
 {
     uint32_t desired_edges;
+    bool desired_fullscreen;
 
   public:
-    xdg_view_state_t(wayfire_xdg_view *view, uint32_t tiled_edges) :
-        xdg_instruction_t(view)
+    xdg_view_state_t(wayfire_xdg_view *view, uint32_t tiled_edges,
+        bool fullscreen) : xdg_instruction_t(view)
     {
         this->desired_edges = tiled_edges;
+        this->desired_fullscreen = fullscreen;
     }
 
     void set_pending() override
     {
         LOGC(TXNV, "Pending: set state of ", wayfire_view{view},
-            " to tiled=", desired_edges);
+            " to tiled=", desired_edges, " fullscreen=", desired_fullscreen);
 
         view->view_impl->pending.tiled_edges = desired_edges;
     }
@@ -111,20 +113,15 @@ class xdg_view_state_t : public xdg_instruction_t
             return;
         }
 
-        auto& sp = view->xdg_toplevel->server_pending;
-        if (sp.tiled == desired_edges)
-        {
-            wf::txn::emit_instruction_signal(this, "ready");
-            return;
-        }
-
         lock_id = view->lockmgr->lock();
         wlr_xdg_toplevel_set_maximized(view->xdg_toplevel->base,
             desired_edges == wf::TILED_EDGES_ALL);
-        auto serial = wlr_xdg_toplevel_set_tiled(view->xdg_toplevel->base,
+        wlr_xdg_toplevel_set_tiled(view->xdg_toplevel->base,
             desired_edges);
-        wf::surface_send_frame(view->xdg_toplevel->base->surface);
+        auto serial = wlr_xdg_toplevel_set_fullscreen(view->xdg_toplevel->base,
+            desired_fullscreen);
 
+        wf::surface_send_frame(view->xdg_toplevel->base->surface);
         on_cache.set_callback([this, serial] (void*)
         {
             check_ready(serial);
@@ -137,6 +134,7 @@ class xdg_view_state_t : public xdg_instruction_t
         view->lockmgr->unlock(lock_id);
         auto old_edges = view->view_impl->state.tiled_edges;
         view->view_impl->state.tiled_edges = desired_edges;
+        view->view_impl->state.fullscreen  = desired_fullscreen;
         view->update_tiled_edges(old_edges);
     }
 };

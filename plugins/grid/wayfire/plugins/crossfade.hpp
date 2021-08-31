@@ -143,8 +143,7 @@ class grid_animation_t : public wf::custom_data_t
 
             if (target_edges >= 0)
             {
-                // use a transaction when available
-                view->set_fullscreen(false);
+                ns->set_fullscreen(false);
                 ns->set_tiled(target_edges);
             }
 
