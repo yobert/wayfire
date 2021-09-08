@@ -1,7 +1,6 @@
 #pragma once
 
 #include <wayfire/transaction/instruction.hpp>
-#include <wayfire/nonstd/noncopyable.hpp>
 #include <wayfire/view.hpp>
 #include <memory>
 #include <set>
@@ -167,7 +166,15 @@ class transaction_t
      */
     virtual uint64_t get_id() const = 0;
 
+    transaction_t(const transaction_t& other) = delete;
+    transaction_t(transaction_t&& other) = delete;
+    transaction_t& operator =(const transaction_t& other) = delete;
+    transaction_t& operator =(transaction_t&& other) = delete;
+
     virtual ~transaction_t() = default;
+
+  protected:
+    transaction_t() = default;
 };
 
 /**
@@ -209,6 +216,11 @@ class transaction_manager_t : public signal_provider_t
   private:
     transaction_manager_t();
     ~transaction_manager_t();
+
+    transaction_manager_t(const transaction_manager_t& other) = delete;
+    transaction_manager_t(transaction_manager_t&& other) = delete;
+    transaction_manager_t& operator =(const transaction_manager_t& other) = delete;
+    transaction_manager_t& operator =(transaction_manager_t&& other) = delete;
 };
 }
 }
