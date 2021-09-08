@@ -234,6 +234,16 @@ class wlr_view_t :
         return _get_size();
     }
 
+    virtual wf::region_t get_opaque_region(wf::point_t origin) override
+    {
+        return _get_opaque_region(origin);
+    }
+
+    virtual bool accepts_input(int32_t sx, int32_t sy) override
+    {
+        return _accepts_input(sx, sy);
+    }
+
     virtual void simple_render(const wf::framebuffer_t& fb, int x, int y,
         const wf::region_t& damage) override
     {

@@ -172,26 +172,12 @@ void wf::surface_interface_t::send_frame_done(const timespec& time)
 
 bool wf::surface_interface_t::accepts_input(int32_t sx, int32_t sy)
 {
-    if (!priv->wsurface)
-    {
-        return false;
-    }
-
-    return wlr_surface_point_accepts_input(priv->wsurface, sx, sy);
+    return false;
 }
 
 wf::region_t wf::surface_interface_t::get_opaque_region(wf::point_t origin)
 {
-    if (!priv->wsurface)
-    {
-        return {};
-    }
-
-    wf::region_t opaque{&priv->wsurface->opaque_region};
-    opaque += origin;
-    opaque.expand_edges(-get_active_shrink_constraint());
-
-    return opaque;
+    return {};
 }
 
 wl_client*wf::surface_interface_t::get_client()
@@ -303,10 +289,25 @@ wf::dimensions_t wf::wlr_surface_base_t::_get_size() const
         return {0, 0};
     }
 
-    return {
-        surface->current.width,
-        surface->current.height,
-    };
+    return wlr_state.size;
+}
+
+wf::region_t wf::wlr_surface_base_t::_get_opaque_region(wf::point_t origin)
+{
+    auto opaque = wlr_state.opaque_region;
+    opaque += origin;
+    opaque.expand_edges(
+        -wf::surface_interface_t::get_active_shrink_constraint());
+    return opaque;
+}
+
+bool wf::wlr_surface_base_t::_accepts_input(int32_t sx, int32_t sy)
+{
+    auto dim = _get_size();
+    wf::point_t pt{sx, sy};
+    bool inside_surface = wf::geometry_t{0, 0, dim.width, dim.height} & pt;
+    bool inside_input   = wlr_state.input_region.contains_point(pt);
+    return inside_surface && inside_input;
 }
 
 void wf::emit_map_state_change(wf::surface_interface_t *surface)
@@ -323,6 +324,11 @@ void wf::wlr_surface_base_t::map(wlr_surface *surface)
 {
     assert(!this->surface && surface);
     this->surface = surface;
+
+    if (!lck_count)
+    {
+        wlr_state.copy_from(surface);
+    }
 
     _as_si->priv->wsurface = surface;
 
@@ -368,14 +374,48 @@ void wf::wlr_surface_base_t::unmap()
     this->_as_si->clear_subsurfaces();
 }
 
-wlr_buffer*wf::wlr_surface_base_t::get_buffer()
+wf::surface_state_t::~surface_state_t()
 {
-    if (surface && wlr_surface_has_buffer(surface))
+    clear();
+}
+
+void wf::surface_state_t::clear()
+{
+    if (this->buffer)
     {
-        return &surface->buffer->base;
+        wlr_buffer_unlock(buffer);
+        this->buffer  = NULL;
+        this->texture = wf::texture_t{};
+        this->input_region.clear();
+        this->opaque_region.clear();
+    }
+}
+
+void wf::surface_state_t::copy_from(wlr_surface *surface)
+{
+    clear();
+    if (!wlr_surface_has_buffer(surface))
+    {
+        return;
     }
 
-    return nullptr;
+    buffer = &surface->buffer->base;
+    wlr_buffer_lock(buffer);
+    texture = wf::texture_t{surface};
+
+    opaque_region = wf::region_t{&surface->opaque_region};
+    input_region  = wf::region_t{&surface->input_region};
+
+    scale = surface->current.scale;
+    size  = {
+        surface->current.width,
+        surface->current.height,
+    };
+}
+
+wlr_buffer*wf::wlr_surface_base_t::get_buffer()
+{
+    return wlr_state.buffer;
 }
 
 void wf::wlr_surface_base_t::apply_surface_damage()
@@ -387,9 +427,13 @@ void wf::wlr_surface_base_t::apply_surface_damage()
 
     wf::region_t dmg;
     wlr_surface_get_effective_damage(surface, dmg.to_pixman());
+    apply_surface_damage_region(std::move(dmg));
+}
 
-    if ((surface->current.scale != 1) ||
-        (surface->current.scale != _as_si->get_output()->handle->scale))
+void wf::wlr_surface_base_t::apply_surface_damage_region(wf::region_t dmg)
+{
+    if ((wlr_state.scale != 1) ||
+        (wlr_state.scale != _as_si->get_output()->handle->scale))
     {
         dmg.expand_edges(1);
     }
@@ -399,12 +443,65 @@ void wf::wlr_surface_base_t::apply_surface_damage()
 
 void wf::wlr_surface_base_t::commit()
 {
+    if (lck_count > 1)
+    {
+        return;
+    }
+
+    wlr_state.copy_from(surface);
     apply_surface_damage();
     if (_as_si->get_output())
     {
         /* we schedule redraw, because the surface might expect
          * a frame callback */
         _as_si->get_output()->render->schedule_redraw();
+    }
+}
+
+void wf::wlr_surface_base_t::lock()
+{
+    lck_count++;
+}
+
+void wf::wlr_surface_base_t::unlock()
+{
+    lck_count--;
+    if (lck_count > 0)
+    {
+        // Nothing to unlock
+        return;
+    }
+
+    const auto& damage_whole = [&] ()
+    {
+        auto sz = _get_size();
+        // We don't know what happened, the surface might have been moved
+        // several times.
+        //
+        // For this reason, just damage everything.
+        apply_surface_damage_region(wf::geometry_t{0, 0, sz.width, sz.height});
+    };
+
+    damage_whole();
+    wlr_state.copy_from(surface);
+    damage_whole();
+}
+
+void wf::set_surface_tree_lock(wf::surface_interface_t *surface, bool lock)
+{
+    for (auto& surf : surface->enumerate_surfaces())
+    {
+        auto wlr_base = dynamic_cast<wlr_surface_base_t*>(surf.surface);
+        if (wlr_base)
+        {
+            if (lock)
+            {
+                wlr_base->lock();
+            } else
+            {
+                wlr_base->unlock();
+            }
+        }
     }
 }
 

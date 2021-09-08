@@ -4,6 +4,8 @@
 #include <wayfire/opengl.hpp>
 #include <wayfire/surface.hpp>
 #include <wayfire/util.hpp>
+#include <wayfire/region.hpp>
+#include <wayfire/nonstd/wlroots-full.hpp>
 
 namespace wf
 {
@@ -33,6 +35,32 @@ class surface_interface_t::impl
 };
 
 /**
+ * Data saved about a wlr surface when it is locked because of transactions.
+ */
+struct surface_state_t
+{
+    wlr_buffer *buffer = nullptr;
+    wf::texture_t texture;
+
+    wf::region_t opaque_region;
+    wf::region_t input_region;
+
+    int32_t scale;
+    wf::dimensions_t size;
+
+    void copy_from(wlr_surface *surface);
+    void clear();
+
+    surface_state_t() = default;
+    ~surface_state_t();
+
+    surface_state_t(const surface_state_t& state) = delete;
+    surface_state_t(surface_state_t&& state) = delete;
+    surface_state_t& operator =(const surface_state_t& state) = delete;
+    surface_state_t& operator =(surface_state_t&& state) = delete;
+};
+
+/**
  * A base class for views and surfaces which are based on a wlr_surface
  * Any class that derives from wlr_surface_base_t must also derive from
  * surface_interface_t!
@@ -44,6 +72,8 @@ class wlr_surface_base_t
     wf::wl_listener_wrapper on_commit, on_destroy, on_new_subsurface;
 
     void apply_surface_damage();
+    void apply_surface_damage_region(wf::region_t dmg);
+
     wlr_surface_base_t(wf::surface_interface_t *self);
     /* Pointer to this as surface_interface, see requirement above */
     wf::surface_interface_t *_as_si = nullptr;
@@ -70,10 +100,27 @@ class wlr_surface_base_t
      * Functions that need to be implemented/overridden from the
      * surface_implementation_t
      */
-    virtual bool _is_mapped() const;
-    virtual wf::dimensions_t _get_size() const;
-    virtual void _simple_render(const wf::framebuffer_t& fb, int x, int y,
+    bool _is_mapped() const;
+    wf::dimensions_t _get_size() const;
+    wf::region_t _get_opaque_region(wf::point_t origin);
+    void _simple_render(const wf::framebuffer_t& fb, int x, int y,
         const wf::region_t& damage);
+    bool _accepts_input(int32_t sx, int32_t sy);
+
+    /**
+     * Lock the surface by saving its buffer and size.
+     * Any surface commits will not be displayed, until the surface is unlocked
+     * again.
+     */
+    void lock();
+
+    /**
+     * Unlock commits on the surface.
+     *
+     * If the surface has been locked N times, it needs to be unlocked N times
+     * before it allows commits again.
+     */
+    void unlock();
 
   protected:
     virtual void map(wlr_surface *surface);
@@ -81,7 +128,12 @@ class wlr_surface_base_t
     virtual void commit();
 
     virtual wlr_buffer *get_buffer();
+
+    surface_state_t wlr_state;
+    int32_t lck_count = 0;
 };
+
+void set_surface_tree_lock(wf::surface_interface_t *surface, bool lock);
 
 /**
  * wlr_child_surface_base_t is a base class for wlr-surface based child
@@ -110,6 +162,16 @@ class wlr_child_surface_base_t :
     virtual wf::dimensions_t get_size() const override
     {
         return _get_size();
+    }
+
+    virtual wf::region_t get_opaque_region(wf::point_t origin) override
+    {
+        return _get_opaque_region(origin);
+    }
+
+    virtual bool accepts_input(int32_t sx, int32_t sy) override
+    {
+        return _accepts_input(sx, sy);
     }
 
     virtual void simple_render(const wf::framebuffer_t& fb, int x, int y,
