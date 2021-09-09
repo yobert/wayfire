@@ -440,10 +440,7 @@ void wf::view_interface_t::set_fullscreen(bool full)
 {
     /* When fullscreening a view, we want to store the last geometry it had
      * before getting fullscreen so that we can restore to it */
-    if (full && !fullscreen)
-    {
-        view_impl->update_windowed_geometry(self(), get_wm_geometry());
-    }
+    view_impl->update_windowed_geometry(self(), get_wm_geometry());
 
     fullscreen = full;
     if (view_impl->frame)
@@ -542,7 +539,7 @@ void wf::view_interface_t::view_priv_impl::update_windowed_geometry(
     wayfire_view self, wf::geometry_t geometry)
 {
     if (!self->is_mapped() || self->state().tiled_edges ||
-        this->in_continuous_move ||
+        self->state().fullscreen || this->in_continuous_move ||
         this->in_continuous_resize)
     {
         return;

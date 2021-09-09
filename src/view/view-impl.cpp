@@ -92,7 +92,7 @@ wf::region_t wf::wlr_view_t::get_transformed_opaque_region()
      *
      * In this case, we hijack the maximal_shrink_constraint, but we must
      * restore it immediately after subtracting the opaque region */
-    if (this->fullscreen)
+    if (this->state().fullscreen)
     {
         maximal_shrink_constraint = 0;
     }

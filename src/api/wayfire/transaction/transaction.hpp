@@ -166,6 +166,7 @@ class transaction_t
      */
     virtual uint64_t get_id() const = 0;
 
+    transaction_t() = default;
     transaction_t(const transaction_t& other) = delete;
     transaction_t(transaction_t&& other) = delete;
     transaction_t& operator =(const transaction_t& other) = delete;

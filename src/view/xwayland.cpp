@@ -353,7 +353,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         auto o = get_output();
         if (o)
         {
-            auto view_workarea = (fullscreen ?
+            auto view_workarea = (pending().fullscreen ?
                 o->get_relative_geometry() : o->workspace->get_workarea());
             auto og = o->get_layout_geometry();
             configure_geometry.x -= og.x;
@@ -830,14 +830,14 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
             toplevel_handle, app_id.c_str());
     }
 
-    void set_fullscreen(bool full) override
-    {
-        wf::wlr_view_t::set_fullscreen(full);
-        if (xw)
-        {
-            wlr_xwayland_surface_set_fullscreen(xw, full);
-        }
-    }
+    // void set_fullscreen(bool full) override
+    // {
+    // wf::wlr_view_t::set_fullscreen(full);
+    // if (xw)
+    // {
+    // wlr_xwayland_surface_set_fullscreen(xw, full);
+    // }
+    // }
 
     void set_minimized(bool minimized) override
     {
