@@ -174,6 +174,7 @@ class wlr_view_t :
     wf::geometry_t geometry{100, 100, 0, 0};
 
     void update_tiled_edges(uint32_t old_edges);
+    void update_fullscreen(bool old_fullscreen);
 
     /** Set the view position and optionally send the geometry changed signal
      * @param old_geometry The geometry to report as previous, in case the

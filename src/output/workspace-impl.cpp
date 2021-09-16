@@ -1081,7 +1081,7 @@ class workspace_manager::impl
         });
         views.erase(it, views.end());
 
-        if (!views.empty() && views.front()->fullscreen)
+        if (!views.empty() && views.front()->state().fullscreen)
         {
             views.front()->view_impl->is_promoted = true;
         }

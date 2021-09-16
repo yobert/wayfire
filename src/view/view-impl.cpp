@@ -671,6 +671,9 @@ void wf::wlr_view_t::update_tiled_edges(uint32_t old_edges)
     desktop_state_updated();
 }
 
+void wf::wlr_view_t::update_fullscreen(bool old_fullscreen)
+{}
+
 wf::geometry_t wf::align_with_gravity(
     wf::geometry_t desired, wf::geometry_t actual, wf::gravity_t gravity)
 {
