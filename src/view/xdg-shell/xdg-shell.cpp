@@ -350,10 +350,6 @@ void wayfire_xdg_view::initialize()
     on_show_window_menu.connect(&xdg_toplevel->events.request_show_window_menu);
     on_request_fullscreen.connect(&xdg_toplevel->events.request_fullscreen);
 
-    // Lock the initial surface state
-    on_precommit.set_callback([&] (void*) { handle_precommit(); });
-    on_precommit.connect(&xdg_toplevel->base->surface->events.precommit);
-
     xdg_toplevel->base->data = dynamic_cast<view_interface_t*>(this);
     // set initial parent
     on_set_parent.emit(nullptr);
@@ -465,6 +461,7 @@ bool wayfire_xdg_view::is_mapped() const
 
 void wayfire_xdg_view::commit()
 {
+    handle_precommit();
     LOGI("Current commit works for ", xdg_toplevel->current.width, " ",
         xdg_toplevel->current.height);
     wlr_view_t::commit();
@@ -579,7 +576,6 @@ void wayfire_xdg_view::destroy()
     on_map.disconnect();
     on_unmap.disconnect();
     on_destroy.disconnect();
-    on_precommit.disconnect();
     on_new_popup.disconnect();
     on_set_title.disconnect();
     on_set_app_id.disconnect();

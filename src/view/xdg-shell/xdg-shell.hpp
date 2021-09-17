@@ -55,8 +55,6 @@ class wayfire_xdg_view : public wf::wlr_view_t
     wf::point_t xdg_surface_offset = {0, 0};
     uint32_t last_configure_serial = 0;
 
-    wf::wl_listener_wrapper on_precommit;
-
   protected:
     void initialize() override final;
 

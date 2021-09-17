@@ -73,8 +73,7 @@ class xdg_instruction_t : public wf::txn::instruction_t
             on_commit.disconnect();
             lock_tree_wlr();
 
-            emit_final_size();
-            wf::txn::emit_instruction_signal(this, "ready");
+            emit_final_size_and_ready();
             return true;
         }
 
@@ -89,7 +88,7 @@ class xdg_instruction_t : public wf::txn::instruction_t
         return false;
     }
 
-    void emit_final_size()
+    void emit_final_size_and_ready()
     {
         wlr_box box;
         wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
@@ -102,6 +101,8 @@ class xdg_instruction_t : public wf::txn::instruction_t
         wf::txn::final_size_signal data;
         data.final_size = wf::dimensions(box);
         view->emit_signal("final-size", &data);
+
+        wf::txn::emit_instruction_signal(this, "ready");
     }
 
     void lock_tree()
@@ -165,14 +166,14 @@ class xdg_view_state_t : public xdg_instruction_t
     {
         if (!view->xdg_toplevel)
         {
-            wf::txn::emit_instruction_signal(this, "ready");
+            emit_final_size_and_ready();
             return;
         }
 
         auto& sp = view->xdg_toplevel->server_pending;
         if (sp.tiled == desired_edges)
         {
-            wf::txn::emit_instruction_signal(this, "ready");
+            emit_final_size_and_ready();
             return;
         }
 
@@ -231,7 +232,7 @@ class xdg_view_geometry_t : public xdg_instruction_t
     {
         if (!view->xdg_toplevel)
         {
-            wf::txn::emit_instruction_signal(this, "ready");
+            emit_final_size_and_ready();
             return;
         }
 
@@ -239,7 +240,7 @@ class xdg_view_geometry_t : public xdg_instruction_t
         {
             // We have already grabbed a lock in the constructor. Just signal
             // that we're ready and don't do anything else.
-            wf::txn::emit_instruction_signal(this, "ready");
+            emit_final_size_and_ready();
             return;
         }
 
@@ -316,7 +317,7 @@ class xdg_view_gravity_t : public xdg_instruction_t
 
     void commit() override
     {
-        wf::txn::emit_instruction_signal(this, "ready");
+        emit_final_size_and_ready();
     }
 
     void apply() override
@@ -339,9 +340,7 @@ class xdg_view_map_t : public xdg_instruction_t
     void commit() override
     {
         lock_tree();
-        wf::txn::instruction_ready_signal data;
-        data.instruction = {this};
-        this->emit_signal("ready", &data);
+        emit_final_size_and_ready();
     }
 
     void apply() override
@@ -370,9 +369,7 @@ class xdg_view_unmap_t : public xdg_instruction_t
 
     void commit() override
     {
-        wf::txn::instruction_ready_signal data;
-        data.instruction = {this};
-        this->emit_signal("ready", &data);
+        wf::txn::emit_instruction_signal(this, "ready");
     }
 
     void apply() override
