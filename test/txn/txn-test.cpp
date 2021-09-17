@@ -115,7 +115,7 @@ class precommit_test_instruction_t : public wf::txn::instruction_t
     {}
 
     int precommitted = 0;
-    int committed = 0;
+    int committed    = 0;
 
     void precommit() override
     {
