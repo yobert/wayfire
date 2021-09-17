@@ -46,7 +46,7 @@ class xdg_instruction_t : public wf::txn::instruction_t
      */
     bool check_ready(uint32_t target)
     {
-        auto current = view->xdg_toplevel->base->configure_next_serial;
+        auto current = view->xdg_toplevel->base->configure_serial;
         bool target_achieved = false;
 
         constexpr auto MAX = std::numeric_limits<uint32_t>::max();
@@ -62,12 +62,18 @@ class xdg_instruction_t : public wf::txn::instruction_t
             target_achieved = true;
         }
 
+        // 0 indicates no ACK from the client side
+        target_achieved &= current > 0;
+
+        LOGI(this, " checking for ", target, " ", current);
+
         // TODO: we may have skipped the serial as a whole
         if (target_achieved)
         {
             on_commit.disconnect();
             lock_tree_wlr();
 
+            emit_final_size();
             wf::txn::emit_instruction_signal(this, "ready");
             return true;
         }
@@ -81,6 +87,21 @@ class xdg_instruction_t : public wf::txn::instruction_t
         }
 
         return false;
+    }
+
+    void emit_final_size()
+    {
+        wlr_box box;
+        wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
+        if (view->view_impl->frame)
+        {
+            box = wf::expand_with_margins(box,
+                view->view_impl->frame->get_margins());
+        }
+
+        wf::txn::final_size_signal data;
+        data.final_size = wf::dimensions(box);
+        view->emit_signal("final-size", &data);
     }
 
     void lock_tree()
@@ -231,10 +252,10 @@ class xdg_view_geometry_t : public xdg_instruction_t
                 view->view_impl->frame->get_margins());
         }
 
-        LOGI("we configure with ", cfg_geometry);
         auto serial = wlr_xdg_toplevel_set_size(view->xdg_toplevel->base,
             cfg_geometry.width, cfg_geometry.height);
         wf::surface_send_frame(view->xdg_toplevel->base->surface);
+        LOGI(this, " we configure with ", cfg_geometry, " serial is ", serial);
 
         on_commit.set_callback([this, serial] (void*)
         {
@@ -250,7 +271,9 @@ class xdg_view_geometry_t : public xdg_instruction_t
 
         wlr_box box;
         wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
-        LOGI("we really got ", box);
+        LOGI(this, " we really got ", box, " but has ",
+            view->xdg_toplevel->current.width, "x",
+            view->xdg_toplevel->current.height);
 
         if (view->view_impl->frame)
         {

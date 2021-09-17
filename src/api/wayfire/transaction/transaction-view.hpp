@@ -134,5 +134,19 @@ class view_transaction_t
 
     virtual ~view_transaction_t() = default;
 };
+
+/**
+ * name: final-size
+ * on: view
+ * when: During a transaction, a client may change a view's size. The
+ *   final-size signal should be emitted by view instructions when they are
+ *   ready to indicate what the next size of the view will be after the
+ *   instructions are applied.
+ */
+struct final_size_signal : public wf::signal_data_t
+{
+    /** The actual size of the view, specified by the client. */
+    wf::dimensions_t final_size;
+};
 }
 }
