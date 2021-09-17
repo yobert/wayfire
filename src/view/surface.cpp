@@ -394,7 +394,7 @@ void wf::surface_state_t::clear()
 void wf::surface_state_t::copy_from(wlr_surface *surface)
 {
     clear();
-    if (!wlr_surface_has_buffer(surface))
+    if (!surface || !wlr_surface_has_buffer(surface))
     {
         return;
     }
@@ -487,20 +487,15 @@ void wf::wlr_surface_base_t::unlock()
     damage_whole();
 }
 
-void wf::set_surface_tree_lock(wf::surface_interface_t *surface, bool lock)
+void wf::for_each_wlr_surface(wf::surface_interface_t *root,
+    std::function<void(wf::wlr_surface_base_t*)> cb)
 {
-    for (auto& surf : surface->enumerate_surfaces())
+    for (auto& surf : root->enumerate_surfaces())
     {
         auto wlr_base = dynamic_cast<wlr_surface_base_t*>(surf.surface);
         if (wlr_base)
         {
-            if (lock)
-            {
-                wlr_base->lock();
-            } else
-            {
-                wlr_base->unlock();
-            }
+            cb(wlr_base);
         }
     }
 }

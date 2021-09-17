@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <wayfire/transaction/instruction.hpp>
 #include <wayfire/debug.hpp>
 #include "xdg-shell.hpp"
@@ -11,22 +12,23 @@ class xdg_instruction_t : public wf::txn::instruction_t
 {
   protected:
     wayfire_xdg_view *view;
-    uint32_t lock_id = 0;
-    wf::wl_listener_wrapper on_cache;
+    wf::wl_listener_wrapper on_commit;
+    std::map<wlr_surface*, uint32_t> held_locks;
 
     wf::signal_connection_t on_kill = [=] (wf::signal_data_t*)
     {
-        on_cache.disconnect();
+        on_commit.disconnect();
         wf::txn::emit_instruction_signal(this, "cancel");
     };
 
+    xdg_instruction_t(const xdg_instruction_t&) = delete;
+    xdg_instruction_t(xdg_instruction_t&&) = delete;
+    xdg_instruction_t& operator =(const xdg_instruction_t&) = delete;
+    xdg_instruction_t& operator =(xdg_instruction_t&&) = delete;
+
     virtual ~xdg_instruction_t()
     {
-        if (lock_id > 0)
-        {
-            view->lockmgr->unlock_all(lock_id);
-        }
-
+        unlock_tree_wlr();
         view->unref();
     }
 
@@ -36,32 +38,22 @@ class xdg_instruction_t : public wf::txn::instruction_t
     }
 
     /**
-     * Go through the cached state of the toplevel and decide whether the desired
-     * serial has been reached.
-     *
-     * If it has been, return true, emit the ready signal on @self and disconnect
+     * Decide whether the toplevel has reached the desired configure serial.
+     * If it has, return true, emit the ready signal on @self and disconnect
      * @listener.
      *
      * Otherwise, return false.
      */
     bool check_ready(uint32_t serial)
     {
-        wlr_xdg_surface_state *state;
-        wl_list_for_each(state, &view->xdg_toplevel->base->cached, cached_state_link)
+        // TODO: we may have skipped the serial as a whole
+        if (view->xdg_toplevel->base->configure_serial == serial)
         {
-            // TODO: we may have skipped the serial as a whole
-            if (state->configure_serial == serial)
-            {
-                on_cache.disconnect();
+            on_commit.disconnect();
+            lock_tree_wlr();
 
-                if (lock_id > 0)
-                {
-                    view->lockmgr->checkpoint(lock_id);
-                }
-
-                wf::txn::emit_instruction_signal(this, "ready");
-                return true;
-            }
+            wf::txn::emit_instruction_signal(this, "ready");
+            return true;
         }
 
         // The surface is not ready yet.
@@ -73,6 +65,35 @@ class xdg_instruction_t : public wf::txn::instruction_t
         }
 
         return false;
+    }
+
+    void lock_tree()
+    {
+        wf::for_each_wlr_surface(view, [] (auto base) { base->lock(); });
+    }
+
+    void unlock_tree()
+    {
+        wf::for_each_wlr_surface(view, [] (auto base) { base->unlock(); });
+    }
+
+    void lock_tree_wlr()
+    {
+        wf::for_each_wlr_surface(view, [=] (auto base)
+        {
+            auto surf = dynamic_cast<wf::surface_interface_t*>(base)->get_wlr_surface();
+            held_locks[surf] = wlr_surface_lock_pending(surf);
+        });
+    }
+
+    void unlock_tree_wlr()
+    {
+        for (auto [surf, id] : held_locks)
+        {
+            wlr_surface_unlock_cached(surf, id);
+        }
+
+        held_locks.clear();
     }
 
   public:
@@ -118,23 +139,23 @@ class xdg_view_state_t : public xdg_instruction_t
             return;
         }
 
-        lock_id = view->lockmgr->lock();
+        lock_tree();
         wlr_xdg_toplevel_set_maximized(view->xdg_toplevel->base,
             desired_edges == wf::TILED_EDGES_ALL);
         auto serial = wlr_xdg_toplevel_set_tiled(view->xdg_toplevel->base,
             desired_edges);
         wf::surface_send_frame(view->xdg_toplevel->base->surface);
 
-        on_cache.set_callback([this, serial] (void*)
+        on_commit.set_callback([this, serial] (void*)
         {
             check_ready(serial);
         });
-        on_cache.connect(&view->xdg_toplevel->base->surface->events.cache);
+        on_commit.connect(&view->xdg_toplevel->base->surface->events.commit);
     }
 
     void apply() override
     {
-        view->lockmgr->unlock(lock_id);
+        unlock_tree();
         auto old_edges = view->view_impl->state.tiled_edges;
         view->view_impl->state.tiled_edges = desired_edges;
         view->update_tiled_edges(old_edges);
@@ -154,6 +175,12 @@ class xdg_view_geometry_t : public xdg_instruction_t
     {
         this->target = g;
         this->client_initiated = client_initiated;
+
+        if (client_initiated)
+        {
+            // Grab a lock now, otherwise, wlroots will do the commit
+            lock_tree();
+        }
     }
 
     void set_pending() override
@@ -171,14 +198,15 @@ class xdg_view_geometry_t : public xdg_instruction_t
             return;
         }
 
-        lock_id = view->lockmgr->lock();
         if (client_initiated)
         {
-            // Just grab a lock, but don't do anything, the surface already
-            // has the correct geometry.
+            // We have already grabbed a lock in the constructor. Just signal
+            // that we're ready and don't do anything else.
             wf::txn::emit_instruction_signal(this, "ready");
             return;
         }
+
+        lock_tree();
 
         auto cfg_geometry = target;
         if (view->view_impl->frame)
@@ -191,18 +219,17 @@ class xdg_view_geometry_t : public xdg_instruction_t
             cfg_geometry.width, cfg_geometry.height);
         wf::surface_send_frame(view->xdg_toplevel->base->surface);
 
-        on_cache.set_callback([this, serial] (void*)
+        on_commit.set_callback([this, serial] (void*)
         {
             check_ready(serial);
         });
-        on_cache.connect(&view->xdg_toplevel->base->surface->events.cache);
+        on_commit.connect(&view->xdg_toplevel->base->surface->events.commit);
     }
 
     void apply() override
     {
         view->damage();
-
-        view->lockmgr->unlock(lock_id);
+        unlock_tree();
 
         wlr_box box;
         wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
@@ -268,9 +295,7 @@ class xdg_view_map_t : public xdg_instruction_t
 
     void commit() override
     {
-        lock_id = view->lockmgr->lock();
-        view->lockmgr->checkpoint(lock_id);
-
+        lock_tree();
         wf::txn::instruction_ready_signal data;
         data.instruction = {this};
         this->emit_signal("ready", &data);
@@ -279,7 +304,7 @@ class xdg_view_map_t : public xdg_instruction_t
     void apply() override
     {
         view->view_impl->state.mapped = true;
-        view->lockmgr->unlock(lock_id);
+        unlock_tree();
         view->map(view->get_wlr_surface());
     }
 };
@@ -297,7 +322,7 @@ class xdg_view_unmap_t : public xdg_instruction_t
         // Typically locking happens in the commit() handler. We cannot afford
         // to wait, though. The surface is about to be unmapped so we need to
         // take a lock immediately.
-        lock_id = view->lockmgr->lock();
+        lock_tree_wlr();
     }
 
     void commit() override
@@ -310,7 +335,7 @@ class xdg_view_unmap_t : public xdg_instruction_t
     void apply() override
     {
         view->view_impl->state.mapped = false;
-        view->lockmgr->unlock(lock_id);
+        unlock_tree_wlr();
         view->unmap();
     }
 };

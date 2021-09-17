@@ -133,7 +133,8 @@ class wlr_surface_base_t
     int32_t lck_count = 0;
 };
 
-void set_surface_tree_lock(wf::surface_interface_t *surface, bool lock);
+void for_each_wlr_surface(wf::surface_interface_t *root,
+    std::function<void(wf::wlr_surface_base_t*)> cb);
 
 /**
  * wlr_child_surface_base_t is a base class for wlr-surface based child

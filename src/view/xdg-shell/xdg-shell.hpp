@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../view-impl.hpp"
-#include <wayfire/transaction/surface-lock.hpp>
 #include "../instruction-impl.hpp"
 
 #define KILL_TX "__kill-tx"
@@ -71,7 +70,6 @@ class wayfire_xdg_view : public wf::wlr_view_t
     void handle_precommit();
 
   public:
-    std::unique_ptr<wf::wlr_surface_manager_t> lockmgr;
     wlr_xdg_toplevel *xdg_toplevel;
 
     wayfire_xdg_view(wlr_xdg_toplevel *toplevel);

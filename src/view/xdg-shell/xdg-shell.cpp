@@ -234,8 +234,6 @@ wf::geometry_t get_xdg_geometry(wlr_xdg_toplevel *toplevel)
 
 void wayfire_xdg_view::initialize()
 {
-    lockmgr = std::make_unique<wf::wlr_surface_manager_t>(
-        xdg_toplevel->base->surface);
     wlr_view_t::initialize();
     LOGI("new xdg_shell_stable surface: ", xdg_toplevel->title,
         " app-id: ", xdg_toplevel->app_id);
@@ -385,7 +383,7 @@ void wayfire_xdg_view::handle_precommit()
         return;
     }
 
-    if (lockmgr->current_lock() != 0)
+    if (lck_count > 0)
     {
         // A transaction is holding a lock on the view, so it is responsible
         // for managing the view.
@@ -440,9 +438,6 @@ void wayfire_xdg_view::handle_precommit()
         target = wf::align_with_gravity(
             target, cached_geometry, state().gravity);
     }
-
-    // Grab a lock now, otherwise, wlroots will do the commit
-    lockmgr->lock();
 
     auto tx = wf::txn::transaction_t::create();
     tx->add_instruction(
