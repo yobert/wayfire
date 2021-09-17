@@ -44,10 +44,26 @@ class xdg_instruction_t : public wf::txn::instruction_t
      *
      * Otherwise, return false.
      */
-    bool check_ready(uint32_t serial)
+    bool check_ready(uint32_t target)
     {
+        auto current = view->xdg_toplevel->base->configure_next_serial;
+        bool target_achieved = false;
+
+        constexpr auto MAX = std::numeric_limits<uint32_t>::max();
+        if ((current >= target) && ((current - target) < MAX / 2))
+        {
+            // Case 1: serial did not wrap around MAX
+            target_achieved = true;
+        }
+
+        if ((target > current) && ((target - current) > MAX / 2))
+        {
+            // Case 2: serial wrapped around MAX
+            target_achieved = true;
+        }
+
         // TODO: we may have skipped the serial as a whole
-        if (view->xdg_toplevel->base->configure_serial == serial)
+        if (target_achieved)
         {
             on_commit.disconnect();
             lock_tree_wlr();
@@ -215,6 +231,7 @@ class xdg_view_geometry_t : public xdg_instruction_t
                 view->view_impl->frame->get_margins());
         }
 
+        LOGI("we configure with ", cfg_geometry);
         auto serial = wlr_xdg_toplevel_set_size(view->xdg_toplevel->base,
             cfg_geometry.width, cfg_geometry.height);
         wf::surface_send_frame(view->xdg_toplevel->base->surface);
@@ -233,12 +250,15 @@ class xdg_view_geometry_t : public xdg_instruction_t
 
         wlr_box box;
         wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
+        LOGI("we really got ", box);
 
         if (view->view_impl->frame)
         {
             box = wf::expand_with_margins(box,
                 view->view_impl->frame->get_margins());
         }
+
+        LOGI("we want ", target, " but we got ", box);
 
         // Adjust for gravity
         target = wf::align_with_gravity(target, box, current_gravity);
@@ -247,8 +267,8 @@ class xdg_view_geometry_t : public xdg_instruction_t
         // Adjust output geometry for shadows and other parts of the surface
         target.x    -= box.x;
         target.y    -= box.y;
-        target.width = view->get_wlr_surface()->current.width;
-        target.height  = view->get_wlr_surface()->current.height;
+        target.width = view->get_size().width;
+        target.height  = view->get_size().height;
         view->geometry = target;
         view->damage();
     }

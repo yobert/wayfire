@@ -373,10 +373,17 @@ void wayfire_xdg_view::initialize()
 }
 
 wayfire_xdg_view::~wayfire_xdg_view()
-{}
+{
+    if (xdg_toplevel)
+    {
+        // Reset connection to this view
+        xdg_toplevel->base->data = NULL;
+    }
+}
 
 void wayfire_xdg_view::handle_precommit()
 {
+    return;
     if (!is_mapped())
     {
         // Size will be set on map

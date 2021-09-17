@@ -485,6 +485,8 @@ void wf::wlr_surface_base_t::unlock()
     damage_whole();
     wlr_state.copy_from(surface);
     damage_whole();
+
+    LOGI("Size now is ", wlr_state.size.width, " ", wlr_state.size.height);
 }
 
 void wf::for_each_wlr_surface(wf::surface_interface_t *root,
