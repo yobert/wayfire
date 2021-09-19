@@ -462,8 +462,6 @@ bool wayfire_xdg_view::is_mapped() const
 void wayfire_xdg_view::commit()
 {
     handle_precommit();
-    LOGI("Current commit works for ", xdg_toplevel->current.width, " ",
-        xdg_toplevel->current.height);
     wlr_view_t::commit();
 }
 

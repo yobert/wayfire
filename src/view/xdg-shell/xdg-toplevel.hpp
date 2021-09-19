@@ -1,8 +1,8 @@
 #pragma once
 
 #include <map>
-#include <wayfire/transaction/instruction.hpp>
 #include <wayfire/debug.hpp>
+#include <wayfire/transaction/instruction.hpp>
 #include "xdg-shell.hpp"
 
 /**
@@ -13,7 +13,19 @@ class xdg_instruction_t : public wf::txn::instruction_t
   protected:
     wayfire_xdg_view *view;
     wf::wl_listener_wrapper on_commit;
+
+    /**
+     * A list of wlr locks held by the transaction.
+     */
     std::map<wlr_surface*, uint32_t> held_locks;
+
+    /**
+     * A list of locks held via surface_base_t::lock().
+     * We need to keep this list because surfaces can be mapped/unmapped
+     * while a transaction is running, and we may not really hold locks on
+     * all of them.
+     */
+    std::map<wf::wlr_surface_base_t*, bool> held_soft_locks;
 
     wf::signal_connection_t on_kill = [=] (wf::signal_data_t*)
     {
@@ -65,8 +77,6 @@ class xdg_instruction_t : public wf::txn::instruction_t
         // 0 indicates no ACK from the client side
         target_achieved &= current > 0;
 
-        LOGI(this, " checking for ", target, " ", current);
-
         // TODO: we may have skipped the serial as a whole
         if (target_achieved)
         {
@@ -107,12 +117,23 @@ class xdg_instruction_t : public wf::txn::instruction_t
 
     void lock_tree()
     {
-        wf::for_each_wlr_surface(view, [] (auto base) { base->lock(); });
+        wf::for_each_wlr_surface(view, [=] (auto base)
+        {
+            held_soft_locks[base] = true;
+            base->lock();
+        });
     }
 
     void unlock_tree()
     {
-        wf::for_each_wlr_surface(view, [] (auto base) { base->unlock(); });
+        wf::for_each_wlr_surface(view, [=] (auto base)
+        {
+            if (held_soft_locks[base])
+            {
+                held_soft_locks[base] = false;
+                base->unlock();
+            }
+        });
     }
 
     void lock_tree_wlr()
@@ -164,6 +185,7 @@ class xdg_view_state_t : public xdg_instruction_t
 
     void commit() override
     {
+        lock_tree();
         if (!view->xdg_toplevel)
         {
             emit_final_size_and_ready();
@@ -177,7 +199,6 @@ class xdg_view_state_t : public xdg_instruction_t
             return;
         }
 
-        lock_tree();
         wlr_xdg_toplevel_set_maximized(view->xdg_toplevel->base,
             desired_edges == wf::TILED_EDGES_ALL);
         auto serial = wlr_xdg_toplevel_set_tiled(view->xdg_toplevel->base,
@@ -230,6 +251,8 @@ class xdg_view_geometry_t : public xdg_instruction_t
 
     void commit() override
     {
+        lock_tree();
+
         if (!view->xdg_toplevel)
         {
             emit_final_size_and_ready();
@@ -244,8 +267,6 @@ class xdg_view_geometry_t : public xdg_instruction_t
             return;
         }
 
-        lock_tree();
-
         auto cfg_geometry = target;
         if (view->view_impl->frame)
         {
@@ -256,7 +277,6 @@ class xdg_view_geometry_t : public xdg_instruction_t
         auto serial = wlr_xdg_toplevel_set_size(view->xdg_toplevel->base,
             cfg_geometry.width, cfg_geometry.height);
         wf::surface_send_frame(view->xdg_toplevel->base->surface);
-        LOGI(this, " we configure with ", cfg_geometry, " serial is ", serial);
 
         on_commit.set_callback([this, serial] (void*)
         {
@@ -272,17 +292,11 @@ class xdg_view_geometry_t : public xdg_instruction_t
 
         wlr_box box;
         wlr_xdg_surface_get_geometry(view->xdg_toplevel->base, &box);
-        LOGI(this, " we really got ", box, " but has ",
-            view->xdg_toplevel->current.width, "x",
-            view->xdg_toplevel->current.height);
-
         if (view->view_impl->frame)
         {
             box = wf::expand_with_margins(box,
                 view->view_impl->frame->get_margins());
         }
-
-        LOGI("we want ", target, " but we got ", box);
 
         // Adjust for gravity
         target = wf::align_with_gravity(target, box, current_gravity);

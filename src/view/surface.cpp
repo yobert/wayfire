@@ -3,6 +3,7 @@
 #include <wayfire/util/log.hpp>
 #include "surface-impl.hpp"
 #include "subsurface.hpp"
+#include "wayfire/debug.hpp"
 #include "wayfire/opengl.hpp"
 #include "../core/core-impl.hpp"
 #include "wayfire/output.hpp"
@@ -443,7 +444,7 @@ void wf::wlr_surface_base_t::apply_surface_damage_region(wf::region_t dmg)
 
 void wf::wlr_surface_base_t::commit()
 {
-    if (lck_count > 1)
+    if (lck_count > 0)
     {
         return;
     }
@@ -472,6 +473,7 @@ void wf::wlr_surface_base_t::unlock()
         return;
     }
 
+    assert(lck_count == 0);
     const auto& damage_whole = [&] ()
     {
         auto sz = _get_size();
