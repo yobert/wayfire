@@ -19,11 +19,13 @@
 			<_short>Horizontal virtual size</_short>
 			<_long>Sets the number of horizontal workspaces.  Currently, cannot be changed at runtime.</_long>
 			<default>3</default>
+			<min>1</min>
 		</option>
 		<option name="vheight" type="int">
 			<_short>Vertical virtual size</_short>
 			<_long>Sets the number of vertical workspaces.  Currently, cannot be changed at runtime.</_long>
 			<default>3</default>
+			<min>1</min>
 		</option>
 		<option name="background_color" type="color">
 			<_short>Background color</_short>
