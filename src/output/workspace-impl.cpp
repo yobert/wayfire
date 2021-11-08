@@ -330,8 +330,15 @@ class output_layer_manager_t
         rebuild_stack_order();
     }
 
+    enum class promoted_state_t
+    {
+        PROMOTED,
+        NOT_PROMOTED,
+        ANY,
+    };
+
     void push_views(std::vector<wayfire_view>& into, layer_t layer_e,
-        bool promoted)
+        promoted_state_t desired_promoted)
     {
         auto& layer = this->layers[layer_index_from_mask(layer_e)];
         for (const auto& sublayers :
@@ -343,7 +350,14 @@ class output_layer_manager_t
                 std::copy_if(container.begin(), container.end(),
                     std::back_inserter(into), [=] (wayfire_view view)
                 {
-                    return view->view_impl->is_promoted == promoted;
+                    if (desired_promoted == promoted_state_t::ANY)
+                    {
+                        return true;
+                    }
+
+                    const bool wants_promoted =
+                        (desired_promoted == promoted_state_t::PROMOTED);
+                    return view->view_impl->is_promoted == wants_promoted;
                 });
             }
         }
@@ -368,14 +382,15 @@ class output_layer_manager_t
     std::vector<wayfire_view> _get_views_in_layer(uint32_t layers_mask)
     {
         std::vector<wayfire_view> views;
-        auto try_push = [&] (layer_t layer, bool promoted = false)
+        auto try_push = [&] (layer_t layer,
+                             promoted_state_t state = promoted_state_t::ANY)
         {
             if (!(layer & layers_mask))
             {
                 return;
             }
 
-            push_views(views, layer, promoted);
+            push_views(views, layer, state);
         };
 
         /* Above fullscreen views */
@@ -385,23 +400,28 @@ class output_layer_manager_t
         }
 
         /* Fullscreen */
-        try_push(LAYER_WORKSPACE, true);
+        try_push(LAYER_WORKSPACE, promoted_state_t::PROMOTED);
+
+        /* Top layer between fullscreen and workspace */
+        try_push(LAYER_TOP);
+
+        /* Non-promoted views */
+        try_push(LAYER_WORKSPACE, promoted_state_t::NOT_PROMOTED);
 
         /* Below fullscreen */
         for (auto layer :
-             {LAYER_TOP, LAYER_WORKSPACE, LAYER_BOTTOM, LAYER_BACKGROUND})
+             {LAYER_BOTTOM, LAYER_BACKGROUND, LAYER_MINIMIZED})
         {
             try_push(layer);
         }
 
-        try_push(LAYER_MINIMIZED);
         return views;
     }
 
     std::vector<wayfire_view> get_promoted_views()
     {
         std::vector<wayfire_view> views;
-        push_views(views, LAYER_WORKSPACE, true);
+        push_views(views, LAYER_WORKSPACE, promoted_state_t::PROMOTED);
 
         return views;
     }
