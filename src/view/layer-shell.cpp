@@ -473,7 +473,7 @@ void wayfire_layer_shell_view::commit()
      * the view state changed, then this will happen when arranging layers */
     view_impl->keyboard_focus_enabled = state->keyboard_interactive;
 
-    if (std::memcmp(state, &prev_state, sizeof(*state)))
+    if (state->committed)
     {
         /* Update layer manually */
         if (prev_state.layer != state->layer)
