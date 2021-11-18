@@ -16,6 +16,7 @@
 #include <cstring>
 #include <unordered_set>
 
+#include <wayfire/debug.hpp>
 #include <wayfire/util/log.hpp>
 #include <wayfire/nonstd/wlroots-full.hpp>
 
@@ -1018,6 +1019,13 @@ class output_layout_t::impl
     void add_output(wlr_output *output)
     {
         LOGI("new output: ", output->name);
+
+        if (!wlr_output_init_render(output,
+            get_core().allocator, get_core().renderer))
+        {
+            LOGE("failed to init wlr render for output ", output->name);
+            return;
+        }
 
         auto lo = new output_layout_output_t(output);
         outputs[output] = std::unique_ptr<output_layout_output_t>(lo);
