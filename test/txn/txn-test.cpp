@@ -231,7 +231,7 @@ TEST_CASE("Transaction Impl Signals")
         REQUIRE(nr_timeout == timeout);
     };
 
-    wf::signal_callback_t on_done = [&] (wf::signal_data_t *data)
+    wf::signal_connection_t on_done = [&] (wf::signal_data_t *data)
     {
         auto ev = static_cast<priv_done_signal*>(data);
         REQUIRE(ev->id == 0);
