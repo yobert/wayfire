@@ -143,7 +143,7 @@ class WayfireSwitcher : public wf::plugin_interface_t
         output->render->damage_whole();
     };
 
-    wf::signal_callback_t view_removed = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t view_removed = [=] (wf::signal_data_t *data)
     {
         handle_view_removed(get_signaled_view(data));
     };
@@ -801,7 +801,7 @@ class WayfireSwitcher : public wf::plugin_interface_t
 
         output->rem_binding(&next_view_binding);
         output->rem_binding(&prev_view_binding);
-        output->disconnect_signal("view-detached", &view_removed);
+        output->disconnect_signal(&view_removed);
     }
 };
 

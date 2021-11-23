@@ -65,7 +65,7 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         }
     }
 
-    wf::signal_callback_t cleanup_view = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t cleanup_view = [=] (wf::signal_data_t *data)
     {
         auto view = get_signaled_view(data);
 
@@ -188,7 +188,7 @@ class wayfire_fast_switcher : public wf::plugin_interface_t
         }
 
         active = false;
-        output->disconnect_signal("view-disappeared", &cleanup_view);
+        output->disconnect_signal(&cleanup_view);
     }
 
     void switch_next(bool forward)

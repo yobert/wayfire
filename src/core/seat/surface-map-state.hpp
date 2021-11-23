@@ -20,7 +20,7 @@ struct SurfaceMapStateListener
     void set_callback(Callback call);
 
   private:
-    wf::signal_callback_t on_surface_map_state_change;
+    wf::signal_connection_t on_surface_map_state_change;
     Callback callback;
 };
 }

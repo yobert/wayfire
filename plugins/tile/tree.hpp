@@ -168,7 +168,7 @@ struct view_node_t : public tree_node_t
   private:
     struct scale_transformer_t;
     nonstd::observer_ptr<scale_transformer_t> transformer;
-    signal_callback_t on_geometry_changed, on_decoration_changed;
+    signal_connection_t on_geometry_changed, on_decoration_changed;
 
     wf::option_wrapper_t<int> animation_duration{"simple-tile/animation_duration"};
 

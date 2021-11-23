@@ -103,7 +103,7 @@ class pointer_t
 
     SurfaceMapStateListener on_surface_map_state_change;
 
-    wf::signal_callback_t on_views_updated;
+    wf::signal_connection_t on_views_updated;
 
     /** The surface which currently has cursor focus */
     wf::surface_interface_t *cursor_focus = nullptr;

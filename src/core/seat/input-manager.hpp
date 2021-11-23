@@ -27,8 +27,8 @@ class input_manager_t
     wf::wl_listener_wrapper input_device_created;
     wf::wl_idle_call idle_update_cursor;
 
-    wf::signal_callback_t config_updated;
-    wf::signal_callback_t output_added;
+    wf::signal_connection_t config_updated;
+    wf::signal_connection_t output_added;
 
   public:
     /**

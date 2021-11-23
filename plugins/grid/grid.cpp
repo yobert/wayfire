@@ -215,7 +215,7 @@ class wayfire_grid : public wf::plugin_interface_t
         return area;
     }
 
-    wf::signal_callback_t on_workarea_changed = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_workarea_changed = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<wf::workarea_changed_signal*>(data);
         for (auto& view : output->workspace->get_views_in_layer(wf::LAYER_WORKSPACE))
@@ -253,14 +253,14 @@ class wayfire_grid : public wf::plugin_interface_t
         }
     };
 
-    wf::signal_callback_t on_snap_query = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_snap_query = [=] (wf::signal_data_t *data)
     {
         auto query = dynamic_cast<wf::grid::grid_query_geometry_signal*>(data);
         assert(query);
         query->out_geometry = get_slot_dimensions(query->slot);
     };
 
-    wf::signal_callback_t on_snap_signal = [=] (wf::signal_data_t *ddata)
+    wf::signal_connection_t on_snap_signal = [=] (wf::signal_data_t *ddata)
     {
         auto data = dynamic_cast<wf::grid::grid_snap_view_signal*>(ddata);
         handle_slot(data->view, data->slot);
@@ -276,7 +276,7 @@ class wayfire_grid : public wf::plugin_interface_t
         return geometry;
     }
 
-    wf::signal_callback_t on_maximize_signal = [=] (wf::signal_data_t *ddata)
+    wf::signal_connection_t on_maximize_signal = [=] (wf::signal_data_t *ddata)
     {
         auto data = static_cast<wf::view_tile_request_signal*>(ddata);
 
@@ -299,7 +299,7 @@ class wayfire_grid : public wf::plugin_interface_t
             get_tiled_edges_for_slot(slot));
     };
 
-    wf::signal_callback_t on_fullscreen_signal = [=] (wf::signal_data_t *ev)
+    wf::signal_connection_t on_fullscreen_signal = [=] (wf::signal_data_t *ev)
     {
         auto data = static_cast<wf::view_fullscreen_signal*>(ev);
         static const std::string fs_data_name = "grid-saved-fs";
@@ -324,11 +324,11 @@ class wayfire_grid : public wf::plugin_interface_t
 
         output->rem_binding(&restore);
 
-        output->disconnect_signal("workarea-changed", &on_workarea_changed);
-        output->disconnect_signal("view-snap", &on_snap_signal);
-        output->disconnect_signal("query-snap-geometry", &on_snap_query);
-        output->disconnect_signal("view-tile-request", &on_maximize_signal);
-        output->disconnect_signal("view-fullscreen-request", &on_fullscreen_signal);
+        output->disconnect_signal(&on_workarea_changed);
+        output->disconnect_signal(&on_snap_signal);
+        output->disconnect_signal(&on_snap_query);
+        output->disconnect_signal(&on_maximize_signal);
+        output->disconnect_signal(&on_fullscreen_signal);
     }
 };
 

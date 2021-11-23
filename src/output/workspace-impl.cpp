@@ -943,7 +943,7 @@ class workspace_manager::impl
     wf::output_t *output;
     wf::geometry_t output_geometry;
 
-    signal_callback_t output_geometry_changed = [&] (void*)
+    signal_connection_t output_geometry_changed = [&] (void*)
     {
         auto old_w = output_geometry.width, old_h = output_geometry.height;
         auto new_size = output->get_screen_size();
@@ -976,7 +976,7 @@ class workspace_manager::impl
         workarea_manager.reflow_reserved_areas();
     };
 
-    signal_callback_t view_changed_workspace = [=] (signal_data_t *data)
+    signal_connection_t view_changed_workspace = [=] (signal_data_t *data)
     {
         check_autohide_panels();
     };

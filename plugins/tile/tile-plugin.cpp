@@ -277,7 +277,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         return tile_by_default.matches(view) && can_tile_view(view);
     }
 
-    signal_callback_t on_view_attached = [=] (signal_data_t *data)
+    signal_connection_t on_view_attached = [=] (signal_data_t *data)
     {
         auto view = get_signaled_view(data);
         if (view->has_data<view_auto_tile_t>() || tile_window_by_default(view))
@@ -286,7 +286,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         }
     };
 
-    signal_callback_t on_view_unmapped = [=] (signal_data_t *data)
+    signal_connection_t on_view_unmapped = [=] (signal_data_t *data)
     {
         stop_controller(true);
         auto node = wf::tile::view_node_t::get_node(get_signaled_view(data));
@@ -330,7 +330,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         }
     }
 
-    signal_callback_t on_view_detached = [=] (signal_data_t *data)
+    signal_connection_t on_view_detached = [=] (signal_data_t *data)
     {
         auto view = get_signaled_view(data);
         auto view_node = wf::tile::view_node_t::get_node(view);
@@ -341,12 +341,12 @@ class tile_plugin_t : public wf::plugin_interface_t
         }
     };
 
-    signal_callback_t on_workarea_changed = [=] (signal_data_t *data)
+    signal_connection_t on_workarea_changed = [=] (signal_data_t *data)
     {
         update_root_size(output->workspace->get_workarea());
     };
 
-    signal_callback_t on_tile_request = [=] (signal_data_t *data)
+    signal_connection_t on_tile_request = [=] (signal_data_t *data)
     {
         auto ev = static_cast<view_tile_request_signal*>(data);
         if (ev->carried_out || !tile::view_node_t::get_node(ev->view))
@@ -365,7 +365,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         update_root_size(output->workspace->get_workarea());
     }
 
-    signal_callback_t on_fullscreen_request = [=] (signal_data_t *data)
+    signal_connection_t on_fullscreen_request = [=] (signal_data_t *data)
     {
         auto ev = static_cast<view_fullscreen_signal*>(data);
         if (ev->carried_out || !tile::view_node_t::get_node(ev->view))
@@ -377,7 +377,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         set_view_fullscreen(ev->view, ev->state);
     };
 
-    signal_callback_t on_focus_changed = [=] (signal_data_t *data)
+    signal_connection_t on_focus_changed = [=] (signal_data_t *data)
     {
         auto view = get_signaled_view(data);
         if (tile::view_node_t::get_node(view) && !view->fullscreen)
@@ -403,7 +403,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         }
     }
 
-    signal_callback_t on_view_change_workspace = [=] (signal_data_t *data)
+    signal_connection_t on_view_change_workspace = [=] (signal_data_t *data)
     {
         auto ev = (view_change_workspace_signal*)(data);
         if (ev->old_workspace_valid)
@@ -412,7 +412,7 @@ class tile_plugin_t : public wf::plugin_interface_t
         }
     };
 
-    signal_callback_t on_view_minimized = [=] (signal_data_t *data)
+    signal_connection_t on_view_minimized = [=] (signal_data_t *data)
     {
         auto ev = (view_minimize_request_signal*)data;
         auto existing_node = wf::tile::view_node_t::get_node(ev->view);
@@ -609,17 +609,15 @@ class tile_plugin_t : public wf::plugin_interface_t
         output->rem_binding(&on_toggle_tiled_state);
         output->rem_binding(&on_focus_adjacent);
 
-        output->disconnect_signal("view-unmapped", &on_view_unmapped);
-        output->disconnect_signal("view-layer-attached", &on_view_attached);
-        output->disconnect_signal("view-layer-detached", &on_view_detached);
-        output->disconnect_signal("workarea-changed", &on_workarea_changed);
-        output->disconnect_signal("view-tile-request", &on_tile_request);
-        output->disconnect_signal("view-fullscreen-request",
-            &on_fullscreen_request);
-        output->disconnect_signal("view-focused", &on_focus_changed);
-        output->disconnect_signal("view-change-workspace",
-            &on_view_change_workspace);
-        output->disconnect_signal("view-minimize-request", &on_view_minimized);
+        output->disconnect_signal(&on_view_unmapped);
+        output->disconnect_signal(&on_view_attached);
+        output->disconnect_signal(&on_view_detached);
+        output->disconnect_signal(&on_workarea_changed);
+        output->disconnect_signal(&on_tile_request);
+        output->disconnect_signal(&on_fullscreen_request);
+        output->disconnect_signal(&on_focus_changed);
+        output->disconnect_signal(&on_view_change_workspace);
+        output->disconnect_signal(&on_view_minimized);
     }
 };
 }

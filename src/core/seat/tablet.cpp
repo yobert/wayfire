@@ -393,20 +393,20 @@ wf::tablet_pad_t::tablet_pad_t(wlr_input_device *pad) :
     this->pad_v2 = wlr_tablet_pad_create(core.protocols.tablet_v2,
         core.get_current_seat(), pad);
 
-    on_input_devices_changed = [=] (void*)
+    on_input_devices_changed.set_callback([=] (void*)
     {
         select_default_tool();
-    };
+    });
 
     wf::get_core().connect_signal("input-device-added",
         &on_input_devices_changed);
     wf::get_core().connect_signal("input-device-removed",
         &on_input_devices_changed);
 
-    on_keyboard_focus_changed = [=] (void*)
+    on_keyboard_focus_changed.set_callback([=] (void*)
     {
         update_focus();
-    };
+    });
 
     wf::get_core().connect_signal("keyboard-focus-changed",
         &on_keyboard_focus_changed);
@@ -451,12 +451,9 @@ wf::tablet_pad_t::tablet_pad_t(wlr_input_device *pad) :
 
 wf::tablet_pad_t::~tablet_pad_t()
 {
-    wf::get_core().disconnect_signal("input-device-added",
-        &on_input_devices_changed);
-    wf::get_core().disconnect_signal("input-device-removed",
-        &on_input_devices_changed);
-    wf::get_core().disconnect_signal("keyboard-focus-changed",
-        &on_keyboard_focus_changed);
+    wf::get_core().disconnect_signal(&on_input_devices_changed);
+    wf::get_core().disconnect_signal(&on_input_devices_changed);
+    wf::get_core().disconnect_signal(&on_keyboard_focus_changed);
 }
 
 void wf::tablet_pad_t::update_focus()

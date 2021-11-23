@@ -11,7 +11,7 @@
 
 class wayfire_resize : public wf::plugin_interface_t
 {
-    wf::signal_callback_t resize_request, view_destroyed;
+    wf::signal_connection_t resize_request, view_destroyed;
     wf::button_callback activate_binding;
 
     wayfire_view view;
@@ -88,18 +88,18 @@ class wayfire_resize : public wf::plugin_interface_t
         };
 
         using namespace std::placeholders;
-        resize_request = std::bind(std::mem_fn(&wayfire_resize::resize_requested),
-            this, _1);
+        resize_request.set_callback(std::bind(
+            std::mem_fn(&wayfire_resize::resize_requested), this, _1));
         output->connect_signal("view-resize-request", &resize_request);
 
-        view_destroyed = [=] (wf::signal_data_t *data)
+        view_destroyed.set_callback([=] (wf::signal_data_t *data)
         {
             if (get_signaled_view(data) == view)
             {
                 view = nullptr;
                 input_pressed(WLR_BUTTON_RELEASED);
             }
-        };
+        });
 
         output->connect_signal("view-disappeared", &view_destroyed);
     }
@@ -315,8 +315,8 @@ class wayfire_resize : public wf::plugin_interface_t
 
         output->rem_binding(&activate_binding);
 
-        output->disconnect_signal("view-resize-request", &resize_request);
-        output->disconnect_signal("view-disappeared", &view_destroyed);
+        output->disconnect_signal(&resize_request);
+        output->disconnect_signal(&view_destroyed);
     }
 };
 

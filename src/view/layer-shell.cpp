@@ -81,7 +81,7 @@ wf::workspace_manager::anchored_edge anchor_to_edge(uint32_t edges)
 struct wf_layer_shell_manager
 {
   private:
-    wf::signal_callback_t on_output_layout_changed = [=] (wf::signal_data_t*)
+    wf::signal_connection_t on_output_layout_changed = [=] (wf::signal_data_t*)
     {
         auto outputs = wf::get_core().output_layout->get_outputs();
         for (auto wo : outputs)

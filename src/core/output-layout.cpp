@@ -889,7 +889,7 @@ class output_layout_t::impl
      * virtual output with the noop backend. */
     std::unique_ptr<output_layout_output_t> noop_output;
 
-    signal_callback_t on_config_reload;
+    signal_connection_t on_config_reload;
     signal_connection_t on_backend_started = [=] (wf::signal_data_t*)
     {
         // We need to ensure that at any given time we have at least one
@@ -932,7 +932,7 @@ class output_layout_t::impl
 
         output_layout = wlr_output_layout_create();
 
-        on_config_reload = [=] (void*) { reconfigure_from_config(); };
+        on_config_reload.set_callback([=] (void*) { reconfigure_from_config(); });
         get_core().connect_signal("reload-config", &on_config_reload);
 
         noop_backend = wlr_noop_backend_create(get_core().display);
@@ -963,7 +963,7 @@ class output_layout_t::impl
 
     ~impl()
     {
-        get_core().disconnect_signal("reload-config", &on_config_reload);
+        get_core().disconnect_signal(&on_config_reload);
     }
 
     impl(const impl &) = delete;

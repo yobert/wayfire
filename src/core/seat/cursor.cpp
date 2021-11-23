@@ -23,10 +23,10 @@ wf::cursor_t::cursor_t(wf::seat_t *seat)
     wlr_cursor_warp(cursor, NULL, cursor->x, cursor->y);
     init_xcursor();
 
-    config_reloaded = [=] (wf::signal_data_t*)
+    config_reloaded.set_callback([=] (wf::signal_data_t*)
     {
         init_xcursor();
-    };
+    });
 
     wf::get_core().connect_signal("reload-config", &config_reloaded);
 
@@ -241,5 +241,5 @@ void wf::cursor_t::set_touchscreen_mode(bool enabled)
 
 wf::cursor_t::~cursor_t()
 {
-    wf::get_core().disconnect_signal("reload-config", &config_reloaded);
+    wf::get_core().disconnect_signal(&config_reloaded);
 }

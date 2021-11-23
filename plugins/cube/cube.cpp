@@ -209,7 +209,7 @@ class wayfire_cube : public wf::plugin_interface_t
         animation.projection = glm::perspective(45.0f, 1.f, 0.1f, 100.f);
     }
 
-    wf::signal_callback_t on_cube_control = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_cube_control = [=] (wf::signal_data_t *data)
     {
         cube_control_signal *d = dynamic_cast<cube_control_signal*>(data);
         rotate_and_zoom_cube(d->angle, d->zoom, d->ease, d->last_frame);
@@ -299,7 +299,7 @@ class wayfire_cube : public wf::plugin_interface_t
         grab_interface->ungrab();
         output->deactivate_plugin(grab_interface);
         wf::get_core().unhide_cursor();
-        wf::get_core().disconnect_signal("pointer_motion", &on_motion_event);
+        wf::get_core().disconnect_signal(&on_motion_event);
 
         /* Figure out how much we have rotated and switch workspace */
         int size = get_num_faces();
@@ -570,7 +570,7 @@ class wayfire_cube : public wf::plugin_interface_t
         }
     }
 
-    wf::signal_callback_t on_motion_event = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_motion_event = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<
             wf::input_event_signal<wlr_event_pointer_motion>*>(data);
@@ -659,7 +659,7 @@ class wayfire_cube : public wf::plugin_interface_t
         output->rem_binding(&activate_binding);
         output->rem_binding(&rotate_left);
         output->rem_binding(&rotate_right);
-        output->disconnect_signal("cube-control", &on_cube_control);
+        output->disconnect_signal(&on_cube_control);
     }
 };
 

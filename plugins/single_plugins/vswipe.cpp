@@ -141,7 +141,7 @@ class vswipe : public wf::plugin_interface_t
     };
 
     template<class wlr_event> using event = wf::input_event_signal<wlr_event>;
-    wf::signal_callback_t on_swipe_begin = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_swipe_begin = [=] (wf::signal_data_t *data)
     {
         if (!enable_horizontal && !enable_vertical)
         {
@@ -209,7 +209,7 @@ class vswipe : public wf::plugin_interface_t
     }
 
     // XXX: how to determine this??
-    static constexpr double initial_direction_threshold = 0.05;
+    static constexpr double initial_direction_threshold   = 0.05;
     static constexpr double secondary_direction_threshold = 0.3;
     static constexpr double diagonal_threshold = 1.73; // tan(30deg)
     bool is_diagonal(wf::pointf_t deltas)
@@ -249,7 +249,7 @@ class vswipe : public wf::plugin_interface_t
         return UNKNOWN;
     }
 
-    wf::signal_callback_t on_swipe_update = [&] (wf::signal_data_t *data)
+    wf::signal_connection_t on_swipe_update = [&] (wf::signal_data_t *data)
     {
         if (!state.swiping)
         {
@@ -319,7 +319,7 @@ class vswipe : public wf::plugin_interface_t
         smooth_delta.start();
     };
 
-    wf::signal_callback_t on_swipe_end = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_swipe_end = [=] (wf::signal_data_t *data)
     {
         if (!state.swiping || !output->is_plugin_active(grab_interface->name))
         {
@@ -375,9 +375,9 @@ class vswipe : public wf::plugin_interface_t
             finalize_and_exit();
         }
 
-        wf::get_core().disconnect_signal("pointer_swipe_begin", &on_swipe_begin);
-        wf::get_core().disconnect_signal("pointer_swipe_update", &on_swipe_update);
-        wf::get_core().disconnect_signal("pointer_swipe_end", &on_swipe_end);
+        wf::get_core().disconnect_signal(&on_swipe_begin);
+        wf::get_core().disconnect_signal(&on_swipe_update);
+        wf::get_core().disconnect_signal(&on_swipe_end);
     }
 };
 

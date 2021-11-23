@@ -30,7 +30,7 @@ class wfs_hotspot
     uint32_t timeout_ms;
     wl_resource *hotspot_resource;
 
-    wf::signal_callback_t on_motion_event = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_motion_event = [=] (wf::signal_data_t *data)
     {
         idle_check_input.run_once([=] ()
         {
@@ -40,7 +40,7 @@ class wfs_hotspot
         });
     };
 
-    wf::signal_callback_t on_touch_motion_event = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_touch_motion_event = [=] (wf::signal_data_t *data)
     {
         idle_check_input.run_once([=] ()
         {
@@ -50,7 +50,7 @@ class wfs_hotspot
         });
     };
 
-    wf::signal_callback_t on_output_removed;
+    wf::signal_connection_t on_output_removed;
 
     void process_input_motion(wf::point_t gc)
     {
@@ -134,7 +134,7 @@ class wfs_hotspot
             handle_hotspot_destroy);
 
         // setup output destroy listener
-        on_output_removed = [this, output] (wf::signal_data_t *data)
+        on_output_removed.set_callback([this, output] (wf::signal_data_t *data)
         {
             auto ev = static_cast<wf::output_removed_signal*>(data);
             if (ev->output == output)
@@ -143,7 +143,7 @@ class wfs_hotspot
                 hotspot_geometry = {0, 0, 0, 0};
                 process_input_motion({0, 0});
             }
-        };
+        });
 
         wf::get_core().connect_signal("pointer_motion", &on_motion_event);
         wf::get_core().connect_signal("tablet_axis", &on_motion_event);
@@ -155,12 +155,11 @@ class wfs_hotspot
 
     ~wfs_hotspot()
     {
-        wf::get_core().disconnect_signal("pointer_motion", &on_motion_event);
-        wf::get_core().disconnect_signal("tablet_axis", &on_motion_event);
-        wf::get_core().disconnect_signal("touch_motion", &on_touch_motion_event);
+        wf::get_core().disconnect_signal(&on_motion_event);
+        wf::get_core().disconnect_signal(&on_motion_event);
+        wf::get_core().disconnect_signal(&on_touch_motion_event);
 
-        wf::get_core().output_layout->disconnect_signal("output-removed",
-            &on_output_removed);
+        wf::get_core().output_layout->disconnect_signal(&on_output_removed);
     }
 };
 
@@ -198,13 +197,11 @@ class wfs_output
 
     void disconnect_from_output()
     {
-        wf::get_core().output_layout->disconnect_signal("output-removed",
-            &on_output_removed);
-        output->disconnect_signal("fullscreen-layer-focused",
-            &on_fullscreen_layer_focused);
+        wf::get_core().output_layout->disconnect_signal(&on_output_removed);
+        output->disconnect_signal(&on_fullscreen_layer_focused);
     }
 
-    wf::signal_callback_t on_output_removed = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_output_removed = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<wf::output_removed_signal*>(data);
         if (ev->output == this->output)
@@ -214,7 +211,8 @@ class wfs_output
         }
     };
 
-    wf::signal_callback_t on_fullscreen_layer_focused = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_fullscreen_layer_focused =
+        [=] (wf::signal_data_t *data)
     {
         if (data != nullptr)
         {
@@ -343,7 +341,7 @@ class wfs_surface
     wl_resource *resource;
     wayfire_view view;
 
-    wf::signal_callback_t on_unmap = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_unmap = [=] (wf::signal_data_t *data)
     {
         view = nullptr;
     };
@@ -364,7 +362,7 @@ class wfs_surface
     {
         if (this->view)
         {
-            view->disconnect_signal("unmapped", &on_unmap);
+            view->disconnect_signal(&on_unmap);
         }
     }
 

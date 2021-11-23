@@ -25,16 +25,18 @@ wf::pointer_t::pointer_t(nonstd::observer_ptr<wf::input_manager_t> input,
         }
     });
 
-    on_views_updated = [&] (wf::signal_data_t*)
+    on_views_updated.set_callback([&] (wf::signal_data_t*)
     {
         update_cursor_position(get_current_time(), false);
-    };
+    });
     wf::get_core().connect_signal("output-stack-order-changed", &on_views_updated);
     wf::get_core().connect_signal("view-geometry-changed", &on_views_updated);
 }
 
 wf::pointer_t::~pointer_t()
-{}
+{
+    wf::get_core().disconnect_signal(&on_views_updated);
+}
 
 bool wf::pointer_t::has_pressed_buttons() const
 {

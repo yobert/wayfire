@@ -141,17 +141,17 @@ wf::input_manager_t::input_manager_t()
     });
     input_device_created.connect(&wf::get_core().backend->events.new_input);
 
-    config_updated = [=] (wf::signal_data_t*)
+    config_updated.set_callback([=] (wf::signal_data_t*)
     {
         for (auto& dev : input_devices)
         {
             dev->update_options();
         }
-    };
+    });
 
     wf::get_core().connect_signal("reload-config", &config_updated);
 
-    output_added = [=] (wf::signal_data_t *data)
+    output_added.set_callback([=] (wf::signal_data_t *data)
     {
         auto wo = (wf::output_impl_t*)get_signaled_output(data);
         if (exclusive_client != nullptr)
@@ -160,15 +160,14 @@ wf::input_manager_t::input_manager_t()
         }
 
         refresh_device_mappings();
-    };
+    });
     wf::get_core().output_layout->connect_signal("output-added", &output_added);
 }
 
 wf::input_manager_t::~input_manager_t()
 {
-    wf::get_core().disconnect_signal("reload-config", &config_updated);
-    wf::get_core().output_layout->disconnect_signal(
-        "output-added", &output_added);
+    wf::get_core().disconnect_signal(&config_updated);
+    wf::get_core().output_layout->disconnect_signal(&output_added);
 }
 
 bool wf::input_manager_t::grab_input(wf::plugin_grab_interface_t *iface)
@@ -327,14 +326,14 @@ wf::bindings_repository_t& wf::input_manager_t::get_active_bindings()
 
 wf::SurfaceMapStateListener::SurfaceMapStateListener()
 {
-    on_surface_map_state_change = [=] (void *data)
+    on_surface_map_state_change.set_callback([=] (void *data)
     {
         if (this->callback)
         {
             auto ev = static_cast<surface_map_state_changed_signal*>(data);
             this->callback(ev ? ev->surface : nullptr);
         }
-    };
+    });
 
     wf::get_core().connect_signal("surface-mapped",
         &on_surface_map_state_change);
@@ -344,10 +343,8 @@ wf::SurfaceMapStateListener::SurfaceMapStateListener()
 
 wf::SurfaceMapStateListener::~SurfaceMapStateListener()
 {
-    wf::get_core().disconnect_signal("surface-mapped",
-        &on_surface_map_state_change);
-    wf::get_core().disconnect_signal("surface-unmapped",
-        &on_surface_map_state_change);
+    wf::get_core().disconnect_signal(&on_surface_map_state_change);
+    wf::get_core().disconnect_signal(&on_surface_map_state_change);
 }
 
 void wf::SurfaceMapStateListener::set_callback(Callback call)

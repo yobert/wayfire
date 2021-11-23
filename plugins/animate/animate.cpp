@@ -357,7 +357,7 @@ class wayfire_animation : public wf::singleton_plugin_t<animation_global_cleanup
     }
 
     /* TODO: enhance - add more animations */
-    wf::signal_callback_t on_view_mapped =
+    wf::signal_connection_t on_view_mapped =
         [=] (wf::signal_data_t *ddata) -> void
     {
         auto view = get_signaled_view(ddata);
@@ -378,7 +378,7 @@ class wayfire_animation : public wf::singleton_plugin_t<animation_global_cleanup
         }
     };
 
-    wf::signal_callback_t on_view_unmapped = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_view_unmapped = [=] (wf::signal_data_t *data)
     {
         auto view = get_signaled_view(data);
         auto animation = get_animation_for_view(close_animation, view);
@@ -398,7 +398,7 @@ class wayfire_animation : public wf::singleton_plugin_t<animation_global_cleanup
         }
     };
 
-    wf::signal_callback_t on_minimize_request = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_minimize_request = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<wf::view_minimize_request_signal*>(data);
         if (ev->state)
@@ -413,17 +413,17 @@ class wayfire_animation : public wf::singleton_plugin_t<animation_global_cleanup
         }
     };
 
-    wf::signal_callback_t on_render_start = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_render_start = [=] (wf::signal_data_t *data)
     {
         new wf_system_fade(output, startup_duration);
     };
 
     void fini() override
     {
-        output->disconnect_signal("view-mapped", &on_view_mapped);
-        output->disconnect_signal("view-pre-unmapped", &on_view_unmapped);
-        output->disconnect_signal("start-rendering", &on_render_start);
-        output->disconnect_signal("view-minimize-request", &on_minimize_request);
+        output->disconnect_signal(&on_view_mapped);
+        output->disconnect_signal(&on_view_unmapped);
+        output->disconnect_signal(&on_render_start);
+        output->disconnect_signal(&on_minimize_request);
 
         /* Clear up all active animations on the current output */
         cleanup_views_on_output(output);

@@ -145,11 +145,11 @@ class wayfire_command : public wf::plugin_interface_t
         repeat.pressed_key = repeat.pressed_button = 0;
         output->deactivate_plugin(grab_interface);
 
-        wf::get_core().disconnect_signal("pointer_button", &on_button_event);
-        wf::get_core().disconnect_signal("keyboard_key", &on_key_event);
+        wf::get_core().disconnect_signal(&on_button_event);
+        wf::get_core().disconnect_signal(&on_key_event);
     }
 
-    wf::signal_callback_t on_button_event = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_button_event = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<
             wf::input_event_signal<wlr_event_pointer_button>*>(data);
@@ -160,7 +160,7 @@ class wayfire_command : public wf::plugin_interface_t
         }
     };
 
-    wf::signal_callback_t on_key_event = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t on_key_event = [=] (wf::signal_data_t *data)
     {
         auto ev = static_cast<
             wf::input_event_signal<wlr_event_keyboard_key>*>(data);
@@ -225,7 +225,7 @@ class wayfire_command : public wf::plugin_interface_t
         bindings.clear();
     }
 
-    wf::signal_callback_t reload_config;
+    wf::signal_connection_t reload_config;
 
     void init()
     {
@@ -235,17 +235,17 @@ class wayfire_command : public wf::plugin_interface_t
         using namespace std::placeholders;
 
         setup_bindings_from_config();
-        reload_config = [=] (wf::signal_data_t*)
+        reload_config.set_callback([=] (wf::signal_data_t*)
         {
             setup_bindings_from_config();
-        };
+        });
 
         wf::get_core().connect_signal("reload-config", &reload_config);
     }
 
     void fini()
     {
-        wf::get_core().disconnect_signal("reload-config", &reload_config);
+        wf::get_core().disconnect_signal(&reload_config);
         clear_bindings();
     }
 };

@@ -24,7 +24,7 @@ class wayfire_close : public wf::plugin_interface_t
 class wayfire_focus : public wf::plugin_interface_t
 {
     wf::signal_connection_t on_button;
-    wf::signal_callback_t on_wm_focus_request;
+    wf::signal_connection_t on_wm_focus_request;
 
     std::unique_ptr<wf::touch::gesture_t> tap_gesture;
 

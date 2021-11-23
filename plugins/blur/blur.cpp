@@ -125,7 +125,7 @@ class wayfire_blur : public wf::plugin_interface_t
     wf::button_callback button_toggle;
 
     wf::effect_hook_t frame_pre_paint;
-    wf::signal_callback_t workspace_stream_pre, workspace_stream_post,
+    wf::signal_connection_t workspace_stream_pre, workspace_stream_post,
         view_attached, view_detached;
 
     wf::view_matcher_t blur_by_default{"blur/blur_by_default"};
@@ -287,7 +287,7 @@ class wayfire_blur : public wf::plugin_interface_t
         output->add_button(toggle_button, &button_toggle);
 
         // Add blur transformers to views which have blur enabled
-        view_attached = [=] (wf::signal_data_t *data)
+        view_attached.set_callback([=] (wf::signal_data_t *data)
         {
             auto view = get_signaled_view(data);
             /* View was just created -> we don't know its layer yet */
@@ -300,16 +300,16 @@ class wayfire_blur : public wf::plugin_interface_t
             {
                 add_transformer(view);
             }
-        };
+        });
 
         /* If a view is detached, we remove its blur transformer.
          * If it is just moved to another output, the blur plugin
          * on the other output will add its own transformer there */
-        view_detached = [=] (wf::signal_data_t *data)
+        view_detached.set_callback([=] (wf::signal_data_t *data)
         {
             auto view = get_signaled_view(data);
             pop_transformer(view);
-        };
+        });
         output->connect_signal("view-attached", &view_attached);
         output->connect_signal("view-mapped", &view_attached);
         output->connect_signal("view-detached", &view_detached);
@@ -341,7 +341,7 @@ class wayfire_blur : public wf::plugin_interface_t
          * damage will be used to render the scene as normal. Then
          * workspace_stream_post is called so we can copy the padded
          * pixels back. */
-        workspace_stream_pre = [=] (wf::signal_data_t *data)
+        workspace_stream_pre.set_callback([=] (wf::signal_data_t *data)
         {
             auto& damage   = static_cast<wf::stream_signal_t*>(data)->raw_damage;
             const auto& ws = static_cast<wf::stream_signal_t*>(data)->ws;
@@ -384,7 +384,7 @@ class wayfire_blur : public wf::plugin_interface_t
             damage |= expanded_damage;
             GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
             OpenGL::render_end();
-        };
+        });
 
         output->render->connect_signal("workspace-stream-pre",
             &workspace_stream_pre);
@@ -393,7 +393,7 @@ class wayfire_blur : public wf::plugin_interface_t
          * when rendering a workspace. It gives us a chance to copy
          * the pixels back to the framebuffer that we saved in
          * workspace_stream_pre. */
-        workspace_stream_post = [=] (wf::signal_data_t *data)
+        workspace_stream_post.set_callback([=] (wf::signal_data_t *data)
         {
             const auto& target_fb = static_cast<wf::stream_signal_t*>(data)->fb;
             OpenGL::render_begin(target_fb);
@@ -416,7 +416,7 @@ class wayfire_blur : public wf::plugin_interface_t
             padded_region.clear();
             GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
             OpenGL::render_end();
-        };
+        });
 
         output->render->connect_signal("workspace-stream-post",
             &workspace_stream_post);
@@ -436,14 +436,12 @@ class wayfire_blur : public wf::plugin_interface_t
         remove_transformers();
 
         output->rem_binding(&button_toggle);
-        output->disconnect_signal("view-attached", &view_attached);
-        output->disconnect_signal("view-mapped", &view_attached);
-        output->disconnect_signal("view-detached", &view_detached);
+        output->disconnect_signal(&view_attached);
+        output->disconnect_signal(&view_attached);
+        output->disconnect_signal(&view_detached);
         output->render->rem_effect(&frame_pre_paint);
-        output->render->disconnect_signal("workspace-stream-pre",
-            &workspace_stream_pre);
-        output->render->disconnect_signal("workspace-stream-post",
-            &workspace_stream_post);
+        output->render->disconnect_signal(&workspace_stream_pre);
+        output->render->disconnect_signal(&workspace_stream_post);
 
         /* Call blur algorithm destructor */
         blur_algorithm = nullptr;

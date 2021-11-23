@@ -26,10 +26,10 @@ wf::output_impl_t::output_impl_t(wlr_output *handle,
     workspace    = std::make_unique<workspace_manager>(this);
     render = std::make_unique<render_manager>(this);
 
-    view_disappeared_cb = [=] (wf::signal_data_t *data)
+    view_disappeared_cb.set_callback([=] (wf::signal_data_t *data)
     {
         output_t::refocus(get_signaled_view(data));
-    };
+    });
 
     connect_signal("view-disappeared", &view_disappeared_cb);
 }
@@ -137,6 +137,8 @@ wf::output_t::~output_t()
 
 wf::output_impl_t::~output_impl_t()
 {
+    disconnect_signal(&view_disappeared_cb);
+
     // Release plugins before bindings
     this->plugin.reset();
     this->bindings.reset();

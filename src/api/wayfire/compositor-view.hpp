@@ -38,7 +38,7 @@ compositor_interactive_view_t *interactive_view_from_view(
 class mirror_view_t : public wf::view_interface_t, wf::compositor_surface_t
 {
   protected:
-    signal_callback_t base_view_unmapped, base_view_damaged;
+    signal_connection_t base_view_unmapped, base_view_damaged;
     wayfire_view base_view;
     int x;
     int y;

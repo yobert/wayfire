@@ -113,7 +113,7 @@ struct tablet_pad_t : public input_device_impl_t
     nonstd::observer_ptr<tablet_t> attached_to;
 
     wf::wl_listener_wrapper on_attach, on_button, on_strip, on_ring;
-    signal_callback_t on_input_devices_changed, on_keyboard_focus_changed;
+    signal_connection_t on_input_devices_changed, on_keyboard_focus_changed;
 
     /** Attach the pad to the given tablet. */
     void attach_to_tablet(tablet_t *tablet);

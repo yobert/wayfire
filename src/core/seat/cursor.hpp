@@ -63,7 +63,7 @@ struct cursor_t
     // Seat events
     wf::wl_listener_wrapper request_set_cursor;
 
-    wf::signal_callback_t config_reloaded;
+    wf::signal_connection_t config_reloaded;
     wf::seat_t *seat;
 
     wlr_cursor *cursor = NULL;

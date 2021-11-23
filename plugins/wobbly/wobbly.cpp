@@ -553,17 +553,17 @@ class wf_wobbly : public wf::view_transformer_t
     wayfire_view view;
     wf::effect_hook_t pre_hook;
 
-    wf::signal_callback_t view_removed = [=] (wf::signal_data_t*)
+    wf::signal_connection_t view_removed = [=] (wf::signal_data_t*)
     {
         destroy_self();
     };
 
-    wf::signal_callback_t view_state_changed = [=] (wf::signal_data_t*)
+    wf::signal_connection_t view_state_changed = [=] (wf::signal_data_t*)
     {
         update_wobbly_state(false, {0, 0}, false);
     };
 
-    wf::signal_callback_t view_geometry_changed = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t view_geometry_changed = [=] (wf::signal_data_t *data)
     {
         auto sig = static_cast<wf::view_geometry_changed_signal*>(data);
         state->handle_wm_geometry(sig->old_geometry);
@@ -575,7 +575,7 @@ class wf_wobbly : public wf::view_transformer_t
         state->handle_workspace_change(ev->old_viewport, ev->new_viewport);
     };
 
-    wf::signal_callback_t view_output_changed = [=] (wf::signal_data_t *data)
+    wf::signal_connection_t view_output_changed = [=] (wf::signal_data_t *data)
     {
         auto sig = static_cast<wf::_output_signal*>(data);
 
@@ -689,8 +689,7 @@ class wf_wobbly : public wf::view_transformer_t
 
         /* It is possible that the wobbly state needs to adjust view geometry.
          * We do not want it to get feedback from itself */
-        view->disconnect_signal("geometry-changed",
-            &this->view_geometry_changed);
+        view->disconnect_signal(&this->view_geometry_changed);
         state->handle_frame();
         view->connect_signal("geometry-changed", &this->view_geometry_changed);
 
@@ -886,11 +885,11 @@ class wf_wobbly : public wf::view_transformer_t
             view->get_output()->render->rem_effect(&pre_hook);
         }
 
-        view->disconnect_signal("unmapped", &view_removed);
-        view->disconnect_signal("tiled", &view_state_changed);
-        view->disconnect_signal("fullscreen", &view_state_changed);
-        view->disconnect_signal("set-output", &view_output_changed);
-        view->disconnect_signal("geometry-changed", &view_geometry_changed);
+        view->disconnect_signal(&view_removed);
+        view->disconnect_signal(&view_state_changed);
+        view->disconnect_signal(&view_state_changed);
+        view->disconnect_signal(&view_output_changed);
+        view->disconnect_signal(&view_geometry_changed);
     }
 
     wf_wobbly(const wf_wobbly &) = delete;
@@ -901,7 +900,7 @@ class wf_wobbly : public wf::view_transformer_t
 
 class wayfire_wobbly : public wf::plugin_interface_t
 {
-    wf::signal_callback_t wobbly_changed;
+    wf::signal_connection_t wobbly_changed;
 
   public:
     void init() override
@@ -909,10 +908,10 @@ class wayfire_wobbly : public wf::plugin_interface_t
         grab_interface->capabilities = 0;
         grab_interface->name = "wobbly";
 
-        wobbly_changed = [=] (wf::signal_data_t *data)
+        wobbly_changed.set_callback([=] (wf::signal_data_t *data)
         {
             adjust_wobbly(static_cast<wobbly_signal*>(data));
-        };
+        });
 
         output->connect_signal("wobbly-event", &wobbly_changed);
 
@@ -995,7 +994,7 @@ class wayfire_wobbly : public wf::plugin_interface_t
         }
 
         wobbly_graphics::destroy_program();
-        output->disconnect_signal("wobbly-event", &wobbly_changed);
+        output->disconnect_signal(&wobbly_changed);
     }
 };
 

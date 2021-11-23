@@ -14,7 +14,7 @@ class output_impl_t : public output_t
     std::unique_ptr<plugin_manager> plugin;
     std::unique_ptr<wf::bindings_repository_t> bindings;
 
-    signal_callback_t view_disappeared_cb;
+    signal_connection_t view_disappeared_cb;
     bool inhibited = false;
 
     enum focus_view_flags_t
