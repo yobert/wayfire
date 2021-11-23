@@ -296,14 +296,13 @@ class tile_plugin_t : public wf::plugin_interface_t
         }
     };
 
-    signal_connection_t on_view_pre_moved_to_output = {[=] (signal_data_t *data)
+    signal_connection_t on_view_pre_moved_to_output = [=] (signal_data_t *data)
+    {
+        auto ev   = static_cast<wf::view_pre_moved_to_output_signal*>(data);
+        auto node = wf::tile::view_node_t::get_node(ev->view);
+        if ((ev->new_output == this->output) && node)
         {
-            auto ev   = static_cast<wf::view_pre_moved_to_output_signal*>(data);
-            auto node = wf::tile::view_node_t::get_node(ev->view);
-            if ((ev->new_output == this->output) && node)
-            {
-                ev->view->store_data(std::make_unique<wf::view_auto_tile_t>());
-            }
+            ev->view->store_data(std::make_unique<wf::view_auto_tile_t>());
         }
     };
 
