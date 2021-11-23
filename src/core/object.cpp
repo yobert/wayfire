@@ -62,9 +62,6 @@ class wf::signal_provider_t::sprovider_impl
   public:
     std::unordered_map<std::string,
         wf::safe_list_t<signal_connection_t*>> signals;
-
-    std::unordered_map<std::string,
-        wf::safe_list_t<signal_callback_t*>> deprecated_signals;
 };
 
 wf::signal_provider_t::signal_provider_t()
@@ -108,32 +105,12 @@ void wf::signal_provider_t::disconnect_signal(signal_connection_t *connection)
     }
 }
 
-/* Deprecated: */
-void wf::signal_provider_t::connect_signal(std::string name,
-    signal_callback_t *callback)
-{
-    sprovider_priv->deprecated_signals[name].push_back(callback);
-}
-
-/* Deprecated: */
-void wf::signal_provider_t::disconnect_signal(std::string name,
-    signal_callback_t *callback)
-{
-    sprovider_priv->deprecated_signals[name].remove_all(callback);
-}
-
 /* Emit the given signal. No type checking for data is required */
 void wf::signal_provider_t::emit_signal(std::string name, wf::signal_data_t *data)
 {
     sprovider_priv->signals[name].for_each([data] (auto call)
     {
         call->emit(data);
-    });
-
-    /* Deprecated: */
-    sprovider_priv->deprecated_signals[name].for_each([data] (auto call)
-    {
-        (*call)(data);
     });
 }
 

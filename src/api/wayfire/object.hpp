@@ -77,17 +77,6 @@ class signal_provider_t
     /** Unregister a connection. */
     void disconnect_signal(signal_connection_t *callback);
 
-    /**
-     * Deprecated.
-     * Register a callback to be called whenever the given signal is emitted
-     */
-    void connect_signal(std::string name, signal_callback_t *callback);
-    /**
-     * Deprecated.
-     * Unregister a registered callback.
-     */
-    void disconnect_signal(std::string name, signal_callback_t *callback);
-
     /** Emit the given signal. No type checking for data is required */
     void emit_signal(std::string name, signal_data_t *data);
 
