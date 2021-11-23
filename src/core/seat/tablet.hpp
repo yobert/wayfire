@@ -104,7 +104,7 @@ struct tablet_pad_t : public input_device_impl_t
 {
   public:
     tablet_pad_t(wlr_input_device *pad);
-    ~tablet_pad_t();
+    ~tablet_pad_t() = default;
 
   private:
     wlr_tablet_v2_tablet_pad *pad_v2;

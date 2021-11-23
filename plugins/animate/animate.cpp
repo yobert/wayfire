@@ -420,11 +420,6 @@ class wayfire_animation : public wf::singleton_plugin_t<animation_global_cleanup
 
     void fini() override
     {
-        output->disconnect_signal(&on_view_mapped);
-        output->disconnect_signal(&on_view_unmapped);
-        output->disconnect_signal(&on_render_start);
-        output->disconnect_signal(&on_minimize_request);
-
         /* Clear up all active animations on the current output */
         cleanup_views_on_output(output);
         singleton_plugin_t::fini();

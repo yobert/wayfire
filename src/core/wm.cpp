@@ -184,5 +184,4 @@ void wayfire_focus::fini()
 {
     output->rem_binding(&on_button);
     wf::get_core().rem_touch_gesture(tap_gesture);
-    output->disconnect_signal(&on_wm_focus_request);
 }

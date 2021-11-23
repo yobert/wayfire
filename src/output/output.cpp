@@ -137,8 +137,6 @@ wf::output_t::~output_t()
 
 wf::output_impl_t::~output_impl_t()
 {
-    disconnect_signal(&view_disappeared_cb);
-
     // Release plugins before bindings
     this->plugin.reset();
     this->bindings.reset();

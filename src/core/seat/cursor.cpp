@@ -238,8 +238,3 @@ void wf::cursor_t::set_touchscreen_mode(bool enabled)
         unhide_cursor();
     }
 }
-
-wf::cursor_t::~cursor_t()
-{
-    wf::get_core().disconnect_signal(&config_reloaded);
-}

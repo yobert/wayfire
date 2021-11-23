@@ -323,12 +323,6 @@ class wayfire_grid : public wf::plugin_interface_t
         }
 
         output->rem_binding(&restore);
-
-        output->disconnect_signal(&on_workarea_changed);
-        output->disconnect_signal(&on_snap_signal);
-        output->disconnect_signal(&on_snap_query);
-        output->disconnect_signal(&on_maximize_signal);
-        output->disconnect_signal(&on_fullscreen_signal);
     }
 };
 

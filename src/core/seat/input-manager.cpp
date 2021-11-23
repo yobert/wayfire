@@ -164,12 +164,6 @@ wf::input_manager_t::input_manager_t()
     wf::get_core().output_layout->connect_signal("output-added", &output_added);
 }
 
-wf::input_manager_t::~input_manager_t()
-{
-    wf::get_core().disconnect_signal(&config_updated);
-    wf::get_core().output_layout->disconnect_signal(&output_added);
-}
-
 bool wf::input_manager_t::grab_input(wf::plugin_grab_interface_t *iface)
 {
     if (!iface || !iface->is_grabbed())
@@ -339,12 +333,6 @@ wf::SurfaceMapStateListener::SurfaceMapStateListener()
         &on_surface_map_state_change);
     wf::get_core().connect_signal("surface-unmapped",
         &on_surface_map_state_change);
-}
-
-wf::SurfaceMapStateListener::~SurfaceMapStateListener()
-{
-    wf::get_core().disconnect_signal(&on_surface_map_state_change);
-    wf::get_core().disconnect_signal(&on_surface_map_state_change);
 }
 
 void wf::SurfaceMapStateListener::set_callback(Callback call)

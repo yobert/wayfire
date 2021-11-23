@@ -884,12 +884,6 @@ class wf_wobbly : public wf::view_transformer_t
         {
             view->get_output()->render->rem_effect(&pre_hook);
         }
-
-        view->disconnect_signal(&view_removed);
-        view->disconnect_signal(&view_state_changed);
-        view->disconnect_signal(&view_state_changed);
-        view->disconnect_signal(&view_output_changed);
-        view->disconnect_signal(&view_geometry_changed);
     }
 
     wf_wobbly(const wf_wobbly &) = delete;

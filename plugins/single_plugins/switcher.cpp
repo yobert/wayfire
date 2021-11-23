@@ -801,7 +801,6 @@ class WayfireSwitcher : public wf::plugin_interface_t
 
         output->rem_binding(&next_view_binding);
         output->rem_binding(&prev_view_binding);
-        output->disconnect_signal(&view_removed);
     }
 };
 

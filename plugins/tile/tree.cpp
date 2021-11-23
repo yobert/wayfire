@@ -345,9 +345,6 @@ view_node_t::view_node_t(wayfire_view view)
 view_node_t::~view_node_t()
 {
     view->pop_transformer(scale_transformer_name);
-    view->disconnect_signal(&on_geometry_changed);
-    view->disconnect_signal(&on_decoration_changed);
-    view->disconnect_signal(&on_geometry_changed);
     view->erase_data<view_node_custom_data_t>();
 }
 

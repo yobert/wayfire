@@ -10,7 +10,7 @@ namespace wf
 struct cursor_t
 {
     cursor_t(wf::seat_t *seat);
-    ~cursor_t();
+    ~cursor_t() = default;
 
     /**
      * Register a new input device.

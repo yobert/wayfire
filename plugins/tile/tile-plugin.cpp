@@ -607,16 +607,6 @@ class tile_plugin_t : public wf::plugin_interface_t
         output->rem_binding(&on_resize_view);
         output->rem_binding(&on_toggle_tiled_state);
         output->rem_binding(&on_focus_adjacent);
-
-        output->disconnect_signal(&on_view_unmapped);
-        output->disconnect_signal(&on_view_attached);
-        output->disconnect_signal(&on_view_detached);
-        output->disconnect_signal(&on_workarea_changed);
-        output->disconnect_signal(&on_tile_request);
-        output->disconnect_signal(&on_fullscreen_request);
-        output->disconnect_signal(&on_focus_changed);
-        output->disconnect_signal(&on_view_change_workspace);
-        output->disconnect_signal(&on_view_minimized);
     }
 };
 }

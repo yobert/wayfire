@@ -153,14 +153,7 @@ class wfs_hotspot
             &on_output_removed);
     }
 
-    ~wfs_hotspot()
-    {
-        wf::get_core().disconnect_signal(&on_motion_event);
-        wf::get_core().disconnect_signal(&on_motion_event);
-        wf::get_core().disconnect_signal(&on_touch_motion_event);
-
-        wf::get_core().output_layout->disconnect_signal(&on_output_removed);
-    }
+    ~wfs_hotspot() = default;
 };
 
 static void handle_hotspot_destroy(wl_resource *resource)
@@ -358,13 +351,7 @@ class wfs_surface
         view->connect_signal("unmapped", &on_unmap);
     }
 
-    ~wfs_surface()
-    {
-        if (this->view)
-        {
-            view->disconnect_signal(&on_unmap);
-        }
-    }
+    ~wfs_surface() = default;
 
     wfs_surface(const wfs_surface &) = delete;
     wfs_surface(wfs_surface &&) = delete;

@@ -14,7 +14,7 @@ struct SurfaceMapStateListener
 {
   public:
     SurfaceMapStateListener();
-    ~SurfaceMapStateListener();
+    ~SurfaceMapStateListener() = default;
 
     using Callback = std::function<void (wf::surface_interface_t*)>;
     void set_callback(Callback call);

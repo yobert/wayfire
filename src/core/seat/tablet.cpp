@@ -449,13 +449,6 @@ wf::tablet_pad_t::tablet_pad_t(wlr_input_device *pad) :
     on_ring.connect(&pad->tablet_pad->events.ring);
 }
 
-wf::tablet_pad_t::~tablet_pad_t()
-{
-    wf::get_core().disconnect_signal(&on_input_devices_changed);
-    wf::get_core().disconnect_signal(&on_input_devices_changed);
-    wf::get_core().disconnect_signal(&on_keyboard_focus_changed);
-}
-
 void wf::tablet_pad_t::update_focus()
 {
     auto active_output = wf::get_core().get_active_output();

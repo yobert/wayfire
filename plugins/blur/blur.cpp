@@ -436,12 +436,7 @@ class wayfire_blur : public wf::plugin_interface_t
         remove_transformers();
 
         output->rem_binding(&button_toggle);
-        output->disconnect_signal(&view_attached);
-        output->disconnect_signal(&view_attached);
-        output->disconnect_signal(&view_detached);
         output->render->rem_effect(&frame_pre_paint);
-        output->render->disconnect_signal(&workspace_stream_pre);
-        output->render->disconnect_signal(&workspace_stream_post);
 
         /* Call blur algorithm destructor */
         blur_algorithm = nullptr;

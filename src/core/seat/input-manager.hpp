@@ -44,7 +44,7 @@ class input_manager_t
     void refresh_device_mappings();
 
     input_manager_t();
-    ~input_manager_t();
+    ~input_manager_t() = default;
 
     /** Initialize a new input device */
     void handle_new_input(wlr_input_device *dev);

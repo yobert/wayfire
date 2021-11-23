@@ -659,7 +659,6 @@ class wayfire_cube : public wf::plugin_interface_t
         output->rem_binding(&activate_binding);
         output->rem_binding(&rotate_left);
         output->rem_binding(&rotate_right);
-        output->disconnect_signal(&on_cube_control);
     }
 };
 

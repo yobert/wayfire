@@ -34,9 +34,7 @@ wf::pointer_t::pointer_t(nonstd::observer_ptr<wf::input_manager_t> input,
 }
 
 wf::pointer_t::~pointer_t()
-{
-    wf::get_core().disconnect_signal(&on_views_updated);
-}
+{}
 
 bool wf::pointer_t::has_pressed_buttons() const
 {

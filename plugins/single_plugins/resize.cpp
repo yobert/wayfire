@@ -314,9 +314,6 @@ class wayfire_resize : public wf::plugin_interface_t
         }
 
         output->rem_binding(&activate_binding);
-
-        output->disconnect_signal(&resize_request);
-        output->disconnect_signal(&view_destroyed);
     }
 };
 

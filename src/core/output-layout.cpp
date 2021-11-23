@@ -961,10 +961,7 @@ class output_layout_t::impl
         on_output_power_mode_set.connect(&output_pw_manager->events.set_mode);
     }
 
-    ~impl()
-    {
-        get_core().disconnect_signal(&on_config_reload);
-    }
+    ~impl() = default;
 
     impl(const impl &) = delete;
     impl(impl &&) = delete;

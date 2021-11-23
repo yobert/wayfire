@@ -374,10 +374,6 @@ class vswipe : public wf::plugin_interface_t
         {
             finalize_and_exit();
         }
-
-        wf::get_core().disconnect_signal(&on_swipe_begin);
-        wf::get_core().disconnect_signal(&on_swipe_update);
-        wf::get_core().disconnect_signal(&on_swipe_end);
     }
 };
 
