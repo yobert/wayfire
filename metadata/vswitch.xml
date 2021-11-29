@@ -24,6 +24,11 @@
 			<_long>Switches to workspace down with the specified activator.</_long>
 			<default>&lt;super&gt; &lt;alt&gt; KEY_DOWN</default>
 		</option>
+		<option name="binding_last" type="activator">
+			<_short>Last</_short>
+			<_long>Switches to the last active workspace with the specified activator.</_long>
+			<default></default>
+		</option>
 		<option name="with_win_left" type="activator">
 			<_short>Left with window</_short>
 			<_long>Switches to workspace left with the focused window with the specified activator.</_long>
@@ -44,6 +49,11 @@
 			<_long>Switches to workspace down with the focused window with the specified activator.</_long>
 			<default></default>
 		</option>
+		<option name="with_win_last" type="activator">
+			<_short>Last with window</_short>
+			<_long>Switches to the last active workspace with the focused window with the specified activator.</_long>
+			<default></default>
+		</option>
 		<option name="send_win_left" type="activator">
 			<_short>Send window to the left</_short>
 			<_long>Send the focused window to the workspace on the left.</_long>
@@ -62,6 +72,11 @@
 		<option name="send_win_down" type="activator">
 			<_short>Send window below</_short>
 			<_long>Send the focused window to the workspace below.</_long>
+			<default></default>
+		</option>
+		<option name="send_win_last" type="activator">
+			<_short>Send window to last</_short>
+			<_long>Send the focused window to the last active workspace with the specified activator.</_long>
 			<default></default>
 		</option>
 

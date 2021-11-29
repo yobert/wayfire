@@ -334,6 +334,24 @@ class control_bindings_t
 #undef SETUP
         /* *INDENT-ON* */
 
+        // Setup the bindings for switching back to the last workspace for the output
+        /* *INDENT-OFF* */ // Uncrustify has problems with this macro
+#define SETUP_LAST(name, view, only) \
+        wf::option_wrapper_t<wf::activatorbinding_t> binding_##name { \
+            "vswitch/"#name}; \
+        activator_cbs.push_back(std::make_unique<activator_callback>()); \
+        *activator_cbs.back() = [=] (const wf::activator_data_t&) \
+        {\
+            return handle_dir(-get_last_dir(), view, only, callback); \
+        };\
+        output->add_activator(binding_##name, activator_cbs.back().get());
+
+        SETUP_LAST(binding_last, nullptr, false);
+        SETUP_LAST(with_win_last, get_target_view(), false);
+        SETUP_LAST(send_win_last, get_target_view(), true);
+#undef SETUP_LAST
+        /* *INDENT-ON* */
+
         // Setup a binding for going directly to a workspace identified by a name
         const auto& setup_direct_binding = [=] (wf::activatorbinding_t binding,
                                                 std::string workspace_name,
@@ -404,6 +422,8 @@ class control_bindings_t
     binding_callback_t user_cb;
     std::vector<std::unique_ptr<wf::activator_callback>> activator_cbs;
 
+    wf::point_t last_dir = {0, 0};
+
     wf::wl_idle_call idle_reload;
     wf::config::option_base_t::updated_callback_t on_cfg_reload = [=] ()
     {
@@ -447,6 +467,11 @@ class control_bindings_t
         return view;
     }
 
+    virtual wf::point_t get_last_dir()
+    {
+        return this->last_dir;
+    }
+
     /**
      * Handle binding in the given direction. The next workspace will be
      * determined by the current workspace, target direction and wraparound
@@ -474,6 +499,14 @@ class control_bindings_t
             {
                 target_ws = ws;
             }
+        }
+
+        // Remember the direction we are moving now so that we can potentially
+        // move back. Only remember when we are actually changing the workspace
+        // and not just move a view around.
+        if (!window_only)
+        {
+            this->last_dir = target_ws - ws;
         }
 
         return callback(target_ws - ws, view, window_only);
