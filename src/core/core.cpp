@@ -641,6 +641,21 @@ std::vector<wayfire_view> wf::compositor_core_t::find_views_with_surface(
     return result;
 }
 
+std::vector<wayfire_view> wf::compositor_core_t::find_views_with_dsurface(
+    wf::desktop_surface_t* dsurf)
+{
+    std::vector<wayfire_view> result;
+    for (auto view : get_all_views())
+    {
+        if (view->dsurf().get() == dsurf)
+        {
+            result.push_back(view);
+        }
+    }
+
+    return result;
+}
+
 /* sets the "active" view and gives it keyboard focus
  *
  * It maintains two different classes of "active views"
@@ -668,7 +683,7 @@ void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
         auto all_views = new_focus->enumerate_views();
         for (auto& view : all_views)
         {
-            if (view->get_keyboard_focus().accepts_focus())
+            if (view->dsurf()->get_keyboard_focus().accepts_focus())
             {
                 new_focus = view;
                 break;
@@ -678,7 +693,8 @@ void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
 
     bool refocus = (last_active_view == new_focus);
     /* don't deactivate view if the next focus is not a toplevel */
-    if ((new_focus == nullptr) || (new_focus->role == VIEW_ROLE_TOPLEVEL))
+    if ((new_focus == nullptr) ||
+        (new_focus->dsurf()->get_role() == desktop_surface_t::role::TOPLEVEL))
     {
         if (last_active_view && last_active_view->is_mapped() && !refocus)
         {
@@ -702,7 +718,8 @@ void wf::compositor_core_impl_t::set_active_view(wayfire_view new_focus)
     }
 
     last_active_view = new_focus;
-    if (!new_focus || (new_focus->role == VIEW_ROLE_TOPLEVEL))
+    if (!new_focus ||
+        (new_focus->dsurf()->get_role() == desktop_surface_t::role::TOPLEVEL))
     {
         last_active_toplevel = new_focus;
     }

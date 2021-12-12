@@ -45,8 +45,6 @@ class view_interface_t::view_priv_impl
 
     size_t last_view_cnt = 0;
 
-    bool keyboard_focus_enabled = true;
-
     /**
      * Calculate the windowed geometry relative to the output's workarea.
      */
@@ -88,6 +86,7 @@ class view_interface_t::view_priv_impl
     wf::output_t *output = nullptr;
 
     std::shared_ptr<wf::surface_interface_t> main_surface;
+    dsurface_sptr_t desktop_surface;
 
   private:
     /** Last geometry the view has had in non-tiled and non-fullscreen state.
@@ -113,36 +112,54 @@ class view_interface_t::view_priv_impl
  */
 void view_damage_raw(wayfire_view view, const wlr_box& box);
 
+class wlr_view_t;
+class wlr_desktop_surface_t : public wf::desktop_surface_t, wf::keyboard_surface_t
+{
+  public:
+    std::string get_app_id() override final;
+    std::string get_title() override final;
+
+    virtual keyboard_surface_t& get_keyboard_focus() override;
+
+    role get_role() const final;
+    bool is_focuseable() const final;
+
+    std::string title, app_id;
+    role current_role = role::TOPLEVEL;
+    bool keyboard_focus_enabled = true;
+
+    // Implementation of keyboard surface
+    virtual bool accepts_focus() const override;
+    virtual void handle_keyboard_enter() override;
+    virtual void handle_keyboard_leave() override;
+    virtual void handle_keyboard_key(wlr_event_keyboard_key event) override;
+
+    virtual void close() override;
+    virtual void ping() override;
+
+    // FIXME: this is a circular dependency
+    wlr_view_t *view;
+};
+
 /**
  * Implementation of a view backed by a wlr_* shell struct.
  */
-class wlr_view_t : public view_interface_t, public keyboard_focus_view_t
+class wlr_view_t : public view_interface_t
 {
   public:
-    using view_interface_t::view_interface_t;
+    wlr_view_t();
     virtual ~wlr_view_t() = default;
     wlr_view_t(const wlr_view_t &) = delete;
     wlr_view_t(wlr_view_t &&) = delete;
     wlr_view_t& operator =(const wlr_view_t&) = delete;
     wlr_view_t& operator =(wlr_view_t&&) = delete;
 
-    /* Functions which are shell-independent */
-    virtual void set_role(view_role_t new_role) override final;
-
-    virtual std::string get_app_id() override final;
-    virtual std::string get_title() override final;
     virtual wf::region_t get_transformed_opaque_region() override;
 
     /* Functions which are further specialized for the different shells */
     virtual void move(int x, int y) override;
     virtual wf::geometry_t get_wm_geometry() override;
     virtual wf::geometry_t get_output_geometry() override;
-
-    virtual bool accepts_focus() const override;
-    virtual void handle_keyboard_enter() override;
-    virtual void handle_keyboard_leave() override;
-    virtual void handle_keyboard_key(wlr_event_keyboard_key event) override;
-    virtual keyboard_focus_view_t& get_keyboard_focus() override;
 
     virtual bool should_be_decorated() override;
     virtual void set_decoration_mode(bool use_csd);
@@ -152,12 +169,19 @@ class wlr_view_t : public view_interface_t, public keyboard_focus_view_t
     /** @return The offset from the surface coordinates to the actual geometry */
     virtual wf::point_t get_window_offset();
 
+    virtual void close() {}
+    virtual void ping() {}
+    virtual void emit_map();
+
   protected:
-    std::string title, app_id;
+    wf::wlr_desktop_surface_t *dsurface;
+
+
     /** Used by view implementations when the app id changes */
     void handle_app_id_changed(std::string new_app_id);
     /** Used by view implementations when the title changes */
     void handle_title_changed(std::string new_title);
+
     /* Update the minimize hint */
     void handle_minimize_hint(wf::view_interface_t *relative_to,
         const wlr_box& hint);

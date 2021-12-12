@@ -1181,8 +1181,6 @@ class workspace_manager::impl
             return;
         }
 
-        LOGD("restack ", view->get_title(), " on top of ", below->get_title());
-
         layer_manager.restack_above(view, below);
         update_promoted_views();
     }

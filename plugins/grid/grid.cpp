@@ -9,6 +9,7 @@
 #include <linux/input-event-codes.h>
 #include "wayfire/signal-definitions.hpp"
 #include <wayfire/plugins/common/geometry-animation.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 #include "wayfire/plugins/grid.hpp"
 #include "wayfire/plugins/crossfade.hpp"
 
@@ -113,7 +114,7 @@ class wayfire_grid : public wf::plugin_interface_t
         }
 
         auto view = output->get_active_view();
-        if (!view || (view->role != wf::VIEW_ROLE_TOPLEVEL))
+        if (!wf::is_view_toplevel(view))
         {
             return false;
         }
@@ -135,7 +136,7 @@ class wayfire_grid : public wf::plugin_interface_t
             bindings[i] = [=] (auto)
             {
                 auto view = output->get_active_view();
-                if (!view || (view->role != wf::VIEW_ROLE_TOPLEVEL))
+                if (!wf::is_view_toplevel(view))
                 {
                     return false;
                 }

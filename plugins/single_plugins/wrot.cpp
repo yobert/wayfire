@@ -5,6 +5,7 @@
 #include "wayfire/core.hpp"
 #include <wayfire/workspace-manager.hpp>
 #include <wayfire/signal-definitions.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 #include <linux/input.h>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -63,7 +64,7 @@ class wf_wrot : public wf::plugin_interface_t
         }
 
         current_view = wf::get_core().get_cursor_focus().view();
-        if (!current_view || (current_view->role != wf::VIEW_ROLE_TOPLEVEL))
+        if (!wf::is_view_toplevel(current_view))
         {
             output->deactivate_plugin(grab_interface);
 
@@ -191,7 +192,7 @@ class wf_wrot : public wf::plugin_interface_t
             }
 
             current_view = wf::get_core().get_cursor_focus().view();
-            if (!current_view || (current_view->role != wf::VIEW_ROLE_TOPLEVEL))
+            if (!wf::is_view_toplevel(current_view))
             {
                 output->deactivate_plugin(grab_interface);
 

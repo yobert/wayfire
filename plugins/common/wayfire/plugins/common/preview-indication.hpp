@@ -61,8 +61,6 @@ class preview_indication_view_t : public wf::color_rect_view_t
         get_color_surface()->set_color(base_color);
         get_color_surface()->set_border_color(base_border);
         get_color_surface()->set_border(base_border_w);
-
-        this->role = VIEW_ROLE_DESKTOP_ENVIRONMENT;
     }
 
     void initialize() override
@@ -132,7 +130,7 @@ class preview_indication_view_t : public wf::color_rect_view_t
         /* The end of unmap animation, just exit */
         if (!animation.running() && should_close)
         {
-            close();
+            dsurf()->close();
         }
     }
 };

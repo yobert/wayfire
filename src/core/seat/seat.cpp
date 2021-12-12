@@ -304,7 +304,7 @@ void wf::seat_t::set_keyboard_focus(wayfire_view view)
 {
     if (keyboard_focus)
     {
-        keyboard_focus->get_keyboard_focus().handle_keyboard_leave();
+        keyboard_focus->dsurf()->get_keyboard_focus().handle_keyboard_leave();
     }
 
     /* Don't focus if we have an active grab */
@@ -312,7 +312,7 @@ void wf::seat_t::set_keyboard_focus(wayfire_view view)
     {
         if (view)
         {
-            view->get_keyboard_focus().handle_keyboard_enter();
+            view->dsurf()->get_keyboard_focus().handle_keyboard_enter();
         }
 
         keyboard_focus = view;

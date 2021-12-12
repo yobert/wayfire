@@ -1,6 +1,6 @@
 #pragma once
 
-#include "wayfire/view.hpp"
+#include <wayfire/view.hpp>
 #include <wayfire/config/types.hpp>
 
 namespace wf
@@ -28,15 +28,40 @@ class no_input_surface_t : public wf::input_surface_t
     void handle_touch_motion(uint32_t time_ms, int32_t id, wf::pointf_t at) final;
 };
 
-class no_input_view_t : public wf::keyboard_focus_view_t
+class no_keyboard_input_surface_t : public wf::keyboard_surface_t
 {
   public:
-    no_input_view_t() = default;
+    no_keyboard_input_surface_t() = default;
 
     bool accepts_focus() const final;
     void handle_keyboard_enter() final;
     void handle_keyboard_leave() final;
     void handle_keyboard_key(wlr_event_keyboard_key event) final;
+};
+
+/**
+ * A desktop_surface_t implementation for compositor surfaces.
+ * By default, compositor surfaces do not receive keyboard focus,
+ * have a fixed title and app-id and an UNMANAGED role.
+ */
+class compositor_desktop_surface_t : public wf::desktop_surface_t
+{
+  public:
+    compositor_desktop_surface_t(std::string_view title, std::string_view app_id);
+
+    std::string get_app_id() override;
+    std::string get_title() override;
+    role get_role() const override;
+    keyboard_surface_t& get_keyboard_focus() override;
+    bool is_focuseable() const override;
+
+    // Default implementation works only for color views
+    void close() override;
+    void ping() override;
+
+  protected:
+    std::string title;
+    std::string app_id;
 };
 
 /**
@@ -90,7 +115,8 @@ class solid_bordered_surface_t : public wf::output_surface_t,
  * color_rect_view_t represents another common type of compositor view - a
  * view which is simply a colored rectangle with a border.
  */
-class color_rect_view_t : public wf::view_interface_t, public wf::no_input_view_t
+class color_rect_view_t : public wf::view_interface_t,
+    public wf::no_keyboard_input_surface_t
 {
     wf::point_t position = {0, 0};
     bool _is_mapped = true;
@@ -108,18 +134,10 @@ class color_rect_view_t : public wf::view_interface_t, public wf::no_input_view_
      */
     nonstd::observer_ptr<solid_bordered_surface_t> get_color_surface() const;
 
-    /**
-     * Emit the unmap signal and then drop the internal reference.
-     */
-    virtual void close() override;
-
     /* required for view_interface_t */
     virtual void move(int x, int y) override;
     virtual void resize(int w, int h) override;
     virtual wf::geometry_t get_output_geometry() override;
-
-    virtual keyboard_focus_view_t& get_keyboard_focus() override;
-    virtual bool is_focuseable() const override;
     virtual bool should_be_decorated() override;
 };
 }

@@ -344,7 +344,7 @@ wayfire_layer_shell_view::wayfire_layer_shell_view(wlr_layer_surface_v1 *lsurf) 
     auto surf = std::make_shared<wf::wlr_surface_base_t>(lsurf->surface);
     this->set_main_surface(surf);
 
-    role = wf::VIEW_ROLE_DESKTOP_ENVIRONMENT;
+    dsurface->current_role = wf::desktop_surface_t::role::DESKTOP_ENVIRONMENT;
     std::memset(&this->prev_state, 0, sizeof(prev_state));
     sticky = true;
 
@@ -456,7 +456,7 @@ void wayfire_layer_shell_view::map()
     on_commit_unmapped.disconnect();
 
     /* Read initial data */
-    view_impl->keyboard_focus_enabled = lsurface->current.keyboard_interactive;
+    dsurface->keyboard_focus_enabled = lsurface->current.keyboard_interactive;
     handle_app_id_changed(nonull(lsurface->namespace_t));
 
     get_output()->workspace->add_view(self(), get_layer());
@@ -477,7 +477,7 @@ void wayfire_layer_shell_view::commit()
     auto state = &lsurface->current;
     /* Update the keyboard focus enabled state. If a refocusing is needed, i.e
      * the view state changed, then this will happen when arranging layers */
-    view_impl->keyboard_focus_enabled = state->keyboard_interactive;
+    dsurface->keyboard_focus_enabled = state->keyboard_interactive;
 
     if (state->committed)
     {

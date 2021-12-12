@@ -155,7 +155,7 @@ void transfer_views(wf::output_t *from, wf::output_t *to)
         {
             if ((view->get_output() == from) &&
                 (from->workspace->get_view_layer(view) == 0) &&
-                (view->role != VIEW_ROLE_DESKTOP_ENVIRONMENT))
+                (view->dsurf()->get_role() != desktop_surface_t::role::TOPLEVEL))
             {
                 unmapped_views.push_back(view);
             }
@@ -204,7 +204,7 @@ void transfer_views(wf::output_t *from, wf::output_t *to)
     // Close the leftover views, typically layer-shell ones
     for (auto& view : reffed)
     {
-        view->close();
+        view->dsurf()->close();
         view->set_output(nullptr);
     }
 

@@ -636,7 +636,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         wayfire_xwayland_view_base::destroy();
     }
 
-    void emit_view_map() override
+    void emit_map() override
     {
         /* Some X clients position themselves on map, and others let the window
          * manager determine this. We try to heuristically guess which of the
@@ -648,7 +648,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
 
     void map() override
     {
-        view_impl->keyboard_focus_enabled =
+        dsurface->keyboard_focus_enabled =
             wlr_xwayland_or_surface_wants_focus(xw);
 
         if (xw->maximized_horz && xw->maximized_vert)
@@ -770,7 +770,7 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
          * send both the instance and the class to clients, so that they can
          * find the appropriate icons. */
         std::string app_id;
-        auto default_app_id  = get_app_id();
+        auto default_app_id  = dsurface->get_app_id();
         auto instance_app_id = nonull(xw->instance);
 
         std::string app_id_mode =
@@ -819,7 +819,7 @@ wayfire_unmanaged_xwayland_view::wayfire_unmanaged_xwayland_view(
         " instance: ", xw->instance);
 
     xw->data = this;
-    role     = wf::VIEW_ROLE_UNMANAGED;
+    dsurface->current_role = wf::desktop_surface_t::role::UNMANAGED;
 
     on_set_geometry.set_callback([&] (void*)
     {
@@ -893,13 +893,13 @@ void wayfire_unmanaged_xwayland_view::map()
      * plugins can detect that this view can have keyboard focus.
      *
      * Note: only actual override-redirect views should get their focus disabled */
-    view_impl->keyboard_focus_enabled = (!xw->override_redirect ||
+    dsurface->keyboard_focus_enabled = (!xw->override_redirect ||
         wlr_xwayland_or_surface_wants_focus(xw));
 
     get_output()->workspace->add_view(self(), wf::LAYER_UNMANAGED);
     wf::wlr_view_t::map();
 
-    if (view_impl->keyboard_focus_enabled)
+    if (dsurface->keyboard_focus_enabled)
     {
         get_output()->focus_view(self(), true);
     }

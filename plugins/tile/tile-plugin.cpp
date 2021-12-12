@@ -4,6 +4,7 @@
 #include <wayfire/matcher.hpp>
 #include <wayfire/workspace-manager.hpp>
 #include <wayfire/signal-definitions.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 
 #include "tree-controller.hpp"
 
@@ -149,7 +150,7 @@ class tile_plugin_t : public wf::plugin_interface_t
 
     bool can_tile_view(wayfire_view view)
     {
-        if (view->role != wf::VIEW_ROLE_TOPLEVEL)
+        if (!is_view_toplevel(view))
         {
             return false;
         }

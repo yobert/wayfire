@@ -7,6 +7,7 @@
 #include <linux/input.h>
 #include <wayfire/signal-definitions.hpp>
 #include <wayfire/plugins/wobbly/wobbly-signal.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 #include <wayfire/nonstd/wlroots-full.hpp>
 
 class wayfire_resize : public wf::plugin_interface_t
@@ -178,7 +179,7 @@ class wayfire_resize : public wf::plugin_interface_t
 
     bool initiate(wayfire_view view, uint32_t forced_edges = 0)
     {
-        if (!view || (view->role == wf::VIEW_ROLE_DESKTOP_ENVIRONMENT) ||
+        if (!view || wf::is_view_desktop_environment(view) ||
             !view->is_mapped() || view->fullscreen)
         {
             return false;

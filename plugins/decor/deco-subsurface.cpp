@@ -39,13 +39,13 @@ class simple_decoration_surface : public wf::surface_interface_t,
 
         if ((title_texture.tex.width != target_width) ||
             (title_texture.tex.height != target_height) ||
-            (title_texture.current_text != view->get_title()))
+            (title_texture.current_text != view->dsurf()->get_title()))
         {
-            auto surface = theme.render_text(view->get_title(),
+            auto surface = theme.render_text(view->dsurf()->get_title(),
                 target_width, target_height);
             cairo_surface_upload_to_texture(surface, title_texture.tex);
             cairo_surface_destroy(surface);
-            title_texture.current_text = view->get_title();
+            title_texture.current_text = view->dsurf()->get_title();
         }
     }
 
@@ -159,7 +159,7 @@ class simple_decoration_surface : public wf::surface_interface_t,
             return view->resize_request(action.edges);
 
           case wf::decor::DECORATION_ACTION_CLOSE:
-            return view->close();
+            return view->dsurf()->close();
 
           case wf::decor::DECORATION_ACTION_TOGGLE_MAXIMIZE:
             if (view->tiled_edges)

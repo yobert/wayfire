@@ -3,6 +3,7 @@
 #include <wayfire/core.hpp>
 #include <wayfire/workspace-manager.hpp>
 #include <wayfire/signal-definitions.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 
 class wayfire_place_window : public wf::plugin_interface_t
 {
@@ -11,7 +12,7 @@ class wayfire_place_window : public wf::plugin_interface_t
         auto ev   = (wf::view_mapped_signal*)(data);
         auto view = get_signaled_view(data);
 
-        if ((view->role != wf::VIEW_ROLE_TOPLEVEL) || view->parent ||
+        if (!wf::is_view_toplevel(view) || view->parent ||
             view->fullscreen || view->tiled_edges || ev->is_positioned)
         {
             return;

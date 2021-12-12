@@ -15,6 +15,7 @@
 #include <wlr/util/edges.h>
 
 #include <wayfire/plugins/common/shared-core-data.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 
 /**
  * View last output info
@@ -170,7 +171,7 @@ class wayfire_preserve_output : public wf::plugin_interface_t
         for (size_t i = 0; i < views.size(); i++)
         {
             auto view = views[i];
-            if ((view->role != wf::VIEW_ROLE_TOPLEVEL) || !view->is_mapped())
+            if (!wf::is_view_toplevel(view) || !view->is_mapped())
             {
                 continue;
             }
@@ -244,7 +245,7 @@ class wayfire_preserve_output : public wf::plugin_interface_t
         {
             auto last_output_info = view_get_data(view);
             LOGD("Restoring view: ",
-                view->get_title(), " to: ", output->to_string());
+                view->dsurf()->get_title(), " to: ", output->to_string());
 
             wf::get_core().move_view_to_output(view, output, false);
             view->set_fullscreen(last_output_info->fullscreen);
@@ -259,7 +260,7 @@ class wayfire_preserve_output : public wf::plugin_interface_t
             // Focus
             if (last_output_info->focused)
             {
-                LOGD("Focusing view: ", view->get_title());
+                LOGD("Focusing view: ", view->dsurf()->get_title());
                 output->focus_view(view, false);
             }
 
@@ -293,7 +294,7 @@ class wayfire_preserve_output : public wf::plugin_interface_t
             if (!outputs_being_removed)
             {
                 LOGD("View moved, deleting last output info for: ",
-                    view->get_title());
+                    view->dsurf()->get_title());
                 view_erase_data(view);
             }
         }

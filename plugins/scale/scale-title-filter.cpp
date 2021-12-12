@@ -107,8 +107,8 @@ class scale_title_filter : public wf::singleton_plugin_t<scale_title_filter_text
             return true;
         }
 
-        auto title  = view->get_title();
-        auto app_id = view->get_app_id();
+        auto title  = view->dsurf()->get_title();
+        auto app_id = view->dsurf()->get_app_id();
 
         fix_case(title);
         fix_case(app_id);

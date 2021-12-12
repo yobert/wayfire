@@ -17,6 +17,7 @@
 
 #include <wayfire/plugins/common/shared-core-data.hpp>
 #include <wayfire/plugins/common/move-drag-interface.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 #include <wayfire/plugins/grid.hpp>
 
 class wayfire_move : public wf::plugin_interface_t
@@ -121,7 +122,7 @@ class wayfire_move : public wf::plugin_interface_t
             was_client_request = false;
             auto view = wf::get_core().get_cursor_focus().view();
 
-            if (view && (view->role != wf::VIEW_ROLE_DESKTOP_ENVIRONMENT))
+            if (is_view_toplevel(view))
             {
                 return initiate(view);
             }
@@ -519,7 +520,7 @@ class wayfire_move : public wf::plugin_interface_t
             return false;
         }
 
-        if (drag_helper->view->role == wf::VIEW_ROLE_DESKTOP_ENVIRONMENT)
+        if (wf::is_view_desktop_environment(drag_helper->view))
         {
             return false;
         }

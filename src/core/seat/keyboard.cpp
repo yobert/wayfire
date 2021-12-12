@@ -34,7 +34,8 @@ void wf::keyboard_t::setup_listeners()
         {
             if (seat->keyboard_focus)
             {
-                seat->keyboard_focus->get_keyboard_focus().handle_keyboard_key(*ev);
+                seat->keyboard_focus->dsurf()
+                ->get_keyboard_focus().handle_keyboard_key(*ev);
             } else
             {
                 // Just forward the event to the seat

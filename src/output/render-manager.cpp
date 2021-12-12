@@ -881,13 +881,14 @@ class wf::render_manager::impl
             {
                 last_scanout = candidate;
                 LOGD("Scanned out ",
-                    candidate->get_title(), ",", candidate->get_app_id());
+                    candidate->dsurf()->get_title(), ",",
+                    candidate->dsurf()->get_app_id());
             }
 
             return true;
         } else
         {
-            LOGD("Failed to scan out view ", candidate->get_title());
+            LOGD("Failed to scan out view ", candidate->dsurf()->get_title());
             return false;
         }
     }

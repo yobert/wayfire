@@ -167,12 +167,6 @@ std::vector<wayfire_view> wf::view_interface_t::enumerate_views(
     return result;
 }
 
-void wf::view_interface_t::set_role(view_role_t new_role)
-{
-    role = new_role;
-    damage();
-}
-
 std::string wf::view_interface_t::to_string() const
 {
     return "view-" + wf::object_base_t::to_string();
@@ -186,6 +180,11 @@ wayfire_view wf::view_interface_t::self()
 nonstd::observer_ptr<wf::surface_interface_t> wf::view_interface_t::get_main_surface()
 {
     return view_impl->main_surface.get();
+}
+
+const wf::dsurface_sptr_t& wf::view_interface_t::dsurf() const
+{
+    return view_impl->desktop_surface;
 }
 
 bool wf::view_interface_t::is_mapped() const
@@ -296,16 +295,6 @@ void wf::view_interface_t::request_native_size()
     /* no-op */
 }
 
-void wf::view_interface_t::ping()
-{
-    // Do nothing, specialized in the various shells
-}
-
-void wf::view_interface_t::close()
-{
-    /* no-op */
-}
-
 wf::geometry_t wf::view_interface_t::get_wm_geometry()
 {
     return get_output_geometry();
@@ -407,11 +396,6 @@ wf::surface_interface_t*wf::view_interface_t::map_input_coordinates(
     }
 
     return nullptr;
-}
-
-bool wf::view_interface_t::is_focuseable() const
-{
-    return view_impl->keyboard_focus_enabled;
 }
 
 void wf::view_interface_t::set_minimized(bool minim)
@@ -1283,6 +1267,12 @@ void wf::view_interface_t::set_main_surface(
 {
     assert(!this->view_impl->main_surface);
     this->view_impl->main_surface = std::move(main_surface);
+}
+
+void wf::view_interface_t::set_desktop_surface(wf::dsurface_sptr_t dsurface)
+{
+    assert(!this->view_impl->desktop_surface);
+    this->view_impl->desktop_surface = dsurface;
 }
 
 void wf::view_interface_t::take_ref()

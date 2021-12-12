@@ -13,14 +13,11 @@ wf::color_rect_view_t::color_rect_view_t() : wf::view_interface_t(nullptr)
 {
     this->color_surface = std::make_shared<wf::solid_bordered_surface_t>();
     this->set_main_surface(color_surface);
-    this->_is_mapped = true;
-}
+    auto desktop_surface =
+        std::make_shared<compositor_desktop_surface_t>("compositor", "compositor");
+    this->set_desktop_surface(desktop_surface);
 
-void wf::color_rect_view_t::close()
-{
-    emit_view_unmap();
-    color_surface->unmap();
-    unref();
+    this->_is_mapped = true;
 }
 
 static void render_colored_rect(const wf::framebuffer_t& fb,
@@ -61,11 +58,6 @@ void wf::color_rect_view_t::resize(int w, int h)
 wf::geometry_t wf::color_rect_view_t::get_output_geometry()
 {
     return wf::construct_box(position, color_surface->output().get_size());
-}
-
-bool wf::color_rect_view_t::is_focuseable() const
-{
-    return false;
 }
 
 bool wf::color_rect_view_t::should_be_decorated()
@@ -191,24 +183,20 @@ void wf::solid_bordered_surface_t::simple_render(
     OpenGL::render_end();
 }
 
-bool wf::no_input_view_t::accepts_focus() const
+bool wf::no_keyboard_input_surface_t::accepts_focus() const
 {
     return false;
 }
 
-void wf::no_input_view_t::handle_keyboard_enter()
+void wf::no_keyboard_input_surface_t::handle_keyboard_enter()
 {}
 
-void wf::no_input_view_t::handle_keyboard_leave()
+void wf::no_keyboard_input_surface_t::handle_keyboard_leave()
 {}
 
-void wf::no_input_view_t::handle_keyboard_key(wlr_event_keyboard_key event)
+void wf::no_keyboard_input_surface_t::handle_keyboard_key(
+    wlr_event_keyboard_key event)
 {}
-
-wf::keyboard_focus_view_t& wf::color_rect_view_t::get_keyboard_focus()
-{
-    return *this;
-}
 
 bool wf::solid_bordered_surface_t::is_mapped() const
 {
@@ -236,3 +224,55 @@ void wf::solid_bordered_surface_t::unmap()
     this->mapped = false;
     emit_map_state_change(this);
 }
+
+wf::compositor_desktop_surface_t::compositor_desktop_surface_t(
+    std::string_view title, std::string_view app_id)
+{
+    this->title  = title;
+    this->app_id = app_id;
+}
+
+std::string wf::compositor_desktop_surface_t::get_app_id()
+{
+    return app_id;
+}
+
+std::string wf::compositor_desktop_surface_t::get_title()
+{
+    return title;
+}
+
+wf::desktop_surface_t::role wf::compositor_desktop_surface_t::get_role() const
+{
+    return role::UNMANAGED;
+}
+
+wf::keyboard_surface_t& wf::compositor_desktop_surface_t::get_keyboard_focus()
+{
+    static no_keyboard_input_surface_t no_focus;
+    return no_focus;
+}
+
+bool wf::compositor_desktop_surface_t::is_focuseable() const
+{
+    return false;
+}
+
+void wf::compositor_desktop_surface_t::ping()
+{
+    // Nothing, we don't need to emit ping-timeout ever for compositor surfaces
+}
+
+void wf::compositor_desktop_surface_t::close()
+{
+    auto views = wf::get_core().find_views_with_dsurface(this);
+    for (auto v : views)
+    {
+        auto cview = dynamic_cast<color_rect_view_t*>(v.get());
+        emit_view_unmap(v);
+
+        cview->get_color_surface()->unmap();
+        cview->unref();
+    }
+}
+

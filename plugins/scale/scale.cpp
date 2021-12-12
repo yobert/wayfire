@@ -17,6 +17,7 @@
 
 #include <wayfire/plugins/common/move-drag-interface.hpp>
 #include <wayfire/plugins/common/shared-core-data.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 
 #include <linux/input-event-codes.h>
 
@@ -536,7 +537,7 @@ class wayfire_scale : public wf::plugin_interface_t
             // Check kill the view
             if (middle_click_close)
             {
-                view->close();
+                view->dsurf()->close();
             }
 
             break;
@@ -764,7 +765,7 @@ class wayfire_scale : public wf::plugin_interface_t
         for (auto& view :
              output->workspace->get_views_in_layer(wf::LAYER_WORKSPACE))
         {
-            if ((view->role != wf::VIEW_ROLE_TOPLEVEL) || !view->is_mapped())
+            if (!wf::is_view_toplevel(view) || !view->is_mapped())
             {
                 continue;
             }
@@ -783,7 +784,9 @@ class wayfire_scale : public wf::plugin_interface_t
         for (auto& view :
              output->workspace->get_views_in_layer(wf::LAYER_WORKSPACE))
         {
-            if ((view->role != wf::VIEW_ROLE_TOPLEVEL) || !view->is_mapped())
+            auto role = view->dsurf()->get_role();
+            if ((role != wf::desktop_surface_t::role::TOPLEVEL) ||
+                !view->is_mapped())
             {
                 continue;
             }
@@ -1243,7 +1246,7 @@ class wayfire_scale : public wf::plugin_interface_t
         for (auto v : views)
         {
             if (v->is_mapped() &&
-                v->get_keyboard_focus().accepts_focus())
+                v->dsurf()->get_keyboard_focus().accepts_focus())
             {
                 next_focus = v;
                 break;

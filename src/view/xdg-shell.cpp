@@ -20,8 +20,8 @@ wayfire_xdg_popup::wayfire_xdg_popup(wlr_xdg_popup *popup) :
     this->popup_parent = dynamic_cast<wlr_view_t*>(view.get());
 
     this->popup = popup;
-    this->role  = wf::VIEW_ROLE_UNMANAGED;
-    this->view_impl->keyboard_focus_enabled = false;
+    this->dsurface->current_role = wf::desktop_surface_t::role::UNMANAGED;
+    this->dsurface->keyboard_focus_enabled = false;
     this->set_output(popup_parent->get_output());
 }
 
@@ -57,11 +57,11 @@ void wayfire_xdg_popup::initialize()
     });
     parent_app_id_changed.set_callback([=] (wf::signal_data_t*)
     {
-        this->handle_app_id_changed(popup_parent->get_app_id());
+        this->handle_app_id_changed(popup_parent->dsurf()->get_app_id());
     });
     parent_title_changed.set_callback([=] (wf::signal_data_t*)
     {
-        this->handle_title_changed(popup_parent->get_title());
+        this->handle_title_changed(popup_parent->dsurf()->get_title());
     });
 
     popup_parent->connect_signal("geometry-changed",
@@ -381,13 +381,6 @@ wf::geometry_t wayfire_xdg_view::get_wm_geometry()
 
 void wayfire_xdg_view::set_activated(bool act)
 {
-    /* we don't send activated or deactivated for shell views,
-     * they should always be active */
-    if (this->role == wf::VIEW_ROLE_DESKTOP_ENVIRONMENT)
-    {
-        act = true;
-    }
-
     last_configure_serial =
         wlr_xdg_toplevel_set_activated(xdg_toplevel->base, act);
     wf::wlr_view_t::set_activated(act);

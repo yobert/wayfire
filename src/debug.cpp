@@ -290,8 +290,9 @@ std::ostream& wf::operator <<(std::ostream& out, wayfire_view view)
 {
     if (view)
     {
-        out << "view id=" << view->get_id() << " title=\"" << view->get_title() <<
-            "\"" << " app_id=\"" << view->get_app_id() << "\"";
+        out << "view id=" << view->get_id() <<
+            " title=\"" << view->dsurf()->get_title() << "\"" <<
+            " app_id=\"" << view->dsurf()->get_app_id() << "\"";
     } else
     {
         out << "(null view)";

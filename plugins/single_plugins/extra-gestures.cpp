@@ -5,6 +5,7 @@
 #include <wayfire/option-wrapper.hpp>
 #include <wayfire/output-layout.hpp>
 #include <wayfire/output.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 
 #include <wayfire/util/log.hpp>
 
@@ -59,7 +60,7 @@ class extra_gestures_plugin_t : public plugin_interface_t
         }
 
         auto view = core.get_surface_at({center.x, center.y}).view();
-        if (view && (view->role == VIEW_ROLE_TOPLEVEL))
+        if (is_view_toplevel(view))
         {
             action(view);
         }
@@ -110,7 +111,7 @@ class extra_gestures_plugin_t : public plugin_interface_t
         tap_to_close = std::make_unique<gesture_t>(std::move(actions),
             [=] ()
         {
-            execute_view_action([] (wayfire_view view) { view->close(); });
+            execute_view_action([] (wayfire_view view) { view->dsurf()->close(); });
         });
     }
 

@@ -10,18 +10,66 @@
 
 #include "xdg-shell.hpp"
 
-void wf::wlr_view_t::set_role(view_role_t new_role)
+bool wf::wlr_desktop_surface_t::accepts_focus() const
 {
-    view_interface_t::set_role(new_role);
-    if (new_role != wf::VIEW_ROLE_TOPLEVEL)
-    {
-        destroy_toplevel();
-    }
+    return view->is_mapped() && keyboard_focus_enabled;
+}
+
+void wf::wlr_desktop_surface_t::handle_keyboard_enter()
+{
+    auto seat = wf::get_core().get_current_seat();
+    auto kbd  = wlr_seat_get_keyboard(seat);
+    wlr_seat_keyboard_notify_enter(seat,
+        view->get_main_surface()->get_wlr_surface(),
+        kbd ? kbd->keycodes : NULL,
+        kbd ? kbd->num_keycodes : 0,
+        kbd ? &kbd->modifiers : NULL);
+}
+
+void wf::wlr_desktop_surface_t::handle_keyboard_leave()
+{
+    auto seat = wf::get_core().get_current_seat();
+    wlr_seat_keyboard_clear_focus(seat);
+}
+
+void wf::wlr_desktop_surface_t::handle_keyboard_key(wlr_event_keyboard_key event)
+{
+    auto seat = wf::get_core().get_current_seat();
+    wlr_seat_keyboard_notify_key(seat,
+        event.time_msec, event.keycode, event.state);
+}
+
+wf::keyboard_surface_t& wf::wlr_desktop_surface_t::get_keyboard_focus()
+{
+    return *this;
+}
+
+wf::desktop_surface_t::role wf::wlr_desktop_surface_t::get_role() const
+{
+    return current_role;
+}
+
+void wf::wlr_desktop_surface_t::close()
+{
+    view->close();
+}
+
+void wf::wlr_desktop_surface_t::ping()
+{
+    view->ping();
+}
+
+wf::wlr_view_t::wlr_view_t() : wf::view_interface_t(nullptr)
+{
+    auto dsurf = std::make_shared<wf::wlr_desktop_surface_t>();
+    dsurf->view    = this;
+    this->dsurface = dsurf.get();
+    this->set_desktop_surface(dsurf);
 }
 
 void wf::wlr_view_t::handle_app_id_changed(std::string new_app_id)
 {
-    this->app_id = new_app_id;
+    this->dsurface->app_id = new_app_id;
     toplevel_send_app_id();
 
     app_id_changed_signal data;
@@ -29,14 +77,9 @@ void wf::wlr_view_t::handle_app_id_changed(std::string new_app_id)
     emit_signal("app-id-changed", &data);
 }
 
-std::string wf::wlr_view_t::get_app_id()
-{
-    return this->app_id;
-}
-
 void wf::wlr_view_t::handle_title_changed(std::string new_title)
 {
-    this->title = new_title;
+    this->dsurface->title = new_title;
     toplevel_send_title();
 
     title_changed_signal data;
@@ -44,7 +87,12 @@ void wf::wlr_view_t::handle_title_changed(std::string new_title)
     emit_signal("title-changed", &data);
 }
 
-std::string wf::wlr_view_t::get_title()
+std::string wf::wlr_desktop_surface_t::get_app_id()
+{
+    return this->app_id;
+}
+
+std::string wf::wlr_desktop_surface_t::get_title()
 {
     return this->title;
 }
@@ -230,42 +278,10 @@ wf::geometry_t wf::wlr_view_t::get_wm_geometry()
     }
 }
 
-bool wf::wlr_view_t::accepts_focus() const
-{
-    return is_mapped() && view_impl->keyboard_focus_enabled;
-}
-
-void wf::wlr_view_t::handle_keyboard_enter()
-{
-    auto seat = wf::get_core().get_current_seat();
-    auto kbd  = wlr_seat_get_keyboard(seat);
-    wlr_seat_keyboard_notify_enter(seat, get_main_surface()->get_wlr_surface(),
-        kbd ? kbd->keycodes : NULL,
-        kbd ? kbd->num_keycodes : 0,
-        kbd ? &kbd->modifiers : NULL);
-}
-
-void wf::wlr_view_t::handle_keyboard_leave()
-{
-    auto seat = wf::get_core().get_current_seat();
-    wlr_seat_keyboard_clear_focus(seat);
-}
-
-void wf::wlr_view_t::handle_keyboard_key(wlr_event_keyboard_key event)
-{
-    auto seat = wf::get_core().get_current_seat();
-    wlr_seat_keyboard_notify_key(seat,
-        event.time_msec, event.keycode, event.state);
-}
-
-wf::keyboard_focus_view_t& wf::wlr_view_t::get_keyboard_focus()
-{
-    return *this;
-}
-
 bool wf::wlr_view_t::should_be_decorated()
 {
-    return role == wf::VIEW_ROLE_TOPLEVEL && !has_client_decoration;
+    return (dsurface->get_role() == desktop_surface_t::role::TOPLEVEL) &&
+           !has_client_decoration;
 }
 
 void wf::wlr_view_t::set_decoration_mode(bool use_csd)
@@ -320,7 +336,7 @@ void wf::wlr_view_t::map()
     dynamic_cast<wf::wlr_surface_base_t*>(get_main_surface().get())->map();
     update_size();
 
-    if (role == VIEW_ROLE_TOPLEVEL)
+    if (dsurface->get_role() == desktop_surface_t::role::TOPLEVEL)
     {
         if (!parent)
         {
@@ -331,7 +347,7 @@ void wf::wlr_view_t::map()
     }
 
     damage();
-    emit_view_map();
+    this->emit_map();
     /* Might trigger repositioning */
     set_toplevel_parent(this->parent);
 }
@@ -339,11 +355,11 @@ void wf::wlr_view_t::map()
 void wf::wlr_view_t::unmap()
 {
     damage();
-    emit_view_pre_unmap();
+    emit_view_pre_unmap(self());
     destroy_toplevel();
     set_decoration(nullptr);
     dynamic_cast<wf::wlr_surface_base_t*>(get_main_surface().get())->unmap();
-    emit_view_unmap();
+    emit_view_unmap(self());
 }
 
 void wf::emit_view_map_signal(wayfire_view view, bool has_position)
@@ -362,36 +378,41 @@ void wf::emit_ping_timeout_signal(wayfire_view view)
     view->emit_signal("ping-timeout", &data);
 }
 
-void wf::view_interface_t::emit_view_map()
+void wf::wlr_view_t::emit_map()
 {
     emit_view_map_signal(self(), false);
 }
 
-void wf::view_interface_t::emit_view_unmap()
+void wf::emit_view_map(wayfire_view view)
 {
-    view_unmapped_signal data;
-    data.view = self();
-
-    if (get_output())
-    {
-        get_output()->emit_signal("view-unmapped", &data);
-        get_output()->emit_signal("view-disappeared", &data);
-    }
-
-    emit_signal("unmapped", &data);
+    emit_view_map_signal(view, false);
 }
 
-void wf::view_interface_t::emit_view_pre_unmap()
+void wf::emit_view_unmap(wayfire_view view)
 {
-    view_pre_unmap_signal data;
-    data.view = self();
+    view_unmapped_signal data;
+    data.view = view;
 
-    if (get_output())
+    if (view->get_output())
     {
-        get_output()->emit_signal("view-pre-unmapped", &data);
+        view->get_output()->emit_signal("view-unmapped", &data);
+        view->get_output()->emit_signal("view-disappeared", &data);
     }
 
-    emit_signal("pre-unmapped", &data);
+    view->emit_signal("unmapped", &data);
+}
+
+void wf::emit_view_pre_unmap(wayfire_view view)
+{
+    view_pre_unmap_signal data;
+    data.view = view;
+
+    if (view->get_output())
+    {
+        view->get_output()->emit_signal("view-pre-unmapped", &data);
+    }
+
+    view->emit_signal("pre-unmapped", &data);
 }
 
 void wf::wlr_view_t::destroy()
@@ -409,7 +430,7 @@ void wf::wlr_view_t::create_toplevel()
     }
 
     /* We don't want to create toplevels for shell views or xwayland menus */
-    if (role != VIEW_ROLE_TOPLEVEL)
+    if (dsurface->get_role() != desktop_surface_t::role::TOPLEVEL)
     {
         return;
     }
@@ -431,7 +452,7 @@ void wf::wlr_view_t::create_toplevel()
     });
     toplevel_handle_v1_activate_request.set_callback(
         [&] (void*) { focus_request(); });
-    toplevel_handle_v1_close_request.set_callback([&] (void*) { close(); });
+    toplevel_handle_v1_close_request.set_callback([&] (void*) { dsurface->close(); });
 
     toplevel_handle_v1_set_rectangle_request.set_callback([&] (void *data)
     {
@@ -493,7 +514,7 @@ void wf::wlr_view_t::toplevel_send_title()
     }
 
     wlr_foreign_toplevel_handle_v1_set_title(toplevel_handle,
-        get_title().c_str());
+        dsurface->get_title().c_str());
 }
 
 void wf::wlr_view_t::toplevel_send_app_id()
@@ -506,7 +527,7 @@ void wf::wlr_view_t::toplevel_send_app_id()
     std::string app_id;
 
     auto surface = get_main_surface()->get_wlr_surface();
-    auto default_app_id   = get_app_id();
+    auto default_app_id   = dsurface->get_app_id();
     auto gtk_shell_app_id = wf_gtk_shell_get_custom_app_id(
         wf::get_core_impl().gtk_shell, surface->resource);
 
@@ -571,6 +592,11 @@ wf::point_t wf::wlr_view_t::get_window_offset()
 void wf::wlr_view_t::desktop_state_updated()
 {
     toplevel_send_state();
+}
+
+bool wf::wlr_desktop_surface_t::is_focuseable() const
+{
+    return keyboard_focus_enabled;
 }
 
 void wf::init_desktop_apis()

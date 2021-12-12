@@ -82,10 +82,12 @@ void wayfire_close::init()
         }
 
         output->deactivate_plugin(grab_interface);
-        auto view = output->get_active_view();
-        if (view && (view->role == wf::VIEW_ROLE_TOPLEVEL))
+        auto view     = output->get_active_view();
+        auto dsurface = view ? view->dsurf() : nullptr;
+        if (dsurface &&
+            (dsurface->get_role() == wf::desktop_surface_t::role::TOPLEVEL))
         {
-            view->close();
+            view->dsurf()->close();
         }
 
         return true;
@@ -166,7 +168,7 @@ bool wayfire_focus::check_focus_surface(wf::focused_view_t focus)
 
     auto target_wo = focus.view()->get_output();
     auto old_focus = target_wo->get_active_view();
-    if (focus.view()->get_keyboard_focus().accepts_focus())
+    if (focus.view()->dsurf()->get_keyboard_focus().accepts_focus())
     {
         target_wo->focus_view(focus.view(), true);
     } else

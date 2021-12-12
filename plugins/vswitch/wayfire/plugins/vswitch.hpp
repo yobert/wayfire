@@ -3,6 +3,7 @@
 #include <wayfire/signal-definitions.hpp>
 #include <wayfire/plugins/common/geometry-animation.hpp>
 #include <wayfire/plugins/common/workspace-wall.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 #include <wayfire/util/duration.hpp>
 #include <wayfire/config/compound-option.hpp>
 #include <wayfire/view.hpp>
@@ -47,6 +48,11 @@ class workspace_switch_t
             wf::option_wrapper_t<int>{"vswitch/duration"}
         };
     }
+
+    workspace_switch_t(const workspace_switch_t&) = delete;
+    workspace_switch_t(workspace_switch_t&&) = delete;
+    workspace_switch_t& operator =(const workspace_switch_t&) = delete;
+    workspace_switch_t& operator =(workspace_switch_t&&) = delete;
 
     /**
      * Initialize switching animation.
@@ -439,7 +445,7 @@ class control_bindings_t
             view = view->parent;
         }
 
-        if (!view || (view->role != wf::VIEW_ROLE_TOPLEVEL))
+        if (!is_view_toplevel(view))
         {
             return nullptr;
         }

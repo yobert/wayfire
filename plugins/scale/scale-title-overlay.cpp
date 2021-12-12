@@ -4,6 +4,7 @@
 #include <wayfire/util/log.hpp>
 #include <wayfire/plugins/common/cairo-util.hpp>
 #include <wayfire/plugins/common/simple-texture.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 
 /**
  * Get the topmost parent of a view.
@@ -41,7 +42,7 @@ struct view_title_texture_t : public wf::custom_data_t
 
     void update_overlay_texture()
     {
-        auto res = overlay.render_text(view->get_title(), par);
+        auto res = overlay.render_text(view->dsurf()->get_title(), par);
         overflow = res.width > overlay.tex.width;
     }
 
@@ -540,7 +541,7 @@ void scale_show_title_t::update_title_overlay_mouse()
     {
         v = find_toplevel_parent(v);
 
-        if (v->role != wf::VIEW_ROLE_TOPLEVEL)
+        if (!wf::is_view_toplevel(v))
         {
             v = nullptr;
         }

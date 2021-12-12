@@ -69,7 +69,8 @@ void wf::output_impl_t::refocus(wayfire_view skip_view, uint32_t layers)
     const auto& suitable_for_focus = [&] (wayfire_view view)
     {
         return (view != skip_view) && view->is_mapped() &&
-               view->get_keyboard_focus().accepts_focus() && !view->minimized;
+               view->dsurf()->get_keyboard_focus().accepts_focus() &&
+               !view->minimized;
     };
 
     auto views = workspace->get_views_on_workspace(cur_ws, layers);
@@ -302,7 +303,8 @@ void wf::output_impl_t::focus_view(wayfire_view v, uint32_t flags)
     if (v && (workspace->get_view_layer(v) < wf::get_core().get_focused_layer()))
     {
         auto active_view = get_active_view();
-        if (active_view && (active_view->get_app_id().find("$unfocus") == 0))
+        if (active_view &&
+            (active_view->dsurf()->get_app_id().find("$unfocus") == 0))
         {
             /* This is the case where for ex. a panel has grabbed input focus,
              * but user has clicked on another view so we want to dismiss the
@@ -340,7 +342,7 @@ void wf::output_impl_t::focus_view(wayfire_view v, uint32_t flags)
     }
 
     /* If no keyboard focus surface is set, then we don't want to focus the view */
-    if (v->get_keyboard_focus().accepts_focus())
+    if (v->dsurf()->get_keyboard_focus().accepts_focus())
     {
         make_view_visible(v);
         if (!(flags & FOCUS_VIEW_NOBUMP))

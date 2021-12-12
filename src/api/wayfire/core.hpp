@@ -17,6 +17,7 @@
 
 namespace wf
 {
+class desktop_surface_t;
 class surface_interface_t;
 class view_interface_t;
 
@@ -275,6 +276,12 @@ class compositor_core_t : public wf::object_base_t
      */
     std::vector<wayfire_view> find_views_with_surface(
         wf::surface_interface_t *surface);
+
+    /**
+     * Find all views whose desktop surface is the given desktop surface.
+     */
+    std::vector<wayfire_view> find_views_with_dsurface(
+        wf::desktop_surface_t* dsurf);
 
     /**
      * Set the keyboard focus view. The stacking order on the view's output

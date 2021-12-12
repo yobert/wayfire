@@ -3,6 +3,7 @@
 #include <wayfire/output.hpp>
 #include <wayfire/workspace-manager.hpp>
 #include <wayfire/util/log.hpp>
+#include <wayfire/plugins/common/view-helpers.hpp>
 #include "wm-actions-signals.hpp"
 
 class wayfire_wm_actions_t : public wf::plugin_interface_t
@@ -64,7 +65,7 @@ class wayfire_wm_actions_t : public wf::plugin_interface_t
         }
 
         view = output->get_active_view();
-        if (!view || (view->role != wf::VIEW_ROLE_TOPLEVEL))
+        if (!wf::is_view_toplevel(view))
         {
             return nullptr;
         } else
@@ -149,7 +150,7 @@ class wayfire_wm_actions_t : public wf::plugin_interface_t
     wf::signal_connection_t view_attached = [this] (wf::signal_data_t *data)
     {
         auto view = get_signaled_view(data);
-        if ((view->role != wf::VIEW_ROLE_TOPLEVEL) || !view->is_mapped())
+        if (!wf::is_view_toplevel(view) || !view->is_mapped())
         {
             return;
         }
@@ -166,7 +167,7 @@ class wayfire_wm_actions_t : public wf::plugin_interface_t
     {
         auto ev = static_cast<wf::view_minimized_signal*>(data);
 
-        if ((ev->view->role != wf::VIEW_ROLE_TOPLEVEL) || !ev->view->is_mapped())
+        if (!wf::is_view_toplevel(ev->view) || !ev->view->is_mapped())
         {
             return;
         }

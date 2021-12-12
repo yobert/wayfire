@@ -155,7 +155,8 @@ class vswitch : public wf::plugin_interface_t
             return false;
         }
 
-        if (view && (view->role != wf::VIEW_ROLE_TOPLEVEL))
+        if (view &&
+            (view->dsurf()->get_role() != wf::desktop_surface_t::role::TOPLEVEL))
         {
             view = nullptr;
         }

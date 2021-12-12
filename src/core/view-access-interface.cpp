@@ -1,6 +1,7 @@
 #include "wayfire/condition/access_interface.hpp"
 #include "wayfire/output.hpp"
 #include "wayfire/view.hpp"
+#include <wayfire/desktop-surface.hpp>
 #include "wayfire/view-access-interface.hpp"
 #include "wayfire/workspace-manager.hpp"
 #include <algorithm>
@@ -33,30 +34,30 @@ variant_t view_access_interface_t::get(const std::string & identifier, bool & er
 
     if (identifier == "app_id")
     {
-        out = _view->get_app_id();
+        out = _view->dsurf()->get_app_id();
     } else if (identifier == "title")
     {
-        out = _view->get_title();
+        out = _view->dsurf()->get_title();
     } else if (identifier == "role")
     {
-        switch (_view->role)
+        switch (_view->dsurf()->get_role())
         {
-          case VIEW_ROLE_TOPLEVEL:
+          case desktop_surface_t::role::TOPLEVEL:
             out = std::string("TOPLEVEL");
             break;
 
-          case VIEW_ROLE_UNMANAGED:
+          case desktop_surface_t::role::UNMANAGED:
             out = std::string("UNMANAGED");
             break;
 
-          case VIEW_ROLE_DESKTOP_ENVIRONMENT:
+          case desktop_surface_t::role::DESKTOP_ENVIRONMENT:
             out = std::string("DESKTOP_ENVIRONMENT");
             break;
 
           default:
             std::cerr <<
                 "View access interface: View has unsupported value for role: " <<
-                static_cast<int>(_view->role) << std::endl;
+                static_cast<int>(_view->dsurf()->get_role()) << std::endl;
             error = true;
             break;
         }
@@ -74,7 +75,7 @@ variant_t view_access_interface_t::get(const std::string & identifier, bool & er
         out = _view->is_visible();
     } else if (identifier == "focusable")
     {
-        out = _view->is_focuseable();
+        out = _view->dsurf()->is_focuseable();
     } else if (identifier == "mapped")
     {
         out = _view->is_mapped();
@@ -99,13 +100,15 @@ variant_t view_access_interface_t::get(const std::string & identifier, bool & er
     } else if (identifier == "type")
     {
         do {
-            if (_view->role == VIEW_ROLE_TOPLEVEL)
+            if (_view->dsurf()->get_role() ==
+                desktop_surface_t::role::TOPLEVEL)
             {
                 out = std::string("toplevel");
                 break;
             }
 
-            if (_view->role == VIEW_ROLE_UNMANAGED)
+            if (_view->dsurf()->get_role() ==
+                desktop_surface_t::role::UNMANAGED)
             {
 #if WF_HAS_XWAYLAND
                 auto surf = _view->get_wlr_surface();

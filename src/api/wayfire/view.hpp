@@ -1,5 +1,4 @@
-#ifndef VIEW_HPP
-#define VIEW_HPP
+#pragma once
 
 #include <vector>
 #include <wayfire/nonstd/observer_ptr.h>
@@ -9,12 +8,15 @@
 #include "wayfire/decorator.hpp"
 #include <wayfire/nonstd/wlroots.hpp>
 #include <wayfire/region.hpp>
+#include <wayfire/desktop-surface.hpp>
 
 namespace wf
 {
 class view_interface_t;
 class decorator_frame_t_t;
 class view_transformer_t;
+
+using dsurface_sptr_t = std::shared_ptr<desktop_surface_t>;
 }
 
 using wayfire_view = nonstd::observer_ptr<wf::view_interface_t>;
@@ -22,72 +24,12 @@ using wayfire_view = nonstd::observer_ptr<wf::view_interface_t>;
 namespace wf
 {
 class output_t;
-
-/* abstraction for desktop-apis, no real need for plugins
- * This is a base class to all "drawables" - desktop views, subsurfaces, popups */
-enum view_role_t
-{
-    /** Regular views which can be moved around. */
-    VIEW_ROLE_TOPLEVEL,
-    /** Views which position is fixed externally, for ex. Xwayland OR views */
-    VIEW_ROLE_UNMANAGED,
-    /**
-     * Views which are part of the desktop environment, for example panels,
-     * background views, etc.
-     */
-    VIEW_ROLE_DESKTOP_ENVIRONMENT,
-};
-
 /**
  * A bitmask consisting of all tiled edges.
  * This corresponds to a maximized state.
  */
 constexpr uint32_t TILED_EDGES_ALL =
     WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT | WLR_EDGE_RIGHT;
-
-/**
- * An interface for views to interact with keyboard input.
- */
-class keyboard_focus_view_t
-{
-  public:
-    keyboard_focus_view_t(const keyboard_focus_view_t&) = delete;
-    keyboard_focus_view_t(keyboard_focus_view_t&&) = delete;
-    keyboard_focus_view_t& operator =(const keyboard_focus_view_t&) = delete;
-    keyboard_focus_view_t& operator =(keyboard_focus_view_t&&) = delete;
-
-    /**
-     * Check whether the view wants to accept focus at all.
-     *
-     * The returned value does not have to remain constant for the whole
-     * lifetime of the view.
-     */
-    virtual bool accepts_focus() const = 0;
-
-    /**
-     * Handle a keyboard enter event.
-     * This means that the view is now focused.
-     */
-    virtual void handle_keyboard_enter() = 0;
-
-    /**
-     * Handle a keyboard leave event.
-     * The view is no longer focused.
-     */
-    virtual void handle_keyboard_leave() = 0;
-
-    /**
-     * Handle a keyboard key event.
-     *
-     * These are received only after the view has received keyboard focus and
-     * before it loses it.
-     */
-    virtual void handle_keyboard_key(wlr_event_keyboard_key event) = 0;
-
-  protected:
-    keyboard_focus_view_t() = default;
-    virtual ~keyboard_focus_view_t() = default;
-};
 
 /**
  * view_interface_t is the base class for all "toplevel windows", i.e surfaces
@@ -108,6 +50,11 @@ class view_interface_t : public wf::object_base_t
     std::vector<wayfire_view> children;
 
     /**
+     * Get the desktop surface associated with this view.
+     */
+    const dsurface_sptr_t& dsurf() const;
+
+    /**
      * Generate a list of all views in the view's tree.
      * This includes the view itself, its @children and so on.
      *
@@ -123,12 +70,6 @@ class view_interface_t : public wf::object_base_t
      * the parent.
      */
     void set_toplevel_parent(wayfire_view parent);
-
-    /** The current view role.  */
-    view_role_t role = VIEW_ROLE_TOPLEVEL;
-
-    /** Set the view role */
-    virtual void set_role(view_role_t new_role);
 
     /** Get a textual identifier for this view.  */
     std::string to_string() const;
@@ -193,15 +134,6 @@ class view_interface_t : public wf::object_base_t
      */
     virtual void request_native_size();
 
-    /** Request that the view closes. */
-    virtual void close();
-
-    /**
-     * Ping the view's client.
-     * If the ping request times out, `ping-timeout` event will be emitted.
-     */
-    virtual void ping();
-
     /**
      * The wm geometry of the view is the portion of the view surface that
      * contains the actual contents, for example, without the view shadows, etc.
@@ -246,21 +178,6 @@ class view_interface_t : public wf::object_base_t
      */
     virtual wf::pointf_t global_to_local_point(const wf::pointf_t& arg,
         surface_interface_t *surface);
-
-    /**
-     * Get the keyboard focus interface of this view.
-     */
-    virtual keyboard_focus_view_t& get_keyboard_focus() = 0;
-
-    /**
-     * Check whether the surface is focuseable. Note the actual ability to give
-     * keyboard focus while the surface is mapped is determined by the keyboard
-     * focus surface or the compositor_view implementation.
-     *
-     * This is meant for plugins like matcher, which need to check whether the
-     * view is focuseable at any point of the view life-cycle.
-     */
-    virtual bool is_focuseable() const;
 
     /** Whether the view is in fullscreen state, usually you want to use either
      * set_fullscreen() or fullscreen_request() */
@@ -335,18 +252,6 @@ class view_interface_t : public wf::object_base_t
 
     /** Damage the whole view and add the damage to its output */
     virtual void damage();
-
-    /** @return the app-id of the view */
-    virtual std::string get_app_id()
-    {
-        return "";
-    }
-
-    /** @return the title of the view */
-    virtual std::string get_title()
-    {
-        return "";
-    }
 
     /**
      * Get the minimize target for this view, i.e when displaying a minimize
@@ -541,6 +446,13 @@ class view_interface_t : public wf::object_base_t
      */
     void set_main_surface(std::shared_ptr<wf::surface_interface_t> main_surface);
 
+    /**
+     * Set the desktop surface.
+     * This should be done only once in the lifetime of the view and must
+     * happen before initializing the view!
+     */
+    void set_desktop_surface(wf::dsurface_sptr_t dsurface);
+
     friend class compositor_core_impl_t;
     /**
      * View initialization happens in three stages:
@@ -582,30 +494,28 @@ class view_interface_t : public wf::object_base_t
      * Called whenever the minimized, tiled, fullscreened
      * or activated state changes */
     virtual void desktop_state_updated();
-
-    /**
-     * Emit the view map signal. It indicates that a view has been mapped, i.e.
-     * plugins can now "work" with it. Note that not all views will emit the map
-     * event.
-     */
-    virtual void emit_view_map();
-
-    /**
-     * Emit the view unmap signal. It indicates that the view is in the process of
-     * being destroyed. Most plugins should stop any actions they have on the view.
-     */
-    virtual void emit_view_unmap();
-
-    /**
-     * Emit the view pre-unmap signal. It is emitted right before the view
-     * destruction start. At this moment a plugin can still take a snapshot of the
-     * view. Note that not all views emit the pre-unmap signal, however the unmap
-     * signal is mandatory for all views.
-     */
-    virtual void emit_view_pre_unmap();
 };
 
 wayfire_view wl_surface_to_wayfire_view(wl_resource *surface);
-}
 
-#endif
+/**
+ * Emit the view map signal. It indicates that a view has been mapped, i.e.
+ * plugins can now "work" with it. Note that not all views will emit the map
+ * event.
+ */
+void emit_view_map(wayfire_view view);
+
+/**
+ * Emit the view unmap signal. It indicates that the view is in the process of
+ * being destroyed. Most plugins should stop any actions they have on the view.
+ */
+void emit_view_unmap(wayfire_view view);
+
+/**
+ * Emit the view pre-unmap signal. It is emitted right before the view
+ * destruction start. At this moment a plugin can still take a snapshot of the
+ * view. Note that not all views emit the pre-unmap signal, however the unmap
+ * signal is mandatory for all views.
+ */
+void emit_view_pre_unmap(wayfire_view view);
+}
