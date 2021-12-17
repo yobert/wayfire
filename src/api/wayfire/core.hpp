@@ -1,10 +1,10 @@
-#ifndef CORE_HPP
-#define CORE_HPP
+#pragma once
 
 #include "wayfire/object.hpp"
 #include <wayfire/geometry.hpp>
 #include <wayfire/idle.hpp>
 #include <wayfire/config-backend.hpp>
+#include <wayfire/toplevel.hpp>
 
 #include <sys/types.h>
 #include <limits>
@@ -280,7 +280,13 @@ class compositor_core_t : public wf::object_base_t
      * Find all views whose desktop surface is the given desktop surface.
      */
     std::vector<wayfire_view> find_views_with_dsurface(
-        wf::desktop_surface_t* dsurf);
+        wf::desktop_surface_t *dsurf);
+
+    /**
+     * Find all views whose toplevel is the given toplevel.
+     */
+    std::vector<wayfire_view> find_views_with_toplevel(
+        wf::toplevel_t *toplevel);
 
     /**
      * Set the keyboard focus view. The stacking order on the view's output
@@ -382,5 +388,3 @@ class compositor_core_t : public wf::object_base_t
  */
 compositor_core_t& get_core();
 }
-
-#endif // CORE_HPP

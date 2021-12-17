@@ -23,6 +23,7 @@ wf::output_impl_t::output_impl_t(wlr_output *handle,
     this->bindings = std::make_unique<bindings_repository_t>(this);
     this->set_effective_size(effective_size);
     this->handle = handle;
+    handle->data = this;
     workspace    = std::make_unique<workspace_manager>(this);
     render = std::make_unique<render_manager>(this);
 

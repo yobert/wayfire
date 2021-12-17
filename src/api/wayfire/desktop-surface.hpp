@@ -60,6 +60,9 @@ class keyboard_surface_t
  * Desktop surfaces are therefore the most generic type of entities which can
  * be rendered on an output, added in an output layer, etc. The most important
  * subclass are toplevels, which only represent application windows.
+ *
+ * Desktop surfaces also control creation of unmanaged child windows (e.g.
+ * tooltips, menus, etc.).
  */
 class desktop_surface_t : public wf::object_base_t
 {

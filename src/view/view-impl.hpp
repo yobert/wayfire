@@ -45,23 +45,8 @@ class view_interface_t::view_priv_impl
 
     size_t last_view_cnt = 0;
 
-    /**
-     * Calculate the windowed geometry relative to the output's workarea.
-     */
-    wf::geometry_t calculate_windowed_geometry(wf::output_t *output);
-
-    /**
-     * Update the stored window geometry and workarea, if the current view
-     * state is not-tiled and not-moving.
-     */
-    void update_windowed_geometry(wayfire_view self, wf::geometry_t geometry);
-
-    std::unique_ptr<wf::decorator_frame_t_t> frame = nullptr;
-
-    uint32_t edges = 0;
-    int in_continuous_move   = 0;
-    int in_continuous_resize = 0;
-    int visibility_counter   = 1;
+    bool sticky = false;
+    int visibility_counter = 1;
 
     wf::safe_list_t<std::shared_ptr<view_transform_block_t>> transforms;
 
@@ -85,20 +70,9 @@ class view_interface_t::view_priv_impl
 
     wf::output_t *output = nullptr;
 
-    std::shared_ptr<wf::surface_interface_t> main_surface;
+    surface_sptr_t main_surface;
     dsurface_sptr_t desktop_surface;
-
-  private:
-    /** Last geometry the view has had in non-tiled and non-fullscreen state.
-     * -1 as width/height means that no such geometry has been stored. */
-    wf::geometry_t last_windowed_geometry = {0, 0, -1, -1};
-
-    /**
-     * The workarea when last_windowed_geometry was stored. This is used
-     * for ex. when untiling a view to determine its geometry relative to the
-     * (potentially changed) workarea of its output.
-     */
-    wf::geometry_t windowed_geometry_workarea = {0, 0, -1, -1};
+    toplevel_sptr_t toplevel; // can be NULL
 };
 
 /**
@@ -112,39 +86,10 @@ class view_interface_t::view_priv_impl
  */
 void view_damage_raw(wayfire_view view, const wlr_box& box);
 
-class wlr_view_t;
-class wlr_desktop_surface_t : public wf::desktop_surface_t, wf::keyboard_surface_t
-{
-  public:
-    std::string get_app_id() override final;
-    std::string get_title() override final;
-
-    virtual keyboard_surface_t& get_keyboard_focus() override;
-
-    role get_role() const final;
-    bool is_focuseable() const final;
-
-    std::string title, app_id;
-    role current_role = role::TOPLEVEL;
-    bool keyboard_focus_enabled = true;
-
-    // Implementation of keyboard surface
-    virtual bool accepts_focus() const override;
-    virtual void handle_keyboard_enter() override;
-    virtual void handle_keyboard_leave() override;
-    virtual void handle_keyboard_key(wlr_event_keyboard_key event) override;
-
-    virtual void close() override;
-    virtual void ping() override;
-
-    // FIXME: this is a circular dependency
-    wlr_view_t *view;
-};
-
 /**
- * Implementation of a view backed by a wlr_* shell struct.
+ * Base class for the default view controllers.
  */
-class wlr_view_t : public view_interface_t
+class wlr_view_t : public wf::view_interface_t
 {
   public:
     wlr_view_t();
@@ -154,36 +99,17 @@ class wlr_view_t : public view_interface_t
     wlr_view_t& operator =(const wlr_view_t&) = delete;
     wlr_view_t& operator =(wlr_view_t&&) = delete;
 
-    virtual wf::region_t get_transformed_opaque_region() override;
-
-    /* Functions which are further specialized for the different shells */
-    virtual void move(int x, int y) override;
-    virtual wf::geometry_t get_wm_geometry() override;
-    virtual wf::geometry_t get_output_geometry() override;
-
-    virtual bool should_be_decorated() override;
-    virtual void set_decoration_mode(bool use_csd);
-    bool has_client_decoration = true;
-
     /** @return The offset from the surface coordinates to the actual geometry */
     virtual wf::point_t get_window_offset();
-
-    virtual void close() {}
-    virtual void ping() {}
     virtual void emit_map();
 
+    wf::point_t get_origin() final;
+    bool is_mapped() const final;
+
   protected:
-    wf::wlr_desktop_surface_t *dsurface;
-
-
-    /** Used by view implementations when the app id changes */
-    void handle_app_id_changed(std::string new_app_id);
-    /** Used by view implementations when the title changes */
-    void handle_title_changed(std::string new_title);
-
-    /* Update the minimize hint */
-    void handle_minimize_hint(wf::view_interface_t *relative_to,
-        const wlr_box& hint);
+    bool mapped = false;
+    wf::point_t origin = {0, 0};
+    void set_position(wf::point_t point);
 
     /**
      * The bounding box of the view the last time it was rendered.
@@ -193,28 +119,11 @@ class wlr_view_t : public view_interface_t
      * calculate the old view region to damage.
      */
     wf::geometry_t last_bounding_box{0, 0, 0, 0};
+    void update_bbox();
 
-    /**
-     * Adjust the view position when resizing the view so that its apparent
-     * position doesn't change when resizing.
-     */
-    void adjust_anchored_edge(wf::dimensions_t new_size);
-
-    /** The output geometry of the view */
-    wf::geometry_t geometry{100, 100, 0, 0};
-
-    /** Set the view position and optionally send the geometry changed signal
-     * @param old_geometry The geometry to report as previous, in case the
-     * signal is sent. */
-    virtual void set_position(int x, int y, wf::geometry_t old_geometry,
-        bool send_geometry_signal);
-    /** Update the view size to the actual dimensions of its surface */
-    virtual void update_size();
-
-    /** Last request to the client */
-    wf::dimensions_t last_size_request = {0, 0};
-    virtual bool should_resize_client(wf::dimensions_t request,
-        wf::dimensions_t current_size);
+    wf::signal_connection_t on_toplevel_geometry_changed;
+    // Track toplevel for position, damage whenever it changes
+    void setup_toplevel_tracking();
 
     virtual void commit();
     virtual void map();
@@ -226,7 +135,23 @@ class wlr_view_t : public view_interface_t
 
 /** Emit the map signal for the given view */
 void emit_view_map_signal(wayfire_view view, bool has_position);
-void emit_ping_timeout_signal(wayfire_view view);
+void emit_ping_timeout_signal(desktop_surface_t *dsurface);
+
+/**
+ * Emit @signal_name on the @toplevel with @data as signal data.
+ * If the toplevel has an associated output, emit the signal there as well, with
+ * prefix `toplevel-`.
+ */
+void emit_toplevel_signal(wf::toplevel_t *toplevel,
+    std::string_view signal_name, wf::signal_data_t *data);
+
+/**
+ * Emit @signal_name on the @view with @data as signal data.
+ * If the view has an associated output, emit the signal there as well, with
+ * prefix `view-`.
+ */
+void emit_view_signal(wf::view_interface_t *view,
+    std::string_view signal_name, wf::signal_data_t *data);
 
 wf::surface_interface_t *wf_surface_from_void(void *handle);
 

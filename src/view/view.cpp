@@ -7,57 +7,11 @@
 #include "wayfire/view-transform.hpp"
 #include "wayfire/workspace-manager.hpp"
 #include "wayfire/render-manager.hpp"
-#include "xdg-shell.hpp"
 #include "../output/gtk-shell.hpp"
 
 #include <algorithm>
 #include <glm/glm.hpp>
 #include "wayfire/signal-definitions.hpp"
-
-static void reposition_relative_to_parent(wayfire_view view)
-{
-    if (!view->parent)
-    {
-        return;
-    }
-
-    auto parent_geometry = view->parent->get_wm_geometry();
-    auto wm_geometry     = view->get_wm_geometry();
-    auto scr_size = view->get_output()->get_screen_size();
-    // Guess which workspace the parent is on
-    wf::point_t center = {
-        parent_geometry.x + parent_geometry.width / 2,
-        parent_geometry.y + parent_geometry.height / 2,
-    };
-    wf::point_t parent_ws = {
-        (int)std::floor(1.0 * center.x / scr_size.width),
-        (int)std::floor(1.0 * center.y / scr_size.height),
-    };
-
-    auto workarea = view->get_output()->render->get_ws_box(
-        view->get_output()->workspace->get_current_workspace() + parent_ws);
-    if (view->parent->is_mapped())
-    {
-        auto parent_g = view->parent->get_wm_geometry();
-        wm_geometry.x = parent_g.x + (parent_g.width - wm_geometry.width) / 2;
-        wm_geometry.y = parent_g.y + (parent_g.height - wm_geometry.height) / 2;
-    } else
-    {
-        /* if we have a parent which still isn't mapped, we cannot determine
-         * the view's position, so we center it on the screen */
-        wm_geometry.x = workarea.width / 2 - wm_geometry.width / 2;
-        wm_geometry.y = workarea.height / 2 - wm_geometry.height / 2;
-    }
-
-    /* make sure view is visible afterwards */
-    wm_geometry = wf::clamp(wm_geometry, workarea);
-    view->move(wm_geometry.x, wm_geometry.y);
-    if ((wm_geometry.width != view->get_wm_geometry().width) ||
-        (wm_geometry.height != view->get_wm_geometry().height))
-    {
-        view->resize(wm_geometry.width, wm_geometry.height);
-    }
-}
 
 static void unset_toplevel_parent(wayfire_view view)
 {
@@ -121,12 +75,6 @@ void wf::view_interface_t::set_toplevel_parent(wayfire_view new_parent)
         }
 
         this->set_output(parent->get_output());
-        /* if the view isn't mapped, then it will be positioned properly in map() */
-        if (is_mapped())
-        {
-            reposition_relative_to_parent(self());
-        }
-
         check_refocus_parent(parent);
     } else if (old_parent)
     {
@@ -176,9 +124,9 @@ wayfire_view wf::view_interface_t::self()
     return wayfire_view(this);
 }
 
-nonstd::observer_ptr<wf::surface_interface_t> wf::view_interface_t::get_main_surface()
+const wf::surface_sptr_t& wf::view_interface_t::get_main_surface() const
 {
-    return view_impl->main_surface.get();
+    return view_impl->main_surface;
 }
 
 const wf::dsurface_sptr_t& wf::view_interface_t::dsurf() const
@@ -188,7 +136,13 @@ const wf::dsurface_sptr_t& wf::view_interface_t::dsurf() const
 
 bool wf::view_interface_t::is_mapped() const
 {
-    return view_impl->main_surface->is_mapped();
+    if (view_impl->toplevel)
+    {
+        return view_impl->toplevel->current().is_mapped;
+    } else
+    {
+        return view_impl->main_surface->is_mapped();
+    }
 }
 
 /** Set the view's output. */
@@ -248,57 +202,6 @@ wf::output_t*wf::view_interface_t::get_output()
     return view_impl->output;
 }
 
-void wf::view_interface_t::resize(int w, int h)
-{
-    /* no-op */
-}
-
-void wf::view_interface_t::set_geometry(wf::geometry_t g)
-{
-    move(g.x, g.y);
-    resize(g.width, g.height);
-}
-
-void wf::view_interface_t::set_resizing(bool resizing, uint32_t edges)
-{
-    view_impl->update_windowed_geometry(self(), get_wm_geometry());
-    /* edges are reset on the next commit */
-    if (resizing)
-    {
-        this->view_impl->edges = edges;
-    }
-
-    auto& in_resize = this->view_impl->in_continuous_resize;
-    in_resize += resizing ? 1 : -1;
-
-    if (in_resize < 0)
-    {
-        LOGE("in_continuous_resize counter dropped below 0!");
-    }
-}
-
-void wf::view_interface_t::set_moving(bool moving)
-{
-    view_impl->update_windowed_geometry(self(), get_wm_geometry());
-    auto& in_move = this->view_impl->in_continuous_move;
-
-    in_move += moving ? 1 : -1;
-    if (in_move < 0)
-    {
-        LOGE("in_continuous_move counter dropped below 0!");
-    }
-}
-
-void wf::view_interface_t::request_native_size()
-{
-    /* no-op */
-}
-
-wf::geometry_t wf::view_interface_t::get_wm_geometry()
-{
-    return get_output_geometry();
-}
-
 wlr_box wf::view_interface_t::get_bounding_box()
 {
     return transform_region(get_untransformed_bounding_box());
@@ -355,9 +258,8 @@ wf::pointf_t wf::view_interface_t::global_to_local_point(const wf::pointf_t& arg
     }
 
     /* Make cooordinates relative to the view */
-    auto og = get_output_geometry();
-    result.x -= og.x;
-    result.y -= og.y;
+    result.x += get_origin().x;
+    result.y += get_origin().y;
 
     /* Go up from the surface, finding offsets */
     while (surface && surface->get_parent() != nullptr)
@@ -397,37 +299,15 @@ wf::surface_interface_t*wf::view_interface_t::map_input_coordinates(
     return nullptr;
 }
 
-void wf::view_interface_t::set_minimized(bool minim)
-{
-    minimized = minim;
-    if (minimized)
-    {
-        view_disappeared_signal data;
-        data.view = self();
-        get_output()->emit_signal("view-disappeared", &data);
-        get_output()->workspace->add_view(self(), wf::LAYER_MINIMIZED);
-    } else
-    {
-        get_output()->workspace->add_view(self(), wf::LAYER_WORKSPACE);
-        get_output()->focus_view(self(), true);
-    }
-
-    view_minimized_signal data;
-    data.view  = self();
-    data.state = minimized;
-    this->emit_signal("minimized", &data);
-    get_output()->emit_signal("view-minimized", &data);
-}
-
 void wf::view_interface_t::set_sticky(bool sticky)
 {
-    if (this->sticky == sticky)
+    if (this->view_impl->sticky == sticky)
     {
         return;
     }
 
     damage();
-    this->sticky = sticky;
+    this->view_impl->sticky = sticky;
     damage();
 
     wf::view_set_sticky_signal data;
@@ -437,285 +317,6 @@ void wf::view_interface_t::set_sticky(bool sticky)
     if (this->get_output())
     {
         this->get_output()->emit_signal("view-set-sticky", &data);
-    }
-}
-
-void wf::view_interface_t::set_tiled(uint32_t edges)
-{
-    if (edges)
-    {
-        view_impl->update_windowed_geometry(self(), get_wm_geometry());
-    }
-
-    wf::view_tiled_signal data;
-    data.view = self();
-    data.old_edges = this->tiled_edges;
-    data.new_edges = edges;
-
-    this->tiled_edges = edges;
-    if (view_impl->frame)
-    {
-        view_impl->frame->notify_view_tiled();
-    }
-
-    this->emit_signal("tiled", &data);
-    if (this->get_output())
-    {
-        get_output()->emit_signal("view-tiled", &data);
-    }
-}
-
-void wf::view_interface_t::set_fullscreen(bool full)
-{
-    /* When fullscreening a view, we want to store the last geometry it had
-     * before getting fullscreen so that we can restore to it */
-    if (full && !fullscreen)
-    {
-        view_impl->update_windowed_geometry(self(), get_wm_geometry());
-    }
-
-    fullscreen = full;
-    if (view_impl->frame)
-    {
-        view_impl->frame->notify_view_fullscreen();
-    }
-
-    view_fullscreen_signal data;
-    data.view  = self();
-    data.state = full;
-    data.desired_size = {0, 0, 0, 0};
-
-    if (get_output())
-    {
-        get_output()->emit_signal("view-fullscreen", &data);
-    }
-
-    this->emit_signal("fullscreen", &data);
-}
-
-void wf::view_interface_t::set_activated(bool active)
-{
-    if (view_impl->frame)
-    {
-        view_impl->frame->notify_view_activated(active);
-    }
-
-    activated = active;
-}
-
-void wf::view_interface_t::move_request()
-{
-    view_move_request_signal data;
-    data.view = self();
-    get_output()->emit_signal("view-move-request", &data);
-}
-
-void wf::view_interface_t::focus_request()
-{
-    if (get_output())
-    {
-        view_focus_request_signal data;
-        data.view = self();
-        data.self_request = false;
-
-        emit_signal("view-focus-request", &data);
-        wf::get_core().emit_signal("view-focus-request", &data);
-        if (!data.carried_out)
-        {
-            wf::get_core().focus_output(get_output());
-            get_output()->ensure_visible(self());
-            get_output()->focus_view(self(), true);
-        }
-    }
-}
-
-void wf::view_interface_t::resize_request(uint32_t edges)
-{
-    view_resize_request_signal data;
-    data.view  = self();
-    data.edges = edges;
-    get_output()->emit_signal("view-resize-request", &data);
-}
-
-void wf::view_interface_t::tile_request(uint32_t edges)
-{
-    if (get_output())
-    {
-        tile_request(edges, get_output()->workspace->get_current_workspace());
-    }
-}
-
-/**
- * Put a view on the given workspace.
- */
-static void move_to_workspace(wf::view_interface_t *view, wf::point_t workspace)
-{
-    auto output = view->get_output();
-    auto wm_geometry = view->get_wm_geometry();
-    auto delta    = workspace - output->workspace->get_current_workspace();
-    auto scr_size = output->get_screen_size();
-
-    wm_geometry.x += scr_size.width * delta.x;
-    wm_geometry.y += scr_size.height * delta.y;
-    view->move(wm_geometry.x, wm_geometry.y);
-}
-
-void wf::view_interface_t::view_priv_impl::update_windowed_geometry(
-    wayfire_view self, wf::geometry_t geometry)
-{
-    if (!self->is_mapped() || self->tiled_edges || this->in_continuous_move ||
-        this->in_continuous_resize)
-    {
-        return;
-    }
-
-    this->last_windowed_geometry = geometry;
-    if (self->get_output())
-    {
-        this->windowed_geometry_workarea =
-            self->get_output()->workspace->get_workarea();
-    } else
-    {
-        this->windowed_geometry_workarea = {0, 0, -1, -1};
-    }
-}
-
-wf::geometry_t wf::view_interface_t::view_priv_impl::calculate_windowed_geometry(
-    wf::output_t *output)
-{
-    if (!output || (windowed_geometry_workarea.width <= 0))
-    {
-        return last_windowed_geometry;
-    }
-
-    const auto& geom     = last_windowed_geometry;
-    const auto& old_area = windowed_geometry_workarea;
-    const auto& new_area = output->workspace->get_workarea();
-    return {
-        .x = new_area.x + (geom.x - old_area.x) * new_area.width /
-            old_area.width,
-        .y = new_area.y + (geom.y - old_area.y) * new_area.height /
-            old_area.height,
-        .width  = geom.width * new_area.width / old_area.width,
-        .height = geom.height * new_area.height / old_area.height
-    };
-}
-
-void wf::view_interface_t::tile_request(uint32_t edges, wf::point_t workspace)
-{
-    if (fullscreen || !get_output())
-    {
-        return;
-    }
-
-    view_tile_request_signal data;
-    data.view  = self();
-    data.edges = edges;
-    data.workspace    = workspace;
-    data.desired_size = edges ? get_output()->workspace->get_workarea() :
-        view_impl->calculate_windowed_geometry(get_output());
-
-    set_tiled(edges);
-    if (is_mapped())
-    {
-        get_output()->emit_signal("view-tile-request", &data);
-    }
-
-    if (!data.carried_out)
-    {
-        if (data.desired_size.width > 0)
-        {
-            set_geometry(data.desired_size);
-        } else
-        {
-            request_native_size();
-        }
-
-        move_to_workspace(this, workspace);
-    }
-}
-
-void wf::view_interface_t::minimize_request(bool state)
-{
-    if ((state == minimized) || !is_mapped())
-    {
-        return;
-    }
-
-    view_minimize_request_signal data;
-    data.view  = self();
-    data.state = state;
-
-    if (is_mapped())
-    {
-        get_output()->emit_signal("view-minimize-request", &data);
-        /* Some plugin (e.g animate) will take care of the request, so we need
-         * to just send proper state to foreign-toplevel clients */
-        if (data.carried_out)
-        {
-            minimized = state;
-            get_output()->refocus(self());
-        } else
-        {
-            /* Do the default minimization */
-            set_minimized(state);
-        }
-    }
-}
-
-void wf::view_interface_t::fullscreen_request(wf::output_t *out, bool state)
-{
-    auto wo = (out ?: (get_output() ?: wf::get_core().get_active_output()));
-    if (wo)
-    {
-        fullscreen_request(wo, state,
-            wo->workspace->get_current_workspace());
-    }
-}
-
-void wf::view_interface_t::fullscreen_request(wf::output_t *out, bool state,
-    wf::point_t workspace)
-{
-    auto wo = (out ?: (get_output() ?: wf::get_core().get_active_output()));
-    assert(wo);
-
-    /* TODO: what happens if the view is moved to the other output, but not
-     * fullscreened? We should make sure that it stays visible there */
-    if (get_output() != wo)
-    {
-        wf::get_core().move_view_to_output(self(), wo, false);
-    }
-
-    view_fullscreen_signal data;
-    data.view  = self();
-    data.state = state;
-    data.workspace    = workspace;
-    data.desired_size = get_output()->get_relative_geometry();
-
-    if (!state)
-    {
-        data.desired_size = this->tiled_edges ?
-            this->get_output()->workspace->get_workarea() :
-            this->view_impl->calculate_windowed_geometry(get_output());
-    }
-
-    set_fullscreen(state);
-    if (is_mapped())
-    {
-        wo->emit_signal("view-fullscreen-request", &data);
-    }
-
-    if (!data.carried_out)
-    {
-        if (data.desired_size.width > 0)
-        {
-            set_geometry(data.desired_size);
-        } else
-        {
-            request_native_size();
-        }
-
-        move_to_workspace(this, workspace);
     }
 }
 
@@ -775,84 +376,6 @@ wlr_box wf::view_interface_t::get_minimize_hint()
 void wf::view_interface_t::set_minimize_hint(wlr_box hint)
 {
     this->view_impl->minimize_hint = hint;
-}
-
-bool wf::view_interface_t::should_be_decorated()
-{
-    return false;
-}
-
-nonstd::observer_ptr<wf::decorator_frame_t_t> wf::view_interface_t::get_decoration()
-{
-    return this->view_impl->frame.get();
-}
-
-void wf::view_interface_t::set_decoration(
-    std::unique_ptr<wf::decorator_frame_t_t> frame)
-{
-    if (!frame)
-    {
-        damage();
-
-        // Take wm geometry as it was with the decoration.
-        const auto wm = get_wm_geometry();
-
-        // Drop the owned frame.
-        view_impl->frame = nullptr;
-
-        // Grow the tiled view to fill its old expanded geometry that included
-        // the decoration.
-        if (!fullscreen && this->tiled_edges && (wm != get_wm_geometry()))
-        {
-            set_geometry(wm);
-        }
-
-        emit_signal("decoration-changed", nullptr);
-        return;
-    }
-
-    // Take wm geometry as it was before adding the frame */
-    auto wm = get_wm_geometry();
-
-    damage();
-    // Drop the old frame if any and assign the new one.
-    view_impl->frame = std::move(frame);
-
-    /* Calculate the wm geometry of the view after adding the decoration.
-     *
-     * If the view is neither maximized nor fullscreen, then we want to expand
-     * the view geometry so that the actual view contents retain their size.
-     *
-     * For fullscreen and maximized views we want to "shrink" the view contents
-     * so that the total wm geometry remains the same as before. */
-    wf::geometry_t target_wm_geometry;
-    if (!fullscreen && !this->tiled_edges)
-    {
-        target_wm_geometry = view_impl->frame->expand_wm_geometry(wm);
-        // make sure that the view doesn't go outside of the screen or such
-        auto wa = get_output()->workspace->get_workarea();
-        auto visible = wf::geometry_intersection(target_wm_geometry, wa);
-        if (visible != target_wm_geometry)
-        {
-            target_wm_geometry.x = wm.x;
-            target_wm_geometry.y = wm.y;
-        }
-    } else if (fullscreen)
-    {
-        target_wm_geometry = get_output()->get_relative_geometry();
-    } else if (this->tiled_edges)
-    {
-        target_wm_geometry = get_output()->workspace->get_workarea();
-    }
-
-    // notify the frame of the current size
-    view_impl->frame->notify_view_resized(get_wm_geometry());
-    // but request the target size, it will be sent to the frame on the
-    // next commit
-    set_geometry(target_wm_geometry);
-    damage();
-
-    emit_signal("decoration-changed", nullptr);
 }
 
 void wf::view_interface_t::add_transformer(
@@ -933,13 +456,12 @@ wf::geometry_t wf::view_interface_t::get_untransformed_bounding_box()
         return view_impl->offscreen_buffer.geometry;
     }
 
-    auto bbox = get_output_geometry();
-    wf::region_t bounding_region = bbox;
-
+    wf::point_t origin = get_origin();
+    wf::region_t bounding_region;
     for (auto& child : get_main_surface()->enumerate_surfaces(true))
     {
         auto dim = child.surface->output().get_size();
-        auto pos = child.position + wf::origin(bbox);
+        auto pos = child.position + origin;
         bounding_region |= wf::construct_box(pos, dim);
     }
 
@@ -1014,11 +536,11 @@ bool wf::view_interface_t::intersects_region(const wlr_box& region)
         return region & get_bounding_box();
     }
 
-    auto origin = get_output_geometry();
+    auto origin = get_origin();
     for (auto& child : get_main_surface()->enumerate_surfaces(true))
     {
         auto box = wf::construct_box(
-            child.position + wf::origin(origin),
+            child.position + origin,
             child.surface->output().get_size());
         box = transform_region(box);
 
@@ -1038,14 +560,29 @@ wf::region_t wf::view_interface_t::get_transformed_opaque_region()
         return {};
     }
 
-    auto obox = get_untransformed_bounding_box();
-    auto og   = get_output_geometry();
+    // TODO: FIXME: !!!
+    auto& maximal_shrink_constraint =
+        wf::surface_interface_t::impl::active_shrink_constraint;
+    int saved_shrink_constraint = maximal_shrink_constraint;
+
+    /* Fullscreen views take up the whole screen, so plugins can't request
+     * padding for them (nothing below is visible).
+     *
+     * In this case, we hijack the maximal_shrink_constraint, but we must
+     * restore it immediately after subtracting the opaque region */
+    if (topl() && topl()->current().fullscreen)
+    {
+        maximal_shrink_constraint = 0;
+    }
+
+    auto obox   = get_untransformed_bounding_box();
+    auto origin = get_origin();
 
     wf::region_t opaque;
     for (auto& surf : get_main_surface()->enumerate_surfaces(true))
     {
         auto surf_opaque = surf.surface->output().get_opaque_region();
-        surf_opaque += wf::origin(og) + surf.position;
+        surf_opaque += origin + surf.position;
         opaque |= surf_opaque;
     }
 
@@ -1057,6 +594,7 @@ wf::region_t wf::view_interface_t::get_transformed_opaque_region()
         bbox   = tr->transform->get_bounding_box(bbox, bbox);
     });
 
+    maximal_shrink_constraint = saved_shrink_constraint;
     return opaque;
 }
 
@@ -1225,11 +763,11 @@ const wf::framebuffer_t& wf::view_interface_t::take_snapshot()
 
     OpenGL::render_end();
 
-    auto output_geometry = get_output_geometry();
+    auto origin   = get_origin();
     auto children = get_main_surface()->enumerate_surfaces(true);
     for (auto& child : wf::reverse(children))
     {
-        auto pos = child.position + wf::origin(output_geometry);
+        auto pos = child.position + origin;
         auto child_box = wf::construct_box(
             pos, child.surface->output().get_size());
         child.surface->output().simple_render(offscreen_buffer,
@@ -1254,6 +792,22 @@ void wf::view_interface_t::set_main_surface(
 {
     assert(!this->view_impl->main_surface);
     this->view_impl->main_surface = std::move(main_surface);
+
+    view_impl->on_main_surface_damage.set_callback([=] (void *data)
+    {
+        auto ev = static_cast<wf::surface_damage_signal*>(data);
+        auto damaged = ev->damage + get_origin();
+
+        view_impl->offscreen_buffer.cached_damage |= damaged;
+        for (auto& box : damaged)
+        {
+            auto wbox = wlr_box_from_pixman_box(box);
+            view_damage_raw(self(), transform_region(wbox));
+        }
+    });
+
+    view_impl->main_surface->connect_signal("damage",
+        &view_impl->on_main_surface_damage);
 }
 
 void wf::view_interface_t::set_desktop_surface(wf::dsurface_sptr_t dsurface)
@@ -1277,23 +831,7 @@ void wf::view_interface_t::unref()
 }
 
 void wf::view_interface_t::initialize()
-{
-    view_impl->on_main_surface_damage.set_callback([=] (void *data)
-    {
-        auto ev = static_cast<wf::surface_damage_signal*>(data);
-        auto damaged = ev->damage + wf::origin(get_output_geometry());
-
-        view_impl->offscreen_buffer.cached_damage |= damaged;
-        for (auto& box : damaged)
-        {
-            auto wbox = wlr_box_from_pixman_box(box);
-            view_damage_raw(self(), transform_region(wbox));
-        }
-    });
-
-    view_impl->main_surface->connect_signal("damage",
-        &view_impl->on_main_surface_damage);
-}
+{}
 
 void wf::view_interface_t::deinitialize()
 {
@@ -1302,8 +840,6 @@ void wf::view_interface_t::deinitialize()
     {
         ch->set_toplevel_parent(nullptr);
     }
-
-    set_decoration(nullptr);
 
     this->view_impl->transforms.clear();
     this->_clear_data();
@@ -1328,7 +864,7 @@ void wf::view_damage_raw(wayfire_view view, const wlr_box& box)
     }
 
     /* Sticky views are visible on all workspaces. */
-    if (view->sticky)
+    if (view->is_sticky())
     {
         auto wsize = output->workspace->get_workspace_grid_size();
         auto cws   = output->workspace->get_current_workspace();
@@ -1359,3 +895,22 @@ void wf::view_interface_t::destruct()
     view_impl->is_alive = false;
     wf::get_core_impl().erase_view(self());
 }
+
+view_geometry_changed_signal data;
+data.view = self();
+data.old_geometry = old_geometry;
+
+view_damage_raw(self(), last_bounding_box);
+/* obox.x - wm.x is the current difference in the output and wm geometry */
+geometry.x = x + obox.x - wm.x;
+geometry.y = y + obox.y - wm.y;
+damage()
+/* Make sure that if we move the view while it is unmapped, its snapshot
+ * is still valid coordinates */
+if (view_impl->offscreen_buffer.valid())
+{
+    view_impl->offscreen_buffer.geometry.x += x - data.old_geometry.x;
+    view_impl->offscreen_buffer.geometry.y += y - data.old_geometry.y;
+}
+
+last_bounding_box = get_bounding_box();

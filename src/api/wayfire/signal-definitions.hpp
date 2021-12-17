@@ -423,29 +423,79 @@ using view_unmapped_signal = _view_signal;
 using view_set_output_signal = _output_signal;
 
 /* ----------------------------------------------------------------------------/
- * View state signals
+ * Desktop surface signals
  * -------------------------------------------------------------------------- */
+/**
+ * name: title-changed
+ * on: desktop surface
+ * when: After the desktop surface's title has changed.
+ */
+struct title_changed_signal : public wf::signal_data_t
+{
+    desktop_surface_t *dsurf;
+};
+
+/**
+ * name: app-id-changed
+ * on: desktop surface
+ * when: After the desktop surface's app-id has changed.
+ */
+struct app_id_changed_signal : public wf::signal_data_t
+{
+    desktop_surface_t *dsurf;
+};
+
+/* ----------------------------------------------------------------------------/
+ * Toplevel signals
+ * -------------------------------------------------------------------------- */
+/**
+ * name: toplevel-move-request
+ * on: output
+ * when: Whenever an interactive move is requested on the toplevel. See also
+ *   toplevel_emit_move_request()
+ */
+struct toplevel_move_request_signal : public wf::signal_data_t
+{
+    wf::optr<wf::toplevel_t> toplevel;
+};
+
+/**
+ * name: toplevel-resize-request
+ * on: output
+ * when: Whenever an interactive resize is requested on the toplevel. See also
+ *   toplevel_emit_resize_request
+ */
+struct toplevel_resize_request_signal : public wf::signal_data_t
+{
+    wf::optr<wf::toplevel_t> toplevel;
+
+    /** The requested resize edges */
+    uint32_t edges;
+};
 
 /**
  * name: minimized
- * on: view, output(view-)
- * when: After the view's minimized state changes.
+ * on: toplevel, output(toplevel-)
+ * when: After the toplevel's minimized state changes.
  */
-struct view_minimized_signal : public _view_signal
+struct toplevel_minimized_signal : public wf::signal_data_t
 {
+    wf::optr<wf::toplevel_t> toplevel;
+
     /** true is minimized, false is restored */
     bool state;
 };
 
 /**
- * name: view-minimize-request
+ * name: toplevel-minimize-request
  * on: output
- * when: Emitted whenever some entity requests that the view's minimized state
- *   changes. If no plugin is available to service the request, it is carried
- *   out by core. See view_interface_t::minimize_request()
+ * when: Emitted whenever some entity requests that the toplevels's minimized
+ *   state changes. See also toplevel_emit_minimize_request()
  */
-struct view_minimize_request_signal : public _view_signal
+struct toplevel_minimize_request_signal : public wf::signal_data_t
 {
+    wf::optr<wf::toplevel_t> toplevel;
+
     /** true is minimized, false is restored */
     bool state;
 
@@ -458,11 +508,13 @@ struct view_minimize_request_signal : public _view_signal
 
 /**
  * name: tiled
- * on: view, output(view-)
- * when: After the view's tiled edges change.
+ * on: view, output(toplevel-)
+ * when: After the toplevel's tiled edges change.
  */
-struct view_tiled_signal : public _view_signal
+struct toplevel_tiled_signal : public wf::signal_data_t
 {
+    wf::optr<wf::toplevel_t> toplevel;
+
     /** Previously tiled edges */
     uint32_t old_edges;
     /** Currently tiled edges */
@@ -470,23 +522,24 @@ struct view_tiled_signal : public _view_signal
 };
 
 /**
- * name: view-tile-request
+ * name: toplevel-tile-request
  * on: output
- * when: Emitted whenever some entity requests that the view's tiled edges
- *   change. If no plugin is available to service the request, it is carried
- *   out by core. See view_interface_t::tile_request()
+ * when: Emitted whenever some entity requests that the toplevel's tiled edges
+ *   change. See also toplevel_emit_tile_request().
  */
-struct view_tile_request_signal : public _view_signal
+struct toplevel_tile_request_signal : public wf::signal_data_t
 {
+    wf::optr<wf::toplevel_t> toplevel;
+
     /** The desired edges */
     uint32_t edges;
 
     /**
-     * The geometry the view should have. This is for example the last geometry
-     * a view had before being tiled.  The given geometry is only a hint by core
-     * and plugins may override it. It may also be undefined (0,0 0x0).
+     * The geometry the toplevel should have. This is for example the last
+     * geometry a toplevel had before being tiled.  The given geometry is only a
+     * hint and plugins may override it.
      */
-    wf::geometry_t desired_size;
+    std::optional<wf::geometry_t> desired_size;
 
     /**
      * The target workspace of the operation.
@@ -500,50 +553,111 @@ struct view_tile_request_signal : public _view_signal
     bool carried_out = false;
 };
 
-
 /**
  * name: fullscreen
- * on: view, output(view-)
- * when: After the view's fullscreen state changes.
+ * on: toplevel, output(toplevel-)
+ * when: After the toplevel's fullscreen state changes.
  */
-struct view_fullscreen_signal : public _view_signal
+struct toplevel_fullscreen_signal : public wf::signal_data_t
 {
-    /** The desired fullscreen state */
+    wf::optr<wf::toplevel_t> toplevel;
+
+    /** The new fullscreen state */
+    bool state;
+};
+
+/**
+ * name: toplevel-fullscreen-request
+ * on: output
+ * when: Emitted whenever some entity requests that the toplevels's fullscreen
+ *   state change. See also toplevel_emit_fullscreen_request()
+ */
+struct toplevel_fullscreen_request_signal : public wf::signal_data_t
+{
+    wf::optr<wf::toplevel_t> toplevel;
+
+    /** The new fullscreen state */
     bool state;
 
     /**
-     * For view-fullscreen-request:
-     *
      * Whether some plugin will service the fullscreen request, in which case
      * other plugins and core should ignore the request.
      */
     bool carried_out = false;
 
     /**
-     * For view-fullscreen-request:
-     *
-     * The geometry the view should have. This is for example the last geometry
-     * a view had before being fullscreened. The given geometry is only a hint
-     * by core and plugins may override it. It may also be undefined (0,0 0x0).
+     * The geometry the toplevel should have. This is for example the last
+     * geometry a toplevel had before being fullscreened. The given geometry is
+     * only a hint and plugins may override it.
      */
-    wf::geometry_t desired_size;
+    std::optional<wf::geometry_t> desired_size;
 
     /**
-     * For view-fullscreen-request:
-     *
      * The target workspace of the operation.
      */
     wf::point_t workspace;
 };
 
 /**
- * name: view-fullscreen-request
- * on: output
- * when: Emitted whenever some entity requests that the view's fullscreen state
- *   change. If no plugin is available to service the request, it is carried
- *   out by core. See view_interface_t::fullscreen_request()
+ * name: geometry-changed
+ * on: toplevel, output(toplevel-)
+ * when: Whenever the toplevel's geometry changes.
  */
-using view_fullscreen_request_signal = view_fullscreen_signal;
+struct toplevel_geometry_changed_signal : public wf::signal_data_t
+{
+    wf::optr<wf::toplevel_t> toplevel;
+
+    /** The old wm geometry */
+    wf::geometry_t old_geometry;
+};
+
+/**
+ * name: output-changed
+ * on: toplevel, output(toplevel-), core(toplevel-)
+ * when: Whenever the toplevel's primary output changes.
+ */
+struct toplevel_output_changed_signal : public wf::signal_data_t
+{
+    wf::optr<wf::toplevel_t> toplevel;
+
+    /** The old wm geometry */
+    wf::output_t *old_output;
+};
+
+/**
+ * name: decoration-state-updated
+ * on: toplevel, output(toplevel-)
+ * when: Whenever the value of toplevel::should_be_decorated() changes.
+ */
+struct toplevel_decoration_state_updated_signal : public wf::signal_data_t
+{
+    wf::optr<wf::toplevel_t> toplevel;
+};
+
+/**
+ * name: decoration-changed
+ * on: toplevel
+ * when: Whenever the toplevel's decoration changes.
+ * argument: unused.
+ */
+
+
+/* ----------------------------------------------------------------------------/
+ * View state signals
+ * -------------------------------------------------------------------------- */
+
+/**
+ * name: bounding-box-changed
+ * on: view, output(view-), core(view-)
+ * when: Whenever the views's bounding box changes. Due to interactions between
+ *   transformers, it is possible that the bounding box did not actually change.
+ */
+struct view_bbox_changed_signal : public wf::signal_data_t
+{
+    wayfire_view view;
+
+    wf::geometry_t old_bbox;
+};
 
 /**
  * name: view-focus-request
@@ -567,20 +681,6 @@ struct view_focus_request_signal : public _view_signal
 using view_set_sticky_signal = _view_signal;
 
 /**
- * name: title-changed
- * on: view
- * when: After the view's title has changed.
- */
-using title_changed_signal = _view_signal;
-
-/**
- * name: app-id-changed
- * on: view
- * when: After the view's app-id has changed.
- */
-using app_id_changed_signal = _view_signal;
-
-/**
  * name: view-show-window-menu
  * on: output, core
  * when: To show a menu with window related actions.
@@ -589,17 +689,6 @@ struct view_show_window_menu_signal : public _view_signal
 {
     /** The position as requested by the client, in surface coordinates */
     wf::point_t relative_position;
-};
-
-/**
- * name: geometry-changed
- * on: view, output(view-), core(view-)
- * when: Whenever the view's wm geometry changes.
- */
-struct view_geometry_changed_signal : public _view_signal
-{
-    /** The old wm geometry */
-    wf::geometry_t old_geometry;
 };
 
 /**
@@ -628,26 +717,15 @@ struct view_change_workspace_signal : public _view_signal
  */
 
 /**
- * name: decoration-state-updated
- * on: view, output(view-)
- * when: Whenever the value of view::should_be_decorated() changes.
- */
-using view_decoration_state_updated_signal = _view_signal;
-
-/**
- * name: decoration-changed
- * on: view
- * when: Whenever the view's decoration changes.
- * argument: unused.
- */
-
-/**
  * name: ping-timeout
- * on: view
+ * on: desktop surface
  * when: Whenever the client fails to respond to a ping request within
  *   the expected time(10 seconds).
  */
-using view_ping_timeout_signal = _view_signal;
+struct dsurface_ping_timeout_signal : public wf::signal_data_t
+{
+    desktop_surface_t *dsurface;
+};
 
 /* ----------------------------------------------------------------------------/
  * View <-> output signals
@@ -729,26 +807,6 @@ using view_disappeared_signal = _view_signal;
  * argument: The newly focused view.
  */
 using focus_view_signal = _view_signal;
-
-/**
- * name: view-move-request
- * on: output
- * when: Whenever an interactive move is requested on the view. See also
- *   view_interface_t::move_request()
- */
-using view_move_request_signal = _view_signal;
-
-/**
- * name: view-resize-request
- * on: output
- * when: Whenever an interactive resize is requested on the view. See also
- *   view_interface_t::resize_request()
- */
-struct view_resize_request_signal : public _view_signal
-{
-    /** The requested resize edges */
-    uint32_t edges;
-};
 
 /**
  * name: hints-changed

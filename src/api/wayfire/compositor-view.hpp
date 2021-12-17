@@ -114,6 +114,8 @@ class solid_bordered_surface_t : public wf::output_surface_t,
 /**
  * color_rect_view_t represents another common type of compositor view - a
  * view which is simply a colored rectangle with a border.
+ *
+ * Color views do not have an associated toplevel.
  */
 class color_rect_view_t : public wf::view_interface_t,
     public wf::no_keyboard_input_surface_t
@@ -134,10 +136,13 @@ class color_rect_view_t : public wf::view_interface_t,
      */
     nonstd::observer_ptr<solid_bordered_surface_t> get_color_surface() const;
 
+    /**
+     * Set the color view's geometry.
+     * This will also change the size of its backing color surface.
+     */
+    virtual void set_geometry(wf::geometry_t geometry);
+
     /* required for view_interface_t */
-    virtual void move(int x, int y) override;
-    virtual void resize(int w, int h) override;
-    virtual wf::geometry_t get_output_geometry() override;
-    virtual bool should_be_decorated() override;
+    virtual wf::point_t get_origin() override;
 };
 }

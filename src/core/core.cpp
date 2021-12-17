@@ -641,12 +641,27 @@ std::vector<wayfire_view> wf::compositor_core_t::find_views_with_surface(
 }
 
 std::vector<wayfire_view> wf::compositor_core_t::find_views_with_dsurface(
-    wf::desktop_surface_t* dsurf)
+    wf::desktop_surface_t *dsurf)
 {
     std::vector<wayfire_view> result;
     for (auto view : get_all_views())
     {
         if (view->dsurf().get() == dsurf)
+        {
+            result.push_back(view);
+        }
+    }
+
+    return result;
+}
+
+std::vector<wayfire_view> wf::compositor_core_t::find_views_with_toplevel(
+    wf::toplevel_t *toplevel)
+{
+    std::vector<wayfire_view> result;
+    for (auto view : get_all_views())
+    {
+        if (view->topl().get() == toplevel)
         {
             result.push_back(view);
         }
