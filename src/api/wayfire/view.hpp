@@ -24,12 +24,6 @@ using wayfire_view = nonstd::observer_ptr<wf::view_interface_t>;
 namespace wf
 {
 class output_t;
-/**
- * A bitmask consisting of all tiled edges.
- * This corresponds to a maximized state.
- */
-constexpr uint32_t TILED_EDGES_ALL =
-    WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT | WLR_EDGE_RIGHT;
 
 /**
  * view_interface_t is the base class for all "toplevel windows", i.e surfaces
@@ -95,45 +89,6 @@ class view_interface_t : public wf::object_base_t
      */
     virtual wf::output_t *get_output();
 
-    /** Move the view to the given output-local coordinates.  */
-    virtual void move(int x, int y) = 0;
-
-    /**
-     * Request that the view change its size to the given dimensions. The view
-     * is not obliged to assume the given dimensions.
-     *
-     * Maximized and tiled views typically do obey the resize request.
-     */
-    virtual void resize(int w, int h);
-
-    /**
-     * A convenience function, has the same effect as calling move and resize
-     * atomically.
-     */
-    virtual void set_geometry(wf::geometry_t g);
-
-    /**
-     * Start a resizing mode for this view. While a view is resizing, one edge
-     * or corner of the view is made immobile (exactly the edge/corner opposite
-     * to the edges which are set as resizing)
-     *
-     * @param resizing whether to enable or disable resizing mode
-     * @param edges the edges which are being resized
-     */
-    virtual void set_resizing(bool resizing, uint32_t edges = 0);
-
-    /**
-     * Set the view in moving mode.
-     *
-     * @param moving whether to enable or disable moving mode
-     */
-    virtual void set_moving(bool moving);
-
-    /**
-     * Request that the view resizes to its native size.
-     */
-    virtual void request_native_size();
-
     /**
      * The wm geometry of the view is the portion of the view surface that
      * contains the actual contents, for example, without the view shadows, etc.
@@ -178,33 +133,6 @@ class view_interface_t : public wf::object_base_t
      */
     virtual wf::pointf_t global_to_local_point(const wf::pointf_t& arg,
         surface_interface_t *surface);
-
-    /** Whether the view is in fullscreen state, usually you want to use either
-     * set_fullscreen() or fullscreen_request() */
-    bool fullscreen = false;
-    /** Whether the view is in activated state, usually you want to use either
-     * set_activated() or focus_request() */
-    bool activated = false;
-    /** Whether the view is in minimized state, usually you want to use either
-     * set_minimized() or minimize_request() */
-    bool minimized = false;
-    /** Whether the view is sticky. If a view is sticky it will not be affected
-     * by changes of the current workspace. */
-    bool sticky = false;
-    /** The tiled edges of the view, usually you want to use set_tiled().
-     * If the view is tiled to all edges, it is considered maximized. */
-    uint32_t tiled_edges = 0;
-
-    /** Set the minimized state of the view. */
-    virtual void set_minimized(bool minimized);
-    /** Set the tiled edges of the view */
-    virtual void set_tiled(uint32_t edges);
-    /** Set the fullscreen state of the view */
-    virtual void set_fullscreen(bool fullscreen);
-    /** Set the view's activated state.  */
-    virtual void set_activated(bool active);
-    /** Set the view's sticky state. */
-    virtual void set_sticky(bool sticky);
 
     /** Request that an interactive move starts for this view */
     virtual void move_request();
