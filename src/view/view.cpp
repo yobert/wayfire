@@ -110,7 +110,6 @@ void wf::view_interface_t::set_toplevel_parent(wayfire_view new_parent)
         }
 
         parent = new_parent;
-        desktop_state_updated();
     }
 
     if (parent)
@@ -418,8 +417,6 @@ void wf::view_interface_t::set_minimized(bool minim)
     data.state = minimized;
     this->emit_signal("minimized", &data);
     get_output()->emit_signal("view-minimized", &data);
-
-    desktop_state_updated();
 }
 
 void wf::view_interface_t::set_sticky(bool sticky)
@@ -466,8 +463,6 @@ void wf::view_interface_t::set_tiled(uint32_t edges)
     {
         get_output()->emit_signal("view-tiled", &data);
     }
-
-    desktop_state_updated();
 }
 
 void wf::view_interface_t::set_fullscreen(bool full)
@@ -496,7 +491,6 @@ void wf::view_interface_t::set_fullscreen(bool full)
     }
 
     this->emit_signal("fullscreen", &data);
-    desktop_state_updated();
 }
 
 void wf::view_interface_t::set_activated(bool active)
@@ -507,12 +501,6 @@ void wf::view_interface_t::set_activated(bool active)
     }
 
     activated = active;
-    desktop_state_updated();
-}
-
-void wf::view_interface_t::desktop_state_updated()
-{
-    /* no-op */
 }
 
 void wf::view_interface_t::move_request()
@@ -666,7 +654,6 @@ void wf::view_interface_t::minimize_request(bool state)
         if (data.carried_out)
         {
             minimized = state;
-            desktop_state_updated();
             get_output()->refocus(self());
         } else
         {

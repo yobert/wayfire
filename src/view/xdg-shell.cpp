@@ -321,7 +321,6 @@ wf::geometry_t get_xdg_geometry(wlr_xdg_toplevel *toplevel)
 void wayfire_xdg_view::map()
 {
     wlr_view_t::map();
-    create_toplevel();
 }
 
 void wayfire_xdg_view::commit()

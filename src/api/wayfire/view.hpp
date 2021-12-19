@@ -489,11 +489,6 @@ class view_interface_t : public wf::object_base_t
      * accessed after destruct() is called.
      */
     virtual void destruct();
-
-    /**
-     * Called whenever the minimized, tiled, fullscreened
-     * or activated state changes */
-    virtual void desktop_state_updated();
 };
 
 wayfire_view wl_surface_to_wayfire_view(wl_resource *surface);

@@ -163,7 +163,6 @@ class wlr_view_t : public view_interface_t
 
     virtual bool should_be_decorated() override;
     virtual void set_decoration_mode(bool use_csd);
-    virtual void set_output(wf::output_t*) override;
     bool has_client_decoration = true;
 
     /** @return The offset from the surface coordinates to the actual geometry */
@@ -223,33 +222,6 @@ class wlr_view_t : public view_interface_t
 
     /* Handle the destruction of the underlying wlroots object */
     virtual void destroy();
-
-    /*
-     * wlr_foreign_toplevel_v1 implementation functions
-     */
-
-    /* The toplevel is created by the individual view's mapping functions,
-     * i.e in xdg-shell, xwayland, etc.
-     * The handle is automatically destroyed when the view is unmapped */
-    wlr_foreign_toplevel_handle_v1 *toplevel_handle = NULL;
-
-    wf::wl_listener_wrapper toplevel_handle_v1_maximize_request,
-        toplevel_handle_v1_activate_request,
-        toplevel_handle_v1_minimize_request,
-        toplevel_handle_v1_set_rectangle_request,
-        toplevel_handle_v1_close_request;
-
-    /* Create/destroy the toplevel_handle */
-    virtual void create_toplevel();
-    virtual void destroy_toplevel();
-
-    /* The following are no-op if toplevel_handle == NULL */
-    virtual void toplevel_send_title();
-    virtual void toplevel_send_app_id();
-    virtual void toplevel_send_state();
-    virtual void toplevel_update_output(wf::output_t *output, bool enter);
-
-    virtual void desktop_state_updated() override;
 };
 
 /** Emit the map signal for the given view */
