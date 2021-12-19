@@ -3,12 +3,10 @@
 #include <vector>
 #include <wayfire/nonstd/observer_ptr.h>
 
-#include "wayfire/surface.hpp"
-#include "wayfire/geometry.hpp"
-#include "wayfire/decorator.hpp"
-#include <wayfire/nonstd/wlroots.hpp>
+#include <wayfire/surface.hpp>
 #include <wayfire/region.hpp>
 #include <wayfire/desktop-surface.hpp>
+#include <wayfire/toplevel.hpp>
 
 namespace wf
 {
@@ -88,21 +86,6 @@ class view_interface_t : public wf::object_base_t
      * Get the view's output.
      */
     virtual wf::output_t *get_output();
-
-    /**
-     * The wm geometry of the view is the portion of the view surface that
-     * contains the actual contents, for example, without the view shadows, etc.
-     *
-     * @return The wm geometry of the view.
-     */
-    virtual wf::geometry_t get_wm_geometry();
-
-    /**
-     * @return the geometry of the view. Coordinates are relative to the current
-     * workspace of the view's output, or with undefined origin if the view is
-     * not on any output. This doesn't take into account the view's transformers.
-     */
-    virtual wf::geometry_t get_output_geometry() = 0;
 
     /**
      * @return The bounding box of the view, which includes all (sub)surfaces,
@@ -195,24 +178,6 @@ class view_interface_t : public wf::object_base_t
      * @param hint The new minimize target rectangle, in output-local coordinates.
      */
     virtual void set_minimize_hint(wlr_box hint);
-    /** @return true if the view needs decorations */
-    virtual bool should_be_decorated();
-
-    /**
-     * Set the decoration surface for the view.
-     *
-     * @param frame The surface to be set as a decoration.
-     *
-     * The life-time of the decoration frame is managed by the view itself, so after
-     * calling this function you probably want to drop any references that you
-     * hold (excluding the default one)
-     */
-    virtual void set_decoration(std::unique_ptr<decorator_frame_t_t> frame);
-
-    /**
-     * Get the decoration frame for a view. May be nullptr.
-     */
-    virtual nonstd::observer_ptr<decorator_frame_t_t> get_decoration();
 
     /*
      *                        View transforms

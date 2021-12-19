@@ -3,6 +3,7 @@
 #include <wayfire/geometry.hpp>
 #include <wayfire/output.hpp>
 #include <wayfire/nonstd/wlroots.hpp>
+#include <wayfire/decorator.hpp>
 
 namespace wf
 {
@@ -149,5 +150,19 @@ class toplevel_t
     virtual void request_native_size();
 
     virtual void set_output(wf::output_t *new_output);
+
+    /** @return true if the view needs decorations */
+    virtual bool should_be_decorated();
+
+    /**
+     * Set the decoration surface for the view.
+     *
+     * @param frame The surface to be set as a decoration.
+     *
+     * The life-time of the decoration frame is managed by the view itself, so after
+     * calling this function you probably want to drop any references that you
+     * hold (excluding the default one)
+     */
+    virtual void set_decoration(std::unique_ptr<decorator_frame_t_t> frame);
 };
 }
