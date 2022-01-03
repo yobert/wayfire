@@ -21,7 +21,6 @@ class wayfire_xdg_popup : public wf::wlr_view_t
 
   public:
     wayfire_xdg_popup(wlr_xdg_popup *popup);
-    void initialize() override;
 
     wlr_view_t *popup_parent;
     virtual void map() override;
@@ -49,9 +48,6 @@ class wayfire_xdg_view : public wf::wlr_view_t
     wlr_xdg_toplevel *xdg_toplevel;
     uint32_t last_configure_serial = 0;
 
-  protected:
-    void initialize() override final;
-
   public:
     wayfire_xdg_view(wlr_xdg_toplevel *toplevel);
     virtual ~wayfire_xdg_view();
@@ -60,14 +56,13 @@ class wayfire_xdg_view : public wf::wlr_view_t
     void commit() final;
 
     wf::point_t get_window_offset() final;
-    wf::geometry_t get_wm_geometry() final;
 
     void set_tiled(uint32_t edges) final;
     void set_activated(bool act) final;
     void set_fullscreen(bool full) final;
+    void set_geometry(wf::geometry_t) final;
 
-    void resize(int w, int h) final;
-    void request_native_size() override final;
+    void request_native_size() final;
 
     void destroy() final;
     void close() final;

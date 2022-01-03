@@ -655,6 +655,21 @@ std::vector<wayfire_view> wf::compositor_core_t::find_views_with_dsurface(
     return result;
 }
 
+std::vector<wayfire_view> wf::compositor_core_t::find_views_with_toplevel(
+    wf::toplevel_t* toplevel)
+{
+    std::vector<wayfire_view> result;
+    for (auto view : get_all_views())
+    {
+        if (view->topl().get() == toplevel)
+        {
+            result.push_back(view);
+        }
+    }
+
+    return result;
+}
+
 /* sets the "active" view and gives it keyboard focus
  *
  * It maintains two different classes of "active views"

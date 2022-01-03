@@ -12,7 +12,7 @@
 
 bool wf::wlr_desktop_surface_t::accepts_focus() const
 {
-    return view->is_mapped() && keyboard_focus_enabled;
+    return keyboard_focus_enabled;
 }
 
 void wf::wlr_desktop_surface_t::handle_keyboard_enter()
@@ -57,6 +57,56 @@ void wf::wlr_desktop_surface_t::close()
 void wf::wlr_desktop_surface_t::ping()
 {
     view->ping();
+}
+
+        /* if the view isn't mapped, then it will be positioned properly in map() */
+        if (is_mapped())
+        {
+            reposition_relative_to_parent(self());
+        }
+
+static void reposition_relative_to_parent(wayfire_view view)
+{
+    if (!view->parent)
+    {
+        return;
+    }
+
+    auto parent_geometry = view->parent->get_wm_geometry();
+    auto wm_geometry     = view->get_wm_geometry();
+    auto scr_size = view->get_output()->get_screen_size();
+    // Guess which workspace the parent is on
+    wf::point_t center = {
+        parent_geometry.x + parent_geometry.width / 2,
+        parent_geometry.y + parent_geometry.height / 2,
+    };
+    wf::point_t parent_ws = {
+        (int)std::floor(1.0 * center.x / scr_size.width),
+        (int)std::floor(1.0 * center.y / scr_size.height),
+    };
+
+    auto workarea = view->get_output()->render->get_ws_box(
+        view->get_output()->workspace->get_current_workspace() + parent_ws);
+    if (view->parent->is_mapped())
+    {
+        auto parent_g = view->parent->get_wm_geometry();
+        wm_geometry.x = parent_g.x + (parent_g.width - wm_geometry.width) / 2;
+        wm_geometry.y = parent_g.y + (parent_g.height - wm_geometry.height) / 2;
+    } else
+    {
+        /* if we have a parent which still isn't mapped, we cannot determine
+         * the view's position, so we center it on the screen */
+        wm_geometry.x = workarea.width / 2 - wm_geometry.width / 2;
+        wm_geometry.y = workarea.height / 2 - wm_geometry.height / 2;
+    }
+
+    /* make sure view is visible afterwards */
+    wm_geometry = wf::clamp(wm_geometry, workarea);
+    view->move(wm_geometry.x, wm_geometry.y);
+    if (wf::dimensions(wm_geometry) != wf::dimensions_t(wm_geometry))
+    {
+        view->resize(wm_geometry.width, wm_geometry.height);
+    }
 }
 
 wf::wlr_view_t::wlr_view_t() : wf::view_interface_t(nullptr)
@@ -112,28 +162,6 @@ void wf::wlr_view_t::handle_minimize_hint(wf::view_interface_t *relative_to,
     box.height = hint.height;
 
     set_minimize_hint(box);
-}
-
-wf::region_t wf::wlr_view_t::get_transformed_opaque_region()
-{
-    auto& maximal_shrink_constraint =
-        wf::surface_interface_t::impl::active_shrink_constraint;
-    int saved_shrink_constraint = maximal_shrink_constraint;
-
-    /* Fullscreen views take up the whole screen, so plugins can't request
-     * padding for them (nothing below is visible).
-     *
-     * In this case, we hijack the maximal_shrink_constraint, but we must
-     * restore it immediately after subtracting the opaque region */
-    if (this->fullscreen)
-    {
-        maximal_shrink_constraint = 0;
-    }
-
-    auto region = wf::view_interface_t::get_transformed_opaque_region();
-    maximal_shrink_constraint = saved_shrink_constraint;
-
-    return region;
 }
 
 void wf::wlr_view_t::set_position(int x, int y,
@@ -463,4 +491,130 @@ wayfire_view wf::wl_surface_to_wayfire_view(wl_resource *resource)
 
     wf::view_interface_t *view = static_cast<wf::view_interface_t*>(handle);
     return view ? view->self() : nullptr;
+}
+
+
+void wf::view_interface_t::set_resizing(bool resizing, uint32_t edges)
+{
+    view_impl->update_windowed_geometry(self(), get_wm_geometry());
+    /* edges are reset on the next commit */
+    if (resizing)
+    {
+        this->view_impl->edges = edges;
+    }
+
+    auto& in_resize = this->view_impl->in_continuous_resize;
+    in_resize += resizing ? 1 : -1;
+
+    if (in_resize < 0)
+    {
+        LOGE("in_continuous_resize counter dropped below 0!");
+    }
+}
+
+void wf::view_interface_t::set_moving(bool moving)
+{
+    view_impl->update_windowed_geometry(self(), get_wm_geometry());
+    auto& in_move = this->view_impl->in_continuous_move;
+
+    in_move += moving ? 1 : -1;
+    if (in_move < 0)
+    {
+        LOGE("in_continuous_move counter dropped below 0!");
+    }
+}
+
+void wf::view_interface_t::request_native_size()
+{
+    /* no-op */
+}
+
+wf::geometry_t wf::view_interface_t::get_wm_geometry()
+{
+    return get_output_geometry();
+}
+void wf::view_interface_t::set_minimized(bool minim)
+{
+    minimized = minim;
+    if (minimized)
+    {
+        view_disappeared_signal data;
+        data.view = self();
+        get_output()->emit_signal("view-disappeared", &data);
+        get_output()->workspace->add_view(self(), wf::LAYER_MINIMIZED);
+    } else
+    {
+        get_output()->workspace->add_view(self(), wf::LAYER_WORKSPACE);
+        get_output()->focus_view(self(), true);
+    }
+
+    view_minimized_signal data;
+    data.view  = self();
+    data.state = minimized;
+    this->emit_signal("minimized", &data);
+    get_output()->emit_signal("view-minimized", &data);
+}
+
+
+void wf::view_interface_t::set_tiled(uint32_t edges)
+{
+    if (edges)
+    {
+        view_impl->update_windowed_geometry(self(), get_wm_geometry());
+    }
+
+    wf::view_tiled_signal data;
+    data.view = self();
+    data.old_edges = this->tiled_edges;
+    data.new_edges = edges;
+
+    this->tiled_edges = edges;
+    if (view_impl->frame)
+    {
+        view_impl->frame->notify_view_tiled();
+    }
+
+    this->emit_signal("tiled", &data);
+    if (this->get_output())
+    {
+        get_output()->emit_signal("view-tiled", &data);
+    }
+}
+
+void wf::view_interface_t::set_fullscreen(bool full)
+{
+    /* When fullscreening a view, we want to store the last geometry it had
+     * before getting fullscreen so that we can restore to it */
+    if (full && !fullscreen)
+    {
+        view_impl->update_windowed_geometry(self(), get_wm_geometry());
+    }
+
+    fullscreen = full;
+    if (view_impl->frame)
+    {
+        view_impl->frame->notify_view_fullscreen();
+    }
+
+    view_fullscreen_signal data;
+    data.view  = self();
+    data.state = full;
+    data.desired_size = {0, 0, 0, 0};
+
+    if (get_output())
+    {
+        get_output()->emit_signal("view-fullscreen", &data);
+    }
+
+    this->emit_signal("fullscreen", &data);
+}
+
+void wf::view_interface_t::set_activated(bool active)
+{
+    if (view_impl->frame)
+    {
+        view_impl->frame->notify_view_activated(active);
+    }
+
+    activated = active;
 }

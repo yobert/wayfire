@@ -56,6 +56,7 @@ class view_interface_t::view_priv_impl
      */
     void update_windowed_geometry(wayfire_view self, wf::geometry_t geometry);
 
+    bool sticky = false;
     std::unique_ptr<wf::decorator_frame_t_t> frame = nullptr;
 
     uint32_t edges = 0;
@@ -85,8 +86,9 @@ class view_interface_t::view_priv_impl
 
     wf::output_t *output = nullptr;
 
-    std::shared_ptr<wf::surface_interface_t> main_surface;
+    surface_sptr_t main_surface;
     dsurface_sptr_t desktop_surface;
+    toplevel_sptr_t toplevel; // can be NULL
 
   private:
     /** Last geometry the view has had in non-tiled and non-fullscreen state.
@@ -144,7 +146,7 @@ class wlr_desktop_surface_t : public wf::desktop_surface_t, wf::keyboard_surface
 /**
  * Implementation of a view backed by a wlr_* shell struct.
  */
-class wlr_view_t : public view_interface_t
+class wlr_view_t : public toplevel_t
 {
   public:
     wlr_view_t();
@@ -153,13 +155,6 @@ class wlr_view_t : public view_interface_t
     wlr_view_t(wlr_view_t &&) = delete;
     wlr_view_t& operator =(const wlr_view_t&) = delete;
     wlr_view_t& operator =(wlr_view_t&&) = delete;
-
-    virtual wf::region_t get_transformed_opaque_region() override;
-
-    /* Functions which are further specialized for the different shells */
-    virtual void move(int x, int y) override;
-    virtual wf::geometry_t get_wm_geometry() override;
-    virtual wf::geometry_t get_output_geometry() override;
 
     virtual bool should_be_decorated() override;
     virtual void set_decoration_mode(bool use_csd);
@@ -174,7 +169,6 @@ class wlr_view_t : public view_interface_t
 
   protected:
     wf::wlr_desktop_surface_t *dsurface;
-
 
     /** Used by view implementations when the app id changes */
     void handle_app_id_changed(std::string new_app_id);

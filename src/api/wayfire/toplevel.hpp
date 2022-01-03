@@ -1,12 +1,15 @@
 #pragma once
 
+#include <memory>
+#include <wayfire/nonstd/observer_ptr.h>
+#include <wayfire/object.hpp>
 #include <wayfire/geometry.hpp>
-#include <wayfire/output.hpp>
 #include <wayfire/nonstd/wlroots.hpp>
 #include <wayfire/decorator.hpp>
 
 namespace wf
 {
+class output_t;
 /**
  * A bitmask consisting of all tiled edges.
  * This corresponds to a maximized state.
@@ -19,6 +22,15 @@ constexpr uint32_t TILED_EDGES_ALL =
  */
 struct toplevel_state_t
 {
+    /**
+     * Whether the toplevel is mapped.
+     * Mapped toplevels are typically the toplevels which the user can interact
+     * with. Unmapped toplevels have either been created but not fully
+     * initialized yet, or were mapped at some point and then unmapped, which
+     * made them unavailable for user interaction until they are mapped again.
+     */
+    bool is_mapped = false;
+
     /**
      * The primary output of a toplevel.
      * The toplevel may be displayed on zero or more outputs by creating views
@@ -67,19 +79,12 @@ struct toplevel_state_t
     bool minimized = false;
 
     /**
-     * The sticky state of the toplevel.
-     * If a toplevel is sticky, then its position is and should be adjusted
-     * so that it is always visible on the current workspace.
-     */
-    bool sticky = false;
-
-    /**
      * The tiled edges of a toplevel.
      * If a toplevel is tiled to an edge, usually there is another surface
      * or an output edge right next to that edge. Clients typically hide
      * shadows and other decorative elements on these edges.
      *
-     * If all tiled edges are set, then the view is effectively maximized.
+     * If all tiled edges are set, then the toplevel is effectively maximized.
      */
     uint32_t tiled_edges = 0;
 };
@@ -88,7 +93,7 @@ struct toplevel_state_t
  * Toplevels are desktop surfaces which represent application windows only.
  * They have additional configurable state like geometry, tiled edges, etc.
  */
-class toplevel_t
+class toplevel_t : public wf::object_base_t
 {
   public:
     toplevel_t(const toplevel_t&) = delete;
@@ -97,72 +102,110 @@ class toplevel_t
     toplevel_t& operator =(toplevel_t&&) = delete;
     virtual ~toplevel_t() = default;
 
+    /**
+     * Get the parent of the toplevel, if it exists.
+     * Null otherwise.
+     */
+    virtual nonstd::observer_ptr<toplevel_t> get_parent() = 0;
+
+    /**
+     * Check whether the toplevel should have server-side decorations.
+     *
+     * Not all toplevels should have these, as many clients provide client-side
+     * decorations or explicitly request that their toplevel remain undecorated
+     * via protocols like xdg-decoration.
+     */
+    virtual bool should_be_decorated() = 0;
+
+    /**
+     * Get the current state of the toplevel.
+     */
     virtual toplevel_state_t& current() = 0;
 
-    /** Set the minimized state of the view. */
-    virtual void set_minimized(bool minimized);
-    /** Set the tiled edges of the view */
-    virtual void set_tiled(uint32_t edges);
-    /** Set the fullscreen state of the view */
-    virtual void set_fullscreen(bool fullscreen);
-    /** Set the view's activated state.  */
-    virtual void set_activated(bool active);
-    /** Set the view's sticky state. */
-    virtual void set_sticky(bool sticky);
-
-    /** Move the view to the given output-local coordinates.  */
-    virtual void move(int x, int y) = 0;
-
     /**
-     * Request that the view change its size to the given dimensions. The view
-     * is not obliged to assume the given dimensions.
+     * Get the pending state of the toplevel.
      *
-     * Maximized and tiled views typically do obey the resize request.
+     * The pending state includes future changes which have been requested by
+     * the compositor or plugins but require update from the client.
      */
-    virtual void resize(int w, int h);
+    virtual toplevel_state_t& pending() = 0;
+
+    /** Set the minimized state of the toplevel. */
+    virtual void set_minimized(bool minimized) = 0;
+    /** Set the tiled edges of the toplevel */
+    virtual void set_tiled(uint32_t edges) = 0;
+    /** Set the fullscreen state of the toplevel */
+    virtual void set_fullscreen(bool fullscreen) = 0;
+    /** Set the toplevel's activated state.  */
+    virtual void set_activated(bool active) = 0;
 
     /**
-     * A convenience function, has the same effect as calling move and resize
-     * atomically.
+     * Request that the toplevel's geometry changes.
+     *
+     * The position of the toplevel will usually change according to the
+     * request, but the clients are free to disobey a resize request.
      */
-    virtual void set_geometry(wf::geometry_t g);
+    virtual void set_geometry(wf::geometry_t g) = 0;
 
     /**
-     * Start a resizing mode for this view. While a view is resizing, one edge
-     * or corner of the view is made immobile (exactly the edge/corner opposite
-     * to the edges which are set as resizing)
+     * Set the primary output of this toplevel.
+     * The primary output is a hint for plugins so that they may ignore
+     * toplevels which are visible on a certain output but do not logically
+     * belong to it.
+     *
+     * For example, if a toplevel is between two outputs and the workspace on
+     * its primary output changes, it will be moved out of view. However, if the
+     * workspace on a non-primary output changes, the toplevel will remain where
+     * it was before the change.
+     */
+    virtual void set_output(wf::output_t *new_output) = 0;
+
+    /**
+     * Indicate that the toplevel is being continuously moved by a plugin.
+     *
+     * @param moving whether to enable or disable moving mode
+     */
+    virtual void set_moving(bool moving) = 0;
+
+    /**
+     * @return Whether the toplevel is in a continous move operation.
+     */
+    virtual bool is_moving() = 0;
+
+    /**
+     * Start a resizing mode for this toplevel. While a toplevel is resizing,
+     * one edge or corner of the toplevel is made immobile (exactly the
+     * edge/corner opposite to the edges which are set as resizing)
      *
      * @param resizing whether to enable or disable resizing mode
      * @param edges the edges which are being resized
      */
-    virtual void set_resizing(bool resizing, uint32_t edges = 0);
+    virtual void set_resizing(bool resizing, uint32_t edges = 0) = 0;
 
     /**
-     * Set the view in moving mode.
-     *
-     * @param moving whether to enable or disable moving mode
+     * @return Whether the toplevel is in a continous resize operation.
      */
-    virtual void set_moving(bool moving);
+    virtual bool is_resizing() = 0;
 
     /**
-     * Request that the view resizes to its native size.
+     * Request that the toplevel resizes to its default size.
      */
-    virtual void request_native_size();
-
-    virtual void set_output(wf::output_t *new_output);
-
-    /** @return true if the view needs decorations */
-    virtual bool should_be_decorated();
+    virtual void request_native_size() = 0;
 
     /**
-     * Set the decoration surface for the view.
+     * Set the decorator for the toplevel.
      *
-     * @param frame The surface to be set as a decoration.
+     * The decorator simply controls how big the decorations around the toplevel
+     * are. To actually display the decorations, you should add a custom surface
+     * to the surface tree of this toplevel.
      *
-     * The life-time of the decoration frame is managed by the view itself, so after
-     * calling this function you probably want to drop any references that you
-     * hold (excluding the default one)
+     * @param frame The decorator for the surface. To avoid conflicts, plugins
+     *   which provide decorations are advised to activate with the DECORATOR
+     *   capability, as this call overrides the decorator set by previous calls
+     *   to this method.
      */
-    virtual void set_decoration(std::unique_ptr<decorator_frame_t_t> frame);
+    virtual void set_decoration(std::unique_ptr<decorator_frame_t_t> frame) = 0;
 };
+
+using toplevel_sptr_t = std::shared_ptr<toplevel_t>;
 }

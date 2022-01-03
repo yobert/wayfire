@@ -14,6 +14,7 @@ class view_interface_t;
 class decorator_frame_t_t;
 class view_transformer_t;
 
+using surface_sptr_t = std::shared_ptr<surface_interface_t>;
 using dsurface_sptr_t = std::shared_ptr<desktop_surface_t>;
 }
 
@@ -31,8 +32,8 @@ class view_interface_t : public wf::object_base_t
 {
   public:
     /**
-     * The toplevel parent of the view, for ex. the main view of a file chooser
-     * dialogue.
+     * The parent of the view, for ex. the main view of a file chooser dialogue.
+     * This usually corresponds with the parent of the view's toplevel_t parent.
      */
     wayfire_view parent = nullptr;
 
@@ -42,9 +43,20 @@ class view_interface_t : public wf::object_base_t
     std::vector<wayfire_view> children;
 
     /**
+     * Get the view's main surface.
+     */
+    const surface_sptr_t& get_main_surface() const;
+
+    /**
      * Get the desktop surface associated with this view.
      */
     const dsurface_sptr_t& dsurf() const;
+
+    /**
+     * Get the toplevel associated with this view, if it exists.
+     * Not all views must have an associated toplevel.
+     */
+    const toplevel_sptr_t& topl() const;
 
     /**
      * Generate a list of all views in the view's tree.
@@ -70,28 +82,25 @@ class view_interface_t : public wf::object_base_t
     wayfire_view self();
 
     /**
-     * Get the view's main surface.
-     */
-    nonstd::observer_ptr<wf::surface_interface_t> get_main_surface();
-
-    /**
      * Set the view's output.
      *
      * If the new output is different from the previous, the view will be
      * removed from the layer it was on the old output.
      */
-    virtual void set_output(wf::output_t *new_output);
+    void set_output(wf::output_t *new_output);
 
     /**
      * Get the view's output.
      */
-    virtual wf::output_t *get_output();
+    wf::output_t *get_output();
 
     /**
-     * @return The bounding box of the view, which includes all (sub)surfaces,
-     * menus, etc. after applying the view transformations.
+     * Find the bounding box of the view in the coordinate system of its output.
+     * The bounding box encompasses the view and all its subsurfaces after
+     * transforming them with the currently applied transformers, but excludes
+     * child views and menus.
      */
-    virtual wlr_box get_bounding_box();
+    wlr_box get_bounding_box();
 
     /**
      * Find the surface in the view's tree which contains the given point.
@@ -102,7 +111,7 @@ class view_interface_t : public wf::object_base_t
      * @return The surface which is at the given point, or nullptr if no such
      *         surface was found (in which case local has no meaning)
      */
-    virtual surface_interface_t *map_input_coordinates(
+    surface_interface_t *map_input_coordinates(
         wf::pointf_t cursor, wf::pointf_t& local);
 
     /**
@@ -114,55 +123,30 @@ class view_interface_t : public wf::object_base_t
      * @param surface The reference surface, or null for view-local coordinates
      * @return The point in surface-local coordinates
      */
-    virtual wf::pointf_t global_to_local_point(const wf::pointf_t& arg,
+    wf::pointf_t global_to_local_point(const wf::pointf_t& arg,
         surface_interface_t *surface);
 
-    /** Request that an interactive move starts for this view */
-    virtual void move_request();
-    /** Request that the view is focused on its output */
-    virtual void focus_request();
-    /** Request that an interactive resize starts for this view */
-    virtual void resize_request(uint32_t edges = 0);
-    /** Request that the view is (un)minimized */
-    virtual void minimize_request(bool minimized);
-    /**
-     * Request that the view is (un)tiled.
-     *
-     * If the view is being tiled, the caller should ensure thaat the view is on
-     * the correct workspace.
-     *
-     * Note: by default, any tiled edges means that the view gets the full
-     * workarea.
-     */
-    virtual void tile_request(uint32_t tiled_edges);
-
-    /**
-     * Request that the view is (un)tiled on the given workspace.
-     */
-    virtual void tile_request(uint32_t tiled_edges, wf::point_t ws);
-
-    /** Request that the view is (un)fullscreened on the given output */
-    virtual void fullscreen_request(wf::output_t *output, bool state);
-
-    /**
-     * Request that the view is (un)fullscreened on the given output
-     * and workspace.
-     */
-    virtual void fullscreen_request(wf::output_t *output, bool state,
-        wf::point_t ws);
-
     /** @return true if the view is visible */
-    virtual bool is_visible();
+    bool is_visible();
 
     /**
      * Change the view visibility. Visibility requests are counted, i.e if the
      * view is made invisible two times, it needs to be made visible two times
      * before it is visible again.
      */
-    virtual void set_visible(bool visible);
+    void set_visible(bool visible);
+
+    /** Set the views's sticky state. */
+    void set_sticky(bool sticky);
+
+    /**
+     * Get the view's sticky state.
+     * A sticky view should be visible on all workspaces.
+     */
+    bool is_sticky();
 
     /** Damage the whole view and add the damage to its output */
-    virtual void damage();
+    void damage();
 
     /**
      * Get the minimize target for this view, i.e when displaying a minimize
@@ -170,14 +154,14 @@ class view_interface_t : public wf::object_base_t
      *
      * @return the minimize target
      */
-    virtual wlr_box get_minimize_hint();
+    wlr_box get_minimize_hint();
 
     /**
      * Sets the minimize target for this view, i.e when displaying a minimize
      * animation, where the animation's target should be.
      * @param hint The new minimize target rectangle, in output-local coordinates.
      */
-    virtual void set_minimize_hint(wlr_box hint);
+    void set_minimize_hint(wlr_box hint);
 
     /*
      *                        View transforms
@@ -257,7 +241,7 @@ class view_interface_t : public wf::object_base_t
      * Get the transformed opaque region of the view and its subsurfaces.
      * The returned region is in output-local coordinates.
      */
-    virtual wf::region_t get_transformed_opaque_region();
+    wf::region_t get_transformed_opaque_region();
 
     /**
      * Render all the surfaces of the view using the view's transforms.
@@ -285,7 +269,7 @@ class view_interface_t : public wf::object_base_t
      * and continue displaying it afterwards. Additionally, return the captured
      * framebuffter
      */
-    virtual const wf::framebuffer_t& take_snapshot();
+    const wf::framebuffer_t& take_snapshot();
 
     /**
      * View lifetime is managed by reference counting. To take a reference,
@@ -317,9 +301,26 @@ class view_interface_t : public wf::object_base_t
     uint64_t last_focus_timestamp = 0;
 
     /**
-     * Same as get_main_surface()->is_mapped()
+     * If the view has an associated toplevel, its mapped state is taken.
+     * Otherwise, same as get_main_surface()->is_mapped()
      */
-    virtual bool is_mapped() const;
+    bool is_mapped() const;
+
+    /**
+     * @return the bounding box of the view before transformers,
+     *  in output-local coordinates.
+     */
+    wf::geometry_t get_untransformed_bounding_box();
+
+    /**
+     * Get the coordinates of the top-left corner of the view in the coordinate
+     * system of its output.
+     *
+     * If you need to create a view for a desktop surface without a toplevel,
+     * you should subclass view_interface_t and implement this method, as the
+     * default implementation works only for views with a toplevel attached.
+     */
+    virtual wf::point_t get_origin();
 
   protected:
     /**
@@ -346,6 +347,13 @@ class view_interface_t : public wf::object_base_t
      */
     void set_desktop_surface(wf::dsurface_sptr_t dsurface);
 
+    /**
+     * Set the toplevel.
+     * This should be done at most once in the lifetime of the view and must
+     * happen before initializing the view!
+     */
+    void set_toplevel(wf::toplevel_sptr_t toplevel);
+
     friend class compositor_core_impl_t;
     /**
      * View initialization happens in three stages:
@@ -369,12 +377,6 @@ class view_interface_t : public wf::object_base_t
      * is called from core just before destroying the view.
      */
     virtual void deinitialize();
-
-    /**
-     * @return the bounding box of the view before transformers,
-     *  in output-local coordinates
-     */
-    virtual wf::geometry_t get_untransformed_bounding_box();
 
     /**
      * Called when the reference count reaches 0.

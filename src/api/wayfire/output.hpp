@@ -1,5 +1,4 @@
-#ifndef OUTPUT_HPP
-#define OUTPUT_HPP
+#pragma once
 
 #include "wayfire/geometry.hpp"
 #include "wayfire/object.hpp"
@@ -238,5 +237,3 @@ class output_t : public wf::object_base_t
     output_t();
 };
 }
-
-#endif /* end of include guard: OUTPUT_HPP */
