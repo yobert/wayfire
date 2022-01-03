@@ -16,13 +16,13 @@ wayfire_view wf::toplevel_find_primary_view(const toplevel_sptr_t& toplevel)
     std::vector<rank_t> values;
     std::transform(views.begin(), views.end(), std::back_inserter(values),
         [&] (wayfire_view view)
-        {
-            return rank_t {
-                view->get_output() == toplevel->current().primary_output,
-                view->get_id(),
-                view
-            };
-        });
+    {
+        return rank_t{
+            view->get_output() == toplevel->current().primary_output,
+            view->get_id(),
+            view
+        };
+    });
 
     auto [x, y, best_candidate] = *std::max_element(values.begin(), values.end());
     return best_candidate;
@@ -56,12 +56,12 @@ std::optional<wf::geometry_t> wf::toplevel_saved_geometry_t::calculate_geometry(
 
     const auto& geom     = last_windowed_geometry.value();
     const auto& old_area = saved_workarea.value();
-    const auto& relpos = wf::origin(geom) + -wf::origin(old_area);
+    const auto& relpos   = wf::origin(geom) + -wf::origin(old_area);
 
-    return wf::geometry_t {
-        .x = workarea.x + relpos.x * workarea.width / old_area.width,
-        .y = workarea.y + relpos.y * workarea.height / old_area.height,
-        .width  = geom.width * workarea.width / old_area.width,
+    return wf::geometry_t{
+        .x     = workarea.x + relpos.x * workarea.width / old_area.width,
+        .y     = workarea.y + relpos.y * workarea.height / old_area.height,
+        .width = geom.width * workarea.width / old_area.width,
         .height = geom.height * workarea.height / old_area.height
     };
 }
@@ -79,7 +79,7 @@ void wf::toplevel_emit_resize_request(const toplevel_sptr_t& toplevel,
 {
     toplevel_resize_request_signal data;
     data.toplevel = toplevel;
-    data.edges = edges;
+    data.edges    = edges;
     toplevel->current().primary_output->emit_signal(
         "toplevel-resize-request", &data);
 }
@@ -117,7 +117,7 @@ void wf::toplevel_emit_minimize_request(const toplevel_sptr_t& toplevel,
 
     toplevel_minimize_request_signal data;
     data.toplevel = toplevel;
-    data.state = minimized;
+    data.state    = minimized;
 
     toplevel->current().primary_output->emit_signal(
         "toplevel-minimize-request", &data);
@@ -156,9 +156,7 @@ static void move_to_workspace(const wf::toplevel_sptr_t& toplevel,
 }
 
 void wf::view_interface_t::tile_request(uint32_t edges, wf::point_t workspace)
-{
-
-}
+{}
 
 void wf::toplevel_emit_tile_request(const toplevel_sptr_t& toplevel,
     uint32_t tiled_edges, std::optional<wf::point_t> ws)
@@ -169,10 +167,9 @@ void wf::toplevel_emit_tile_request(const toplevel_sptr_t& toplevel,
         return;
     }
 
-
     toplevel_tile_request_signal data;
-    data.toplevel = toplevel;
-    data.edges = tiled_edges;
+    data.toplevel  = toplevel;
+    data.edges     = tiled_edges;
     data.workspace = ws.value_or(wo->workspace->get_current_workspace());
 
     view_tile_request_signal data;
@@ -204,8 +201,7 @@ void wf::toplevel_emit_tile_request(const toplevel_sptr_t& toplevel,
 
 void wf::toplevel_emit_fullscreen_request(const toplevel_sptr_t& toplevel,
     wf::output_t *output, bool state, std::optional<wf::point_t> ws = {})
-{
-}
+{}
 
 void wf::view_interface_t::focus_request()
 {
@@ -235,8 +231,7 @@ void wf::view_interface_t::tile_request(uint32_t edges)
 }
 
 void wf::view_interface_t::minimize_request(bool state)
-{
-}
+{}
 
 void wf::view_interface_t::fullscreen_request(wf::output_t *out, bool state)
 {

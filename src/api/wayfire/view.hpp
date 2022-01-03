@@ -14,7 +14,7 @@ class view_interface_t;
 class decorator_frame_t_t;
 class view_transformer_t;
 
-using surface_sptr_t = std::shared_ptr<surface_interface_t>;
+using surface_sptr_t  = std::shared_ptr<surface_interface_t>;
 using dsurface_sptr_t = std::shared_ptr<desktop_surface_t>;
 }
 

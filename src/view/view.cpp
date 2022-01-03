@@ -576,7 +576,7 @@ wf::region_t wf::view_interface_t::get_transformed_opaque_region()
         maximal_shrink_constraint = 0;
     }
 
-    auto obox = get_untransformed_bounding_box();
+    auto obox   = get_untransformed_bounding_box();
     auto origin = get_origin();
 
     wf::region_t opaque;
@@ -764,7 +764,7 @@ const wf::framebuffer_t& wf::view_interface_t::take_snapshot()
 
     OpenGL::render_end();
 
-    auto origin = get_origin();
+    auto origin   = get_origin();
     auto children = get_main_surface()->enumerate_surfaces(true);
     for (auto& child : wf::reverse(children))
     {

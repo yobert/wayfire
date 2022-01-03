@@ -59,11 +59,11 @@ void wf::wlr_desktop_surface_t::ping()
     view->ping();
 }
 
-        /* if the view isn't mapped, then it will be positioned properly in map() */
-        if (is_mapped())
-        {
-            reposition_relative_to_parent(self());
-        }
+/* if the view isn't mapped, then it will be positioned properly in map() */
+if (is_mapped())
+{
+    reposition_relative_to_parent(self());
+}
 
 static void reposition_relative_to_parent(wayfire_view view)
 {
@@ -493,7 +493,6 @@ wayfire_view wf::wl_surface_to_wayfire_view(wl_resource *resource)
     return view ? view->self() : nullptr;
 }
 
-
 void wf::view_interface_t::set_resizing(bool resizing, uint32_t edges)
 {
     view_impl->update_windowed_geometry(self(), get_wm_geometry());
@@ -533,6 +532,7 @@ wf::geometry_t wf::view_interface_t::get_wm_geometry()
 {
     return get_output_geometry();
 }
+
 void wf::view_interface_t::set_minimized(bool minim)
 {
     minimized = minim;
@@ -554,7 +554,6 @@ void wf::view_interface_t::set_minimized(bool minim)
     this->emit_signal("minimized", &data);
     get_output()->emit_signal("view-minimized", &data);
 }
-
 
 void wf::view_interface_t::set_tiled(uint32_t edges)
 {

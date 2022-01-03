@@ -163,8 +163,10 @@ class wlr_view_t : public toplevel_t
     /** @return The offset from the surface coordinates to the actual geometry */
     virtual wf::point_t get_window_offset();
 
-    virtual void close() {}
-    virtual void ping() {}
+    virtual void close()
+    {}
+    virtual void ping()
+    {}
     virtual void emit_map();
 
   protected:
