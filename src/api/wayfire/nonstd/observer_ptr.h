@@ -155,6 +155,10 @@ public:
     nop_constexpr14 observer_ptr(const std::unique_ptr<W2>& other)
     : ptr(other.get()) {}
 
+    template< class W2 >
+    nop_constexpr14 observer_ptr(const std::shared_ptr<W2>& other)
+    : ptr(other.get()) {}
+
     nop_constexpr14 pointer get() const nop_noexcept
     {
         return ptr;
@@ -311,6 +315,12 @@ bool operator>=( observer_ptr<W1> p1, observer_ptr<W2> p2 )
 }
 
 } // namespace nonstd
+
+namespace wf
+{
+template<class T>
+using optr = nonstd::observer_ptr<T>;
+}
 
 // #undef ...
 
