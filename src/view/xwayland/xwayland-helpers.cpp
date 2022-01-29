@@ -45,7 +45,7 @@ bool wf::xw::load_atoms(const char *server_name)
     return true;
 }
 
-bool wf::xw::xwayland_surface_has_type(wlr_xwayland_surface* xw, xcb_atom_t type)
+bool wf::xw::xwayland_surface_has_type(wlr_xwayland_surface *xw, xcb_atom_t type)
 {
     for (size_t i = 0; i < xw->window_type_len; i++)
     {
@@ -58,7 +58,7 @@ bool wf::xw::xwayland_surface_has_type(wlr_xwayland_surface* xw, xcb_atom_t type
     return false;
 }
 
-wf::xw::window_type_t wf::xw::get_window_type(wlr_xwayland_surface* xw)
+wf::xw::window_type_t wf::xw::get_window_type(wlr_xwayland_surface *xw)
 {
     if (xwayland_surface_has_type(xw, _NET_WM_WINDOW_TYPE_DND))
     {
