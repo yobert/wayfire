@@ -252,8 +252,8 @@ void wf::xdg_toplevel_t::move(int x, int y)
 
     _current.geometry.x = x;
     _current.geometry.y = y;
-    _current.base_geometry.x = x - offset.x;
-    _current.base_geometry.y = y - offset.y;
+    _current.base_geometry.x    = x - offset.x;
+    _current.base_geometry.y    = y - offset.y;
     _current.flags.has_position = true;
 
     wf::emit_toplevel_signal(this, "geometry-changed", &data);

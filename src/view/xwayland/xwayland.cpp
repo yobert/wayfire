@@ -228,17 +228,17 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
         LOGE("new xwayland surface ", xw->title,
             " class: ", xw->class_t, " instance: ", xw->instance);
         wayfire_xwayland_view_base::initialize();
-    on_request_activate.set_callback([&] (void*)
-    {
-        if (!this->_current.activated)
+        on_request_activate.set_callback([&] (void*)
         {
-            wf::view_focus_request_signal data;
-            data.view = self();
-            data.self_request = true;
-            emit_signal("view-focus-request", &data);
-            wf::get_core().emit_signal("view-focus-request", &data);
-        }
-    });
+            if (!this->_current.activated)
+            {
+                wf::view_focus_request_signal data;
+                data.view = self();
+                data.self_request = true;
+                emit_signal("view-focus-request", &data);
+                wf::get_core().emit_signal("view-focus-request", &data);
+            }
+        });
 
         on_set_parent.set_callback([&] (void*)
         {
@@ -360,63 +360,63 @@ wayfire_unmanaged_xwayland_view::wayfire_unmanaged_xwayland_view(
     wlr_xwayland_surface *xww) :
     wayfire_xwayland_view_base(xww)
 {
-        on_configure.set_callback([&] (void *data)
+    on_configure.set_callback([&] (void *data)
+    {
+        auto ev = static_cast<wlr_xwayland_surface_configure_event*>(data);
+        wf::point_t output_origin = {0, 0};
+        if (get_output())
         {
-            auto ev = static_cast<wlr_xwayland_surface_configure_event*>(data);
-            wf::point_t output_origin = {0, 0};
-            if (get_output())
-            {
-                output_origin = {
-                    get_output()->get_relative_geometry().x,
-                    get_output()->get_relative_geometry().y
-                };
-            }
+            output_origin = {
+                get_output()->get_relative_geometry().x,
+                get_output()->get_relative_geometry().y
+            };
+        }
 
-            if (!is_mapped())
-            {
-                /* If the view is not mapped yet, let it be configured as it
-                 * wishes. We will position it properly in ::map() */
-                wlr_xwayland_surface_configure(xw,
-                    ev->x, ev->y, ev->width, ev->height);
-
-                if ((ev->mask & XCB_CONFIG_WINDOW_X) &&
-                    (ev->mask & XCB_CONFIG_WINDOW_Y))
-                {
-                    this->self_positioned = true;
-                    this->geometry.x = ev->x - output_origin.x;
-                    this->geometry.y = ev->y - output_origin.y;
-                }
-
-                return;
-            }
-
-            /**
-             * Regular Xwayland windows are not allowed to change their position
-             * after mapping, in which respect they behave just like Wayland apps.
-             *
-             * However, OR views or special views which do not have NORMAL type
-             * should be allowed to move around the screen.
-             */
-            bool enable_custom_position = xw->override_redirect ||
-                (xw->window_type_len > 0 &&
-                    xw->window_type[0] != _NET_WM_WINDOW_TYPE_NORMAL);
+        if (!is_mapped())
+        {
+            /* If the view is not mapped yet, let it be configured as it
+             * wishes. We will position it properly in ::map() */
+            wlr_xwayland_surface_configure(xw,
+                ev->x, ev->y, ev->width, ev->height);
 
             if ((ev->mask & XCB_CONFIG_WINDOW_X) &&
-                (ev->mask & XCB_CONFIG_WINDOW_Y) &&
-                enable_custom_position)
+                (ev->mask & XCB_CONFIG_WINDOW_Y))
             {
-                /* override-redirect views generally have full freedom. */
-                self_positioned = true;
-                configure_request({ev->x, ev->y, ev->width, ev->height});
-
-                return;
+                this->self_positioned = true;
+                this->geometry.x = ev->x - output_origin.x;
+                this->geometry.y = ev->y - output_origin.y;
             }
 
-            /* Use old x/y values */
-            ev->x = geometry.x + output_origin.x;
-            ev->y = geometry.y + output_origin.y;
-            configure_request(wlr_box{ev->x, ev->y, ev->width, ev->height});
-        });
+            return;
+        }
+
+        /**
+         * Regular Xwayland windows are not allowed to change their position
+         * after mapping, in which respect they behave just like Wayland apps.
+         *
+         * However, OR views or special views which do not have NORMAL type
+         * should be allowed to move around the screen.
+         */
+        bool enable_custom_position = xw->override_redirect ||
+            (xw->window_type_len > 0 &&
+                xw->window_type[0] != _NET_WM_WINDOW_TYPE_NORMAL);
+
+        if ((ev->mask & XCB_CONFIG_WINDOW_X) &&
+            (ev->mask & XCB_CONFIG_WINDOW_Y) &&
+            enable_custom_position)
+        {
+            /* override-redirect views generally have full freedom. */
+            self_positioned = true;
+            configure_request({ev->x, ev->y, ev->width, ev->height});
+
+            return;
+        }
+
+        /* Use old x/y values */
+        ev->x = geometry.x + output_origin.x;
+        ev->y = geometry.y + output_origin.y;
+        configure_request(wlr_box{ev->x, ev->y, ev->width, ev->height});
+    });
     wf::signal_connection_t output_geometry_changed = [this] (wf::signal_data_t*)
     {
         if (is_mapped())
@@ -426,7 +426,7 @@ wayfire_unmanaged_xwayland_view::wayfire_unmanaged_xwayland_view(
         }
     }
 
-    LOGE("new unmanaged xwayland surface ", xw->title, " class: ", xw->class_t,
+        LOGE("new unmanaged xwayland surface ", xw->title, " class: ", xw->class_t,
         " instance: ", xw->instance);
 
     xw->data = this;

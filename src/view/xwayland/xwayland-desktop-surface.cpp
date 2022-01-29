@@ -24,7 +24,7 @@ wf::xwayland_desktop_surface_t::xwayland_desktop_surface_t(
     {
         wf::emit_ping_timeout_signal(this);
     });
-    on_map.set_callback([&](void*)
+    on_map.set_callback([&] (void*)
     {
         update_kb_focus_enabled();
     });
@@ -41,14 +41,15 @@ wf::xwayland_desktop_surface_t::xwayland_desktop_surface_t(
 
     switch (wf::xw::get_window_type(xw))
     {
-        case xw::window_type_t::DND:
-        case xw::window_type_t::OR:
-          this->current_role = desktop_surface_t::role::UNMANAGED;
-          break;
-        case xw::window_type_t::TOPLEVEL:
-        case xw::window_type_t::DIALOG:
-          this->current_role = desktop_surface_t::role::TOPLEVEL;
-          break;
+      case xw::window_type_t::DND:
+      case xw::window_type_t::OR:
+        this->current_role = desktop_surface_t::role::UNMANAGED;
+        break;
+
+      case xw::window_type_t::TOPLEVEL:
+      case xw::window_type_t::DIALOG:
+        this->current_role = desktop_surface_t::role::TOPLEVEL;
+        break;
     }
 }
 

@@ -32,7 +32,7 @@ wf::geometry_t wf::adjust_geometry_for_gravity(wf::geometry_t wmg,
         wmg.y += wmg.height - new_size.height;
     }
 
-    wmg.width = new_size.width;
+    wmg.width  = new_size.width;
     wmg.height = new_size.height;
     return wmg;
 }

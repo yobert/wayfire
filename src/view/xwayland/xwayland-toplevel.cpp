@@ -24,7 +24,7 @@ wf::xwayland_toplevel_t::xwayland_toplevel_t(
     {
         // TODO
     });
-    on_configure.set_callback([&] (void* data)
+    on_configure.set_callback([&] (void *data)
     {
         handle_configure_request((wlr_xwayland_surface_configure_event*)data);
     });
@@ -109,7 +109,7 @@ void wf::xwayland_toplevel_t::commit()
         if (decorator)
         {
             auto margin = decorator->get_margins();
-            new_size_full.width += margin.left + margin.right;
+            new_size_full.width  += margin.left + margin.right;
             new_size_full.height += margin.top + margin.bottom;
         }
 
@@ -160,12 +160,12 @@ bool wf::xwayland_toplevel_t::should_be_decorated()
         return false;
     }
 
-        //return (wf::wlr_view_t::should_be_decorated() &&
-         //   !has_type(_NET_WM_WINDOW_TYPE_SPLASH));
+    // return (wf::wlr_view_t::should_be_decorated() &&
+    // !has_type(_NET_WM_WINDOW_TYPE_SPLASH));
 
-        //uint32_t csd_flags = WLR_XWAYLAND_SURFACE_DECORATIONS_NO_TITLE |
-         //   WLR_XWAYLAND_SURFACE_DECORATIONS_NO_BORDER;
-        //this->set_decoration_mode(xw->decorations & csd_flags);
+    // uint32_t csd_flags = WLR_XWAYLAND_SURFACE_DECORATIONS_NO_TITLE |
+    // WLR_XWAYLAND_SURFACE_DECORATIONS_NO_BORDER;
+    // this->set_decoration_mode(xw->decorations & csd_flags);
 
     // TODO
     return true;
@@ -181,7 +181,7 @@ void wf::xwayland_toplevel_t::set_minimized(bool minimized)
     _current.minimized = minimized;
     wf::toplevel_minimized_signal data;
     data.toplevel = {this};
-    data.state = minimized;
+    data.state    = minimized;
     wf::emit_toplevel_signal(this, "minimized", &data);
 }
 
@@ -254,7 +254,7 @@ void wf::xwayland_toplevel_t::handle_configure_request(
             (ev->mask & XCB_CONFIG_WINDOW_HEIGHT))
         {
             auto base = _current.base_geometry;
-            base.width = ev->width;
+            base.width  = ev->width;
             base.height = ev->height;
 
             auto desired = base;
@@ -352,9 +352,9 @@ void wf::xwayland_toplevel_t::set_geometry(wf::geometry_t g)
         last_size_request = wf::dimensions(real);
     }
 
-    _current.geometry.width = g.width;
+    _current.geometry.width  = g.width;
     _current.geometry.height = g.height;
-    _current.base_geometry.width = real.width;
+    _current.base_geometry.width  = real.width;
     _current.base_geometry.height = real.height;
 
     move(g.x, g.y);

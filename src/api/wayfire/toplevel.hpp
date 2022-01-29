@@ -79,7 +79,8 @@ struct toplevel_state_t
      */
     uint32_t tiled_edges = 0;
 
-    struct {
+    struct
+    {
         /**
          * Whether the toplevel's position has been set at least once.
          */
