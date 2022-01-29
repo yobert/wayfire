@@ -42,6 +42,7 @@ wayfire_sources = ['geometry.cpp',
                    'view/xdg-shell/xdg-shell.cpp',
                    'view/xwayland/xwayland-toplevel.cpp',
                    'view/xwayland/xwayland-desktop-surface.cpp',
+                   'view/xwayland/xwayland-helpers.cpp',
                    'view/xwayland/xwayland.cpp',
                    'view/layer-shell/layer-shell.cpp',
 

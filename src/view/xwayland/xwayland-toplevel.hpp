@@ -21,7 +21,7 @@ class xwayland_toplevel_t : public wf::toplevel_t
         wf::dimensions_t current_size);
 
     bool has_csd = true;
-    std::unique_ptr<decorator_frame_t_t> decorator;
+    std::unique_ptr<toplevel_decorator_t> decorator;
     wlr_xwayland_surface *xw;
 
     wf::wl_listener_wrapper on_commit;
@@ -31,9 +31,16 @@ class xwayland_toplevel_t : public wf::toplevel_t
     wf::wl_listener_wrapper on_request_minimize;
     wf::wl_listener_wrapper on_request_maximize;
     wf::wl_listener_wrapper on_request_fullscreen;
+    wf::wl_listener_wrapper on_configure;
 
+    wf::wl_listener_wrapper on_set_decorations;
+
+    void handle_configure_request(wlr_xwayland_surface_configure_event *ev);
+    void send_configure();
     void commit();
     void destroy();
+
+    wf::signal_connection_t on_output_geometry_changed;
 
   public:
     xwayland_toplevel_t(wlr_xwayland_surface *xw,
@@ -55,6 +62,6 @@ class xwayland_toplevel_t : public wf::toplevel_t
     void set_resizing(bool resizing, uint32_t edges = 0) final;
     bool is_resizing() final;
     void request_native_size() final;
-    void set_decoration(std::unique_ptr<decorator_frame_t_t> frame) final;
+    void set_decoration(std::unique_ptr<toplevel_decorator_t> frame) final;
 };
 }

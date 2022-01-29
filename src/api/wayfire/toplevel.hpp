@@ -78,6 +78,13 @@ struct toplevel_state_t
      * If all tiled edges are set, then the toplevel is effectively maximized.
      */
     uint32_t tiled_edges = 0;
+
+    struct {
+        /**
+         * Whether the toplevel's position has been set at least once.
+         */
+        bool has_position = false;
+    } flags;
 };
 
 /**
@@ -187,7 +194,7 @@ class toplevel_t : public wf::object_base_t
      *   capability, as this call overrides the decorator set by previous calls
      *   to this method.
      */
-    virtual void set_decoration(std::unique_ptr<decorator_frame_t_t> frame) = 0;
+    virtual void set_decoration(std::unique_ptr<toplevel_decorator_t> frame) = 0;
 };
 
 using toplevel_sptr_t = std::shared_ptr<toplevel_t>;

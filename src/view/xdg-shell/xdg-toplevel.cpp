@@ -54,28 +54,12 @@ static wf::geometry_t get_xdg_geometry(wlr_xdg_toplevel *toplevel)
     return xdg_geometry;
 }
 
-static wf::geometry_t adjust_geometry_for_gravity(wf::geometry_t wmg,
-    uint32_t edges, wf::dimensions_t new_size)
-{
-    if (edges & WLR_EDGE_LEFT)
-    {
-        wmg.x += wmg.width - new_size.width;
-    }
-
-    if (edges & WLR_EDGE_TOP)
-    {
-        wmg.y += wmg.height - new_size.height;
-    }
-
-    return wmg;
-}
-
 void wf::xdg_toplevel_t::commit()
 {
     auto wmg = get_xdg_geometry(toplevel);
     if (decorator)
     {
-        decorator->expand_wm_geometry(wmg);
+        wmg = wf::expand_with_margins(wmg, decorator->get_margins());
     }
 
     auto wmoffset = wf::origin(wmg);
@@ -107,7 +91,7 @@ void wf::xdg_toplevel_t::commit()
         xdg_surface_offset = wmoffset;
         if (decorator)
         {
-            decorator->notify_view_resized(wm);
+            decorator->notify_resized(wm);
         }
 
         emit_toplevel_signal(this, "geometry-changed", &data);
@@ -188,7 +172,7 @@ void wf::xdg_toplevel_t::set_tiled(uint32_t edges)
     _current.tiled_edges = edges;
     if (decorator)
     {
-        decorator->notify_view_tiled();
+        decorator->notify_tiled();
     }
 
     data.new_edges = edges;
@@ -206,7 +190,7 @@ void wf::xdg_toplevel_t::set_fullscreen(bool fullscreen)
     _current.fullscreen = fullscreen;
     if (decorator)
     {
-        decorator->notify_view_fullscreen();
+        decorator->notify_fullscreen();
     }
 
     wf::toplevel_fullscreen_signal data;
@@ -226,7 +210,7 @@ void wf::xdg_toplevel_t::set_activated(bool active)
     _current.activated = active;
     if (decorator)
     {
-        decorator->notify_view_activated(active);
+        decorator->notify_activated(active);
     }
 
     // XXX: no signals here, do we need them at all??
@@ -258,10 +242,19 @@ void wf::xdg_toplevel_t::move(int x, int y)
     data.toplevel     = {this};
     data.old_geometry = _current.geometry;
 
+    auto offset = xdg_surface_offset;
+    if (decorator)
+    {
+        auto margins = decorator->get_margins();
+        offset.x -= margins.left;
+        offset.y -= margins.top;
+    }
+
     _current.geometry.x = x;
     _current.geometry.y = y;
-    _current.base_geometry.x = x - xdg_surface_offset.x;
-    _current.base_geometry.y = y - xdg_surface_offset.y;
+    _current.base_geometry.x = x - offset.x;
+    _current.base_geometry.y = y - offset.y;
+    _current.flags.has_position = true;
 
     wf::emit_toplevel_signal(this, "geometry-changed", &data);
 }
@@ -274,7 +267,10 @@ void wf::xdg_toplevel_t::set_geometry(wf::geometry_t g)
         auto h = g.height;
         if (decorator)
         {
-            decorator->calculate_resize_size(w, h);
+            const auto inside =
+                wf::shrink_by_margins(g, decorator->get_margins());
+            w = inside.width;
+            h = inside.height;
         }
 
         auto current_geometry = get_xdg_geometry(toplevel);
@@ -344,7 +340,7 @@ void wf::xdg_toplevel_t::request_native_size()
 }
 
 void wf::xdg_toplevel_t::set_decoration(
-    std::unique_ptr<decorator_frame_t_t> frame)
+    std::unique_ptr<toplevel_decorator_t> frame)
 {
     // TODO
 }

@@ -19,6 +19,44 @@ void wf::emit_view_signal(wf::view_interface_t *view,
     }
 }
 
+wf::geometry_t wf::adjust_geometry_for_gravity(wf::geometry_t wmg,
+    uint32_t edges, wf::dimensions_t new_size)
+{
+    if (edges & WLR_EDGE_LEFT)
+    {
+        wmg.x += wmg.width - new_size.width;
+    }
+
+    if (edges & WLR_EDGE_TOP)
+    {
+        wmg.y += wmg.height - new_size.height;
+    }
+
+    wmg.width = new_size.width;
+    wmg.height = new_size.height;
+    return wmg;
+}
+
+wf::geometry_t wf::shrink_by_margins(
+    wf::geometry_t g, wf::decoration_margin_t margin)
+{
+    g.x     += margin.left;
+    g.y     += margin.top;
+    g.width -= margin.left + margin.right;
+    g.height -= margin.top + margin.bottom;
+    return g;
+}
+
+wf::geometry_t wf::expand_with_margins(
+    wf::geometry_t g, wf::decoration_margin_t margin)
+{
+    g.x     -= margin.left;
+    g.y     -= margin.top;
+    g.width += margin.left + margin.right;
+    g.height += margin.top + margin.bottom;
+    return g;
+}
+
 void wf::wlr_view_t::update_bbox()
 {
     view_damage_raw({this}, last_bounding_box);

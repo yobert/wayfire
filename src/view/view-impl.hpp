@@ -145,6 +145,15 @@ void emit_ping_timeout_signal(desktop_surface_t *dsurface);
 void emit_toplevel_signal(wf::toplevel_t *toplevel,
     std::string_view signal_name, wf::signal_data_t *data);
 
+wf::geometry_t adjust_geometry_for_gravity(wf::geometry_t wmg,
+    uint32_t edges, wf::dimensions_t new_size);
+
+wf::geometry_t shrink_by_margins(
+    wf::geometry_t g, wf::decoration_margin_t margin);
+
+wf::geometry_t expand_with_margins(
+    wf::geometry_t g, wf::decoration_margin_t margin);
+
 /**
  * Emit @signal_name on the @view with @data as signal data.
  * If the view has an associated output, emit the signal there as well, with

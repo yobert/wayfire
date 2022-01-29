@@ -29,7 +29,7 @@ class xdg_toplevel_t : public wf::toplevel_t
         wf::dimensions_t current_size);
 
     bool has_xdg_decoration_csd = true;
-    std::unique_ptr<decorator_frame_t_t> decorator;
+    std::unique_ptr<toplevel_decorator_t> decorator;
     wlr_xdg_toplevel *toplevel;
 
     wf::wl_listener_wrapper on_commit;
@@ -63,7 +63,7 @@ class xdg_toplevel_t : public wf::toplevel_t
     void set_resizing(bool resizing, uint32_t edges = 0) final;
     bool is_resizing() final;
     void request_native_size() final;
-    void set_decoration(std::unique_ptr<decorator_frame_t_t> frame) final;
+    void set_decoration(std::unique_ptr<toplevel_decorator_t> frame) final;
 
     // private APIs for wayfire-core
     // Result of an outdated design which I don't want to update right now
