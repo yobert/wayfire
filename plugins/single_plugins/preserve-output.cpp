@@ -297,7 +297,7 @@ class wayfire_preserve_output : public wf::plugin_interface_t
   public:
     void init() override
     {
-        if (wlr_output_is_noop(output->handle))
+        if (wlr_output_is_headless(output->handle))
         {
             // Don't do anything for NO-OP outputs
             return;
