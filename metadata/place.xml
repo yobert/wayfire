@@ -24,6 +24,10 @@
 				<value>random</value>
 				<_name>Random</_name>
 			</desc>
+			<desc>
+			  <value>nearmouse</value>
+			  <_name>Near Mouse</_name>
+			</desc>
 		</option>
 	</plugin>
 </wayfire>

@@ -83,6 +83,10 @@ class wayfire_place_window : public wf::plugin_interface_t
         } else if (mode == "random")
         {
             random(view, workarea);
+        } else if (mode == "nearmouse")
+        {
+            wf::pointf_t oc = output->get_cursor_position();
+            nearmouse(view, workarea, oc);
         } else
         {
             center(view, workarea);
@@ -150,6 +154,21 @@ class wayfire_place_window : public wf::plugin_interface_t
 
         view->toplevel()->pending().geometry.x = rand() % area.width + area.x;
         view->toplevel()->pending().geometry.y = rand() % area.height + area.y;
+    }
+
+    void nearmouse(wayfire_toplevel_view & view, wf::geometry_t workarea, wf::pointf_t oc)
+    {
+        wf::geometry_t window = view->get_pending_geometry();
+        if ((window.width > workarea.width) || (window.height > workarea.height)) {
+            center(view, workarea);
+            return;
+        }
+        window.x = int(oc.x) - window.width / 2;
+        window.y = int(oc.y) - window.height / 2;
+
+        wf::geometry_t clamped = wf::clamp(window, workarea);
+        view->toplevel()->pending().geometry.x = clamped.x;
+        view->toplevel()->pending().geometry.y = clamped.y;
     }
 
     void center(wayfire_toplevel_view & view, wf::geometry_t workarea)
