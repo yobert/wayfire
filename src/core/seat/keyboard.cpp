@@ -23,7 +23,7 @@ void wf::keyboard_t::setup_listeners()
 
     on_key.set_callback([&] (void *data)
     {
-        auto ev   = static_cast<wlr_event_keyboard_key*>(data);
+        auto ev   = static_cast<wlr_keyboard_key_event*>(data);
         auto mode = emit_device_event_signal("keyboard_key", ev);
 
         auto& seat = wf::get_core_impl().seat;
