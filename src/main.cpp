@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <map>
 #include <fcntl.h>
+#include <filesystem>
 
 #include <unistd.h>
 #include <wayfire/debug.hpp>
@@ -153,7 +154,16 @@ static std::optional<std::string> choose_socket(wl_display *display)
 
 static wf::config_backend_t *load_backend(const std::string& backend)
 {
-    auto [_, init_ptr] = wf::get_new_instance_handle(backend);
+    std::string config_plugin(backend);
+
+    if (backend.size())
+    {
+        std::vector<std::string> plugin_prefixes = wf::get_plugin_paths();
+        config_plugin =
+            wf::get_plugin_path_for_name(plugin_prefixes, backend).value_or("");
+    }
+
+    auto [_, init_ptr] = wf::get_new_instance_handle(config_plugin);
 
     if (!init_ptr)
     {
