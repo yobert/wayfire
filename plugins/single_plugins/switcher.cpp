@@ -101,6 +101,8 @@ class WayfireSwitcher : public wf::per_output_plugin_instance_t, public wf::keyb
     wf::option_wrapper_t<double> view_thumbnail_scale{
         "switcher/view_thumbnail_scale"};
     wf::option_wrapper_t<int> speed{"switcher/speed"};
+    wf::option_wrapper_t<int> view_thumbnail_rotation{
+        "switcher/view_thumbnail_rotation"};
 
     duration_t duration{speed};
     duration_t background_dim_duration{speed};
@@ -384,12 +386,6 @@ class WayfireSwitcher : public wf::per_output_plugin_instance_t, public wf::keyb
         return -1.0;
     }
 
-    /* amount of rotation */
-    float get_rotation()
-    {
-        return -M_PI / 6.0;
-    }
-
     /* Move view animation target to the left
      * @param dir -1 for left, 1 for right */
     void move(SwitcherView& sv, int dir)
@@ -423,8 +419,9 @@ class WayfireSwitcher : public wf::per_output_plugin_instance_t, public wf::keyb
         sv.attribs.scale_y.restart_with_end(
             sv.attribs.scale_y.end * std::pow(get_back_scale(), z_sign));
 
+        float radians_rotation = -((float)view_thumbnail_rotation * (M_PI / 180.0));
         sv.attribs.rotation.restart_with_end(
-            sv.attribs.rotation.end + get_rotation() * dir);
+            sv.attribs.rotation.end + radians_rotation * dir);
 
         sv.position += dir;
         sv.attribs.alpha.restart_with_end(
@@ -530,6 +527,11 @@ class WayfireSwitcher : public wf::per_output_plugin_instance_t, public wf::keyb
         {
             views.push_back(create_switcher_view(v));
         }
+
+        std::sort(views.begin(), views.end(), [] (SwitcherView& a, SwitcherView& b)
+        {
+            return wf::get_focus_timestamp(a.view) > wf::get_focus_timestamp(b.view);
+        });
 
         /* Add a copy of the unfocused view if we have just 2 */
         if (ws_views.size() == 2)
