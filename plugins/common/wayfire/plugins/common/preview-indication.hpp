@@ -28,13 +28,13 @@ class preview_indication_view_t : public wf::color_rect_view_t
     wf::effect_hook_t pre_paint;
     wf::output_t *output;
 
-    /* Default colors */
-    const wf::color_t base_color  = {0.5, 0.5, 1, 0.5};
-    const wf::color_t base_border = {0.25, 0.25, 0.5, 0.8};
-    const int base_border_w = 3;
-
     preview_indication_animation_t animation;
     bool should_close = false;
+
+    /* Default colors */
+    const wf::option_wrapper_t<wf::color_t> base_color;
+    const wf::option_wrapper_t<wf::color_t> base_border;
+    const wf::option_wrapper_t<int> base_border_w;
 
   public:
 
@@ -44,8 +44,12 @@ class preview_indication_view_t : public wf::color_rect_view_t
      * @param start_geometry The geometry the preview should have, relative to
      *                       the output
      */
-    preview_indication_view_t(wf::geometry_t start_geometry) :
-        wf::color_rect_view_t(), animation(wf::create_option<int>(200))
+    preview_indication_view_t(wf::geometry_t start_geometry,
+        const std::string& prefix) :
+        wf::color_rect_view_t(), animation(wf::create_option<int>(200)),
+        base_color(prefix + "/preview_base_color"),
+        base_border(prefix + "/preview_base_border"),
+        base_border_w(prefix + "/preview_border_width")
     {
         animation.set_start(start_geometry);
         animation.set_end(start_geometry);
@@ -82,8 +86,8 @@ class preview_indication_view_t : public wf::color_rect_view_t
     }
 
     /** A convenience wrapper around the full version */
-    preview_indication_view_t(wf::point_t start) :
-        preview_indication_view_t(wf::geometry_t{start.x, start.y, 1, 1})
+    preview_indication_view_t(wf::point_t start, const std::string & prefix) :
+        preview_indication_view_t(wf::geometry_t{start.x, start.y, 1, 1}, prefix)
     {}
 
     /**
@@ -133,10 +137,10 @@ class preview_indication_view_t : public wf::color_rect_view_t
         }
 
         double alpha = animation.alpha;
-        if (base_color.a * alpha != _color.a)
+        if (base_color.value().a * alpha != _color.a)
         {
-            _color.a = alpha * base_color.a;
-            _border_color.a = alpha * base_border.a;
+            _color.a = alpha * base_color.value().a;
+            _border_color.a = alpha * base_border.value().a;
 
             set_color(_color);
             set_border_color(_border_color);
