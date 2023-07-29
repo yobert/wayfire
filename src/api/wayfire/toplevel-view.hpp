@@ -196,6 +196,13 @@ class toplevel_view_interface_t : public wf::view_interface_t
     {
         return shared_from_this();
     }
+
+  protected:
+    /**
+     * Set the toplevel implementation used by this view.
+     * This function is useful for view implementations only.
+     */
+    void set_toplevel(std::shared_ptr<wf::toplevel_t> toplevel);
 };
 
 inline wayfire_toplevel_view toplevel_cast(wayfire_view view)

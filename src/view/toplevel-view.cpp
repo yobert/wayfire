@@ -286,6 +286,12 @@ const std::shared_ptr<wf::toplevel_t>& wf::toplevel_view_interface_t::toplevel()
     return priv->toplevel;
 }
 
+void wf::toplevel_view_interface_t::set_toplevel(
+    std::shared_ptr<wf::toplevel_t> toplevel)
+{
+    priv->toplevel = toplevel;
+}
+
 wayfire_toplevel_view wf::find_view_for_toplevel(
     std::shared_ptr<wf::toplevel_t> toplevel)
 {
