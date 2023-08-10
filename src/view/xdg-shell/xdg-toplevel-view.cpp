@@ -50,7 +50,11 @@ wf::xdg_toplevel_view_t::xdg_toplevel_view_t(wlr_xdg_toplevel *tlvl)
         priv->set_mapped_surface_contents(main_surface);
         wf::get_core().tx_manager->schedule_object(wtoplevel);
     });
-    on_unmap.set_callback([&] (void*) { unmap(); });
+    on_unmap.set_callback([&] (void*)
+    {
+        wtoplevel->pending().mapped = false;
+        wf::get_core().tx_manager->schedule_object(wtoplevel);
+    });
     on_destroy.set_callback([&] (void*) { destroy(); });
     on_new_popup.set_callback([&] (void *data)
     {
@@ -261,7 +265,6 @@ void wf::xdg_toplevel_view_t::unmap()
     damage();
     emit_view_pre_unmap();
 
-    main_surface = nullptr;
     priv->unset_mapped_surface_contents();
 
     emit_view_unmap();
@@ -274,6 +277,11 @@ void wf::xdg_toplevel_view_t::handle_toplevel_state_changed(wf::toplevel_state_t
     if (!old_state.mapped && wtoplevel->current().mapped)
     {
         map();
+    }
+
+    if (old_state.mapped && !wtoplevel->current().mapped)
+    {
+        unmap();
     }
 
     wf::scene::damage_node(get_root_node(), last_bounding_box);

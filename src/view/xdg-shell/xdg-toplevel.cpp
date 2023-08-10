@@ -42,7 +42,7 @@ void wf::xdg_toplevel_t::commit()
         " margins=", _pending.margins.left, ",", _pending.margins.right, ",",
         _pending.margins.top, ",", _pending.margins.bottom);
 
-    if (!this->toplevel)
+    if (!this->toplevel || (_current.mapped && !_pending.mapped))
     {
         // No longer mapped => we can do whatever
         emit_ready();
@@ -150,7 +150,7 @@ void wf::xdg_toplevel_t::handle_surface_commit()
 
     auto toplevel_size =
         expand_dimensions_by_margins(get_current_wlr_toplevel_size(), _current.margins);
-    if (toplevel_size == wf::dimensions(current().geometry))
+    if ((toplevel_size == wf::dimensions(current().geometry)) || !current().mapped)
     {
         // Size did not change, there are no transactions going on - apply the new texture directly
         apply_pending_state();
