@@ -55,8 +55,6 @@ wayfire_xdg_popup::wayfire_xdg_popup(wlr_xdg_popup *popup) : wf::view_interface_
                 this->close();
             }
         };
-
-        wf::get_core().connect(&on_keyboard_focus_changed);
     }
 
     on_surface_commit.set_callback([&] (void*) { commit(); });
@@ -133,10 +131,12 @@ void wayfire_xdg_popup::map()
     damage();
     emit_view_map();
     update_position();
+    wf::get_core().connect(&on_keyboard_focus_changed);
 }
 
 void wayfire_xdg_popup::unmap()
 {
+    on_keyboard_focus_changed.disconnect();
     damage();
     emit_view_pre_unmap();
 
