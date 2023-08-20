@@ -140,7 +140,6 @@ void wayfire_xdg_popup::unmap()
     damage();
     emit_view_pre_unmap();
 
-    main_surface = nullptr;
     priv->unset_mapped_surface_contents();
     on_surface_commit.disconnect();
 
