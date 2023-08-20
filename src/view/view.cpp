@@ -126,9 +126,23 @@ wf::view_interface_t::view_interface_t()
     this->priv = std::make_unique<wf::view_interface_t::view_priv_impl>();
 }
 
+class sentinel_node_t : public wf::scene::node_t
+{
+  public:
+    sentinel_node_t() : node_t(false)
+    {}
+
+    std::string stringify() const
+    {
+        return "sentinel node (unmapped contents)";
+    }
+};
+
 void wf::view_interface_t::set_surface_root_node(scene::floating_inner_ptr surface_root_node)
 {
+    priv->dummy_node = std::make_shared<sentinel_node_t>();
     this->priv->surface_root_node = surface_root_node;
+
     // Set up view content to scene.
     priv->transformed_node->set_children_list({surface_root_node});
 }
