@@ -189,12 +189,14 @@ class wayfire_xwayland_view : public wf::toplevel_view_interface_t, public wayfi
 
         on_map.set_callback([&] (void*)
         {
+            auto margins = toplevel->pending().margins;
+
             this->main_surface = std::make_shared<wf::scene::wlr_surface_node_t>(xw->surface, false);
             priv->set_mapped_surface_contents(main_surface);
             toplevel->set_main_surface(main_surface);
             toplevel->pending().mapped = true;
-            toplevel->pending().geometry.width  = xw->surface->current.width;
-            toplevel->pending().geometry.height = xw->surface->current.height;
+            toplevel->pending().geometry.width  = xw->surface->current.width + margins.left + margins.right;
+            toplevel->pending().geometry.height = xw->surface->current.height + margins.top + margins.bottom;
             wf::get_core().tx_manager->schedule_object(toplevel);
         });
 
