@@ -30,27 +30,30 @@
 class simple_decoration_node_t : public wf::scene::node_t, public wf::pointer_interaction_t,
     public wf::touch_interaction_t
 {
-    wayfire_toplevel_view view;
+    std::weak_ptr<wf::toplevel_view_interface_t> _view;
     wf::signal::connection_t<wf::view_title_changed_signal> title_set =
         [=] (wf::view_title_changed_signal *ev)
     {
-        view->damage(); // trigger re-render
+        if (auto view = _view.lock())
+        {
+            view->damage();
+        }
     };
 
     void update_title(int width, int height, double scale)
     {
-        int target_width  = width * scale;
-        int target_height = height * scale;
-
-        if ((title_texture.tex.width != target_width) ||
-            (title_texture.tex.height != target_height) ||
-            (title_texture.current_text != view->get_title()))
+        if (auto view = _view.lock())
         {
-            auto surface = theme.render_text(view->get_title(),
-                target_width, target_height);
-            cairo_surface_upload_to_texture(surface, title_texture.tex);
-            cairo_surface_destroy(surface);
-            title_texture.current_text = view->get_title();
+            int target_width  = width * scale;
+            int target_height = height * scale;
+            if ((title_texture.tex.width != target_width) || (title_texture.tex.height != target_height) ||
+                (title_texture.current_text != view->get_title()))
+            {
+                auto surface = theme.render_text(view->get_title(), target_width, target_height);
+                cairo_surface_upload_to_texture(surface, title_texture.tex);
+                cairo_surface_destroy(surface);
+                title_texture.current_text = view->get_title();
+            }
         }
     }
 
@@ -75,7 +78,7 @@ class simple_decoration_node_t : public wf::scene::node_t, public wf::pointer_in
         theme{},
         layout{theme, [=] (wlr_box box) { wf::scene::damage_node(shared_from_this(), box + get_offset()); }}
     {
-        this->view = view;
+        this->_view = view->weak_from_this();
         view->connect(&title_set);
 
         // make sure to hide frame if the view is fullscreen
@@ -100,7 +103,14 @@ class simple_decoration_node_t : public wf::scene::node_t, public wf::pointer_in
     {
         /* Clear background */
         wlr_box geometry{origin.x, origin.y, size.width, size.height};
-        theme.render_background(fb, geometry, scissor, view->activated);
+
+        bool activated = false;
+        if (auto view = _view.lock())
+        {
+            activated = view->activated;
+        }
+
+        theme.render_background(fb, geometry, scissor, activated);
 
         /* Draw title & buttons */
         auto renderables = layout.get_renderable_areas();
@@ -196,13 +206,7 @@ class simple_decoration_node_t : public wf::scene::node_t, public wf::pointer_in
 
     wf::geometry_t get_bounding_box() override
     {
-        if (view->pending_fullscreen())
-        {
-            return view->get_geometry();
-        } else
-        {
-            return wf::construct_box(get_offset(), size);
-        }
+        return wf::construct_box(get_offset(), size);
     }
 
     /* wf::compositor_surface_t implementation */
@@ -235,34 +239,37 @@ class simple_decoration_node_t : public wf::scene::node_t, public wf::pointer_in
 
     void handle_action(wf::decor::decoration_layout_t::action_response_t action)
     {
-        switch (action.action)
+        if (auto view = _view.lock())
         {
-          case wf::decor::DECORATION_ACTION_MOVE:
-            return wf::get_core().default_wm->move_request(view);
-
-          case wf::decor::DECORATION_ACTION_RESIZE:
-            return wf::get_core().default_wm->resize_request(view, action.edges);
-
-          case wf::decor::DECORATION_ACTION_CLOSE:
-            return view->close();
-
-          case wf::decor::DECORATION_ACTION_TOGGLE_MAXIMIZE:
-            if (view->pending_tiled_edges())
+            switch (action.action)
             {
-                return wf::get_core().default_wm->tile_request(view, 0);
-            } else
-            {
-                return wf::get_core().default_wm->tile_request(view, wf::TILED_EDGES_ALL);
+              case wf::decor::DECORATION_ACTION_MOVE:
+                return wf::get_core().default_wm->move_request(view);
+
+              case wf::decor::DECORATION_ACTION_RESIZE:
+                return wf::get_core().default_wm->resize_request(view, action.edges);
+
+              case wf::decor::DECORATION_ACTION_CLOSE:
+                return view->close();
+
+              case wf::decor::DECORATION_ACTION_TOGGLE_MAXIMIZE:
+                if (view->pending_tiled_edges())
+                {
+                    return wf::get_core().default_wm->tile_request(view, 0);
+                } else
+                {
+                    return wf::get_core().default_wm->tile_request(view, wf::TILED_EDGES_ALL);
+                }
+
+                break;
+
+              case wf::decor::DECORATION_ACTION_MINIMIZE:
+                return wf::get_core().default_wm->minimize_request(view, true);
+                break;
+
+              default:
+                break;
             }
-
-            break;
-
-          case wf::decor::DECORATION_ACTION_MINIMIZE:
-            return wf::get_core().default_wm->minimize_request(view, true);
-            break;
-
-          default:
-            break;
         }
     }
 
@@ -286,20 +293,24 @@ class simple_decoration_node_t : public wf::scene::node_t, public wf::pointer_in
 
     void resize(wf::dimensions_t dims)
     {
-        view->damage();
-        size = dims;
-        layout.resize(size.width, size.height);
-        if (!view->toplevel()->current().fullscreen)
+        if (auto view = _view.lock())
         {
-            this->cached_region = layout.calculate_region();
-        }
+            view->damage();
+            size = dims;
+            layout.resize(size.width, size.height);
+            if (!view->toplevel()->current().fullscreen)
+            {
+                this->cached_region = layout.calculate_region();
+            }
 
-        view->damage();
+            view->damage();
+        }
     }
 
     void update_decoration_size()
     {
-        if (view->toplevel()->current().fullscreen)
+        bool fullscreen = _view.lock()->toplevel()->current().fullscreen;
+        if (fullscreen)
         {
             current_thickness = 0;
             current_titlebar  = 0;
