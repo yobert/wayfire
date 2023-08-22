@@ -54,6 +54,8 @@ wf::xdg_toplevel_view_t::xdg_toplevel_view_t(wlr_xdg_toplevel *tlvl)
     });
     on_unmap.set_callback([&] (void*)
     {
+        // Take reference until the view has been unmapped
+        _self_ref = shared_from_this();
         wtoplevel->pending().mapped = false;
         wf::get_core().tx_manager->schedule_object(wtoplevel);
     });
@@ -212,7 +214,13 @@ bool wf::xdg_toplevel_view_t::is_focusable() const
 void wf::xdg_toplevel_view_t::set_activated(bool active)
 {
     toplevel_view_interface_t::set_activated(active);
-    wlr_xdg_toplevel_set_activated(xdg_toplevel, active);
+    if (xdg_toplevel && xdg_toplevel->base->mapped)
+    {
+        wlr_xdg_toplevel_set_activated(xdg_toplevel, active);
+    } else if (xdg_toplevel)
+    {
+        xdg_toplevel->pending.activated = active;
+    }
 }
 
 std::string wf::xdg_toplevel_view_t::get_app_id()
@@ -292,6 +300,12 @@ void wf::xdg_toplevel_view_t::handle_toplevel_state_changed(wf::toplevel_state_t
     damage();
     last_bounding_box = this->get_surface_root_node()->get_bounding_box();
     scene::update(this->get_surface_root_node(), scene::update_flag::GEOMETRY);
+
+    if (!wtoplevel->current().mapped)
+    {
+        // Drop self-ref => `this` might get deleted
+        _self_ref.reset();
+    }
 }
 
 void wf::xdg_toplevel_view_t::destroy()

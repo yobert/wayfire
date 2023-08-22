@@ -49,6 +49,9 @@ class xdg_toplevel_view_t : public wf::toplevel_view_interface_t
     std::shared_ptr<wf::scene::wlr_surface_node_t> main_surface;
     std::shared_ptr<wf::toplevel_view_node_t> surface_root_node;
 
+    // A reference to 'this' used while unmapping, to ensure that the view lives until unmap happens.
+    std::shared_ptr<wf::view_interface_t> _self_ref;
+
     std::shared_ptr<wf::xdg_toplevel_t> wtoplevel;
     wf::signal::connection_t<xdg_toplevel_applied_state_signal> on_toplevel_applied;
     wf::geometry_t last_bounding_box = {0, 0, 0, 0};
