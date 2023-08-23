@@ -10,6 +10,7 @@
 #include "../toplevel-node.hpp"
 #include "wayfire/core.hpp"
 #include "wayfire/geometry.hpp"
+#include "wayfire/util.hpp"
 #include "wayfire/view.hpp"
 #include "xwayland-helpers.hpp"
 #include <wayfire/scene-operations.hpp>
@@ -113,8 +114,7 @@ class wayfire_xwayland_view_base
         }
     }
 
-    virtual void map(wlr_surface *surface) = 0;
-    virtual void unmap() = 0;
+    wf::wl_listener_wrapper on_map, on_unmap;
 };
 
 #endif

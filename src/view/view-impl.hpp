@@ -23,7 +23,10 @@
 struct wlr_seat;
 namespace wf
 {
-/** Private data used by the default view_interface_t implementation */
+/**
+ * Private data used by the default view_interface_t implementation
+ * TODO: split this into multiple classes, one for all views, one for wlr-backed ones.
+ */
 class view_interface_t::view_priv_impl
 {
   public:
@@ -38,6 +41,10 @@ class view_interface_t::view_priv_impl
 
     scene::floating_inner_ptr root_node;
     std::shared_ptr<scene::transform_manager_node_t> transformed_node;
+
+    scene::node_ptr current_content;
+    scene::node_ptr dummy_node;
+
     std::unique_ptr<wlr_surface_controller_t> surface_controller;
     scene::floating_inner_ptr surface_root_node;
     wf::output_t *output;
@@ -45,6 +52,7 @@ class view_interface_t::view_priv_impl
     void set_mapped(bool mapped);
     void set_mapped_surface_contents(std::shared_ptr<scene::wlr_surface_node_t> content);
     void unset_mapped_surface_contents();
+
     std::weak_ptr<wf::workspace_set_t> current_wset;
     std::shared_ptr<toplevel_t> toplevel;
     wf::signal::connection_t<destruct_signal<view_interface_t>> pre_free;

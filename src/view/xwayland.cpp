@@ -141,7 +141,7 @@ class xwayland_view_controller_t
         this->view_impl = {new_view};
         if (xw->mapped)
         {
-            view_base->map(xw->surface);
+            view_base->on_map.emit(xw->surface);
         }
     }
 
@@ -164,7 +164,7 @@ class xwayland_view_controller_t
         // destroy the view (unmap + destroy)
         if (view_impl->is_mapped())
         {
-            view_base->unmap();
+            view_base->on_unmap.emit(xw);
         }
 
         view_base->destroy();

@@ -44,13 +44,21 @@ wf::xdg_toplevel_view_t::xdg_toplevel_view_t(wlr_xdg_toplevel *tlvl)
     {
         wlr_box box;
         wlr_xdg_surface_get_geometry(xdg_toplevel->base, &box);
+        auto margins = wtoplevel->pending().margins;
+
         wtoplevel->pending().mapped = true;
-        wtoplevel->pending().geometry.width  = box.width;
-        wtoplevel->pending().geometry.height = box.height;
+        wtoplevel->pending().geometry.width  = box.width + margins.left + margins.right;
+        wtoplevel->pending().geometry.height = box.height + margins.top + margins.bottom;
         priv->set_mapped_surface_contents(main_surface);
         wf::get_core().tx_manager->schedule_object(wtoplevel);
     });
-    on_unmap.set_callback([&] (void*) { unmap(); });
+    on_unmap.set_callback([&] (void*)
+    {
+        // Take reference until the view has been unmapped
+        _self_ref = shared_from_this();
+        wtoplevel->pending().mapped = false;
+        wf::get_core().tx_manager->schedule_object(wtoplevel);
+    });
     on_destroy.set_callback([&] (void*) { destroy(); });
     on_new_popup.set_callback([&] (void *data)
     {
@@ -206,7 +214,13 @@ bool wf::xdg_toplevel_view_t::is_focusable() const
 void wf::xdg_toplevel_view_t::set_activated(bool active)
 {
     toplevel_view_interface_t::set_activated(active);
-    wlr_xdg_toplevel_set_activated(xdg_toplevel, active);
+    if (xdg_toplevel && xdg_toplevel->base->mapped)
+    {
+        wlr_xdg_toplevel_set_activated(xdg_toplevel, active);
+    } else if (xdg_toplevel)
+    {
+        xdg_toplevel->pending.activated = active;
+    }
 }
 
 std::string wf::xdg_toplevel_view_t::get_app_id()
@@ -261,7 +275,6 @@ void wf::xdg_toplevel_view_t::unmap()
     damage();
     emit_view_pre_unmap();
 
-    main_surface = nullptr;
     priv->unset_mapped_surface_contents();
 
     emit_view_unmap();
@@ -276,12 +289,23 @@ void wf::xdg_toplevel_view_t::handle_toplevel_state_changed(wf::toplevel_state_t
         map();
     }
 
+    if (old_state.mapped && !wtoplevel->current().mapped)
+    {
+        unmap();
+    }
+
     wf::scene::damage_node(get_root_node(), last_bounding_box);
     wf::view_implementation::emit_toplevel_state_change_signals({this}, old_state);
 
     damage();
     last_bounding_box = this->get_surface_root_node()->get_bounding_box();
     scene::update(this->get_surface_root_node(), scene::update_flag::GEOMETRY);
+
+    if (!wtoplevel->current().mapped)
+    {
+        // Drop self-ref => `this` might get deleted
+        _self_ref.reset();
+    }
 }
 
 void wf::xdg_toplevel_view_t::destroy()

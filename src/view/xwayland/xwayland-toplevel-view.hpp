@@ -25,10 +25,6 @@ class wayfire_xwayland_view : public wf::toplevel_view_interface_t, public wayfi
         on_request_fullscreen, on_set_hints, on_set_parent;
 
     wf::wl_listener_wrapper on_set_decorations;
-
-    wf::wl_listener_wrapper on_map;
-    wf::wl_listener_wrapper on_unmap;
-
     std::shared_ptr<wf::xw::xwayland_toplevel_t> toplevel;
 
     /**
@@ -178,6 +174,9 @@ class wayfire_xwayland_view : public wf::toplevel_view_interface_t, public wayfi
 
     std::shared_ptr<wf::toplevel_view_node_t> surface_root_node;
 
+    // Reference count to this
+    std::shared_ptr<wf::view_interface_t> _self_ref;
+
   public:
     wayfire_xwayland_view(wlr_xwayland_surface *xww) :
         wayfire_xwayland_view_base(xww)
@@ -189,17 +188,21 @@ class wayfire_xwayland_view : public wf::toplevel_view_interface_t, public wayfi
 
         on_map.set_callback([&] (void*)
         {
+            auto margins = toplevel->pending().margins;
+
             this->main_surface = std::make_shared<wf::scene::wlr_surface_node_t>(xw->surface, false);
             priv->set_mapped_surface_contents(main_surface);
             toplevel->set_main_surface(main_surface);
             toplevel->pending().mapped = true;
-            toplevel->pending().geometry.width  = xw->surface->current.width;
-            toplevel->pending().geometry.height = xw->surface->current.height;
+            toplevel->pending().geometry.width  = xw->surface->current.width + margins.left + margins.right;
+            toplevel->pending().geometry.height = xw->surface->current.height + margins.top + margins.bottom;
             wf::get_core().tx_manager->schedule_object(toplevel);
         });
 
         on_unmap.set_callback([&] (void*)
         {
+            // Store a reference to this until the view is actually unmapped with a transaction.
+            _self_ref = shared_from_this();
             toplevel->set_main_surface(nullptr);
             toplevel->pending().mapped = false;
             wf::get_core().tx_manager->schedule_object(toplevel);
@@ -348,7 +351,7 @@ class wayfire_xwayland_view : public wf::toplevel_view_interface_t, public wayfi
         wf::view_implementation::emit_view_map_signal(self(), client_self_positioned);
     }
 
-    void map(wlr_surface *surface) override
+    void map(wlr_surface *surface)
     {
         priv->keyboard_focus_enabled = wlr_xwayland_or_surface_wants_focus(xw);
         if (xw->maximized_horz && xw->maximized_vert)
@@ -398,7 +401,7 @@ class wayfire_xwayland_view : public wf::toplevel_view_interface_t, public wayfi
         set_toplevel_parent(this->parent);
     }
 
-    void unmap() override
+    void unmap()
     {
         damage();
         emit_view_pre_unmap();
@@ -471,6 +474,12 @@ class wayfire_xwayland_view : public wf::toplevel_view_interface_t, public wayfi
         damage();
         last_bounding_box = this->get_surface_root_node()->get_bounding_box();
         wf::scene::update(this->get_surface_root_node(), wf::scene::update_flag::GEOMETRY);
+
+        if (!toplevel->current().mapped)
+        {
+            // Drop self-reference => object might be deleted afterwards
+            _self_ref.reset();
+        }
     }
 
     std::string get_app_id() override

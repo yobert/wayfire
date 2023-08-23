@@ -183,12 +183,36 @@ wayfire_view wf::wl_surface_to_wayfire_view(wl_resource *resource)
     return view ? view->self() : nullptr;
 }
 
+static inline void replace_node_or_add_front(wf::scene::floating_inner_ptr surface_root_node,
+    wf::scene::node_ptr node_in_list, wf::scene::node_ptr new_node)
+{
+    auto children = surface_root_node->get_children();
+    auto pos = std::find(children.begin(), children.end(), node_in_list);
+
+    if (pos == children.end())
+    {
+        pos = children.begin();
+    } else
+    {
+        pos = children.erase(pos);
+    }
+
+    children.insert(pos, new_node);
+    surface_root_node->set_children_list(children);
+
+    wf::scene::update(surface_root_node, wf::scene::update_flag::CHILDREN_LIST);
+}
+
 void wf::view_interface_t::view_priv_impl::set_mapped_surface_contents(
     std::shared_ptr<scene::wlr_surface_node_t> content)
 {
     wsurface = content->get_surface();
-    surface_root_node->set_children_list({content});
-    scene::update(surface_root_node, scene::update_flag::CHILDREN_LIST);
+
+    // Locate the proper place to add the surface contents.
+    // This is not trivial because we may have added content node before (if we currently are remapping).
+    // In those cases, we replace the content with the dummy node.
+    replace_node_or_add_front(surface_root_node, dummy_node, content);
+    current_content = content;
 
     if (content->get_surface())
     {
@@ -200,8 +224,8 @@ void wf::view_interface_t::view_priv_impl::set_mapped_surface_contents(
 void wf::view_interface_t::view_priv_impl::unset_mapped_surface_contents()
 {
     wsurface = nullptr;
-    surface_root_node->set_children_list({});
-    scene::update(surface_root_node, scene::update_flag::CHILDREN_LIST);
+    replace_node_or_add_front(surface_root_node, current_content, dummy_node);
+    current_content = nullptr;
     surface_controller.reset();
 }
 

@@ -169,10 +169,13 @@ void wf::xw::xwayland_toplevel_t::apply()
         _committed.geometry.height = _current.geometry.height;
     }
 
-    wf::adjust_geometry_for_gravity(_committed,
-        expand_dimensions_by_margins(this->get_current_xw_size(), _committed.margins));
-    this->_current = committed();
+    if (main_surface && main_surface->get_surface())
+    {
+        wf::adjust_geometry_for_gravity(_committed,
+            expand_dimensions_by_margins(this->get_current_xw_size(), _committed.margins));
+    }
 
+    this->_current = committed();
     const bool is_pending = wf::get_core().tx_manager->is_object_pending(shared_from_this());
     if (!is_pending)
     {

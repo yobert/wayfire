@@ -79,8 +79,6 @@ class wayfire_unmanaged_xwayland_view : public wf::view_interface_t, public wayf
 {
   protected:
     wf::wl_listener_wrapper on_set_geometry;
-    wf::wl_listener_wrapper on_map;
-    wf::wl_listener_wrapper on_unmap;
 
     /**
      * The bounding box of the view the last time it was rendered.
@@ -166,7 +164,7 @@ class wayfire_unmanaged_xwayland_view : public wf::view_interface_t, public wayf
         return self;
     }
 
-    void map(wlr_surface *surface) override
+    virtual void map(wlr_surface *surface)
     {
         update_geometry_from_xsurface();
 
@@ -192,7 +190,7 @@ class wayfire_unmanaged_xwayland_view : public wf::view_interface_t, public wayf
         emit_view_map();
     }
 
-    void unmap() override
+    virtual void unmap()
     {
         damage();
         emit_view_pre_unmap();
