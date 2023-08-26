@@ -14,6 +14,7 @@
 #include "wayfire/signal-definitions.hpp"
 #include "wayfire/signal-provider.hpp"
 #include "wayfire/view-helpers.hpp"
+#include "wayfire/window-manager.hpp"
 #include "wayfire/workarea.hpp"
 #include "wayfire/workspace-set.hpp"
 #include "config.h"
@@ -28,6 +29,7 @@ class ipc_rules_t : public wf::plugin_interface_t, public wf::per_output_tracker
         method_repository->register_method("window-rules/view-info", get_view_info);
         method_repository->register_method("window-rules/output-info", get_output_info);
         method_repository->register_method("window-rules/configure-view", configure_view);
+        method_repository->register_method("window-rules/focus-view", focus_view);
         method_repository->register_method("window-rules/get-focused-view", get_focused_view);
         ipc_server->connect(&on_client_disconnected);
         wf::get_core().connect(&on_view_mapped);
@@ -41,6 +43,7 @@ class ipc_rules_t : public wf::plugin_interface_t, public wf::per_output_tracker
         method_repository->unregister_method("window-rules/view-info");
         method_repository->unregister_method("window-rules/output-info");
         method_repository->unregister_method("window-rules/configure-view");
+        method_repository->unregister_method("window-rules/focus-view");
         method_repository->unregister_method("window-rules/get-focused-view");
         fini_output_tracking();
     }
@@ -84,6 +87,26 @@ class ipc_rules_t : public wf::plugin_interface_t, public wf::per_output_tracker
             return response;
         }
     };
+
+    wf::ipc::method_callback focus_view = [=] (nlohmann::json data)
+    {
+        WFJSON_EXPECT_FIELD(data, "id", number_integer);
+        if (auto view = wf::ipc::find_view_by_id(data["id"]))
+        {
+            auto response = wf::ipc::json_ok();
+            auto toplevel = wf::toplevel_cast(view);
+            if (!toplevel)
+            {
+                return wf::ipc::json_error("view is not toplevel");
+            }
+
+            wf::get_core().default_wm->focus_request(toplevel);
+            return response;
+        }
+
+        return wf::ipc::json_error("no such view");
+    };
+
 
     wf::ipc::method_callback get_output_info = [=] (nlohmann::json data)
     {

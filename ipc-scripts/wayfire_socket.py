@@ -65,6 +65,11 @@ class WayfireSocket:
         message["data"]["view_id"] = view_id
         return self.send_json(message)
 
+    def set_focus(self, view_id: int):
+        message = get_msg_template("window-rules/focus-view")
+        message["data"]["id"] = view_id
+        return self.send_json(message)
+
     def set_always_on_top(self, view_id: int, always_on_top: bool):
         message = get_msg_template("wm-actions/set-always-on-top")
         message["data"]["view_id"] = view_id
@@ -73,7 +78,6 @@ class WayfireSocket:
 
     def set_view_alpha(self, view_id: int, alpha: float):
         message = get_msg_template("wf/alpha/set-view-alpha")
-        message["method"] = "wf/alpha/set-view-alpha"
         message["data"] = {}
         message["data"]["view-id"] = view_id
         message["data"]["alpha"] = alpha
