@@ -58,7 +58,7 @@ if get_option('use_system_wfconfig').disabled()
 
 elif get_option('use_system_wfconfig').enabled()
 	use_system_wfconfig = true
-	wfconfig = dependency('wf-config', version: ['>=0.16.0', '<0.17.0'], required: true)
+	wfconfig = dependency('wf-config', version: ['>=0.8.0', '<0.9.0'], required: true)
 
 elif get_option('use_system_wfconfig').auto()
 	wfconfig = dependency('wf-config', version: ['>=0.8.0', '<0.9.0'], required: false)
